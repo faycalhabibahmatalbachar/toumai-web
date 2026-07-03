@@ -29,7 +29,6 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [model, setModel] = useState("auto");
-  const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -117,7 +116,6 @@ export default function ChatPage() {
     setError(null);
   }
 
-  const effectiveModel = thinking ? "sayibi-reflexion" : model;
 
   async function send(overrideText?: string) {
     const text = (overrideText ?? input).trim();
@@ -191,7 +189,7 @@ export default function ChatPage() {
     let acc = "";
     try {
       await streamChat(
-        { message: text, sessionId: activeSessionId, modelPreference: effectiveModel },
+        { message: text, sessionId: activeSessionId, modelPreference: model },
         (evt) => {
           if (evt.chunk) {
             acc += evt.chunk;
@@ -275,7 +273,6 @@ export default function ChatPage() {
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <ModelSelector value={model} onChange={setModel} />
           </div>
         </header>
 
@@ -339,25 +336,7 @@ export default function ChatPage() {
         {/* Saisie */}
         <footer className="border-t border-[var(--border)] px-4 py-4">
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
-            {thinking && (
-              <button
-                onClick={() => setThinking(false)}
-                className="flex w-fit items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold"
-                style={{ background: "rgba(139,92,246,0.14)", color: "var(--thinking)" }}
-              >
-                <BrainIcon /> Réflexion <span aria-hidden="true">✕</span>
-              </button>
-            )}
             <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 focus-within:border-[var(--primary)]/60">
-              <button
-                onClick={() => setThinking((t) => !t)}
-                aria-pressed={thinking}
-                title="Mode Réflexion (Toumaï 5)"
-                className="shrink-0 rounded-xl p-2.5 transition hover:bg-white/5"
-                style={{ color: thinking ? "var(--thinking)" : "var(--text-tertiary)" }}
-              >
-                <BrainIcon />
-              </button>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -368,6 +347,7 @@ export default function ChatPage() {
                 disabled={!session}
                 className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
               />
+              <ModelSelector value={model} onChange={setModel} />
               {sending ? (
                 <button
                   onClick={stopGenerating}
@@ -450,8 +430,4 @@ function RegenerateIcon() {
       />
     </svg>
   );
-}
-
-function BrainIcon() {
-  return <span aria-hidden="true">🧠</span>;
 }

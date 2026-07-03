@@ -31,7 +31,7 @@ export function ModelSelector({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm font-medium"
+        className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition hover:bg-white/5"
       >
         <span
           className="h-2 w-2 rounded-full"
@@ -43,7 +43,7 @@ export function ModelSelector({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl">
+          <div className="absolute bottom-full right-0 z-20 mb-2 w-64 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl">
             {MODELS.map((m) => (
               <button
                 key={m.id}
