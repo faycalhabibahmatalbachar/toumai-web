@@ -40,19 +40,19 @@ export default function Home() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 py-24 text-center sm:py-32">
+      <section className="relative overflow-hidden px-6 py-28 text-center sm:py-40">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] opacity-30 blur-3xl"
+          className="pointer-events-none absolute inset-0 -z-10"
           style={{
             background:
-              "radial-gradient(600px circle at 50% 0%, var(--primary), transparent 70%)",
+              "radial-gradient(ellipse 900px 500px at 50% -10%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 70%)",
           }}
         />
-        <p className="mb-4 inline-block rounded-full border border-[var(--border)] px-4 py-1 text-xs font-medium text-[var(--text-secondary)]">
+        <p className="mb-5 inline-block rounded-full border border-[var(--border)] px-4 py-1 text-xs font-medium text-[var(--text-secondary)]">
           Conçu et développé par Faycal Habib Ahmat
         </p>
-        <h1 className="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
+        <h1 className="mx-auto max-w-3xl text-5xl font-semibold tracking-tight sm:text-7xl">
           Votre assistant IA,{" "}
           <span
             className="bg-clip-text text-transparent"
@@ -63,22 +63,22 @@ export default function Home() {
             toujours là.
           </span>
         </h1>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-[var(--text-secondary)]">
+        <p className="mx-auto mt-7 max-w-xl text-lg text-[var(--text-secondary)]">
           Toumaï AI discute, code, génère des images, navigue le web et gère vos
           WhatsApp/Mail/Agenda — tout ce que fait l&apos;app mobile, directement
           dans votre navigateur.
         </p>
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-11 flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/chat"
-            className="rounded-xl px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-[var(--primary)]/20 transition hover:opacity-90"
+            className="rounded-full px-8 py-3.5 text-base font-medium text-white shadow-lg shadow-[var(--primary)]/25 transition hover:opacity-90"
             style={{ background: "var(--primary)" }}
           >
             Discuter maintenant — sans compte
           </Link>
           <Link
             href="/register"
-            className="rounded-xl border border-[var(--border)] px-7 py-3.5 text-base font-semibold text-[var(--text-primary)] transition hover:border-[var(--primary)]"
+            className="rounded-full border border-[var(--border)] px-8 py-3.5 text-base font-medium text-[var(--text-primary)] transition hover:border-[var(--primary)]"
           >
             Créer un compte
           </Link>
@@ -86,14 +86,20 @@ export default function Home() {
       </section>
 
       {/* Features */}
-      <section className="mx-auto grid max-w-6xl gap-5 px-6 pb-28 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid max-w-6xl gap-5 px-6 pb-32 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f) => (
           <div
             key={f.title}
             className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 transition hover:border-[var(--primary)]/50"
           >
-            <div className="mb-3 text-3xl">{f.icon}</div>
-            <h3 className="mb-2 text-lg font-semibold">{f.title}</h3>
+            <div
+              className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-xl"
+              style={{ background: "color-mix(in srgb, var(--primary) 14%, transparent)" }}
+              aria-hidden="true"
+            >
+              {f.icon}
+            </div>
+            <h3 className="mb-2 text-[15px] font-semibold">{f.title}</h3>
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{f.desc}</p>
           </div>
         ))}

@@ -85,26 +85,35 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               onNewChat();
               onClose();
             }}
-            className="flex flex-1 items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium transition hover:bg-white/5"
+            className="flex flex-1 items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2.5 text-sm font-medium transition hover:bg-white/5"
           >
-            <span aria-hidden="true">+</span>
+            <PlusIcon />
             Nouvelle conversation
           </button>
         </div>
 
         <div className="px-3 pb-2">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher une conversation…"
-            className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-1.5 text-sm outline-none placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary)]"
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
+              <SearchIcon />
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher une conversation…"
+              className="w-full rounded-lg border border-[var(--border)] bg-transparent py-1.5 pl-9 pr-3 text-sm outline-none placeholder:text-[var(--text-tertiary)] focus:border-[var(--primary)]"
+            />
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 pb-3">
           {loading && (
-            <p className="px-2 py-3 text-xs text-[var(--text-tertiary)]">Chargement…</p>
+            <div className="flex flex-col gap-2 px-2 py-2" aria-hidden="true">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-8 animate-pulse rounded-lg bg-[var(--card)]" />
+              ))}
+            </div>
           )}
           {error && !loading && (
             <p className="px-2 py-3 text-xs text-[var(--error)]">{error}</p>
@@ -139,14 +148,52 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
                     onClick={(e) => handleDelete(s.id, e)}
                     className="ml-2 shrink-0 rounded p-1 text-[var(--text-tertiary)] opacity-0 transition hover:text-[var(--error)] group-hover:opacity-100"
                   >
-                    {deletingId === s.id ? "…" : "×"}
+                    {deletingId === s.id ? "…" : <CloseIcon />}
                   </span>
                 </button>
               ))}
             </div>
           ))}
         </nav>
+
+        <div className="flex items-center gap-2.5 border-t border-[var(--border)] px-3 py-3">
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+            style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
+            aria-hidden="true"
+          >
+            {session ? "V" : "…"}
+          </div>
+          <span className="truncate text-xs font-medium text-[var(--text-secondary)]">
+            {session ? "Session invité" : "Connexion…"}
+          </span>
+        </div>
       </aside>
     </>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+    </svg>
   );
 }

@@ -21,6 +21,18 @@
   --error: #ef4444;
 }
 
+/* Thème clair — activé via [data-theme="light"] sur <html>. */
+[data-theme="light"] {
+  --background: #fafbfc;
+  --surface: #ffffff;
+  --card: #f1f3f7;
+  --border: #e5e7eb;
+
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #9ca3af;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text-primary);
@@ -122,18 +134,41 @@ body {
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.9em;
 }
-.prose-toumai pre {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.9em 1em;
-  overflow-x: auto;
-  margin: 0.6em 0;
+/* Coloration syntaxique (highlight.js) — tokens mappés sur la palette Toumaï. */
+.hljs {
+  color: var(--text-primary);
 }
-.prose-toumai pre code {
-  background: none;
-  border: none;
-  padding: 0;
+.hljs-comment,
+.hljs-quote {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-tag {
+  color: var(--primary-light);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag {
+  color: var(--accent);
+}
+.hljs-number,
+.hljs-literal {
+  color: #f59e0b;
+}
+.hljs-title,
+.hljs-function_,
+.hljs-title.function_ {
+  color: #60a5fa;
+}
+.hljs-variable,
+.hljs-attribute {
+  color: var(--thinking);
+}
+.hljs-built_in,
+.hljs-type {
+  color: #34d399;
 }
 .prose-toumai blockquote {
   border-left: 2px solid var(--border);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Navbar() {
   const { session, logout } = useAuth();
@@ -18,7 +19,8 @@ export function Navbar() {
           </span>
           Toumaï AI
         </Link>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-2 text-sm">
+          <ThemeToggle />
           {session ? (
             <>
               <Link
