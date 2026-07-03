@@ -9,6 +9,7 @@ import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 let idCounter = 0;
 function nextId() {
@@ -38,6 +39,8 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const guestAttempted = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const lastUserMessageRef = useRef<string>("");
 
   // Connexion invité automatique — parité avec "Essayer sans compte" du mobile.
   useEffect(() => {
@@ -80,6 +83,8 @@ export default function ChatPage() {
           content: m.content,
         })),
       );
+      const lastUser = [...history].reverse().find((m) => m.role === "user");
+      lastUserMessageRef.current = lastUser?.content ?? "";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de charger cette conversation.");
     } finally {
@@ -100,6 +105,7 @@ export default function ChatPage() {
     if (!text || sending || !session) return;
     setInput("");
     setError(null);
+    lastUserMessageRef.current = text;
 
     const isFirstMessage = messages.length === 0;
     const userMsg: Message = { id: nextId(), role: "user", content: text };
@@ -109,7 +115,27 @@ export default function ChatPage() {
       userMsg,
       { id: assistantId, role: "assistant", content: "", streaming: true },
     ]);
+    await runStream(text, assistantId, isFirstMessage);
+  }
+
+  /** Redemande une réponse pour le dernier message utilisateur — remplace la
+   * dernière réponse assistant par une nouvelle génération. */
+  async function regenerate() {
+    if (sending || !session || !lastUserMessageRef.current) return;
+    setError(null);
+    const assistantId = nextId();
+    setMessages((prev) => {
+      // Retire la dernière réponse assistant, ajoute un nouvel emplacement en cours.
+      const withoutLast = prev[prev.length - 1]?.role === "assistant" ? prev.slice(0, -1) : prev;
+      return [...withoutLast, { id: assistantId, role: "assistant", content: "", streaming: true }];
+    });
+    await runStream(lastUserMessageRef.current, assistantId, false);
+  }
+
+  async function runStream(text: string, assistantId: string, isFirstMessage: boolean) {
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     let acc = "";
     try {
@@ -140,15 +166,25 @@ export default function ChatPage() {
             throw new Error(evt.error);
           }
         },
+        controller.signal,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur réseau");
+      // Interruption volontaire (bouton Stop) : pas une erreur à afficher.
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      if (!isAbort) {
+        setError(err instanceof Error ? err.message : "Erreur réseau");
+      }
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
       );
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
+  }
+
+  function stopGenerating() {
+    abortRef.current?.abort();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -199,11 +235,11 @@ export default function ChatPage() {
           {!historyLoading && messages.length === 0 && (
             <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
               <div
-                className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-bold text-white"
+                className="mb-4 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl"
                 style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
                 aria-hidden="true"
               >
-                T
+                <Logo size={38} />
               </div>
               <p className="mb-1.5 text-2xl font-semibold text-[var(--text-primary)]">
                 Que puis-je faire pour vous ?
@@ -235,6 +271,20 @@ export default function ChatPage() {
 
           {!historyLoading &&
             messages.map((m) => <ChatMessage key={m.id} message={m} />)}
+
+          {!historyLoading &&
+            !sending &&
+            messages.length > 0 &&
+            messages[messages.length - 1].role === "assistant" &&
+            messages[messages.length - 1].content && (
+              <button
+                onClick={regenerate}
+                className="ml-9 flex w-fit items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/5 hover:text-[var(--text-primary)]"
+              >
+                <RegenerateIcon /> Régénérer
+              </button>
+            )}
+
           <div ref={bottomRef} />
         </main>
 
@@ -285,15 +335,27 @@ export default function ChatPage() {
                 disabled={!session}
                 className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
               />
-              <button
-                onClick={() => send()}
-                disabled={!canSend}
-                aria-label="Envoyer le message"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-30"
-                style={{ background: "var(--primary)" }}
-              >
-                <SendIcon />
-              </button>
+              {sending ? (
+                <button
+                  onClick={stopGenerating}
+                  aria-label="Arrêter la génération"
+                  title="Arrêter"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90"
+                  style={{ background: "var(--text-secondary)" }}
+                >
+                  <StopIcon />
+                </button>
+              ) : (
+                <button
+                  onClick={() => send()}
+                  disabled={!canSend}
+                  aria-label="Envoyer le message"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-30"
+                  style={{ background: "var(--primary)" }}
+                >
+                  <SendIcon />
+                </button>
+              )}
             </div>
             <p className="text-center text-[11px] text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
@@ -333,6 +395,26 @@ function SendIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
       <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+    </svg>
+  );
+}
+
+function RegenerateIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

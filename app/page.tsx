@@ -55,9 +55,6 @@ export default function Home() {
 
         <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-2">
           <div className="text-center lg:text-left">
-            <p className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-1 text-xs font-medium text-[var(--text-secondary)]">
-              <span aria-hidden="true">🇹🇩</span> Pensé et bâti au Tchad, pour l&apos;Afrique
-            </p>
             <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
               Votre assistant IA,{" "}
               <span

@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sendFeedback } from "@/lib/chat-api";
 import { CodeBlock } from "./CodeBlock";
+import { Logo } from "./Logo";
 
 export interface Message {
   id: string;
@@ -15,15 +16,34 @@ export interface Message {
   serverId?: string;
 }
 
+/** Indicateur "Toumaï AI réfléchit" — affiché avant le premier token, comme
+ * les trois points de ChatGPT/Gemini pendant la latence initiale. */
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1 py-1" aria-label="Toumaï AI réfléchit">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="h-1.5 w-1.5 rounded-full bg-current opacity-40"
+          style={{
+            animation: "typing-bounce 1.1s ease-in-out infinite",
+            animationDelay: `${i * 0.15}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function Avatar({ role }: { role: "user" | "assistant" }) {
   if (role === "assistant") {
     return (
       <div
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+        className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full"
         style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
         aria-hidden="true"
       >
-        T
+        <Logo size={20} />
       </div>
     );
   }
@@ -77,6 +97,9 @@ export function ChatMessage({ message }: { message: Message }) {
       <Avatar role="assistant" />
       <div className="flex min-w-0 max-w-[90%] flex-col items-start gap-1.5 sm:max-w-[80%]">
         <div className="w-full rounded-2xl rounded-tl-md border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[15px] leading-relaxed">
+          {message.streaming && !message.content ? (
+            <TypingDots />
+          ) : (
           <div className="prose-toumai">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
@@ -100,7 +123,8 @@ export function ChatMessage({ message }: { message: Message }) {
               {message.content || ""}
             </ReactMarkdown>
           </div>
-          {message.streaming && (
+          )}
+          {message.streaming && message.content && (
             <span className="streaming-cursor ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 bg-current align-middle" />
           )}
         </div>

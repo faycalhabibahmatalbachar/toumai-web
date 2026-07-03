@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ThemeToggle } from "./ThemeToggle";
+import { Logo } from "./Logo";
 
 export function Navbar() {
   const { session, logout } = useAuth();
@@ -11,12 +12,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-            style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
-          >
-            T
-          </span>
+          <Logo size={30} />
           Toumaï AI
         </Link>
         <div className="flex items-center gap-2 text-sm">

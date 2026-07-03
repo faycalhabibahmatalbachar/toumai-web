@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Logo } from "./Logo";
 
 interface Exchange {
   question: string;
@@ -94,10 +95,10 @@ export function TypewriterDemo() {
         {phase !== "question" && (
           <div className="flex items-start gap-2">
             <div
-              className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full"
               style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
             >
-              T
+              <Logo size={17} />
             </div>
             <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-tl-sm border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm leading-relaxed">
               {answerText}
