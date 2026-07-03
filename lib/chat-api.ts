@@ -1,5 +1,6 @@
 import { API_BASE } from "./config";
 import { authHeaders } from "./api";
+import { handleUnauthorized } from "./session-guard";
 
 export interface ChatSession {
   id: string;
@@ -20,6 +21,7 @@ export interface HistoryMessage {
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
+  if (res.status === 401) handleUnauthorized();
   const body = await res.json();
   if (!res.ok || body.success === false) {
     throw new Error(body.message || `Erreur ${res.status}`);
@@ -43,6 +45,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
     method: "DELETE",
     headers: { ...authHeaders() },
   });
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 
@@ -55,6 +58,7 @@ async function updateSession(
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(patch),
   });
+  if (res.status === 401) handleUnauthorized();
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
     throw new Error(body.message || `Erreur ${res.status}`);
@@ -77,6 +81,7 @@ export async function deleteMessageAndAfter(messageId: string): Promise<void> {
     method: "DELETE",
     headers: { ...authHeaders() },
   });
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 
@@ -86,6 +91,7 @@ export async function sendFeedback(messageId: string, rating: "up" | "down"): Pr
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ message_id: messageId, rating }),
   });
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 

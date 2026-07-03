@@ -9,7 +9,6 @@ import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Logo } from "@/components/Logo";
 
 let idCounter = 0;
 function nextId() {
@@ -17,12 +16,12 @@ function nextId() {
   return `m${Date.now()}${idCounter}`;
 }
 
-const SUGGESTIONS = [
-  { icon: "💡", label: "Explique-moi", prompt: "Explique-moi comment fonctionne le machine learning, simplement." },
-  { icon: "🧑‍💻", label: "Écris du code", prompt: "Écris une fonction Python qui trie une liste de dictionnaires par une clé." },
-  { icon: "✍️", label: "Rédige", prompt: "Rédige un e-mail professionnel pour reporter une réunion." },
-  { icon: "🌍", label: "Traduis", prompt: "Traduis ce texte en anglais : " },
-];
+function timeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "Bonne nuit";
+  if (h < 18) return "Bonjour";
+  return "Bonsoir";
+}
 
 export default function ChatPage() {
   const { session, loading, loginAsGuest } = useAuth();
@@ -36,6 +35,7 @@ export default function ChatPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
+  const [greeting, setGreeting] = useState("Bonjour");
   const bottomRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -43,6 +43,12 @@ export default function ChatPage() {
   const abortRef = useRef<AbortController | null>(null);
   const lastUserMessageRef = useRef<string>("");
   const stickToBottomRef = useRef(true);
+
+  // Calculé après montage (pas au rendu serveur statique) pour éviter un
+  // écart d'hydratation lié au fuseau horaire du visiteur.
+  useEffect(() => {
+    setGreeting(timeGreeting());
+  }, []);
 
   // Connexion invité automatique — parité avec "Essayer sans compte" du mobile.
   useEffect(() => {
@@ -283,34 +289,9 @@ export default function ChatPage() {
 
           {!historyLoading && messages.length === 0 && (
             <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
-              <div className="mb-5" aria-hidden="true">
-                <Logo size={40} />
-              </div>
-              <p className="mb-2 text-4xl font-light text-[var(--text-primary)]">
-                Que puis-je faire pour vous ?
+              <p className="text-4xl font-light text-[var(--text-primary)]">
+                {greeting}
               </p>
-              <p className="mb-8 text-sm text-[var(--text-secondary)]">
-                Posez une question, demandez du code, ou activez « Réflexion » pour
-                les tâches complexes.
-              </p>
-              <div className="grid w-full max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s.label}
-                    onClick={() => send(s.prompt)}
-                    disabled={!session}
-                    className="flex items-start gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3.5 py-3 text-left transition hover:border-[var(--primary)]/50 hover:bg-white/5 disabled:opacity-50"
-                  >
-                    <span className="text-lg" aria-hidden="true">{s.icon}</span>
-                    <span>
-                      <span className="block text-sm font-medium">{s.label}</span>
-                      <span className="block truncate text-xs text-[var(--text-tertiary)]">
-                        {s.prompt}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 

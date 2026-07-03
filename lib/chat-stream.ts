@@ -1,5 +1,6 @@
 import { API_BASE } from "./config";
 import { authHeaders } from "./api";
+import { handleUnauthorized } from "./session-guard";
 
 export interface StreamEvent {
   chunk?: string;
@@ -46,6 +47,7 @@ export async function streamChat(
   if (res.status === 429) {
     throw new Error("Trop de messages envoyés d'un coup. Patientez quelques secondes avant de réessayer.");
   }
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok || !res.body) {
     throw new Error(`Le serveur a répondu ${res.status}`);
   }

@@ -1,5 +1,6 @@
 import { API_BASE } from "./config";
 import { authHeaders } from "./api";
+import { handleUnauthorized } from "./session-guard";
 
 interface ApiEnvelope<T> {
   success: boolean;
@@ -16,6 +17,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
+  if (res.status === 401) handleUnauthorized();
   const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!res.ok || body.success === false) {
     throw new Error(body.message || `Erreur ${res.status}`);
