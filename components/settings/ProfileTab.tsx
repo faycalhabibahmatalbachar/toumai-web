@@ -201,16 +201,23 @@ export function ProfileTab() {
       {usage && (
         <div>
           <p className="mb-2 text-sm font-medium">Utilisation</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="space-y-2">
             {[
-              { label: "Requêtes aujourd'hui", value: usage.requests_today },
-              { label: "Requêtes ce mois", value: usage.requests_month },
-              { label: "Tokens aujourd'hui", value: usage.tokens_today },
-              { label: "Tokens ce mois", value: usage.tokens_month },
+              { label: "Aujourd'hui", requests: usage.requests_today, tokens: usage.tokens_today },
+              { label: "Ce mois-ci", requests: usage.requests_month, tokens: usage.tokens_month },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-[var(--border)] p-3">
-                <p className="text-lg font-semibold">{s.value.toLocaleString("fr-FR")}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{s.label}</p>
+              <div key={s.label} className="rounded-2xl p-4" style={{ background: "var(--card)" }}>
+                <p className="mb-2 text-sm font-medium">{s.label}</p>
+                <div className="flex gap-6">
+                  <div>
+                    <p className="text-2xl font-semibold">{s.requests.toLocaleString("fr-FR")}</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">Requêtes</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{s.tokens.toLocaleString("fr-FR")}</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">Tokens</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
