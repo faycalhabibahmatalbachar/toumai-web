@@ -115,15 +115,12 @@ function ImageTile({ url }: { url: string }) {
         tabIndex={0}
         aria-label="Agrandir l'image"
       >
+        {/* Le watermark "Toumaï AI" est désormais incrusté dans les pixels
+            côté backend (services/watermark_service.py) — plus de pastille
+            CSS ici, elle doublonnait le texte et disparaissait au
+            téléchargement puisqu'elle n'existait que dans le DOM. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt="Image générée par Toumaï AI" className="block w-full" loading="lazy" />
-        <div
-          className="absolute bottom-2 right-2 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur"
-          title="Généré par Toumaï AI"
-          aria-hidden="true"
-        >
-          Toumaï AI
-        </div>
         <button
           onClick={download}
           title="Télécharger"

@@ -3,28 +3,55 @@
 import { useEffect, useRef, useState } from "react";
 import { transcribeAudio, synthesizeSpeech } from "@/lib/voice-api";
 import { getPreferences } from "@/lib/preferences-api";
-import { Waveform, useMicLevels } from "./Waveform";
+import { useMicLevels } from "./Waveform";
 import { Logo } from "./Logo";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
 // useMicLevels renvoie un plancher artificiel de 0.08 même en silence total
 // (pour que les barres restent visibles à l'écran) — un seuil fixe se
-// retrouvait donc quasi toujours au-dessus du bruit ambiant réel, empêchant
-// l'arrêt automatique de se déclencher (bug réel : l'utilisateur devait
-// cliquer "Terminer ma phrase" à chaque fois). On calibre désormais le bruit
-// ambiant en tout début d'écoute, puis on exige un dépassement net de ce
-// plancher pour considérer que l'utilisateur parle.
+// retrouvait donc quasi toujours au-dessus du bruit ambiant réel. On calibre
+// désormais le bruit ambiant en tout début d'écoute, puis on exige un
+// dépassement net de ce plancher pour considérer que l'utilisateur parle.
 const CALIBRATION_MS = 350;
 const SPEAKING_MARGIN = 0.13;
 const SILENCE_MS_TO_STOP = 1100;
 const MIN_RECORD_MS = 500;
 const MAX_RECORD_MS = 20000; // garde-fou : ne jamais rester bloqué en écoute
+// Le MediaRecorder ne livrait un blob qu'à l'arrêt (aucun timeslice), donc
+// chunksRef restait vide pendant toute l'écoute — la condition qui exigeait
+// des chunks déjà présents avant d'auto-arrêter ne pouvait donc jamais être
+// vraie. C'était la cause réelle de l'arrêt automatique qui ne se déclenchait
+// jamais (l'utilisateur devait toujours cliquer un bouton manuel).
+const RECORDER_TIMESLICE_MS = 250;
+const SLOW_RESPONSE_HINT_MS = 6000;
 
 // Découpe la réponse en phrases complètes dès qu'elles arrivent dans le flux,
 // pour lancer la synthèse vocale phrase par phrase (temps réel) plutôt que
 // d'attendre la réponse entière avant de commencer à parler.
 const SENTENCE_END = /^([\s\S]*?[.!?…:])(\s+|$)/;
+
+// Hallucinations classiques de Whisper sur un audio silencieux/bruité — si la
+// transcription ne contient QUE ça, ce n'est pas une vraie question de
+// l'utilisateur : on relance l'écoute au lieu d'envoyer du bruit au chat.
+const HALLUCINATION_PATTERNS = [
+  /merci d'avoir regard/i,
+  /n'oubliez pas de (vous )?abonner/i,
+  /sous-titr/i,
+  /thank(s| you) for watching/i,
+  /don't forget to subscribe/i,
+  /^(salut|bonjour|allo|coucou)[.!?\s]*$/i,
+  /^merci[.!?\s]*$/i,
+];
+
+function looksLikeHallucination(text: string, recordMs: number): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  // Ces phrases n'apparaissent quasi jamais sur un enregistrement de plus de
+  // 2.5s avec une vraie voix dedans — seulement sur du silence/bruit bref.
+  if (recordMs > 2500) return false;
+  return HALLUCINATION_PATTERNS.some((re) => re.test(t));
+}
 
 export function VoiceModeOverlay({
   onSend,
@@ -41,6 +68,7 @@ export function VoiceModeOverlay({
   const [replyCaption, setReplyCaption] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [voice, setVoice] = useState<string | undefined>(undefined);
+  const [slowHint, setSlowHint] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -50,11 +78,13 @@ export function VoiceModeOverlay({
   const startedAtRef = useRef(0);
   const silenceSinceRef = useRef<number | null>(null);
   const hasSpokenRef = useRef(false);
-  const noiseFloorRef = useRef(0.08);
+  const noiseFloorRef = useRef<number | null>(null);
   const calibrationSamplesRef = useRef<number[]>([]);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const listening = phase === "listening";
-  const levels = useMicLevels(listening, 5);
+  const levels = useMicLevels(listening, 24);
+  const avgLevel = levels.reduce((a, b) => a + b, 0) / levels.length;
 
   useEffect(() => {
     getPreferences()
@@ -69,6 +99,7 @@ export function VoiceModeOverlay({
       closedRef.current = true;
       stopRecorderTracks();
       audioElRef.current?.pause();
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -76,20 +107,21 @@ export function VoiceModeOverlay({
   // Calibration du bruit ambiant + détection de silence après prise de parole.
   useEffect(() => {
     if (phase !== "listening") return;
-    const avg = levels.reduce((a, b) => a + b, 0) / levels.length;
     const elapsed = Date.now() - startedAtRef.current;
 
     if (elapsed < CALIBRATION_MS) {
-      calibrationSamplesRef.current.push(avg);
+      calibrationSamplesRef.current.push(avgLevel);
       return;
     }
-    if (calibrationSamplesRef.current.length && noiseFloorRef.current === 0.08) {
+    if (noiseFloorRef.current === null) {
       const samples = calibrationSamplesRef.current;
-      noiseFloorRef.current = samples.reduce((a, b) => a + b, 0) / samples.length;
+      noiseFloorRef.current = samples.length
+        ? samples.reduce((a, b) => a + b, 0) / samples.length
+        : 0.08;
     }
 
     const speakingThreshold = noiseFloorRef.current + SPEAKING_MARGIN;
-    const isSpeaking = avg > speakingThreshold;
+    const isSpeaking = avgLevel > speakingThreshold;
 
     if (isSpeaking) {
       hasSpokenRef.current = true;
@@ -109,7 +141,7 @@ export function VoiceModeOverlay({
       stopListening();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [levels, phase]);
+  }, [avgLevel, phase]);
 
   function stopRecorderTracks() {
     try {
@@ -125,10 +157,11 @@ export function VoiceModeOverlay({
     setError(null);
     setCaption("");
     setReplyCaption("");
+    setSlowHint(false);
     chunksRef.current = [];
     silenceSinceRef.current = null;
     hasSpokenRef.current = false;
-    noiseFloorRef.current = 0.08;
+    noiseFloorRef.current = null;
     calibrationSamplesRef.current = [];
     startedAtRef.current = Date.now();
     setPhase("listening");
@@ -141,7 +174,7 @@ export function VoiceModeOverlay({
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => handleRecordingStopped();
-      recorder.start();
+      recorder.start(RECORDER_TIMESLICE_MS);
     } catch {
       setError("Accès au microphone refusé.");
       setPhase("error");
@@ -183,11 +216,13 @@ export function VoiceModeOverlay({
   async function handleRecordingStopped() {
     if (closedRef.current) return;
     if (!chunksRef.current.length) return;
+    const recordMs = Date.now() - startedAtRef.current;
     setPhase("processing");
+    slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
     try {
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
       const { text } = await transcribeAudio(blob);
-      if (!text.trim()) {
+      if (!text.trim() || looksLikeHallucination(text, recordMs)) {
         if (!closedRef.current) startListening();
         return;
       }
@@ -208,6 +243,8 @@ export function VoiceModeOverlay({
         spokenAnything = true;
         audioQueue.push(synthesizeSpeech(trimmed, voice).catch(() => null));
         if (audioQueue.length === 1) {
+          if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+          setSlowHint(false);
           setPhase("speaking");
           playbackPromise = playQueueInOrder(audioQueue);
         }
@@ -240,6 +277,8 @@ export function VoiceModeOverlay({
       if (closedRef.current) return;
       setError(err instanceof Error ? err.message : "Erreur pendant la conversation vocale.");
       setPhase("error");
+    } finally {
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
     }
   }
 
@@ -252,7 +291,7 @@ export function VoiceModeOverlay({
 
   const phaseLabel: Record<Phase, string> = {
     listening: "Je vous écoute…",
-    processing: "Un instant…",
+    processing: slowHint ? "Ça prend un peu plus de temps que prévu…" : "Toumaï AI réfléchit…",
     speaking: "Toumaï AI répond…",
     error: "Erreur",
   };
@@ -267,20 +306,9 @@ export function VoiceModeOverlay({
         <CloseIcon />
       </button>
 
-      <div className="mb-8">
-        <Logo size={48} />
-      </div>
+      <VoiceOrb phase={phase} level={avgLevel} />
 
-      <div className="mb-6 flex h-16 items-center">
-        {phase === "listening" && <Waveform active bars={7} height={56} color="var(--primary)" />}
-        {phase === "processing" && (
-          <div className="h-3 w-3 animate-pulse rounded-full" style={{ background: "var(--text-tertiary)" }} />
-        )}
-        {phase === "speaking" && <SpeakingWaves />}
-        {phase === "error" && <span className="text-3xl">⚠️</span>}
-      </div>
-
-      <p className="mb-2 text-sm text-[var(--text-tertiary)]">{phaseLabel[phase]}</p>
+      <p className="mb-2 mt-8 text-sm text-[var(--text-tertiary)]">{phaseLabel[phase]}</p>
       {caption && phase !== "speaking" && (
         <p className="max-w-md px-6 text-center text-sm text-[var(--text-secondary)]">
           « {caption} »
@@ -291,17 +319,10 @@ export function VoiceModeOverlay({
           {replyCaption}
         </p>
       )}
-      {error && <p className="mt-2 max-w-md px-6 text-center text-sm text-[var(--error)]">{error}</p>}
-
-      {phase === "listening" && (
-        <button
-          onClick={stopListening}
-          className="mt-8 rounded-full px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-          style={{ background: "var(--primary)" }}
-        >
-          Terminer ma phrase
-        </button>
+      {error && (
+        <p className="mt-2 max-w-md px-6 text-center text-sm text-[var(--error)]">{error}</p>
       )}
+
       {phase === "error" && (
         <button
           onClick={startListening}
@@ -315,24 +336,48 @@ export function VoiceModeOverlay({
   );
 }
 
-/** Petite animation de pulsation pendant la lecture audio — pas d'analyse
- * d'amplitude réelle ici (complexité de brancher un AnalyserNode sur un
- * élément <audio> data-URI n'apporterait pas grand-chose de plus). */
-function SpeakingWaves() {
+/** Orbe centrale — anneau dégradé qui respire au rythme de l'amplitude vocale
+ * en écoute, pulse doucement pendant la réflexion, et vibre pendant la
+ * lecture de la réponse. Remplace les barres plates par une présence plus
+ * organique, dans l'esprit de la maquette de la page d'accueil. */
+function VoiceOrb({ phase, level }: { phase: Phase; level: number }) {
+  const scale = phase === "listening" ? 1 + Math.min(level, 1) * 0.35 : 1;
+  const ringAnimation =
+    phase === "processing"
+      ? "voice-orb-breathe 1.6s ease-in-out infinite"
+      : phase === "speaking"
+        ? "voice-orb-speak 0.7s ease-in-out infinite"
+        : "none";
+
   return (
-    <div className="flex items-center gap-1.5">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <span
-          key={i}
-          className="w-1.5 rounded-full"
-          style={{
-            background: "var(--primary)",
-            height: 40,
-            animation: "typing-bounce 0.9s ease-in-out infinite",
-            animationDelay: `${i * 0.12}s`,
-          }}
-        />
-      ))}
+    <div className="relative flex h-40 w-40 items-center justify-center">
+      <div
+        className="absolute inset-0 rounded-full opacity-70 blur-xl transition-transform duration-100"
+        style={{
+          background:
+            "conic-gradient(from 0deg, var(--primary), var(--thinking), var(--primary))",
+          transform: `scale(${phase === "error" ? 0.9 : scale})`,
+          animation: ringAnimation,
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-3 rounded-full transition-transform duration-100"
+        style={{
+          background:
+            phase === "error"
+              ? "var(--card)"
+              : "conic-gradient(from 90deg, var(--primary), var(--thinking), var(--primary))",
+          transform: `scale(${phase === "error" ? 1 : 0.9 + Math.min(level, 1) * 0.08})`,
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="relative flex h-24 w-24 items-center justify-center rounded-full"
+        style={{ background: "var(--background)" }}
+      >
+        {phase === "error" ? <span className="text-3xl">⚠️</span> : <Logo size={40} />}
+      </div>
     </div>
   );
 }
