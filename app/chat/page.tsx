@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { streamChat } from "@/lib/chat-stream";
 import { getHistory, deleteMessageAndAfter } from "@/lib/chat-api";
 import { getProfile } from "@/lib/user-api";
+import { uploadDocument, type UploadedDocument } from "@/lib/documents-api";
 import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
@@ -61,7 +62,10 @@ export default function ChatPage() {
   const [webSearch, setWebSearch] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
+  const [attachedDoc, setAttachedDoc] = useState<UploadedDocument | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dictationBaseRef = useRef("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -230,8 +234,10 @@ export default function ChatPage() {
 
     let acc = "";
     try {
+      const documentId = attachedDoc?.doc_id;
+      setAttachedDoc(null);
       await streamChat(
-        { message: text, sessionId: activeSessionId, modelPreference: model, webSearch },
+        { message: text, sessionId: activeSessionId, modelPreference: model, webSearch, documentId },
         (evt) => {
           if (evt.chunk) {
             acc += evt.chunk;
@@ -330,6 +336,26 @@ export default function ChatPage() {
     }
   }
 
+  async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Fichier trop volumineux (10 Mo max).");
+      return;
+    }
+    setUploadingDoc(true);
+    setError(null);
+    try {
+      const doc = await uploadDocument(file);
+      setAttachedDoc(doc);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'import du fichier.");
+    } finally {
+      setUploadingDoc(false);
+    }
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -370,38 +396,39 @@ export default function ChatPage() {
           </div>
         </header>
 
-        {/* Messages */}
-        <main
-          ref={mainRef}
-          onScroll={handleMainScroll}
-          className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 overflow-y-auto px-4 py-6"
-        >
-          {historyLoading && <HistorySkeleton />}
+        {/* Messages — le scroll s'applique à <main> pleine largeur pour que la
+            barre de défilement reste au bord réel de la page (comme Gemini),
+            pas au bord d'une colonne centrée. Le contenu se centre à
+            l'intérieur via ce wrapper. */}
+        <main ref={mainRef} onScroll={handleMainScroll} className="flex-1 overflow-y-auto">
+          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-5 px-4 py-6">
+            {historyLoading && <HistorySkeleton />}
 
-          {!historyLoading && messages.length === 0 && (
-            <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
-              <p className="text-4xl font-light text-[var(--text-primary)]">
-                {greeting}
-              </p>
-            </div>
-          )}
+            {!historyLoading && messages.length === 0 && (
+              <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
+                <p className="text-4xl font-light text-[var(--text-primary)]">
+                  {greeting}
+                </p>
+              </div>
+            )}
 
-          {!historyLoading &&
-            messages.map((m, i) => (
-              <ChatMessage
-                key={m.id}
-                message={m}
-                editable={!sending}
-                onEdit={m.role === "user" ? (text) => editMessage(m.id, text) : undefined}
-                onRegenerate={
-                  !sending && i === messages.length - 1 && m.role === "assistant" && m.content
-                    ? regenerate
-                    : undefined
-                }
-              />
-            ))}
+            {!historyLoading &&
+              messages.map((m, i) => (
+                <ChatMessage
+                  key={m.id}
+                  message={m}
+                  editable={!sending}
+                  onEdit={m.role === "user" ? (text) => editMessage(m.id, text) : undefined}
+                  onRegenerate={
+                    !sending && i === messages.length - 1 && m.role === "assistant" && m.content
+                      ? regenerate
+                      : undefined
+                  }
+                />
+              ))}
 
-          <div ref={bottomRef} />
+            <div ref={bottomRef} />
+          </div>
         </main>
 
         {/* Toast d'erreur — non bloquant */}
@@ -431,6 +458,31 @@ export default function ChatPage() {
                 <GlobeIcon /> Recherche web <span aria-hidden="true">✕</span>
               </button>
             )}
+            {(attachedDoc || uploadingDoc) && (
+              <div
+                className="flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
+                style={{ border: "1px solid var(--border)" }}
+              >
+                <FileIcon />
+                {uploadingDoc ? "Import en cours…" : attachedDoc?.filename}
+                {attachedDoc && (
+                  <button
+                    onClick={() => setAttachedDoc(null)}
+                    aria-label="Retirer le fichier"
+                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.gif"
+              onChange={onFilePicked}
+            />
             <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 focus-within:border-[var(--primary)]/60">
               <div className="relative">
                 <button
@@ -445,6 +497,17 @@ export default function ChatPage() {
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setToolsOpen(false)} />
                     <div className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl">
+                      <button
+                        onClick={() => {
+                          setToolsOpen(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-white/5"
+                      >
+                        <FileIcon />
+                        Importer des fichiers
+                      </button>
+                      <div className="my-1 h-px bg-[var(--border)]" />
                       <button
                         onClick={() => {
                           setWebSearch((w) => !w);
@@ -580,6 +643,19 @@ function GlobeIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M14 2v6h6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -5,7 +5,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sendFeedback } from "@/lib/chat-api";
 import { CodeBlock } from "./CodeBlock";
-import { Logo } from "./Logo";
 
 export interface Message {
   id: string;
@@ -119,11 +118,11 @@ function ImageTile({ url }: { url: string }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt="Image générée par Toumaï AI" className="block w-full" loading="lazy" />
         <div
-          className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-black/40 backdrop-blur"
+          className="absolute bottom-2 right-2 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur"
           title="Généré par Toumaï AI"
           aria-hidden="true"
         >
-          <Logo size={16} />
+          Toumaï AI
         </div>
         <button
           onClick={download}
