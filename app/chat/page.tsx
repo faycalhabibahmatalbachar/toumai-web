@@ -10,6 +10,18 @@ import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+/** Sous-ensemble minimal de la Web Speech API (non standardisée dans lib.dom). */
+interface SpeechRecognitionLike extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+}
+
 let idCounter = 0;
 function nextId() {
   idCounter += 1;
@@ -35,6 +47,10 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [greeting, setGreeting] = useState("Bonjour");
+  const [webSearch, setWebSearch] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -189,7 +205,7 @@ export default function ChatPage() {
     let acc = "";
     try {
       await streamChat(
-        { message: text, sessionId: activeSessionId, modelPreference: model },
+        { message: text, sessionId: activeSessionId, modelPreference: model, webSearch },
         (evt) => {
           if (evt.chunk) {
             acc += evt.chunk;
@@ -236,6 +252,36 @@ export default function ChatPage() {
     abortRef.current?.abort();
   }
 
+  /** Dictée vocale (Web Speech API) — Chrome/Edge uniquement, absent sur
+   * Firefox/Safari : le bouton reste alors simplement inactif. */
+  function toggleDictation() {
+    if (dictating) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const Ctor =
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike })
+        .SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition;
+    if (!Ctor) {
+      setError("La dictée vocale n'est pas prise en charge par ce navigateur.");
+      return;
+    }
+    const recognition = new Ctor();
+    recognition.lang = "fr-FR";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (e) => {
+      const transcript = e.results[e.results.length - 1][0].transcript;
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    };
+    recognition.onend = () => setDictating(false);
+    recognition.onerror = () => setDictating(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setDictating(true);
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -246,7 +292,7 @@ export default function ChatPage() {
   const canSend = Boolean(input.trim()) && !sending && Boolean(session);
 
   return (
-    <div className="flex flex-1">
+    <div className="flex h-dvh overflow-hidden">
       <Sidebar
         activeId={activeSessionId}
         onSelect={openSession}
@@ -256,7 +302,7 @@ export default function ChatPage() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Barre supérieure */}
         <header className="flex items-center justify-between border-b border-[var(--border)] px-3 py-3 md:px-4">
           <div className="flex items-center gap-2">
@@ -293,27 +339,19 @@ export default function ChatPage() {
           )}
 
           {!historyLoading &&
-            messages.map((m) => (
+            messages.map((m, i) => (
               <ChatMessage
                 key={m.id}
                 message={m}
                 editable={!sending}
                 onEdit={m.role === "user" ? (text) => editMessage(m.id, text) : undefined}
+                onRegenerate={
+                  !sending && i === messages.length - 1 && m.role === "assistant" && m.content
+                    ? regenerate
+                    : undefined
+                }
               />
             ))}
-
-          {!historyLoading &&
-            !sending &&
-            messages.length > 0 &&
-            messages[messages.length - 1].role === "assistant" &&
-            messages[messages.length - 1].content && (
-              <button
-                onClick={regenerate}
-                className="flex w-fit items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/5 hover:text-[var(--text-primary)]"
-              >
-                <RegenerateIcon /> Régénérer
-              </button>
-            )}
 
           <div ref={bottomRef} />
         </main>
@@ -336,7 +374,44 @@ export default function ChatPage() {
         {/* Saisie */}
         <footer className="border-t border-[var(--border)] px-4 py-4">
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
+            {webSearch && (
+              <button
+                onClick={() => setWebSearch(false)}
+                className="flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/5"
+                style={{ border: "1px solid var(--border)" }}
+              >
+                <GlobeIcon /> Recherche web <span aria-hidden="true">✕</span>
+              </button>
+            )}
             <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 focus-within:border-[var(--primary)]/60">
+              <div className="relative">
+                <button
+                  onClick={() => setToolsOpen((o) => !o)}
+                  aria-label="Outils"
+                  title="Outils"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-white/5 hover:text-[var(--text-primary)]"
+                >
+                  <PlusIcon />
+                </button>
+                {toolsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setToolsOpen(false)} />
+                    <div className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl">
+                      <button
+                        onClick={() => {
+                          setWebSearch((w) => !w);
+                          setToolsOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-white/5"
+                      >
+                        <GlobeIcon />
+                        Recherche web
+                        {webSearch && <CheckIcon className="ml-auto" />}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -347,6 +422,15 @@ export default function ChatPage() {
                 disabled={!session}
                 className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
               />
+              <button
+                onClick={toggleDictation}
+                aria-label={dictating ? "Arrêter la dictée" : "Dicter"}
+                title={dictating ? "Arrêter la dictée" : "Dicter"}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-white/5"
+                style={{ color: dictating ? "var(--primary)" : "var(--text-tertiary)" }}
+              >
+                <MicIcon />
+              </button>
               <ModelSelector value={model} onChange={setModel} />
               {sending ? (
                 <button
@@ -420,14 +504,37 @@ function StopIcon() {
   );
 }
 
-function RegenerateIcon() {
+function PlusIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path
-        d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
     </svg>
   );
 }
+
+function GlobeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0014 0M12 19v3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+

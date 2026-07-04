@@ -16,6 +16,7 @@ export interface ChatStreamParams {
   message: string;
   sessionId: string | null;
   modelPreference: string;
+  webSearch?: boolean;
 }
 
 /**
@@ -41,6 +42,7 @@ export async function streamChat(
       session_id: params.sessionId,
       language: "auto",
       model_preference: params.modelPreference,
+      web_search: Boolean(params.webSearch),
     }),
   });
 

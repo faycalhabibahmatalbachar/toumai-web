@@ -27,6 +27,59 @@ function EditIcon() {
   );
 }
 
+function CopyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ThumbUpIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M7 22V11M2 13v7a2 2 0 002 2h12.6a2 2 0 002-1.6l1.3-6.5a2 2 0 00-2-2.4H14V6a3 3 0 00-3-3l-4 8v9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ThumbDownIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M17 2v11M22 11V4a2 2 0 00-2-2H7.4a2 2 0 00-2 1.6l-1.3 6.5a2 2 0 002 2.4H10v5a3 3 0 003 3l4-8V2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function RegenerateIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** Indicateur "Toumaï AI réfléchit" — affiché avant le premier token, comme
  * les trois points de ChatGPT/Gemini pendant la latence initiale. */
 function TypingDots() {
@@ -50,10 +103,12 @@ export function ChatMessage({
   message,
   onEdit,
   editable = true,
+  onRegenerate,
 }: {
   message: Message;
   onEdit?: (newContent: string) => void;
   editable?: boolean;
+  onRegenerate?: () => void;
 }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -187,37 +242,52 @@ export function ChatMessage({
         )}
       </div>
       {!message.streaming && message.content && (
-        <div className="flex items-center gap-1 pt-1 text-[var(--text-tertiary)]">
+        <div className="flex items-center gap-0.5 pt-1 text-[var(--text-tertiary)]">
           <button
             onClick={copy}
+            title="Copier"
             aria-label="Copier la réponse"
-            className="rounded p-1.5 text-xs transition hover:bg-white/5 hover:text-[var(--text-primary)]"
+            className="rounded-md p-1.5 transition hover:bg-white/5 hover:text-[var(--text-primary)]"
           >
-            {copied ? "Copié" : "Copier"}
+            {copied ? <CheckIcon /> : <CopyIcon />}
           </button>
           {message.serverId && (
             <>
               <button
                 onClick={() => rate("up")}
+                title="Bonne réponse"
                 aria-label="Bonne réponse"
+                aria-pressed={rated === "up"}
                 disabled={!!rated}
-                className={`rounded p-1.5 text-xs transition hover:bg-white/5 ${
-                  rated === "up" ? "text-[var(--success)]" : "hover:text-[var(--text-primary)]"
+                className={`rounded-md p-1.5 transition hover:bg-white/5 hover:text-[var(--text-primary)] ${
+                  rated === "up" ? "text-[var(--text-primary)]" : ""
                 }`}
               >
-                👍
+                <ThumbUpIcon />
               </button>
               <button
                 onClick={() => rate("down")}
+                title="Mauvaise réponse"
                 aria-label="Mauvaise réponse"
+                aria-pressed={rated === "down"}
                 disabled={!!rated}
-                className={`rounded p-1.5 text-xs transition hover:bg-white/5 ${
-                  rated === "down" ? "text-[var(--error)]" : "hover:text-[var(--text-primary)]"
+                className={`rounded-md p-1.5 transition hover:bg-white/5 hover:text-[var(--text-primary)] ${
+                  rated === "down" ? "text-[var(--text-primary)]" : ""
                 }`}
               >
-                👎
+                <ThumbDownIcon />
               </button>
             </>
+          )}
+          {onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              title="Régénérer"
+              aria-label="Régénérer la réponse"
+              className="rounded-md p-1.5 transition hover:bg-white/5 hover:text-[var(--text-primary)]"
+            >
+              <RegenerateIcon />
+            </button>
           )}
         </div>
       )}
