@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { streamChat } from "@/lib/chat-stream";
 import { getHistory, deleteMessageAndAfter } from "@/lib/chat-api";
+import { getProfile } from "@/lib/user-api";
 import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
@@ -64,6 +65,19 @@ export default function ChatPage() {
   useEffect(() => {
     setGreeting(timeGreeting());
   }, []);
+
+  // Ajoute le prénom au message d'accueil pour les comptes réels (comme
+  // "À vous la parole, {NOM}" sur Gemini) — les invités gardent la version
+  // générique, on n'a pas d'identité à afficher pour eux.
+  useEffect(() => {
+    if (!session || session.is_guest) return;
+    getProfile()
+      .then((p) => {
+        const firstName = p.full_name?.trim().split(/\s+/)[0];
+        if (firstName) setGreeting((g) => `${g}, ${firstName}`);
+      })
+      .catch(() => {});
+  }, [session]);
 
   // Connexion invité automatique — parité avec "Essayer sans compte" du mobile.
   useEffect(() => {

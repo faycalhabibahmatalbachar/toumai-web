@@ -7,13 +7,11 @@ const MODELS = [
     id: "auto",
     name: "Sao 4",
     tagline: "Code & aide quotidienne",
-    color: "var(--primary)",
   },
   {
     id: "sayibi-reflexion",
     name: "Toumaï 5",
     tagline: "Réflexion — raisonnement profond",
-    color: "var(--thinking)",
   },
 ];
 
@@ -31,12 +29,8 @@ export function ModelSelector({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium transition hover:bg-white/5"
+        className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/5"
       >
-        <span
-          className="h-2 w-2 rounded-full"
-          style={{ background: current.color }}
-        />
         {current.name}
         <span className="text-xs text-[var(--text-tertiary)]">▾</span>
       </button>
@@ -53,10 +47,6 @@ export function ModelSelector({
                 }}
                 className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-white/5"
               >
-                <span
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: m.color }}
-                />
                 <span>
                   <span className="block text-sm font-semibold">{m.name}</span>
                   <span className="block text-xs text-[var(--text-tertiary)]">
@@ -64,8 +54,8 @@ export function ModelSelector({
                   </span>
                 </span>
                 {m.id === value && (
-                  <span className="ml-auto text-sm" style={{ color: m.color }}>
-                    ✓
+                  <span className="ml-auto text-[var(--text-primary)]">
+                    <CheckIcon />
                   </span>
                 )}
               </button>
@@ -74,5 +64,13 @@ export function ModelSelector({
         </>
       )}
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
