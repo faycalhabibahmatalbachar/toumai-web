@@ -20,6 +20,15 @@ const STATUS_COLOR: Record<ConnectorStatus, string> = {
   unavailable: "var(--text-tertiary)",
 };
 
+function timeAgo(date: Date): string {
+  const mins = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (mins < 1) return "à l'instant";
+  if (mins < 60) return `il y a ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `il y a ${hours}h`;
+  return `il y a ${Math.round(hours / 24)}j`;
+}
+
 /** Carte de connecteur générique — statut vivant + zone d'action libre.
  * Chaque nouvel outil (Notion, Slack…) devient simplement une carte de plus. */
 export function ConnectorCard({
@@ -27,17 +36,19 @@ export function ConnectorCard({
   name,
   description,
   status,
+  lastChecked,
   children,
 }: {
   icon: ReactNode;
   name: string;
   description: string;
   status: ConnectorStatus;
+  lastChecked?: Date;
   children?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-      <div className="flex items-start gap-3">
+    <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <div className="mb-3 flex items-start justify-between gap-2">
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
           style={{ background: "var(--surface)" }}
@@ -45,22 +56,25 @@ export function ConnectorCard({
         >
           {icon}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium">{name}</p>
-            <span className="flex items-center gap-1 text-xs" style={{ color: STATUS_COLOR[status] }}>
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: STATUS_COLOR[status] }}
-                aria-hidden="true"
-              />
-              {STATUS_LABEL[status]}
-            </span>
-          </div>
-          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">{description}</p>
-          {children && <div className="mt-3">{children}</div>}
+        <div className="text-right">
+          <span className="flex items-center justify-end gap-1 text-xs" style={{ color: STATUS_COLOR[status] }}>
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: STATUS_COLOR[status] }}
+              aria-hidden="true"
+            />
+            {STATUS_LABEL[status]}
+          </span>
+          {lastChecked && (
+            <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
+              Vérifié {timeAgo(lastChecked)}
+            </p>
+          )}
         </div>
       </div>
+      <p className="font-medium">{name}</p>
+      <p className="mt-0.5 text-sm text-[var(--text-secondary)]">{description}</p>
+      {children && <div className="mt-3">{children}</div>}
     </div>
   );
 }

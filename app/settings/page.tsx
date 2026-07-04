@@ -3,22 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { getProfile, type UserProfile } from "@/lib/user-api";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 import { ProfileTab } from "@/components/settings/ProfileTab";
 import { PreferencesTab } from "@/components/settings/PreferencesTab";
 import { ConnectorsTab } from "@/components/settings/ConnectorsTab";
+import { SupportTab } from "@/components/settings/SupportTab";
 
-type Tab = "profile" | "preferences" | "connectors";
+type Tab = "profile" | "preferences" | "connectors" | "support";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "profile", label: "Profil", icon: "👤" },
   { id: "preferences", label: "Préférences", icon: "⚙️" },
   { id: "connectors", label: "Connecteurs", icon: "🔌" },
+  { id: "support", label: "Aide & Support", icon: "🛟" },
 ];
 
 export default function SettingsPage() {
   const { session, loading, loginAsGuest } = useAuth();
   const [tab, setTab] = useState<Tab>("profile");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const guestAttempted = useRef(false);
 
   useEffect(() => {
@@ -27,14 +32,28 @@ export default function SettingsPage() {
     loginAsGuest().catch(() => {});
   }, [loading, session, loginAsGuest]);
 
+  useEffect(() => {
+    if (!session) return;
+    getProfile()
+      .then(setProfile)
+      .catch(() => {});
+  }, [session]);
+
   // Permet un lien direct vers un onglet (ex: depuis le menu Outils du chat)
   // sans passer par useSearchParams (évite la contrainte Suspense en export statique).
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab");
-    if (requested === "profile" || requested === "preferences" || requested === "connectors") {
+    if (
+      requested === "profile" ||
+      requested === "preferences" ||
+      requested === "connectors" ||
+      requested === "support"
+    ) {
       setTab(requested);
     }
   }, []);
+
+  const isGuest = !session || session.is_guest;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -52,23 +71,48 @@ export default function SettingsPage() {
         <ThemeToggle />
       </header>
 
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-6 md:flex-row md:gap-10">
-        <nav className="flex shrink-0 gap-1 overflow-x-auto md:w-48 md:flex-col md:overflow-visible">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition"
-              style={{
-                background: tab === t.id ? "var(--card)" : "transparent",
-                color: tab === t.id ? "var(--text-primary)" : "var(--text-secondary)",
-              }}
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 md:flex-row md:gap-10">
+        <div className="shrink-0 md:w-56">
+          {/* Carte profil */}
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+              style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
             >
-              <span aria-hidden="true">{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
-        </nav>
+              {profile?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Logo size={26} />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">
+                {isGuest ? "Session invité" : profile?.full_name || "Sans nom"}
+              </p>
+              <p className="truncate text-xs capitalize text-[var(--text-tertiary)]">
+                {isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
+              </p>
+            </div>
+          </div>
+
+          <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition"
+                style={{
+                  background: tab === t.id ? "var(--card)" : "transparent",
+                  color: tab === t.id ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                <span aria-hidden="true">{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
         <div className="min-w-0 flex-1">
           {!session ? (
@@ -78,6 +122,7 @@ export default function SettingsPage() {
               {tab === "profile" && <ProfileTab />}
               {tab === "preferences" && <PreferencesTab />}
               {tab === "connectors" && <ConnectorsTab />}
+              {tab === "support" && <SupportTab />}
             </>
           )}
         </div>
