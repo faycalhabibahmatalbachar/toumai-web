@@ -33,6 +33,35 @@
   --text-tertiary: #9ca3af;
 }
 
+/* Jetons éditoriaux de la page d'accueil — palette chaude (ivoire/terracotta,
+ * couleurs du logo et du drapeau tchadien), indépendante du violet de l'app.
+ * Valeurs par défaut = thème sombre (comme le reste du site). */
+:root {
+  --landing-bg: #211d18;
+  --landing-ink: #ede7db;
+  --landing-muted: #a79e8e;
+  --landing-faint: #7a7264;
+  --landing-line: #3a342c;
+  --landing-card: #2a251f;
+  --landing-terra: #d97757;
+  --landing-terra-soft: #3d2a20;
+  --landing-gold: #d9a441;
+  --landing-on-ink: #211d18;
+}
+
+[data-theme="light"] {
+  --landing-bg: #faf7f2;
+  --landing-ink: #1f1b16;
+  --landing-muted: #6b6257;
+  --landing-faint: #98907f;
+  --landing-line: #e5dfd3;
+  --landing-card: #ffffff;
+  --landing-terra: #c2562f;
+  --landing-terra-soft: #f3e0d6;
+  --landing-gold: #d9a441;
+  --landing-on-ink: #faf7f2;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--text-primary);
@@ -44,6 +73,11 @@ body {
   background: var(--background);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Titres éditoriaux de la page d'accueil (Fraunces via next/font). */
+.landing-serif {
+  font-family: var(--font-display), Georgia, serif;
 }
 
 ::selection {

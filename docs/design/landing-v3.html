@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toumaï AI — Maquette landing v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --bg-soft: #F2EDE4;
+    --ink: #1F1B16;
+    --muted: #6B6257;
+    --faint: #98907F;
+    --line: #E5DFD3;
+    --terra: #C2562F;
+    --terra-soft: #F3E0D6;
+    --gold: #D9A441;
+    --blue: #1E3A5F;
+    --card: #FFFFFF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+  .serif { font-family: "Fraunces", Georgia, serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+
+  /* ---- Nav ---- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; max-width: 1120px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; color: var(--ink); text-decoration: none; }
+  .brand img { width: 28px; height: 28px; }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; }
+  .nav-links a { color: var(--muted); text-decoration: none; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-cta { display: flex; align-items: center; gap: 16px; }
+  .nav-cta .ghost { font-size: 14px; color: var(--muted); text-decoration: none; }
+  .btn-dark {
+    background: var(--ink); color: #FAF7F2; border: none;
+    padding: 10px 20px; border-radius: 999px; font-size: 14px; font-weight: 500;
+    text-decoration: none; display: inline-block; cursor: pointer;
+  }
+  .btn-dark:hover { background: #35302a; }
+
+  /* ---- Hero ---- */
+  .hero { padding: 96px 0 64px; text-align: center; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--terra); font-weight: 500;
+    letter-spacing: 0.04em; margin-bottom: 28px;
+  }
+  .eyebrow::before, .eyebrow::after { content: ""; width: 24px; height: 1px; background: var(--terra); opacity: .5; }
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(44px, 7vw, 76px);
+    font-weight: 500; line-height: 1.08; letter-spacing: -0.02em;
+    max-width: 800px; margin: 0 auto;
+  }
+  h1 em { font-style: italic; color: var(--terra); font-weight: 400; }
+  .hero p.sub {
+    max-width: 560px; margin: 28px auto 0; font-size: 18px; color: var(--muted);
+  }
+  .hero-ctas { margin-top: 40px; display: flex; gap: 20px; justify-content: center; align-items: center; }
+  .btn-hero { padding: 15px 32px; font-size: 16px; }
+  .link-arrow { font-size: 15px; color: var(--ink); text-decoration: none; font-weight: 500; }
+  .link-arrow:hover { color: var(--terra); }
+
+  /* ---- Product window ---- */
+  .product { margin: 72px auto 0; max-width: 960px; padding: 0 32px; }
+  .window {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 24px 60px -24px rgba(31,27,22,.18), 0 4px 16px -8px rgba(31,27,22,.08);
+    overflow: hidden; text-align: left; display: flex; height: 420px;
+  }
+  .win-side {
+    width: 200px; border-right: 1px solid var(--line); background: #FBFAF7;
+    padding: 14px 10px; font-size: 12px; color: var(--muted); flex-shrink: 0;
+  }
+  .win-side .new {
+    background: var(--bg-soft); border-radius: 8px; padding: 8px 10px;
+    font-weight: 500; color: var(--ink); margin-bottom: 14px;
+  }
+  .win-side .item { padding: 7px 10px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .win-side .item.on { background: var(--bg-soft); color: var(--ink); }
+  .win-main { flex: 1; display: flex; flex-direction: column; }
+  .win-chat { flex: 1; padding: 24px 28px; overflow: hidden; }
+  .msg-user {
+    background: var(--bg-soft); border-radius: 18px; padding: 10px 16px;
+    font-size: 14px; max-width: 70%; margin-left: auto; margin-bottom: 18px; width: fit-content;
+  }
+  .msg-ai { font-size: 14px; color: var(--ink); max-width: 88%; }
+  .msg-ai .code {
+    background: #1F1B16; color: #E8E2D6; border-radius: 10px; padding: 14px 16px;
+    font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.7; margin-top: 10px;
+    white-space: pre;
+  }
+  .code .k { color: #D9A441; } .code .f { color: #8FB4E3; }
+  .win-composer { border-top: 1px solid var(--line); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  .win-composer .field {
+    flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 10px 18px;
+    font-size: 13.5px; color: var(--faint);
+  }
+  .win-composer .send { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: #fff; display:flex; align-items:center; justify-content:center; font-size: 15px; }
+
+  /* ---- Facts strip ---- */
+  .facts { padding: 56px 0 8px; text-align: center; font-size: 13px; color: var(--faint); letter-spacing: .06em; }
+  .facts span { margin: 0 14px; }
+
+  /* ---- Section headers ---- */
+  section.block { padding: 96px 0 0; }
+  .sec-label { font-size: 13px; color: var(--terra); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
+  h2 { font-family: "Fraunces", Georgia, serif; font-size: clamp(32px, 4.5vw, 48px); font-weight: 500; line-height: 1.15; letter-spacing: -0.015em; max-width: 640px; }
+  h2 em { font-style: italic; color: var(--terra); font-weight: 400; }
+  .sec-sub { margin-top: 16px; color: var(--muted); max-width: 520px; font-size: 16px; }
+
+  /* ---- Bento ---- */
+  .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+  .tile {
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+    padding: 28px; position: relative; overflow: hidden;
+  }
+  .tile.tall { grid-row: span 2; }
+  .tile h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .tile p { font-size: 14px; color: var(--muted); }
+  .tile .art { margin-top: 22px; }
+
+  .orb { width: 130px; height: 130px; border-radius: 50%; margin: 30px auto 10px;
+    background: radial-gradient(circle at 35% 30%, #E8B48A, var(--terra) 55%, #8C3A1E);
+    box-shadow: 0 18px 44px -14px rgba(194,86,47,.55); position: relative; }
+  .orb::after { content:""; position:absolute; inset:-14px; border-radius:50%; border:1px solid var(--terra); opacity:.3; }
+  .orb::before { content:""; position:absolute; inset:-28px; border-radius:50%; border:1px solid var(--terra); opacity:.15; }
+
+  .mini-browser { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .mini-browser .bar { background: var(--bg-soft); padding: 8px 12px; display: flex; gap: 6px; align-items: center; }
+  .mini-browser .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+  .mini-browser .url { flex: 1; background: var(--card); border-radius: 6px; font-size: 11px; color: var(--faint); padding: 3px 10px; margin-left: 8px; }
+  .mini-browser .page { padding: 14px; font-size: 12px; color: var(--muted); }
+  .mini-browser .page .skeleton { height: 8px; border-radius: 4px; background: var(--bg-soft); margin-bottom: 8px; }
+  .step { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .step .n { width: 18px; height: 18px; border-radius: 50%; background: var(--terra-soft); color: var(--terra); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  .img-art { border-radius: 12px; height: 150px; position: relative;
+    background: linear-gradient(135deg, #1E3A5F 0%, #C2562F 55%, #D9A441 100%); }
+  .img-art .wm { position: absolute; bottom: 8px; right: 10px; font-size: 11px; color: rgba(255,255,255,.85); }
+
+  .conn-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .conn-row:last-child { border-bottom: none; }
+  .conn-row .st { font-size: 11px; color: #3E7C4F; background: #E4EFE6; border-radius: 999px; padding: 2px 10px; }
+
+  .lang-line { font-family: "Fraunces", Georgia, serif; font-size: 21px; margin-top: 6px; }
+  .lang-line small { display: block; font-family: "Inter", sans-serif; font-size: 11.5px; color: var(--faint); margin-top: 1px; }
+
+  .code-tile { background: #1F1B16; border-color: #1F1B16; }
+  .code-tile h3, .code-tile p { color: #E8E2D6; }
+  .code-tile p { color: #A79E8E; }
+  .code-tile .code2 { font-family: ui-monospace, monospace; font-size: 12px; color: #E8E2D6; line-height: 1.8; margin-top: 18px; white-space: pre; }
+  .code2 .k { color: #D9A441; } .code2 .f { color: #8FB4E3; } .code2 .c { color: #7A7264; }
+
+  /* ---- Models ---- */
+  .models { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 48px; }
+  .model {
+    border: 1px solid var(--line); border-radius: 20px; padding: 36px; background: var(--card);
+  }
+  .model .name { font-family: "Fraunces", Georgia, serif; font-size: 28px; font-weight: 500; }
+  .model .tag { color: var(--terra); font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; margin-top: 6px; }
+  .model p { color: var(--muted); font-size: 15px; margin-top: 14px; }
+  .model .use { margin-top: 20px; font-size: 13px; color: var(--faint); }
+
+  /* ---- CTA ---- */
+  .cta-final { margin: 110px 0; }
+  .cta-box {
+    background: var(--ink); border-radius: 28px; padding: 88px 40px; text-align: center; color: #FAF7F2;
+  }
+  .cta-box h2 { color: #FAF7F2; margin: 0 auto; }
+  .cta-box h2 em { color: var(--gold); }
+  .cta-box p { color: #B8B0A2; margin: 18px auto 0; max-width: 420px; }
+  .btn-cream { background: #FAF7F2; color: var(--ink); padding: 15px 32px; border-radius: 999px; font-size: 16px; font-weight: 500; text-decoration: none; display: inline-block; margin-top: 36px; }
+
+  /* ---- Footer ---- */
+  footer { border-top: 1px solid var(--line); padding: 64px 0 48px; }
+  .foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 32px; }
+  .foot-brand p { font-size: 13px; color: var(--faint); margin-top: 12px; max-width: 260px; }
+  .foot-col h4 { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+  .foot-col a { display: block; font-size: 13.5px; color: var(--muted); text-decoration: none; margin-bottom: 10px; }
+  .foot-col a:hover { color: var(--ink); }
+  .foot-bottom { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="brand" href="#"><img src="/logo.png" alt=""> Toumaï AI</a>
+    <div class="nav-links">
+      <a href="#capacites">Capacités</a>
+      <a href="#modeles">Modèles</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="ghost" href="#">Se connecter</a>
+      <a class="btn-dark" href="#">Ouvrir Toumaï AI</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <div class="eyebrow">CONÇU AU TCHAD, POUR LE MONDE</div>
+  <h1>L'assistant IA qui parle <em>votre langue.</em></h1>
+  <p class="sub">Toumaï AI discute, code, génère des images et vous répond à voix haute — en français, en arabe, et dans votre parler tchadien. Gratuit, sans compte.</p>
+  <div class="hero-ctas">
+    <a class="btn-dark btn-hero" href="#">Commencer gratuitement</a>
+    <a class="link-arrow" href="#capacites">Découvrir les capacités →</a>
+  </div>
+</header>
+
+<div class="product">
+  <div class="window">
+    <div class="win-side">
+      <div class="new">+ Nouvelle conversation</div>
+      <div class="item on">Fonction Fibonacci en Python</div>
+      <div class="item">Résumé du royaume du Kanem</div>
+      <div class="item">Image — coucher de soleil</div>
+      <div class="item">Traduction en arabe tchadien</div>
+    </div>
+    <div class="win-main">
+      <div class="win-chat">
+        <div class="msg-user">Écris une fonction Python qui calcule la suite de Fibonacci.</div>
+        <div class="msg-ai">
+          Voici une version itérative, simple et efficace :
+          <div class="code"><span class="k">def</span> <span class="f">fibonacci</span>(n):
+    a, b = 0, 1
+    <span class="k">for</span> _ <span class="k">in</span> range(n):
+        a, b = b, a + b
+    <span class="k">return</span> a</div>
+        </div>
+      </div>
+      <div class="win-composer">
+        <div class="field">Écrivez à Toumaï AI…</div>
+        <div class="send">↑</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="facts">
+  <span>GRATUIT</span>·<span>FRANÇAIS · ARABE · ANGLAIS</span>·<span>WEB &amp; MOBILE</span>·<span>SANS CARTE BANCAIRE</span>
+</div>
+
+<section class="block wrap" id="capacites">
+  <div class="sec-label">Capacités</div>
+  <h2>Un seul assistant, <em>tout l'essentiel.</em></h2>
+  <p class="sec-sub">Chaque capacité ci-dessous est déjà disponible dans l'application — rien de promis, tout de livré.</p>
+
+  <div class="bento">
+    <div class="tile tall">
+      <h3>Mode vocal en temps réel</h3>
+      <p>Parlez naturellement. Toumaï AI détecte la fin de votre phrase, réfléchit, et répond à voix haute — phrase par phrase, sans attendre.</p>
+      <div class="orb"></div>
+      <p style="text-align:center; font-size:12.5px; color:var(--faint); margin-top:18px;">« Je vous écoute… »</p>
+    </div>
+
+    <div class="tile code-tile">
+      <h3>Code &amp; développement</h3>
+      <p>Générez, expliquez, corrigez.</p>
+      <div class="code2"><span class="c"># Tri rapide</span>
+<span class="k">def</span> <span class="f">quicksort</span>(t):
+    <span class="k">if</span> len(t) &lt;= 1: <span class="k">return</span> t</div>
+    </div>
+
+    <div class="tile">
+      <h3>Génération d'images</h3>
+      <p>Décrivez, Toumaï AI crée — signature intégrée à l'image.</p>
+      <div class="art"><div class="img-art"><div class="wm">Toumaï AI</div></div></div>
+    </div>
+
+    <div class="tile tall">
+      <h3>Agent Navigateur</h3>
+      <p>Confiez une tâche web : Toumaï AI pilote un vrai navigateur, étape par étape, sous vos yeux.</p>
+      <div class="art">
+        <div class="mini-browser">
+          <div class="bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="url">bing.com/search?q=…</div></div>
+          <div class="page">
+            <div class="skeleton" style="width:80%"></div>
+            <div class="skeleton" style="width:95%"></div>
+            <div class="skeleton" style="width:60%"></div>
+          </div>
+        </div>
+        <div class="step"><div class="n">1</div> Recherche la page demandée</div>
+        <div class="step"><div class="n">2</div> Extrait l'information</div>
+        <div class="step"><div class="n">3</div> Vous rend compte du résultat</div>
+      </div>
+    </div>
+
+    <div class="tile">
+      <h3>Connecteurs</h3>
+      <p>Vos outils, dans la conversation.</p>
+      <div class="art">
+        <div class="conn-row">WhatsApp <span class="st">Connecté</span></div>
+        <div class="conn-row">Mail <span class="st">Connecté</span></div>
+        <div class="conn-row">Google Agenda <span class="st">Connecté</span></div>
+      </div>
+    </div>
+
+    <div class="tile">
+      <h3>Multilingue</h3>
+      <p>Trois langues, un même assistant.</p>
+      <div class="art">
+        <div class="lang-line">Bonjour<small>Français</small></div>
+        <div class="lang-line" style="margin-top:12px;">مرحبا<small>Arabe — y compris tchadien</small></div>
+        <div class="lang-line" style="margin-top:12px;">Hello<small>Anglais</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block wrap" id="modeles">
+  <div class="sec-label">Modèles</div>
+  <h2>Deux modèles, <em>zéro confusion.</em></h2>
+  <p class="sec-sub">Un modèle rapide pour le quotidien, un modèle qui prend le temps de réfléchir pour le reste.</p>
+  <div class="models">
+    <div class="model">
+      <div class="name">Sao 4</div>
+      <div class="tag">Code &amp; quotidien</div>
+      <p>Le modèle par défaut — rapide et polyvalent pour la conversation, le code et les tâches de tous les jours.</p>
+      <div class="use">Idéal pour : questions, rédaction, développement.</div>
+    </div>
+    <div class="model">
+      <div class="name">Toumaï 5</div>
+      <div class="tag">Raisonnement profond</div>
+      <p>Prend le temps de réfléchir, étape par étape, sur les questions complexes qui le méritent.</p>
+      <div class="use">Idéal pour : analyse, problèmes difficiles, décisions.</div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-final wrap">
+  <div class="cta-box">
+    <h2>Commencez <em>la conversation.</em></h2>
+    <p>Gratuit, sans carte bancaire — ouvrez le chat et parlez à Toumaï AI maintenant.</p>
+    <a class="btn-cream" href="#">Ouvrir Toumaï AI</a>
+  </div>
+</section>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#"><img src="/logo.png" alt=""> Toumaï AI</a>
+        <p>Nommé d'après le plus ancien hominidé connu, découvert au Tchad. L'intelligence, depuis toujours, commence ici.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Produit</h4>
+        <a href="#">Chat</a>
+        <a href="#">Agent Navigateur</a>
+        <a href="#">Connecteurs</a>
+      </div>
+      <div class="foot-col">
+        <h4>Compte</h4>
+        <a href="#">Créer un compte</a>
+        <a href="#">Se connecter</a>
+      </div>
+      <div class="foot-col">
+        <h4>Contact</h4>
+        <a href="mailto:contact@toumaiai.com">contact@toumaiai.com</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Toumaï AI. Tous droits réservés.</span>
+      <span>Conçu au Tchad 🇹🇩</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
