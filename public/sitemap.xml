@@ -2,6 +2,9 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://toumaiai.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://toumaiai.com/chat</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://toumaiai.com/agent</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://toumaiai.com/models</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://toumaiai.com/library</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://toumaiai.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://toumaiai.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://toumaiai.com/privacy-choices</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>

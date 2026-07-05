@@ -95,3 +95,35 @@ export function getWaSettings(): Promise<WaSettings> {
 export function updateWaSettings(patch: Partial<WaSettings>): Promise<WaSettings> {
   return http.put("/whatsapp/settings", patch);
 }
+
+/** Journal des interactions de l'IA sur WhatsApp — numéros déjà masqués
+ * côté serveur, jamais transmis en clair. */
+export interface WaActivityItem {
+  tool: string;
+  category: string;
+  recipient_masked?: string | null;
+  preview?: string | null;
+  ok: boolean;
+  created_at: string;
+}
+
+export interface WaActivityStats {
+  total: number;
+  messages: number;
+  medias: number;
+  actions: number;
+  errors: number;
+}
+
+export function getWaActivity(opts?: {
+  category?: string;
+  days?: number;
+  limit?: number;
+}): Promise<{ items: WaActivityItem[]; stats: WaActivityStats }> {
+  const p = new URLSearchParams();
+  if (opts?.category) p.set("category", opts.category);
+  if (opts?.days) p.set("days", String(opts.days));
+  if (opts?.limit) p.set("limit", String(opts.limit));
+  const qs = p.toString();
+  return http.get(`/whatsapp/activity${qs ? `?${qs}` : ""}`);
+}

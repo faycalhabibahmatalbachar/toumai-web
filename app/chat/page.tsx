@@ -7,6 +7,7 @@ import { streamChat } from "@/lib/chat-stream";
 import { getHistory, deleteMessageAndAfter } from "@/lib/chat-api";
 import { getProfile } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
+import { transcribeAudio } from "@/lib/voice-api";
 import { uploadDocument, type UploadedDocument } from "@/lib/documents-api";
 import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
@@ -135,6 +136,7 @@ export default function ChatPage() {
   const preferredLangRef = useRef<string>("auto");
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const whisperRecRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dictationBaseRef = useRef("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -442,25 +444,29 @@ export default function ChatPage() {
     abortRef.current?.abort();
   }
 
-  /** Dictée vocale (Web Speech API) — Chrome/Edge uniquement, absent sur
-   * Firefox/Safari : le bouton reste alors simplement inactif. */
+  /** Dictée vocale — écrit en temps réel dans le champ de saisie.
+   *
+   * 1) Web Speech API quand elle marche (Chrome/Edge) : transcription
+   *    instantanée mot à mot.
+   * 2) Sinon (Firefox/Safari, ou erreur réseau de la Web Speech API qui
+   *    passe par les serveurs Google) : bascule automatique sur notre
+   *    Whisper backend — enregistrement par tranches, transcription
+   *    cumulative toutes les ~4 s, orthographe soignée. Plus d'erreur
+   *    sèche pour l'utilisateur. */
   function toggleDictation() {
     if (dictating) {
       recognitionRef.current?.stop();
+      stopWhisperDictation();
       return;
     }
     const Ctor =
       (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition;
     if (!Ctor) {
-      setError("La dictée vocale n'est pas prise en charge par ce navigateur.");
+      startWhisperDictation();
       return;
     }
 
-    // Laisse SpeechRecognition gérer elle-même la permission micro — un
-    // getUserMedia() séparé juste avant peut laisser le périphérique
-    // "occupé" le temps que l'OS le libère, et faire échouer start() juste
-    // après (source probable du "ça ne marche jamais" observé).
     dictationBaseRef.current = input;
     const recognition = new Ctor();
     recognition.lang = "fr-FR";
@@ -479,14 +485,83 @@ export default function ChatPage() {
     recognition.onend = () => setDictating(false);
     recognition.onerror = (e) => {
       setDictating(false);
-      setError(DICTATION_ERROR_LABEL[e.error] ?? `La dictée a échoué (${e.error}).`);
+      if (e.error === "not-allowed" || e.error === "audio-capture") {
+        setError(DICTATION_ERROR_LABEL[e.error]);
+        return;
+      }
+      // Erreur réseau/service de la Web Speech API → fallback Whisper
+      // transparent au lieu d'afficher une erreur.
+      startWhisperDictation();
     };
     recognitionRef.current = recognition;
     try {
       recognition.start();
     } catch {
       setDictating(false);
+      startWhisperDictation();
     }
+  }
+
+  /** Fallback Whisper : enregistre le micro et transcrit l'audio CUMULÉ
+   * toutes les ~4 s — le texte apparaît progressivement dans le champ et se
+   * corrige au fil de la dictée (meilleure orthographe que la Web Speech). */
+  async function startWhisperDictation() {
+    if (whisperRecRef.current) return;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError(DICTATION_ERROR_LABEL["not-allowed"]);
+      return;
+    }
+    dictationBaseRef.current = input;
+    const chunks: Blob[] = [];
+    const recorder = new MediaRecorder(stream);
+    whisperRecRef.current = recorder;
+    let transcribing = false;
+
+    async function transcribeSoFar(final = false) {
+      if (transcribing && !final) return; // pas de transcriptions concurrentes
+      if (!chunks.length) return;
+      transcribing = true;
+      try {
+        const { text } = await transcribeAudio(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+        const clean = text.trim();
+        if (clean) {
+          const base = dictationBaseRef.current;
+          setInput(base ? `${base} ${clean}` : clean);
+        }
+      } catch {
+        // Tranche illisible — la suivante réessaie avec plus d'audio.
+      } finally {
+        transcribing = false;
+      }
+    }
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+      if (recorder.state === "recording") void transcribeSoFar();
+    };
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      whisperRecRef.current = null;
+      setDictating(false);
+      await transcribeSoFar(true); // passe finale = orthographe la plus fiable
+      textareaRef.current?.focus();
+    };
+
+    setDictating(true);
+    playDictationChime();
+    recorder.start(4000); // livre une tranche toutes les 4 s
+    // Garde-fou : jamais plus de 90 s d'enregistrement continu.
+    setTimeout(() => {
+      if (whisperRecRef.current === recorder && recorder.state === "recording") recorder.stop();
+    }, 90_000);
+  }
+
+  function stopWhisperDictation() {
+    const rec = whisperRecRef.current;
+    if (rec && rec.state === "recording") rec.stop();
   }
 
   async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {

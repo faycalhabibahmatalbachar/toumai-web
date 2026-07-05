@@ -247,6 +247,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               l'utilisateur demande une navigation web. */}
           {[
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
+            { href: "/whatsapp", label: "WhatsApp", icon: <WhatsAppNavIcon /> },
             { href: "/settings?tab=connectors", label: "Connecteurs", icon: <PlugIcon /> },
           ].map((item) => (
             <Link
@@ -462,6 +463,15 @@ function LibraryIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function WhatsAppNavIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 12a9 9 0 01-13.5 7.8L3 21l1.2-4.5A9 9 0 1121 12z" strokeLinejoin="round" />
+      <path d="M9 10h.01M12 10h.01M15 10h.01" strokeLinecap="round" />
     </svg>
   );
 }

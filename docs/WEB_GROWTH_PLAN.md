@@ -66,6 +66,24 @@ Le levier n°1 d'une IA grand public, c'est le partage :
 | Historique multi-appareils déjà OK (backend) — vérifier conflits | Fiabilité | Faible |
 | Formule Pro (paiement Mobile Money déjà connecté) | Revenus | Moyen |
 
+## 6 bis. Fonctionnalités backend PAS ENCORE exposées sur le web (audit 05/07/2026)
+
+Le backend (`sayibiai_backend/routers/`) offre déjà tout ceci — le site ne les expose pas encore :
+
+| Backend | Ce que c'est | Exposition web proposée |
+|---|---|---|
+| `cv.py` + CV Studio | Génération de CV pro (wizard 13 étapes côté mobile) | Page /cv-studio dédiée (gros différenciateur) |
+| `onecs.py` | Résultats du Bac tchadien (ONECS) | Carte spéciale dans le chat + landing saisonnière |
+| `mesomb.py` / `airtel.py` | Paiements Mobile Money | Formule Plus (paiement in-app) |
+| `alarm.py` / `proactivity.py` | Rappels et notifications proactives | Rappels depuis le chat (« rappelle-moi… ») + push web |
+| `memory.py` | Mémoire longue de l'utilisateur | Section Paramètres → Personnalisation (voir/effacer la mémoire) |
+| `social.py` | Publication réseaux sociaux | Connecteur « Réseaux sociaux » |
+| `stealth.py` / `surveillance.py` | Fonctions WA avancées (déjà couvertes par le panneau permissions) | UI dédiée dans le panneau WhatsApp |
+| `export.py` | Export de conversations (PDF…) | Bouton Exporter dans le menu ⋯ d'une conversation |
+| `omni.py` | Multimodal combiné | À explorer |
+| `notifications.py` (FCM) | Push mobile | Web Push (PWA) |
+| Outils chat non câblés web : `translate_tool`, `notes_tool`, `weather` (carte riche), `push_tool` | Traduction dédiée, notes, carte météo enrichie | Widgets de chat riches |
+
 ## 7. Mesure
 
 - [ ] Analytics respectueux (Umami/Plausible self-host ou Cloudflare Analytics)

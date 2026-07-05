@@ -37,12 +37,11 @@ export function ConnectorsTab() {
   const match = (name: string) => !q || name.toLowerCase().includes(q);
 
   return (
-    <div className="max-w-3xl">
-      {/* Le titre de section est déjà rendu par la page Paramètres — on ne
-          garde ici que la recherche, alignée à droite. */}
-      <div className="mb-5 flex items-center justify-end gap-3">
-        <div className="relative w-48 shrink-0 sm:w-64">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
+    <div className="flex flex-col gap-6 xl:flex-row">
+      {/* ── Colonne principale ── */}
+      <div className="min-w-0 flex-1">
+        <div className="relative mb-5">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
             <SearchIcon />
           </span>
           <input
@@ -50,51 +49,149 @@ export function ConnectorsTab() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher des connecteurs…"
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] py-2 pl-9 pr-3 text-sm outline-none focus:border-[var(--primary)]"
+            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[var(--primary)]"
           />
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className={match("Google Agenda") ? "" : "hidden"}>
-          <GoogleConnector onLog={log} />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className={match("Google Agenda") ? "" : "hidden"}>
+            <GoogleConnector onLog={log} />
+          </div>
+          <div className={match("Mail") ? "" : "hidden"}>
+            <MailConnector onLog={log} />
+          </div>
+          <div className={match("WhatsApp") ? "" : "hidden"}>
+            <WhatsAppConnector onLog={log} />
+          </div>
+          <div className={match("Météo") ? "" : "hidden"}>
+            <ConnectorCard
+              icon="🌤️"
+              name="Météo"
+              description="Toujours actif — Toumaï AI consulte la météo en direct quand vous le demandez, sans configuration."
+              status="connected"
+            />
+          </div>
         </div>
-        <div className={match("Mail") ? "" : "hidden"}>
-          <MailConnector onLog={log} />
-        </div>
-        <div className={match("WhatsApp") ? "" : "hidden"}>
-          <WhatsAppConnector onLog={log} />
-        </div>
-        <div className={match("Météo") ? "" : "hidden"}>
-          <ConnectorCard
-            icon="🌤️"
-            name="Météo"
-            description="Toujours actif — Toumaï AI consulte la météo en direct quand vous le demandez, sans configuration."
-            status="connected"
-          />
-        </div>
-      </div>
 
-      <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-        <p className="mb-3 text-sm font-medium">Activité récente</p>
-        {activity.length === 0 ? (
-          <p className="text-sm text-[var(--text-tertiary)]">
-            Aucune action sur les connecteurs pendant cette session.
+        {/* Bandeau confiance */}
+        <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+            style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)" }}
+            aria-hidden="true"
+          >
+            <InfoIcon />
+          </span>
+          <p className="text-[13px] text-[var(--text-secondary)]">
+            <span className="font-semibold text-[var(--text-primary)]">Bon à savoir</span> — vos
+            connexions sont chiffrées, chaque action sensible demande votre confirmation, et vous
+            contrôlez chaque permission.
           </p>
-        ) : (
-          <ul className="space-y-2">
-            {activity.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-[var(--text-secondary)]">{a.label}</span>
-                <span className="shrink-0 text-xs text-[var(--text-tertiary)]">
-                  {a.detail} · {a.at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        </div>
       </div>
+
+      {/* ── Rail latéral : aperçu + activité ── */}
+      <aside className="w-full shrink-0 space-y-4 xl:w-72">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <p className="mb-3 text-sm font-semibold">Aperçu</p>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl"
+                style={{ background: "color-mix(in srgb, var(--success) 12%, transparent)", color: "var(--success)" }}
+                aria-hidden="true"
+              >
+                <PlugMiniIcon />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Connecteurs</p>
+                <p className="text-xs text-[var(--text-tertiary)]">WhatsApp, Mail, Agenda, Météo</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl"
+                style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", color: "var(--accent)" }}
+                aria-hidden="true"
+              >
+                <BoltMiniIcon />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">{activity.length}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Actions cette session</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl"
+                style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)" }}
+                aria-hidden="true"
+              >
+                <ShieldIcon />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Tout est sécurisé</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Connexions chiffrées</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+          <p className="mb-2 text-sm font-semibold">Activité récente</p>
+          {activity.length === 0 ? (
+            <p className="text-xs text-[var(--text-tertiary)]">
+              Aucune action sur les connecteurs pendant cette session.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {activity.slice(0, 6).map((a) => (
+                <li key={a.id} className="text-xs">
+                  <span className="block font-medium text-[var(--text-secondary)]">{a.label}</span>
+                  <span className="text-[var(--text-tertiary)]">
+                    {a.detail} · {a.at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
     </div>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01M12 11v5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlugMiniIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 01-12 0V8zM12 18v4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BoltMiniIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z" strokeLinejoin="round" />
+      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -458,6 +555,12 @@ function WhatsAppConnector({ onLog }: { onLog: OnLog }) {
           >
             Gérer les permissions
           </button>
+          <a
+            href="/whatsapp"
+            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--primary)]/60"
+          >
+            Tableau de bord
+          </a>
           <button
             onClick={disconnect}
             disabled={busy}
