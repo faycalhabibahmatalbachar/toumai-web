@@ -44,6 +44,25 @@ const HALLUCINATION_PATTERNS = [
   /^merci[.!?\s]*$/i,
 ];
 
+/** Retire la syntaxe markdown avant la synthèse vocale — sinon la voix lit
+ * littéralement « astérisque astérisque », les dièses des titres, etc. */
+function stripMarkdownForSpeech(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, " ") // blocs de code — illisibles à l'oral
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // liens → texte seul
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/^\s*[-*+]\s+/gm, "") // puces de liste
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/[*_#|~]/g, " ") // reliquats isolés
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function looksLikeHallucination(text: string, recordMs: number): boolean {
   const t = text.trim();
   if (!t) return false;
@@ -238,7 +257,7 @@ export function VoiceModeOverlay({
       const audioQueue: Promise<{ audio_base64: string; mime_type: string } | null>[] = [];
 
       function flushSentence(sentence: string) {
-        const trimmed = sentence.trim();
+        const trimmed = stripMarkdownForSpeech(sentence);
         if (!trimmed) return;
         spokenAnything = true;
         audioQueue.push(synthesizeSpeech(trimmed, voice).catch(() => null));

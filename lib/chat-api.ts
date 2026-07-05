@@ -113,6 +113,57 @@ export async function confirmToolAction(
   return { ok: body.success !== false, message: body.message || "" };
 }
 
+// ── Partage de conversation ─────────────────────────────────────────────────
+
+export interface ShareResult {
+  token: string;
+  visibility: "unlisted" | "public";
+  anonymous: boolean;
+}
+
+export interface SharedConversation {
+  title: string;
+  created_at?: string;
+  owner_name?: string | null;
+  messages: { role: "user" | "assistant"; content: string; image_urls?: string[] }[];
+}
+
+/** Active le partage d'une conversation — renvoie le token du lien public. */
+export async function shareSession(
+  sessionId: string,
+  opts: { visibility: "unlisted" | "public"; anonymous: boolean },
+): Promise<ShareResult> {
+  const res = await fetch(`${API_BASE}/chat/session/${sessionId}/share`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(opts),
+  });
+  if (res.status === 401) handleUnauthorized();
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) throw new Error(body.message || `Erreur ${res.status}`);
+  return body.data as ShareResult;
+}
+
+/** Révoque le partage — le lien cesse immédiatement de fonctionner. */
+export async function unshareSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/chat/session/${sessionId}/share`, {
+    method: "DELETE",
+    headers: { ...authHeaders() },
+  });
+  if (res.status === 401) handleUnauthorized();
+  if (!res.ok) throw new Error(`Erreur ${res.status}`);
+}
+
+/** Lecture publique d'une conversation partagée (aucune authentification). */
+export async function getSharedConversation(token: string): Promise<SharedConversation> {
+  const res = await fetch(`${API_BASE}/chat/shared/${encodeURIComponent(token)}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.success === false) {
+    throw new Error(body.message || "Conversation introuvable ou partage révoqué.");
+  }
+  return body.data as SharedConversation;
+}
+
 /** Regroupe les sessions par période, comme ChatGPT/Claude.ai — les
  * conversations épinglées forment leur propre groupe en tête de liste. */
 export function groupSessionsByDate(sessions: ChatSession[]): { label: string; items: ChatSession[] }[] {

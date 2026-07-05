@@ -12,8 +12,17 @@ import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 import { Waveform } from "@/components/Waveform";
 import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
+import { ShareDialog } from "@/components/ShareDialog";
+
+/** Synchronise l'URL avec la conversation active (/chat?c=<id>) — chaque
+ * conversation a son adresse, ouvrable/partageable comme sur Gemini. */
+function setUrlConversation(id: string | null) {
+  const url = id ? `/chat?c=${encodeURIComponent(id)}` : "/chat";
+  window.history.replaceState(null, "", url);
+}
 
 /** Sous-ensemble minimal de la Web Speech API (non standardisée dans lib.dom). */
 interface SpeechRecognitionLike extends EventTarget {
@@ -66,6 +75,8 @@ export default function ChatPage() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const urlConvAttempted = useRef(false);
   const [attachedDoc, setAttachedDoc] = useState<UploadedDocument | null>(null);
   // Langue de réponse définie dans les préférences ("fr", "en", "ar"… ou
   // "auto") — envoyée à chaque tour pour que l'IA réponde TOUJOURS dans la
@@ -120,6 +131,15 @@ export default function ChatPage() {
     loginAsGuest().catch(() => setError("Impossible de démarrer une session."));
   }, [loading, session, loginAsGuest]);
 
+  // Ouverture directe d'une conversation par son URL (/chat?c=<id>).
+  useEffect(() => {
+    if (!session || urlConvAttempted.current) return;
+    urlConvAttempted.current = true;
+    const id = new URLSearchParams(window.location.search).get("c");
+    if (id) openSession(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   // Scroll auto vers le bas, sauf si l'utilisateur a remonté manuellement
   // pour relire un message précédent pendant que la réponse arrive (comme
   // ChatGPT/Gemini).
@@ -153,6 +173,7 @@ export default function ChatPage() {
   // Chargement de l'historique quand l'utilisateur change de conversation.
   async function openSession(id: string) {
     setActiveSessionId(id);
+    setUrlConversation(id);
     setHistoryLoading(true);
     setError(null);
     try {
@@ -177,6 +198,7 @@ export default function ChatPage() {
 
   function newChat() {
     setActiveSessionId(null);
+    setUrlConversation(null);
     setMessages([]);
     setError(null);
   }
@@ -280,6 +302,7 @@ export default function ChatPage() {
           }
           if (evt.session_id && evt.session_id !== activeSessionId) {
             setActiveSessionId(evt.session_id);
+            setUrlConversation(evt.session_id);
           }
           // La confirmation peut arriver dans un événement metadata
           // intermédiaire OU dans l'événement final — on capte les deux.
@@ -446,18 +469,27 @@ export default function ChatPage() {
         {/* Barre supérieure */}
         <header className="flex select-none items-center justify-between px-3 py-3 md:px-4">
           <div className="flex items-center gap-2">
+            {/* Mobile : le logo Toumaï ouvre le menu latéral (comme Gemini) —
+                plus de hamburger ni de texte de marque dans le header. */}
             <button
               onClick={() => setSidebarOpen(true)}
               aria-label="Ouvrir les conversations"
-              className="rounded-lg p-2 transition hover:bg-[var(--hover)] md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--hover)] md:hidden"
             >
-              <MenuIcon />
+              <Logo size={24} />
             </button>
-            <Link href="/" draggable={false} className="text-sm font-semibold">
-              Toumaï AI
-            </Link>
           </div>
           <div className="flex items-center gap-1">
+            {activeSessionId && messages.length > 0 && (
+              <button
+                onClick={() => setShareOpen(true)}
+                aria-label="Partager la conversation"
+                title="Partager la conversation"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+              >
+                <ShareIcon />
+              </button>
+            )}
             <ThemeToggle />
           </div>
         </header>
@@ -704,6 +736,9 @@ export default function ChatPage() {
       {voiceModeOpen && (
         <VoiceModeOverlay onSend={voiceSend} onClose={() => setVoiceModeOpen(false)} />
       )}
+      {shareOpen && activeSessionId && (
+        <ShareDialog sessionId={activeSessionId} onClose={() => setShareOpen(false)} />
+      )}
     </div>
   );
 }
@@ -724,10 +759,13 @@ function HistorySkeleton() {
   );
 }
 
-function MenuIcon() {
+function ShareIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 10.7l6.8-3.9M8.6 13.3l6.8 3.9" strokeLinecap="round" />
     </svg>
   );
 }

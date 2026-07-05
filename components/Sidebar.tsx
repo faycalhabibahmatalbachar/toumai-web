@@ -12,6 +12,7 @@ import {
   type ChatSession,
 } from "@/lib/chat-api";
 import { getProfile } from "@/lib/user-api";
+import { Logo } from "./Logo";
 
 interface SidebarProps {
   activeId: string | null;
@@ -50,16 +51,24 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
   const [renameDraft, setRenameDraft] = useState("");
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  // Ne jamais afficher « Session invité » à un compte connecté le temps que
+  // le profil charge — on attend la réponse avant de trancher.
+  const [profileResolved, setProfileResolved] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!session || session.is_guest) return;
+    if (!session) return;
+    if (session.is_guest) {
+      setProfileResolved(true);
+      return;
+    }
     getProfile()
       .then((p) => {
         setDisplayName(p.full_name ?? null);
         setAvatarUrl(p.avatar_url ?? null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProfileResolved(true));
   }, [session]);
 
   useEffect(() => {
@@ -154,15 +163,16 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "md:w-[68px]" : "md:w-72"}`}
       >
-        {/* Bouton replier/déplier — comme le ☰ de Gemini (desktop). */}
+        {/* Bouton replier/déplier — le logo Toumaï AI fait office de toggle,
+            comme l'étincelle de Gemini (desktop). */}
         <div className={`hidden px-3 pt-3 md:block ${collapsed ? "md:px-3.5" : ""}`}>
           <button
             onClick={toggleCollapsed}
             aria-label={collapsed ? "Afficher le menu" : "Masquer le menu"}
             title={collapsed ? "Afficher le menu" : "Masquer le menu"}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--hover)]"
           >
-            <MenuIcon />
+            <Logo size={24} />
           </button>
         </div>
 
@@ -362,7 +372,11 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               collapsed ? "md:hidden" : ""
             }`}
           >
-            {!session ? "Connexion…" : displayName || "Session invité"}
+            {!session || !profileResolved
+              ? "Connexion…"
+              : session.is_guest
+                ? "Session invité"
+                : displayName || "Mon compte"}
           </span>
           <Link
             href="/settings"

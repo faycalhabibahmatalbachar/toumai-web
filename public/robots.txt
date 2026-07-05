@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /settings
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://toumaiai.com/sitemap.xml

@@ -183,10 +183,16 @@ export default function SettingsPage() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
-                {isGuest ? "Session invité" : profile?.full_name || "Sans nom"}
+                {!session
+                  ? "Connexion…"
+                  : session.is_guest
+                    ? "Session invité"
+                    : profile
+                      ? profile.full_name || "Mon compte"
+                      : "Connexion…"}
               </p>
               <p className="truncate text-xs capitalize text-[var(--text-tertiary)]">
-                {isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
+                {!session ? "" : isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
               </p>
             </div>
           </div>
