@@ -36,19 +36,45 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Toumaï AI — Votre assistant IA, toujours là",
+  title: {
+    default: "Toumaï AI — Assistant IA tchadien gratuit (chat, images, WhatsApp)",
+    template: "%s · Toumaï AI",
+  },
   description:
-    "Toumaï AI : discutez avec Sao 4 (code) et Toumaï 5 (raisonnement avancé), générez des images, connectez WhatsApp/Mail/Agenda, laissez l'IA naviguer le web pour vous.",
+    "Toumaï AI, l'intelligence artificielle tchadienne : chat gratuit en français et arabe tchadien, génération d'images, WhatsApp, e-mail, agenda et agent navigateur. Créé par Faycal Habib Ahmat.",
+  keywords: [
+    "Toumaï AI",
+    "toumai ai",
+    "IA tchadienne",
+    "intelligence artificielle Tchad",
+    "assistant IA français",
+    "chatbot gratuit",
+    "IA WhatsApp",
+    "génération d'images gratuite",
+    "ChatGPT Tchad",
+    "IA arabe tchadien",
+  ],
   metadataBase: new URL("https://toumaiai.com"),
+  alternates: { canonical: "https://toumaiai.com" },
+  robots: { index: true, follow: true },
   openGraph: {
-    title: "Toumaï AI",
-    description: "Votre assistant IA, toujours là.",
+    title: "Toumaï AI — L'assistant IA tchadien",
+    description:
+      "Chat IA gratuit, images, WhatsApp, agenda et agent navigateur — en français et arabe tchadien.",
     url: "https://toumaiai.com",
     siteName: "Toumaï AI",
     locale: "fr_FR",
     type: "website",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Toumaï AI — L'assistant IA tchadien",
+    description: "Chat IA gratuit, images, WhatsApp, agenda — français et arabe tchadien.",
+    images: ["/og-image.png"],
+  },
+  authors: [{ name: "Faycal Habib Ahmat", url: "https://toumaiai.com" }],
+  creator: "Faycal Habib Ahmat",
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -58,6 +84,28 @@ export const metadata: Metadata = {
     apple: [{ url: "/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
 };
+
+// Données structurées Google (rich results) — identité de l'application et
+// de son créateur, servies sur toutes les pages.
+const JSON_LD = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Toumaï AI",
+  alternateName: ["Toumai AI", "ToumaiAI"],
+  url: "https://toumaiai.com",
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "Web, Android",
+  description:
+    "Assistant d'intelligence artificielle tchadien : chat en français et arabe tchadien, génération d'images, WhatsApp, e-mail, agenda et agent navigateur.",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "XAF" },
+  author: {
+    "@type": "Person",
+    name: "Faycal Habib Ahmat",
+    jobTitle: "Ingénieur en intelligence artificielle",
+    nationality: "TD",
+  },
+  inLanguage: ["fr", "ar"],
+});
 
 export default function RootLayout({
   children,
@@ -72,6 +120,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--text-primary)]">
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
