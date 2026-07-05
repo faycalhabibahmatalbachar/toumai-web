@@ -18,6 +18,8 @@ import {
 import { ConnectorCard, type ConnectorStatus } from "./ConnectorCard";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
 
+import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
+
 interface ActivityEntry {
   id: string;
   label: string;
@@ -291,7 +293,7 @@ function MeteoConnector({ onStatus }: { onStatus?: OnStatus }) {
   }, []);
   return (
     <ConnectorCard
-      icon="🌤️"
+      icon={<MeteoIcon />}
       name="Météo"
       description="Toujours actif — Toumaï AI consulte la météo en direct quand vous le demandez, sans configuration."
       status="connected"
@@ -475,7 +477,7 @@ function GoogleConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatu
 
   return (
     <ConnectorCard
-      icon="📅"
+      icon={<GoogleCalendarIcon />}
       name="Google Agenda"
       description="Permet à Toumaï AI de lire et créer des événements dans votre agenda."
       status={status}
@@ -565,7 +567,7 @@ function MailConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus 
 
   return (
     <ConnectorCard
-      icon="📧"
+      icon={<GmailIcon />}
       name="Mail"
       description={
         status?.connected && status.email
@@ -742,7 +744,7 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
   if (state?.status === "unconfigured") {
     return (
       <ConnectorCard
-        icon="💬"
+        icon={<WhatsAppIcon />}
         name="WhatsApp"
         description="Auto-pilote WhatsApp — pas encore disponible sur cette instance."
         status="unavailable"
@@ -756,7 +758,7 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
       : "Laissez Toumaï AI répondre automatiquement sur WhatsApp (auto-pilote).";
 
   return (
-    <ConnectorCard icon="💬" name="WhatsApp" description={description} status={cStatus} lastChecked={checkedAt}>
+    <ConnectorCard icon={<WhatsAppIcon />} name="WhatsApp" description={description} status={cStatus} lastChecked={checkedAt}>
       {state?.status === "connected" ? (
         <div className="flex flex-wrap items-center gap-2">
           <button

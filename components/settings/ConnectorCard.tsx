@@ -49,9 +49,11 @@ export function ConnectorCard({
   return (
     <div className="flex h-full flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 transition hover:border-[var(--primary)]/40">
       <div className="mb-3.5 flex items-start justify-between gap-2">
+        {/* Tuile logo — fond blanc constant pour que les logos de marque
+            (Google, Gmail, WhatsApp…) restent fidèles dans les deux thèmes. */}
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-xl"
+          style={{ background: "#ffffff", border: "1px solid var(--border)" }}
           aria-hidden="true"
         >
           {icon}
