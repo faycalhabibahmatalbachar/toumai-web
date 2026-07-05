@@ -31,8 +31,7 @@ interface SectionDef {
   icon: React.ReactNode;
 }
 
-/** Navigation groupée façon console Claude/Anthropic — chaque groupe porte
- * un intitulé en petites capitales, les items un état actif teinté. */
+/** Navigation groupée — rail fixe collé au bord gauche de l'écran. */
 const GROUPS: { label: string; items: SectionDef[] }[] = [
   {
     label: "Compte",
@@ -91,21 +90,17 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
       },
     ],
   },
-  {
-    label: "",
-    items: [
-      {
-        id: "support",
-        label: "Aide & Support",
-        title: "Aide & Support",
-        sub: "Guides rapides et contact direct.",
-        icon: <LifeBuoyIcon />,
-      },
-    ],
-  },
 ];
 
-const ALL_SECTIONS: SectionDef[] = GROUPS.flatMap((g) => g.items);
+const SUPPORT_SECTION: SectionDef = {
+  id: "support",
+  label: "Aide & Support",
+  title: "Aide & Support",
+  sub: "Guides rapides et contact direct.",
+  icon: <LifeBuoyIcon />,
+};
+
+const ALL_SECTIONS: SectionDef[] = [...GROUPS.flatMap((g) => g.items), SUPPORT_SECTION];
 
 // Compatibilité avec les anciens liens ?tab=… (menu Outils du chat, sidebar).
 const LEGACY_TABS: Record<string, Section> = {
@@ -147,29 +142,151 @@ export default function SettingsPage() {
   const isGuest = !session || session.is_guest;
   const current = ALL_SECTIONS.find((s) => s.id === section) ?? ALL_SECTIONS[0];
 
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 flex select-none items-center justify-between bg-[var(--background)]/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/chat"
-            draggable={false}
-            aria-label="Retour au chat"
-            className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-[var(--hover)]"
-          >
-            <BackIcon />
-          </Link>
-          <h1 className="landing-serif text-lg tracking-tight">Paramètres</h1>
-        </div>
-        <ThemeToggle />
-      </header>
+  const displayName = !session
+    ? "Connexion…"
+    : session.is_guest
+      ? "Session invité"
+      : profile
+        ? profile.full_name || "Mon compte"
+        : "Connexion…";
 
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-6 md:flex-row md:gap-14 md:py-10">
-        {/* Navigation — sticky sous le header, groupée par thème. */}
-        <nav className="shrink-0 md:sticky md:top-[72px] md:h-fit md:w-60 md:self-start">
-          {/* Identité — informative, pas cliquable : l'action se fait dans
-              la section Général. */}
-          <div className="mb-6 flex items-center gap-3 rounded-2xl bg-[var(--surface)] px-3.5 py-3">
+  function NavItem({ s }: { s: SectionDef }) {
+    const active = section === s.id;
+    return (
+      <button
+        onClick={() => setSection(s.id)}
+        aria-current={active ? "page" : undefined}
+        className="relative flex w-full shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-medium transition hover:bg-[var(--hover)]"
+        style={{
+          background: active ? "color-mix(in srgb, var(--primary) 10%, transparent)" : undefined,
+          color: active ? "var(--primary)" : "var(--text-secondary)",
+        }}
+      >
+        {/* Barre d'accent à gauche de l'item actif, collée au bord du rail. */}
+        {active && (
+          <span
+            aria-hidden="true"
+            className="absolute -left-4 top-1/2 hidden h-6 w-[3px] -translate-y-1/2 rounded-r-full md:block"
+            style={{ background: "var(--primary)" }}
+          />
+        )}
+        <span className={active ? "" : "opacity-70"} aria-hidden="true">
+          {s.icon}
+        </span>
+        {s.label}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex min-h-dvh">
+      {/* ── Rail gauche — collé au coin de l'écran, pleine hauteur ── */}
+      <aside className="sticky top-0 hidden h-dvh w-72 shrink-0 flex-col overflow-y-auto border-r border-[var(--border)] bg-[var(--surface)] px-4 pb-4 pt-4 md:flex">
+        <Link href="/chat" draggable={false} className="flex select-none items-center gap-2.5 px-1">
+          <Logo size={26} />
+          <span className="text-[15px] font-semibold tracking-tight">Toumaï AI</span>
+          <span
+            className="rounded-md px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 18%, transparent)",
+              color: "var(--accent)",
+            }}
+          >
+            Beta
+          </span>
+        </Link>
+
+        {/* Carte identité — mène à la section Général. */}
+        <button
+          onClick={() => setSection("general")}
+          className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-3.5 py-3 text-left transition hover:border-[var(--primary)]/40"
+        >
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
+            style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
+          >
+            {profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Logo size={22} />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{displayName}</p>
+            <p className="truncate text-xs capitalize text-[var(--text-tertiary)]">
+              {!session ? "" : isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
+            </p>
+          </div>
+          <ChevronIcon />
+        </button>
+
+        <nav className="mt-2 flex-1">
+          {GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 pb-1 pt-4 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
+                {group.label}
+              </p>
+              {group.items.map((s) => (
+                <NavItem key={s.id} s={s} />
+              ))}
+            </div>
+          ))}
+          <div className="my-3 h-px bg-[var(--border)]" aria-hidden="true" />
+          <NavItem s={SUPPORT_SECTION} />
+        </nav>
+
+        {/* Offre Plus — bas du rail, comme les consoles produit. */}
+        <div
+          className="mt-4 rounded-2xl border p-4"
+          style={{
+            borderColor: "color-mix(in srgb, var(--primary) 30%, var(--border))",
+            background: "color-mix(in srgb, var(--primary) 6%, transparent)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-white"
+              style={{ background: "var(--primary)" }}
+              aria-hidden="true"
+            >
+              <BoltIcon />
+            </span>
+            <p className="text-sm font-semibold">Toumaï AI Plus</p>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+            Plus de puissance, plus d'outils et plus de liberté.
+          </p>
+          <Link
+            href="/#offres"
+            className="mt-3 inline-block rounded-full px-4 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+            style={{ background: "var(--primary)" }}
+          >
+            Découvrir les offres
+          </Link>
+        </div>
+      </aside>
+
+      {/* ── Contenu ── */}
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex select-none items-center justify-between bg-[var(--background)]/95 px-4 py-3 backdrop-blur md:px-8">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/chat"
+              draggable={false}
+              aria-label="Retour au chat"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-[var(--hover)]"
+            >
+              <BackIcon />
+            </Link>
+            <h1 className="landing-serif text-lg tracking-tight">Paramètres</h1>
+          </div>
+          <ThemeToggle />
+        </header>
+
+        {/* Mobile : identité + pills horizontales. */}
+        <div className="px-4 md:hidden">
+          <div className="mb-3 flex items-center gap-3 rounded-2xl bg-[var(--surface)] px-3.5 py-3">
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
               style={{ background: "linear-gradient(135deg, var(--primary), var(--thinking))" }}
@@ -182,79 +299,40 @@ export default function SettingsPage() {
               )}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
-                {!session
-                  ? "Connexion…"
-                  : session.is_guest
-                    ? "Session invité"
-                    : profile
-                      ? profile.full_name || "Mon compte"
-                      : "Connexion…"}
-              </p>
+              <p className="truncate text-sm font-semibold">{displayName}</p>
               <p className="truncate text-xs capitalize text-[var(--text-tertiary)]">
                 {!session ? "" : isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
               </p>
             </div>
           </div>
-
-          {/* Mobile : pills horizontales. Desktop : colonnes groupées. */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 md:flex-col md:gap-0 md:overflow-visible md:pb-0">
-            {GROUPS.map((group, gi) => (
-              <div key={group.label || `g${gi}`} className="contents md:block">
-                {group.label ? (
-                  <p className="hidden px-3 pb-1 pt-4 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)] first:pt-0 md:block">
-                    {group.label}
-                  </p>
-                ) : (
-                  <div className="my-3 hidden h-px bg-[var(--border)] md:block" aria-hidden="true" />
-                )}
-                {group.items.map((s) => {
-                  const active = section === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => setSection(s.id)}
-                      aria-current={active ? "page" : undefined}
-                      className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-2 text-left text-sm font-medium transition hover:bg-[var(--hover)] md:w-full"
-                      style={{
-                        background: active
-                          ? "color-mix(in srgb, var(--primary) 10%, transparent)"
-                          : undefined,
-                        color: active ? "var(--primary)" : "var(--text-secondary)",
-                      }}
-                    >
-                      <span className={active ? "" : "opacity-70"} aria-hidden="true">
-                        {s.icon}
-                      </span>
-                      {s.label}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-2">
+            {ALL_SECTIONS.map((s) => (
+              <NavItem key={s.id} s={s} />
             ))}
           </div>
-        </nav>
+        </div>
 
-        {/* Contenu — titre éditorial serif, transition douce entre sections. */}
-        <div key={section} className="min-w-0 flex-1 animate-fade-in pb-16">
-          <h2 className="landing-serif text-[26px] tracking-tight">{current.title}</h2>
-          <p className="mb-8 mt-1.5 max-w-lg text-sm leading-relaxed text-[var(--text-tertiary)]">
-            {current.sub}
-          </p>
+        <div key={section} className="animate-fade-in px-4 pb-16 pt-2 md:px-8 md:pt-6">
+          <div className="max-w-3xl">
+            <h2 className="landing-serif text-[26px] tracking-tight">{current.title}</h2>
+            <p className="mb-8 mt-1.5 max-w-lg text-sm leading-relaxed text-[var(--text-tertiary)]">
+              {current.sub}
+            </p>
 
-          {!session ? (
-            <div className="h-64 w-full animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden="true" />
-          ) : (
-            <>
-              {section === "general" && <GeneralSection />}
-              {section === "personalization" && <PersonalizationSection />}
-              {section === "appearance" && <AppearanceSection />}
-              {section === "voice" && <VoiceSection />}
-              {section === "notifications" && <NotificationsSection />}
-              {section === "connectors" && <ConnectorsTab />}
-              {section === "support" && <SupportTab />}
-            </>
-          )}
+            {!session ? (
+              <div className="h-64 w-full animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden="true" />
+            ) : (
+              <>
+                {section === "general" && <GeneralSection />}
+                {section === "personalization" && <PersonalizationSection />}
+                {section === "appearance" && <AppearanceSection />}
+                {section === "voice" && <VoiceSection />}
+                {section === "notifications" && <NotificationsSection />}
+                {section === "connectors" && <ConnectorsTab />}
+                {section === "support" && <SupportTab />}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -267,6 +345,30 @@ function BackIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="shrink-0 text-[var(--text-tertiary)]"
+    >
+      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />
     </svg>
   );
 }

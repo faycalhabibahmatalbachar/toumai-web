@@ -141,7 +141,7 @@ export function GeneralSection() {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onAvatarPick} />
           </div>
         </Row>
-        <Row label="Nom affiché" description={saved ? "Enregistré." : undefined}>
+        <Row label="Nom affiché" description={saved ? "Enregistré." : "Le nom que les autres voient."}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -151,12 +151,12 @@ export function GeneralSection() {
             className="w-52 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)] disabled:opacity-50"
           />
         </Row>
-        <Row label="Adresse e-mail">
+        <Row label="Adresse e-mail" description="Utilisée pour la connexion et les notifications.">
           <span className="text-sm text-[var(--text-secondary)]">
             {isGuest ? "Session invité" : profile?.email ?? "—"}
           </span>
         </Row>
-        <Row label="Formule">
+        <Row label="Formule" description="Votre abonnement actuel.">
           <span
             className="rounded-full px-2.5 py-0.5 text-xs font-medium capitalize"
             style={{
@@ -171,18 +171,18 @@ export function GeneralSection() {
 
       {usage && (
         <Panel title="Utilisation">
-          <Row label="Aujourd'hui">
-            <span className="text-sm text-[var(--text-secondary)]">
-              {usage.requests_today.toLocaleString("fr-FR")} requêtes ·{" "}
-              {usage.tokens_today.toLocaleString("fr-FR")} tokens
-            </span>
-          </Row>
-          <Row label="Ce mois-ci">
-            <span className="text-sm text-[var(--text-secondary)]">
-              {usage.requests_month.toLocaleString("fr-FR")} requêtes ·{" "}
-              {usage.tokens_month.toLocaleString("fr-FR")} tokens
-            </span>
-          </Row>
+          <UsageRow
+            icon={<ChatBubbleIcon />}
+            label="Aujourd'hui"
+            description="Requêtes et tokens utilisés aujourd'hui."
+            value={`${usage.requests_today.toLocaleString("fr-FR")} requêtes · ${usage.tokens_today.toLocaleString("fr-FR")} tokens`}
+          />
+          <UsageRow
+            icon={<CalendarIcon />}
+            label="Ce mois-ci"
+            description="Requêtes et tokens utilisés ce mois."
+            value={`${usage.requests_month.toLocaleString("fr-FR")} requêtes · ${usage.tokens_month.toLocaleString("fr-FR")} tokens`}
+          />
         </Panel>
       )}
 
@@ -202,5 +202,61 @@ export function GeneralSection() {
 
       {error && <p className="text-sm text-[var(--error)]">{error}</p>}
     </div>
+  );
+}
+
+/** Rangée d'utilisation — icône dans une pastille, valeur à droite. */
+function UsageRow({
+  icon,
+  label,
+  description,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 border-t border-[var(--border)] px-5 py-4 first:border-t-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+            color: "var(--primary)",
+          }}
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{label}</p>
+          <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{description}</p>
+        </div>
+      </div>
+      <span className="shrink-0 text-sm text-[var(--text-secondary)]">{value}</span>
+    </div>
+  );
+}
+
+function ChatBubbleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
+    </svg>
   );
 }
