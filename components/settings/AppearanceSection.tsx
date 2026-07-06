@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getPreferences, updatePreferences, type Preferences } from "@/lib/preferences-api";
 import { useTheme } from "@/lib/theme-context";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { applyChatFontSize } from "@/lib/ui-prefs";
 import { Panel, Row, Segmented } from "./Rows";
 
 const FONT_SIZES: { value: Preferences["font_size"]; label: string }[] = [
@@ -66,7 +67,10 @@ export function AppearanceSection() {
           <Segmented
             options={FONT_SIZES}
             value={prefs?.font_size ?? "medium"}
-            onChange={(v) => save({ font_size: v })}
+            onChange={(v) => {
+              applyChatFontSize(v); // effet immédiat, sans attendre le serveur
+              save({ font_size: v });
+            }}
             disabled={!prefs}
           />
         </Row>

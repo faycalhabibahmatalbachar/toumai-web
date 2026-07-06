@@ -180,17 +180,6 @@ export function GeneralSection() {
             {isGuest ? "Session invité" : profile?.email ?? "—"}
           </span>
         </Row>
-        <Row label="Formule" description="Votre abonnement actuel.">
-          <span
-            className="rounded-full px-2.5 py-0.5 text-xs font-medium capitalize"
-            style={{
-              background: "color-mix(in srgb, var(--primary) 14%, transparent)",
-              color: "var(--primary-light)",
-            }}
-          >
-            {profile?.plan ?? "free"}
-          </span>
-        </Row>
       </Panel>
 
       {usage && (

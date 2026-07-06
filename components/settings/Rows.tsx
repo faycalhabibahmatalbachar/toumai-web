@@ -51,6 +51,65 @@ export function Row({
   );
 }
 
+/** Interrupteur « Pro » — état explicite et contrasté : libellé Actif/Inactif
+ * + rail accent avec coche dans le pouce quand c'est activé. */
+export function CxSwitch({
+  checked,
+  label,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-2.5">
+      <span
+        className="w-[42px] text-right text-[11px] font-semibold"
+        style={{ color: checked ? "var(--cx-success-text)" : "var(--cx-text-faint)" }}
+        aria-hidden="true"
+      >
+        {checked ? "Actif" : "Inactif"}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className="relative h-[26px] w-[46px] rounded-full border transition-colors disabled:opacity-40"
+        style={
+          checked
+            ? { background: "var(--cx-accent)", borderColor: "var(--cx-accent)" }
+            : { background: "var(--cx-input)", borderColor: "var(--cx-border-strong)" }
+        }
+      >
+        <span
+          className="absolute top-1/2 flex h-[20px] w-[20px] -translate-y-1/2 items-center justify-center rounded-full bg-white transition-all"
+          style={{
+            left: checked ? "23px" : "2px",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+            color: checked ? "var(--cx-accent)" : "var(--cx-text-faint)",
+          }}
+        >
+          {checked ? (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2">
+              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <path d="M5 12h14" strokeLinecap="round" />
+            </svg>
+          )}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 /** Contrôle segmenté — choix exclusif compact (ton, thème, taille…). */
 export function Segmented<T extends string>({
   options,

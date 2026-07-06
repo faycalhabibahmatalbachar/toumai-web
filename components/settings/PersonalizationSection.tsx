@@ -62,13 +62,6 @@ export function PersonalizationSection() {
   return (
     <div>
       <Panel title="Assistant">
-        <Row label="Nom de l'assistant" description="Comment l'assistant doit-il s'appeler ?">
-          <input
-            defaultValue={prefs.ai_name}
-            onBlur={(e) => e.target.value.trim() && save({ ai_name: e.target.value.trim() })}
-            className="w-52 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]"
-          />
-        </Row>
         <Row label="Ton des réponses" description="Style d'écriture par défaut.">
           <Segmented
             options={TONES}

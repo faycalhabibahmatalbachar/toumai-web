@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { getPreferences, updatePreferences, type Preferences } from "@/lib/preferences-api";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
-import { Panel, Row } from "./Rows";
+import {
+  enableWebNotifications,
+  getWebNotifState,
+  isWebNotifEnabled,
+  notify,
+  setWebNotifEnabled,
+  type WebNotifState,
+} from "@/lib/web-notifications";
+import { CxSwitch, Panel, Row } from "./Rows";
 
 export function NotificationsSection() {
   const [prefs, setPrefs] = useState<Preferences | null>(() => cacheSeed<Preferences>("user:prefs"));
@@ -39,45 +47,102 @@ export function NotificationsSection() {
   }
 
   if (!prefs) {
-    return <div className="h-48 w-full animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden="true" />;
+    return <div className="h-48 w-full animate-pulse rounded-[14px] bg-[var(--cx-surface)]" aria-hidden="true" />;
   }
 
   return (
     <div>
-      <Panel>
+      <Panel title="Cet appareil">
+        <WebNotifRow />
+      </Panel>
+
+      <Panel title="Ce que Toumaï AI peut signaler">
         <Row
           label="Suggestions proactives"
           description="Toumaï AI vous propose des idées selon le contexte."
         >
-          <Switch checked={prefs.notif_suggestions} onChange={(v) => save({ notif_suggestions: v })} />
+          <CxSwitch
+            checked={prefs.notif_suggestions}
+            label="Suggestions proactives"
+            onChange={(v) => save({ notif_suggestions: v })}
+          />
         </Row>
         <Row label="Auto-pilote WhatsApp" description="Alertes liées aux réponses automatiques.">
-          <Switch checked={prefs.notif_wa} onChange={(v) => save({ notif_wa: v })} />
+          <CxSwitch
+            checked={prefs.notif_wa}
+            label="Auto-pilote WhatsApp"
+            onChange={(v) => save({ notif_wa: v })}
+          />
         </Row>
         <Row label="Agenda" description="Rappels d'événements Google Agenda.">
-          <Switch checked={prefs.notif_calendar} onChange={(v) => save({ notif_calendar: v })} />
+          <CxSwitch
+            checked={prefs.notif_calendar}
+            label="Agenda"
+            onChange={(v) => save({ notif_calendar: v })}
+          />
         </Row>
       </Panel>
 
-      {error && <p className="text-sm text-[var(--error)]">{error}</p>}
+      {error && <p className="text-sm text-[var(--cx-error-text)]">{error}</p>}
     </div>
   );
 }
 
-function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+/** Notifications du navigateur — même moteur que le connecteur « Notifications
+ * web » de l'onglet Connecteurs : permission navigateur + préférence locale. */
+function WebNotifRow() {
+  const [perm, setPerm] = useState<WebNotifState>("default");
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setPerm(getWebNotifState());
+    setEnabled(isWebNotifEnabled());
+  }, []);
+
+  async function toggle(v: boolean) {
+    if (!v) {
+      setWebNotifEnabled(false);
+      setEnabled(false);
+      return;
+    }
+    setBusy(true);
+    const res = await enableWebNotifications();
+    setPerm(res);
+    const on = res === "granted";
+    setEnabled(on);
+    if (on) notify("Toumaï AI", "Les notifications sont activées — vous serez prévenu ici.");
+    setBusy(false);
+  }
+
+  const description =
+    perm === "unsupported"
+      ? "Votre navigateur ne prend pas en charge les notifications."
+      : perm === "denied"
+        ? "Bloquées par le navigateur — réautorisez le site dans ses réglages."
+        : "Recevez les alertes ci-dessous même quand l'onglet est en arrière-plan.";
+
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="relative h-6 w-11 shrink-0 rounded-full transition"
-      style={{ background: checked ? "var(--primary)" : "var(--border)" }}
-    >
-      <span
-        className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform"
-        style={{ transform: checked ? "translateX(22px)" : "translateX(2px)" }}
-      />
-    </button>
+    <Row label="Notifications du navigateur" description={description}>
+      {perm === "unsupported" || perm === "denied" ? (
+        <span
+          className="rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+          style={{
+            color: "var(--cx-error-text)",
+            background: "var(--cx-error-bg)",
+            borderColor: "var(--cx-error-border)",
+          }}
+        >
+          {perm === "denied" ? "Bloquées" : "Non supportées"}
+        </span>
+      ) : (
+        <CxSwitch
+          checked={enabled}
+          label="Notifications du navigateur"
+          onChange={toggle}
+          disabled={busy}
+        />
+      )}
+    </Row>
   );
 }

@@ -100,6 +100,9 @@ export function VoiceModeOverlay({
   const [error, setError] = useState<string | null>(null);
   const [voice, setVoice] = useState<string | undefined>(undefined);
   const [slowHint, setSlowHint] = useState(false);
+  // Vitesse de lecture (préférence utilisateur) — appliquée via playbackRate,
+  // indépendante du moteur TTS.
+  const speedRef = useRef(1.0);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -124,7 +127,10 @@ export function VoiceModeOverlay({
 
   useEffect(() => {
     getPreferences()
-      .then((p) => setVoice(p.tts_voice))
+      .then((p) => {
+        setVoice(p.tts_voice);
+        if (p.tts_speed) speedRef.current = p.tts_speed;
+      })
       .catch(() => {});
   }, []);
 
@@ -257,6 +263,7 @@ export function VoiceModeOverlay({
   function playAudio(audioBase64: string, mimeType: string): Promise<void> {
     return new Promise((resolve) => {
       const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
+      audio.playbackRate = speedRef.current;
       audioElRef.current = audio;
       audio.onended = () => resolve();
       audio.onerror = () => resolve();

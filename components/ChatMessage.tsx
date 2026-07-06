@@ -351,7 +351,7 @@ export function ChatMessage({
     return (
       <div className="group flex animate-fade-in justify-end">
         <div className="flex max-w-[85%] flex-col items-end gap-1 sm:max-w-[70%]">
-          <div className="rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap" style={{ background: "var(--card)" }}>
+          <div className="rounded-3xl px-4 py-2.5 text-[length:var(--chat-fs,15px)] leading-relaxed whitespace-pre-wrap" style={{ background: "var(--card)" }}>
             {message.content}
           </div>
           {editable && onEdit && (
@@ -370,7 +370,7 @@ export function ChatMessage({
 
   return (
     <div className="animate-fade-in">
-      <div className="max-w-[80ch] text-[15px] leading-relaxed">
+      <div className="max-w-[80ch] text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && !message.content ? (
           <TypingDots />
         ) : (

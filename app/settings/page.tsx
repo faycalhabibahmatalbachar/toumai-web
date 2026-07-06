@@ -215,7 +215,7 @@ export default function SettingsPage() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{displayName}</p>
             <p className="truncate text-xs capitalize text-[var(--text-tertiary)]">
-              {!session ? "" : isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
+              {!session ? "" : isGuest ? "Invité" : "Compte personnel"}
             </p>
           </div>
           <ChevronIcon />
@@ -291,7 +291,7 @@ export default function SettingsPage() {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{displayName}</p>
               <p className="truncate text-xs capitalize text-[var(--text-tertiary)]">
-                {!session ? "" : isGuest ? "Invité" : `Formule ${profile?.plan ?? "free"}`}
+                {!session ? "" : isGuest ? "Invité" : "Compte personnel"}
               </p>
             </div>
           </div>

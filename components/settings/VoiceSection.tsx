@@ -72,6 +72,10 @@ export function VoiceSection() {
     setError(null);
     try {
       await updatePreferences({ tts_speed: value });
+      const cached = cacheSeed<Preferences>("user:prefs");
+      if (cached) cacheWrite("user:prefs", { ...cached, tts_speed: value });
+      // Si un échantillon joue, on ajuste sa vitesse immédiatement.
+      if (audioRef.current) audioRef.current.playbackRate = value;
     } catch (err) {
       setSpeed(prev);
       setError(err instanceof Error ? err.message : "Échec de l'enregistrement");
@@ -91,6 +95,8 @@ export function VoiceSection() {
     try {
       const { audio_base64, mime_type } = await synthesizeSpeech(voice.sample, voice.id);
       const audio = new Audio(`data:${mime_type};base64,${audio_base64}`);
+      // La vitesse choisie s'applique réellement — l'échantillon la reflète.
+      audio.playbackRate = speed;
       audioRef.current = audio;
       setPlaying(voice.id);
       audio.onended = () => setPlaying(null);

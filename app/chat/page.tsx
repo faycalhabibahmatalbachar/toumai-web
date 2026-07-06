@@ -19,6 +19,7 @@ import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { applyChatFontSize } from "@/lib/ui-prefs";
 
 /** Synchronise l'URL avec la conversation active (/chat?c=<id>) — chaque
  * conversation a son adresse, ouvrable/partageable comme sur Gemini. */
@@ -176,12 +177,16 @@ export default function ChatPage() {
       .catch(() => {});
   }, [session]);
 
-  // Charge la langue préférée une fois la session prête.
+  // Charge la langue préférée + applique la taille de texte (seedée depuis le
+  // cache pour un rendu correct dès le premier écran).
   useEffect(() => {
+    applyChatFontSize(cacheSeed<{ font_size?: string }>("user:prefs")?.font_size);
     if (!session) return;
     getPreferences()
       .then((p) => {
         if (p.ai_language) preferredLangRef.current = p.ai_language;
+        applyChatFontSize(p.font_size);
+        cacheWrite("user:prefs", p);
       })
       .catch(() => {});
   }, [session]);
