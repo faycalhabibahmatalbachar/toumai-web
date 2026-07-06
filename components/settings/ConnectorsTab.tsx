@@ -6,7 +6,7 @@
  * dans .cx-scope (globals.css) — spec « Connecteurs Pro.dc.html ». */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Instrument_Sans, Newsreader } from "next/font/google";
+import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 import {
   connectMail,
   disconnectGoogle,
@@ -23,18 +23,6 @@ import {
 } from "@/lib/connectors-api";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
 import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
-
-const displayFont = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--cx-font-display",
-});
-
-const uiFont = Instrument_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--cx-font-ui",
-});
 
 /* ---------- Types & configuration ---------- */
 
@@ -172,16 +160,13 @@ export function ConnectorsTab() {
   }
 
   return (
-    <div
-      className={`cx-scope ${displayFont.variable} ${uiFont.variable}`}
-      style={{ fontFamily: "var(--cx-font-ui), system-ui, sans-serif" }}
-    >
+    <div className={cxScopeClass} style={cxScopeStyle}>
       {/* ── En-tête : H1 display + bouton primaire ── */}
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2
             className="text-[30px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--cx-text-primary)] sm:text-[38px]"
-            style={{ fontFamily: "var(--cx-font-display), Georgia, serif" }}
+            style={cxDisplayStyle}
           >
             Connecteurs &amp; Intégrations
           </h2>
@@ -420,7 +405,7 @@ function Stat({ n, label, tone }: { n: number; label: string; tone?: string }) {
     <div className="flex items-baseline gap-2">
       <span
         className="text-[26px] font-medium leading-none tabular-nums"
-        style={{ fontFamily: "var(--cx-font-display), Georgia, serif", color: tone ?? "var(--cx-text-primary)" }}
+        style={{ ...cxDisplayStyle, color: tone ?? "var(--cx-text-primary)" }}
       >
         {n}
       </span>

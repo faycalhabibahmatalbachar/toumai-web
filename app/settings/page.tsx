@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getProfile, type UserProfile } from "@/lib/user-api";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
+import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "@/components/settings/cx-fonts";
 import { GeneralSection } from "@/components/settings/GeneralSection";
 import { PersonalizationSection } from "@/components/settings/PersonalizationSection";
 import { AppearanceSection } from "@/components/settings/AppearanceSection";
@@ -294,31 +295,39 @@ export default function SettingsPage() {
         </div>
 
         <div key={section} className="animate-fade-in px-4 pb-16 pt-2 md:px-8 md:pt-6">
-          {/* Connecteurs = mise en page large (liste groupée + rail droit),
-              avec son propre en-tête display — les autres sections gardent
-              la colonne étroite et le titre du shell. */}
-          <div className={section === "connectors" ? "max-w-[1240px]" : "max-w-3xl"}>
+          {/* Langage « Pro » sur toute la page : jetons cx + fontes display/UI,
+              conteneur large pour exploiter l'écran. Les Connecteurs rendent
+              leur propre en-tête (bouton Ajouter) ; les autres sections
+              reçoivent le titre display du shell puis s'organisent en deux
+              colonnes (les Panels sont insécables via break-inside-avoid). */}
+          <div className={`${cxScopeClass} max-w-[1240px]`} style={cxScopeStyle}>
             {section !== "connectors" && (
-              <>
-                <h2 className="landing-serif text-[26px] tracking-tight">{current.title}</h2>
-                <p className="mb-8 mt-1.5 max-w-lg text-sm leading-relaxed text-[var(--text-tertiary)]">
+              <div className="mb-7">
+                <h2
+                  className="text-[30px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--cx-text-primary)] sm:text-[38px]"
+                  style={cxDisplayStyle}
+                >
+                  {current.title}
+                </h2>
+                <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--cx-text-muted)]">
                   {current.sub}
                 </p>
-              </>
+              </div>
             )}
 
             {!session ? (
-              <div className="h-64 w-full animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden="true" />
+              <div className="h-64 w-full animate-pulse rounded-2xl bg-[var(--cx-surface)]" aria-hidden="true" />
+            ) : section === "connectors" ? (
+              <ConnectorsTab />
             ) : (
-              <>
+              <div className="xl:columns-2 xl:gap-7">
                 {section === "general" && <GeneralSection />}
                 {section === "personalization" && <PersonalizationSection />}
                 {section === "appearance" && <AppearanceSection />}
                 {section === "voice" && <VoiceSection />}
                 {section === "notifications" && <NotificationsSection />}
-                {section === "connectors" && <ConnectorsTab />}
                 {section === "support" && <SupportTab />}
-              </>
+              </div>
             )}
           </div>
         </div>

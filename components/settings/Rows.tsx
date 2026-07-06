@@ -2,17 +2,19 @@
 
 import { type ReactNode } from "react";
 
-/** Panneau de réglages — style Claude : intitulé serif hors du cadre, carte
- * plate à liseré fin, rangées séparées par des hairlines. */
+/** Panneau de réglages — langage « Pro » : label de groupe uppercase hors du
+ * cadre, carte plate radius 14 à liseré fin, rangées séparées par hairlines.
+ * `break-inside-avoid` : les sections s'organisent en colonnes sur écran
+ * large sans qu'un panneau soit coupé. */
 export function Panel({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <section className="mb-8">
+    <section className="mb-6 break-inside-avoid">
       {title && (
-        <h3 className="landing-serif mb-2.5 px-0.5 text-[17px] tracking-tight text-[var(--text-primary)]">
+        <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--cx-text-label)]">
           {title}
-        </h3>
+        </p>
       )}
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      <div className="overflow-hidden rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
         {children}
       </div>
     </section>
@@ -34,14 +36,14 @@ export function Row({
 }) {
   return (
     <div
-      className={`border-t border-[var(--border)] px-5 py-4 first:border-t-0 ${
+      className={`border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 ${
         stacked ? "" : "flex flex-wrap items-center justify-between gap-x-6 gap-y-3"
       }`}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
+        <p className="text-sm font-medium text-[var(--cx-text-primary)]">{label}</p>
         {description && (
-          <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-tertiary)]">{description}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-[var(--cx-text-muted)]">{description}</p>
         )}
       </div>
       <div className={stacked ? "mt-3" : "flex shrink-0 items-center gap-2"}>{children}</div>
@@ -62,7 +64,7 @@ export function Segmented<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex gap-0.5 rounded-full border border-[var(--border)] bg-[var(--background)] p-0.5">
+    <div className="flex gap-1 rounded-[10px] border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] p-1">
       {options.map((o) => {
         const active = value === o.value;
         return (
@@ -71,14 +73,15 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.value)}
             disabled={disabled}
             aria-pressed={active}
-            className="rounded-full px-3.5 py-1.5 text-xs font-medium transition disabled:opacity-40"
+            className="rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40"
             style={
               active
                 ? {
-                    background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                    color: "var(--primary)",
+                    background: "var(--cx-surface)",
+                    color: "var(--cx-text-primary)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
                   }
-                : { color: "var(--text-secondary)" }
+                : { color: "var(--cx-text-muted)" }
             }
           >
             {o.label}
