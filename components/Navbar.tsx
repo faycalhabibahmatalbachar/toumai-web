@@ -9,6 +9,9 @@ import { Logo } from "./Logo";
  * (ivoire/charbon chaud), volontairement distincte du violet de l'app. */
 export function Navbar() {
   const { session, logout } = useAuth();
+  // Une session invité n'est PAS un utilisateur connecté : on lui propose
+  // Connexion / Inscription, jamais « Déconnexion ».
+  const authed = Boolean(session && !session.is_guest);
 
   return (
     <header
@@ -45,7 +48,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-3 text-sm">
           <ThemeToggle />
-          {session ? (
+          {authed ? (
             <>
               <button
                 onClick={logout}
@@ -69,7 +72,14 @@ export function Navbar() {
                 className="hidden px-2 py-2 transition hover:opacity-70 sm:block"
                 style={{ color: "var(--landing-muted)" }}
               >
-                Se connecter
+                Connexion
+              </Link>
+              <Link
+                href="/register"
+                className="hidden rounded-full border px-4 py-2 font-medium transition hover:opacity-80 sm:block"
+                style={{ borderColor: "var(--landing-line)", color: "var(--landing-ink)" }}
+              >
+                Inscription
               </Link>
               <Link
                 href="/chat"

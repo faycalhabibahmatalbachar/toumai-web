@@ -12,6 +12,7 @@ import {
 } from "@/lib/user-api";
 import { useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
+import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
 import { Panel, Row } from "./Rows";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -19,10 +20,16 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 export function GeneralSection() {
   const { session, logout } = useAuth();
   const isGuest = Boolean(session?.is_guest);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [usage, setUsage] = useState<UsageStats | null>(null);
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(true);
+  // Seed depuis le cache persistant : la section s'affiche instantanément,
+  // puis se revalide en arrière-plan.
+  const [profile, setProfile] = useState<UserProfile | null>(() =>
+    cacheSeed<UserProfile>("user:profile"),
+  );
+  const [usage, setUsage] = useState<UsageStats | null>(() => cacheSeed<UsageStats>("user:usage"));
+  const [name, setName] = useState(() =>
+    session?.is_guest ? "" : (cacheSeed<UserProfile>("user:profile")?.full_name ?? ""),
+  );
+  const [loading, setLoading] = useState(profile === null);
   const [savingName, setSavingName] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +40,15 @@ export function GeneralSection() {
     Promise.all([getProfile(), getUsage()])
       .then(([p, u]) => {
         setProfile(p);
+        cacheWrite("user:profile", p);
         setName(session?.is_guest ? "" : (p.full_name ?? ""));
         setUsage(u);
+        cacheWrite("user:usage", u);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"))
+      .catch((err) => {
+        // Échec réseau : on garde les données en cache si présentes.
+        if (!profile) setError(err instanceof Error ? err.message : "Chargement impossible");
+      })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -48,7 +60,11 @@ export function GeneralSection() {
     setError(null);
     try {
       await updateFullName(trimmed);
-      setProfile((p) => (p ? { ...p, full_name: trimmed } : p));
+      setProfile((p) => {
+        const next = p ? { ...p, full_name: trimmed } : p;
+        if (next) cacheWrite("user:profile", next);
+        return next;
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -76,7 +92,11 @@ export function GeneralSection() {
         reader.readAsDataURL(file);
       });
       const res = await updateAvatar(dataUrl);
-      setProfile((p) => (p ? { ...p, avatar_url: res.avatar_url } : p));
+      setProfile((p) => {
+        const next = p ? { ...p, avatar_url: res.avatar_url } : p;
+        if (next) cacheWrite("user:profile", next);
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'envoi");
     } finally {
@@ -89,7 +109,11 @@ export function GeneralSection() {
     setError(null);
     try {
       await removeAvatar();
-      setProfile((p) => (p ? { ...p, avatar_url: null } : p));
+      setProfile((p) => {
+        const next = p ? { ...p, avatar_url: null } : p;
+        if (next) cacheWrite("user:profile", next);
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la suppression");
     } finally {
@@ -187,17 +211,38 @@ export function GeneralSection() {
       )}
 
       <Panel title="Compte">
-        <Row
-          label="Se déconnecter"
-          description={isGuest ? "Termine la session invité en cours." : "Vous pourrez vous reconnecter à tout moment."}
-        >
-          <button
-            onClick={logout}
-            className="rounded-lg border border-[var(--border)] px-3.5 py-1.5 text-xs font-medium transition hover:border-[var(--error)] hover:text-[var(--error)]"
+        {isGuest ? (
+          // Session invité : proposer la connexion, pas la déconnexion.
+          <Row
+            label="Se connecter"
+            description="Créez un compte ou connectez-vous pour retrouver vos conversations partout."
           >
-            Déconnexion
-          </button>
-        </Row>
+            <div className="flex items-center gap-2">
+              <a
+                href="/login"
+                className="rounded-[9px] px-3.5 py-1.5 text-xs font-semibold text-[#FFF6F1] transition hover:bg-[var(--cx-accent-hover)]"
+                style={{ background: "var(--cx-accent)" }}
+              >
+                Connexion
+              </a>
+              <a
+                href="/register"
+                className="rounded-[9px] border border-[var(--cx-border-strong)] px-3.5 py-1.5 text-xs font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)]"
+              >
+                Inscription
+              </a>
+            </div>
+          </Row>
+        ) : (
+          <Row label="Se déconnecter" description="Vous pourrez vous reconnecter à tout moment.">
+            <button
+              onClick={logout}
+              className="rounded-[9px] border border-[var(--cx-border-strong)] px-3.5 py-1.5 text-xs font-medium text-[var(--cx-text-secondary)] transition hover:border-[var(--cx-error)] hover:text-[var(--cx-error-text)]"
+            >
+              Déconnexion
+            </button>
+          </Row>
+        )}
       </Panel>
 
       {error && <p className="text-sm text-[var(--error)]">{error}</p>}

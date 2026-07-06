@@ -18,6 +18,7 @@ import {
   register as apiRegister,
   type TokenPayload,
 } from "./api";
+import { cachePurge } from "./swr-cache";
 
 interface AuthState {
   session: TokenPayload | null;
@@ -47,11 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithPassword = useCallback(async (email: string, password: string) => {
     const s = await apiLogin(email, password);
+    cachePurge(); // changement d'identité : jamais servir le cache d'un autre compte
     setSession(s);
   }, []);
 
   const loginWithGoogle = useCallback(async (idToken: string) => {
     const s = await apiLoginWithGoogle(idToken);
+    cachePurge();
     setSession(s);
   }, []);
 
@@ -59,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string, name: string) => {
       const s = await apiRegister(email, password, name);
       if (s) {
+        cachePurge();
         setSession(s);
         return true;
       }
@@ -69,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearSession();
+    cachePurge(); // les données mises en cache appartiennent à la session close
     setSession(null);
   }, []);
 

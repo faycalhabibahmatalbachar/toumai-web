@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getPreferences, updatePreferences, type Preferences } from "@/lib/preferences-api";
+import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
 import { Panel, Row, Segmented } from "./Rows";
 
 const TONES: { value: Preferences["ai_tone"]; label: string }[] = [
@@ -19,23 +20,33 @@ const LANGUAGES: { value: string; label: string }[] = [
 ];
 
 export function PersonalizationSection() {
-  const [prefs, setPrefs] = useState<Preferences | null>(null);
+  const [prefs, setPrefs] = useState<Preferences | null>(() => cacheSeed<Preferences>("user:prefs"));
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     getPreferences()
-      .then(setPrefs)
-      .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"));
+      .then((p) => {
+        setPrefs(p);
+        cacheWrite("user:prefs", p);
+      })
+      .catch((err) =>
+        setPrefs((c) => {
+          if (!c) setError(err instanceof Error ? err.message : "Chargement impossible");
+          return c;
+        }),
+      );
   }, []);
 
   async function save(patch: Partial<Preferences>) {
     if (!prefs) return;
     const prev = prefs;
-    setPrefs({ ...prefs, ...patch });
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
     setError(null);
     try {
       await updatePreferences(patch);
+      cacheWrite("user:prefs", next);
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (err) {

@@ -365,6 +365,26 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
         </nav>
 
         {collapsed && <div className="hidden flex-1 md:block" aria-hidden="true" />}
+        {/* Session invité : proposer la connexion directement depuis la sidebar. */}
+        {session?.is_guest && (
+          <div className={`px-3 pb-1 ${collapsed ? "md:hidden" : ""}`}>
+            <Link
+              href="/login"
+              onClick={onClose}
+              className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+              style={{ background: "var(--primary)" }}
+            >
+              Se connecter
+            </Link>
+            <Link
+              href="/register"
+              onClick={onClose}
+              className="mt-1.5 flex w-full items-center justify-center rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
+            >
+              Créer un compte
+            </Link>
+          </div>
+        )}
         {/* Pied de sidebar — la carte profil est purement informative ; seule
             l'icône engrenage (cible de clic dédiée, avec son propre halo de
             survol) ouvre les paramètres. Pas de trait séparateur au-dessus. */}

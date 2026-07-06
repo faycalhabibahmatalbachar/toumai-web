@@ -18,6 +18,12 @@ const SPEAKING_MARGIN = 0.13;
 const SILENCE_MS_TO_STOP = 1100;
 const MIN_RECORD_MS = 500;
 const MAX_RECORD_MS = 20000; // garde-fou : ne jamais rester bloqué en écoute
+// Une vraie prise de parole = niveau au-dessus du seuil pendant une durée
+// SOUTENUE, pas un simple pic (toux, clic, souffle). Sans cela, 2-3 s de
+// silence après un bruit bref suffisaient à envoyer du vide à la
+// transcription — et l'IA « répondait » à rien.
+const SUSTAINED_SPEECH_MS = 280;
+const MIN_TOTAL_SPEECH_MS = 400;
 // Le MediaRecorder ne livrait un blob qu'à l'arrêt (aucun timeslice), donc
 // chunksRef restait vide pendant toute l'écoute — la condition qui exigeait
 // des chunks déjà présents avant d'auto-arrêter ne pouvait donc jamais être
@@ -43,6 +49,12 @@ const HALLUCINATION_PATTERNS = [
   /^(salut|bonjour|allo|coucou)[.!?\s]*$/i,
   /^merci[.!?\s]*$/i,
 ];
+
+/** Corrections de prononciation pour la synthèse vocale — le nom du créateur
+ * se prononce « Fayssal », pas « Faïkal ». */
+function fixPronunciation(text: string): string {
+  return text.replace(/fay[cç]al/gi, (m) => (m[0] === "F" ? "Fayssal" : "fayssal"));
+}
 
 /** Retire la syntaxe markdown avant la synthèse vocale — sinon la voix lit
  * littéralement « astérisque astérisque », les dièses des titres, etc. */
@@ -97,6 +109,11 @@ export function VoiceModeOverlay({
   const startedAtRef = useRef(0);
   const silenceSinceRef = useRef<number | null>(null);
   const hasSpokenRef = useRef(false);
+  // Détection de parole soutenue : début du dépassement en cours + cumul de
+  // parole réelle sur tout l'enregistrement.
+  const speechRunStartRef = useRef<number | null>(null);
+  const totalSpeechMsRef = useRef(0);
+  const lastFrameAtRef = useRef(0);
   const noiseFloorRef = useRef<number | null>(null);
   const calibrationSamplesRef = useRef<number[]>([]);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,25 +157,37 @@ export function VoiceModeOverlay({
     }
 
     const speakingThreshold = noiseFloorRef.current + SPEAKING_MARGIN;
-    const isSpeaking = avgLevel > speakingThreshold;
+    const now = Date.now();
+    const frameMs = lastFrameAtRef.current ? Math.min(now - lastFrameAtRef.current, 200) : 0;
+    lastFrameAtRef.current = now;
+    const isAboveThreshold = avgLevel > speakingThreshold;
 
-    if (isSpeaking) {
-      hasSpokenRef.current = true;
+    if (isAboveThreshold) {
+      if (speechRunStartRef.current === null) speechRunStartRef.current = now;
+      totalSpeechMsRef.current += frameMs;
+      // Un pic isolé (toux, clic) ne compte pas : il faut un dépassement
+      // SOUTENU avant de considérer que l'utilisateur a parlé.
+      if (now - speechRunStartRef.current >= SUSTAINED_SPEECH_MS) {
+        hasSpokenRef.current = true;
+      }
       silenceSinceRef.current = null;
-    } else if (hasSpokenRef.current) {
-      if (silenceSinceRef.current === null) silenceSinceRef.current = Date.now();
-      else if (
-        elapsed > MIN_RECORD_MS &&
-        Date.now() - silenceSinceRef.current > SILENCE_MS_TO_STOP &&
-        chunksRef.current.length > 0
-      ) {
-        stopListening();
+    } else {
+      speechRunStartRef.current = null;
+      if (hasSpokenRef.current) {
+        if (silenceSinceRef.current === null) silenceSinceRef.current = now;
+        else if (
+          elapsed > MIN_RECORD_MS &&
+          now - silenceSinceRef.current > SILENCE_MS_TO_STOP &&
+          chunksRef.current.length > 0
+        ) {
+          stopListening();
+        }
       }
     }
 
-    if (elapsed > MAX_RECORD_MS && chunksRef.current.length > 0) {
-      stopListening();
-    }
+    // Garde-fou : handleRecordingStopped ne transcrit que s'il y a eu une
+    // vraie prise de parole — sinon il relance simplement l'écoute.
+    if (elapsed > MAX_RECORD_MS) stopListening();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avgLevel, phase]);
 
@@ -180,6 +209,9 @@ export function VoiceModeOverlay({
     chunksRef.current = [];
     silenceSinceRef.current = null;
     hasSpokenRef.current = false;
+    speechRunStartRef.current = null;
+    totalSpeechMsRef.current = 0;
+    lastFrameAtRef.current = 0;
     noiseFloorRef.current = null;
     calibrationSamplesRef.current = [];
     startedAtRef.current = Date.now();
@@ -235,6 +267,13 @@ export function VoiceModeOverlay({
   async function handleRecordingStopped() {
     if (closedRef.current) return;
     if (!chunksRef.current.length) return;
+    // COMPRENDRE avant de répondre : sans prise de parole réelle et soutenue,
+    // on ne transcrit rien — on rouvre simplement l'écoute. C'est ce qui
+    // empêche l'IA de « répondre » après 2-3 s de silence.
+    if (!hasSpokenRef.current || totalSpeechMsRef.current < MIN_TOTAL_SPEECH_MS) {
+      if (!closedRef.current) startListening();
+      return;
+    }
     const recordMs = Date.now() - startedAtRef.current;
     setPhase("processing");
     slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
@@ -257,7 +296,7 @@ export function VoiceModeOverlay({
       const audioQueue: Promise<{ audio_base64: string; mime_type: string } | null>[] = [];
 
       function flushSentence(sentence: string) {
-        const trimmed = stripMarkdownForSpeech(sentence);
+        const trimmed = fixPronunciation(stripMarkdownForSpeech(sentence));
         if (!trimmed) return;
         spokenAnything = true;
         audioQueue.push(synthesizeSpeech(trimmed, voice).catch(() => null));
@@ -335,7 +374,8 @@ export function VoiceModeOverlay({
       )}
       {phase === "speaking" && replyCaption && (
         <p className="max-w-md px-6 text-center text-sm text-[var(--text-secondary)]">
-          {replyCaption}
+          {/* Affichage débarrassé de la syntaxe markdown (astérisques, dièses…) */}
+          {stripMarkdownForSpeech(replyCaption)}
         </p>
       )}
       {error && (

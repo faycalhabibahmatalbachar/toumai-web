@@ -23,6 +23,14 @@ import {
 } from "@/lib/connectors-api";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
 import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
+import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import {
+  enableWebNotifications,
+  getWebNotifState,
+  isWebNotifEnabled,
+  notify,
+  setWebNotifEnabled,
+} from "@/lib/web-notifications";
 
 /* ---------- Types & configuration ---------- */
 
@@ -35,7 +43,7 @@ type RowStatus =
   | "unavailable"
   | "error";
 
-type ConnectorId = "whatsapp" | "mail" | "google" | "meteo";
+type ConnectorId = "whatsapp" | "mail" | "google" | "meteo" | "webnotif";
 type StatusFilter = "all" | "connected" | "inactive";
 type OnStatus = (s: RowStatus) => void;
 
@@ -44,12 +52,14 @@ const SEARCH_KEYWORDS: Record<ConnectorId, string> = {
   mail: "mail gmail e-mail email outlook imap smtp",
   google: "google agenda calendar calendrier événements",
   meteo: "météo meteo weather pluie température",
+  webnotif: "notifications web navigateur alertes push",
 };
 
 const GROUPS: { label: string; ids: ConnectorId[] }[] = [
   { label: "Communication", ids: ["whatsapp", "mail"] },
   { label: "Productivité", ids: ["google"] },
   { label: "Données en temps réel", ids: ["meteo"] },
+  { label: "Cet appareil", ids: ["webnotif"] },
 ];
 
 const BADGE: Record<
@@ -276,6 +286,11 @@ export function ConnectorsTab() {
             <Group label="Données en temps réel" hidden={!visible("meteo")}>
               <div hidden={!visible("meteo")}>
                 <MeteoRow onStatus={reportStatus("meteo")} />
+              </div>
+            </Group>
+            <Group label="Cet appareil" hidden={!visible("webnotif")}>
+              <div hidden={!visible("webnotif")}>
+                <WebNotifRow onStatus={reportStatus("webnotif")} />
               </div>
             </Group>
 
@@ -516,10 +531,24 @@ function Row({
 
 function Kebab({ items }: { items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
+  // Position fixe calculée depuis le bouton : le menu échappe à
+  // l'overflow-hidden du groupe (sinon il serait coupé par le cadre).
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    }
+    setOpen((o) => !o);
+  }
+
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        ref={btnRef}
+        onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Plus d'options"
@@ -527,13 +556,13 @@ function Kebab({ items }: { items: MenuItem[] }) {
       >
         <DotsIcon />
       </button>
-      {open && (
+      {open && pos && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             role="menu"
-            className="absolute right-0 top-full z-20 mt-1.5 w-52 overflow-hidden rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] py-1"
-            style={{ boxShadow: "0 12px 32px rgba(0,0,0,0.45)" }}
+            className="fixed z-50 w-52 overflow-hidden rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] py-1"
+            style={{ top: pos.top, right: pos.right, boxShadow: "0 12px 32px rgba(0,0,0,0.45)" }}
           >
             {items.map((it) => (
               <button
@@ -674,16 +703,23 @@ function ConfirmDialog({
 /* ---------- Connecteurs ---------- */
 
 function GoogleRow({ onStatus }: { onStatus: OnStatus }) {
-  const [connected, setConnected] = useState<boolean | null>(null);
+  // Seed depuis le cache persistant : statut affiché instantanément,
+  // revalidé en arrière-plan au montage.
+  const [connected, setConnected] = useState<boolean | null>(() => cacheSeed<boolean>("cx:google"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  function apply(v: boolean) {
+    setConnected(v);
+    cacheWrite("cx:google", v);
+  }
+
   function refresh() {
     return getGoogleStatus()
-      .then((s) => setConnected(s.connected))
-      .catch(() => setConnected(false));
+      .then((s) => apply(s.connected))
+      .catch(() => setConnected((c) => c ?? false));
   }
 
   useEffect(() => {
@@ -704,7 +740,7 @@ function GoogleRow({ onStatus }: { onStatus: OnStatus }) {
         attempts += 1;
         const s = await getGoogleStatus().catch(() => null);
         if (s?.connected) {
-          setConnected(true);
+          apply(true);
           setBusy(false);
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (attempts > 40) {
@@ -723,7 +759,7 @@ function GoogleRow({ onStatus }: { onStatus: OnStatus }) {
     setError(null);
     try {
       await disconnectGoogle();
-      setConnected(false);
+      apply(false);
       setConfirmOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la déconnexion");
@@ -787,7 +823,7 @@ function GoogleRow({ onStatus }: { onStatus: OnStatus }) {
 }
 
 function MailRow({ onStatus }: { onStatus: OnStatus }) {
-  const [status, setStatus] = useState<MailStatus | null>(null);
+  const [status, setStatus] = useState<MailStatus | null>(() => cacheSeed<MailStatus>("cx:mail"));
   const [form, setForm] = useState(false);
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
@@ -795,10 +831,15 @@ function MailRow({ onStatus }: { onStatus: OnStatus }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  function apply(s: MailStatus) {
+    setStatus(s);
+    cacheWrite("cx:mail", s);
+  }
+
   function refresh() {
     return getMailStatus()
-      .then(setStatus)
-      .catch(() => setStatus({ connected: false, email: null }));
+      .then(apply)
+      .catch(() => setStatus((c) => c ?? { connected: false, email: null }));
   }
 
   useEffect(() => {
@@ -811,7 +852,7 @@ function MailRow({ onStatus }: { onStatus: OnStatus }) {
     setError(null);
     try {
       const res = await connectMail(email, pwd);
-      setStatus({ connected: res.connected, email: res.email });
+      apply({ connected: res.connected, email: res.email });
       setForm(false);
       setPwd("");
     } catch (err) {
@@ -826,7 +867,7 @@ function MailRow({ onStatus }: { onStatus: OnStatus }) {
     setError(null);
     try {
       await disconnectMail();
-      setStatus({ connected: false, email: null });
+      apply({ connected: false, email: null });
       setConfirmOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la déconnexion");
@@ -928,7 +969,9 @@ function MailRow({ onStatus }: { onStatus: OnStatus }) {
 }
 
 function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
-  const [state, setState] = useState<WhatsAppState | null>(null);
+  const [state, setState] = useState<WhatsAppState | null>(() =>
+    cacheSeed<WhatsAppState>("cx:whatsapp"),
+  );
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [phone, setPhone] = useState("");
@@ -947,20 +990,25 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
     pollRef.current = setInterval(async () => {
       const s = await getWhatsAppStatus().catch(() => null);
       if (!s) return;
-      setState(s);
+      apply(s);
       if (s.status === "connected" || s.status === "disconnected" || s.status === "error") {
         stopPolling();
       }
     }, 3000);
   }
 
+  function apply(s: WhatsAppState) {
+    setState(s);
+    cacheWrite("cx:whatsapp", s);
+  }
+
   function refresh() {
     return getWhatsAppStatus()
       .then((s) => {
-        setState(s);
+        apply(s);
         if (s.status === "qr" || s.status === "pairing" || s.status === "connecting") startPolling();
       })
-      .catch(() => setState({ status: "disconnected" }));
+      .catch(() => setState((c) => c ?? { status: "disconnected" }));
   }
 
   useEffect(() => {
@@ -975,7 +1023,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
     setError(null);
     try {
       const s = await linkWhatsApp(phone.trim());
-      setState(s);
+      apply(s);
       startPolling();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la liaison");
@@ -1004,7 +1052,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
     setError(null);
     try {
       await disconnectWhatsApp();
-      setState({ status: "disconnected" });
+      apply({ status: "disconnected" });
       setLinkOpen(false);
       stopPolling();
       setConfirmOpen(false);
@@ -1141,6 +1189,80 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
   );
 }
 
+/** Notifications web — Toumaï AI prévient l'utilisateur sur cet appareil
+ * (fin de tâche agent, action WhatsApp, rappel d'agenda…). */
+function WebNotifRow({ onStatus }: { onStatus: OnStatus }) {
+  const [perm, setPerm] = useState<ReturnType<typeof getWebNotifState>>("default");
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setPerm(getWebNotifState());
+    setEnabled(isWebNotifEnabled());
+  }, []);
+
+  const status: RowStatus =
+    perm === "unsupported"
+      ? "unavailable"
+      : perm === "denied"
+        ? "error"
+        : enabled
+          ? "connected"
+          : "disconnected";
+  useEffect(() => {
+    onStatus(status);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  async function enable() {
+    setBusy(true);
+    const res = await enableWebNotifications();
+    setPerm(res);
+    const on = res === "granted";
+    setEnabled(on);
+    if (on) notify("Toumaï AI", "Les notifications sont activées — vous serez prévenu ici.");
+    setBusy(false);
+  }
+
+  function disable() {
+    setWebNotifEnabled(false);
+    setEnabled(false);
+  }
+
+  function test() {
+    notify("Toumaï AI", "Notification de test — tout fonctionne.");
+  }
+
+  const meta =
+    perm === "unsupported"
+      ? "Votre navigateur ne prend pas en charge les notifications."
+      : perm === "denied"
+        ? "Bloquées par le navigateur — réautorisez le site dans les réglages du navigateur."
+        : enabled
+          ? "Toumaï AI vous prévient sur cet appareil : fin de tâche, action WhatsApp, rappels."
+          : "Soyez prévenu quand Toumaï AI termine une tâche ou agit pour vous.";
+
+  return (
+    <Row
+      icon={<BellGlyph />}
+      tile="night"
+      name="Notifications web"
+      status={status}
+      meta={meta}
+      actions={
+        perm === "unsupported" || perm === "denied" ? undefined : enabled ? (
+          <BtnGhost onClick={disable}>Désactiver</BtnGhost>
+        ) : (
+          <BtnPrimary onClick={enable} disabled={busy}>
+            {busy ? "Autorisation…" : "Activer"}
+          </BtnPrimary>
+        )
+      }
+      menuItems={enabled ? [{ label: "Envoyer une notification de test", onClick: test }] : undefined}
+    />
+  );
+}
+
 /** Météo — service interne, toujours actif, sans configuration. */
 function MeteoRow({ onStatus }: { onStatus: OnStatus }) {
   useEffect(() => {
@@ -1232,6 +1354,14 @@ function LockIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <rect x="4" y="11" width="16" height="10" rx="2" />
       <path d="M8 11V7a4 4 0 018 0v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BellGlyph() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8">
+      <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

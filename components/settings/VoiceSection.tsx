@@ -5,9 +5,11 @@ import {
   getPreferences,
   listVoices,
   updatePreferences,
+  type Preferences,
   type Voice,
 } from "@/lib/preferences-api";
 import { synthesizeSpeech } from "@/lib/voice-api";
+import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
 import { Panel, Row, Segmented } from "./Rows";
 
 const LANG_LABEL: Record<string, string> = {
@@ -17,23 +19,34 @@ const LANG_LABEL: Record<string, string> = {
 };
 
 export function VoiceSection() {
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [selected, setSelected] = useState<string | undefined>(undefined);
-  const [speed, setSpeed] = useState<number>(1.0);
+  const [voices, setVoices] = useState<Voice[]>(() => cacheSeed<Voice[]>("voices:list") ?? []);
+  const [selected, setSelected] = useState<string | undefined>(
+    () => cacheSeed<Preferences>("user:prefs")?.tts_voice,
+  );
+  const [speed, setSpeed] = useState<number>(
+    () => cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1.0,
+  );
   const [playing, setPlaying] = useState<string | null>(null);
   const [loadingSample, setLoadingSample] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => (cacheSeed<Voice[]>("voices:list") ?? []).length === 0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     Promise.all([listVoices(), getPreferences()])
       .then(([v, p]) => {
         setVoices(v.voices);
+        cacheWrite("voices:list", v.voices);
         setSelected(p.tts_voice);
         setSpeed(p.tts_speed ?? 1.0);
+        cacheWrite("user:prefs", p);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"))
+      .catch((err) =>
+        setVoices((c) => {
+          if (c.length === 0) setError(err instanceof Error ? err.message : "Chargement impossible");
+          return c;
+        }),
+      )
       .finally(() => setLoading(false));
     return () => {
       audioRef.current?.pause();

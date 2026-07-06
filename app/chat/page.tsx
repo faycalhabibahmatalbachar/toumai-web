@@ -765,7 +765,21 @@ export default function ChatPage() {
                 </span>
               </div>
             )}
-            <div className="flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 focus-within:border-[var(--primary)]/60">
+            {/* Composer en DEUX rangées : la zone de texte occupe toute la
+                largeur (elle ne se coince plus entre les icônes), les
+                contrôles vivent sur leur propre ligne en dessous. */}
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 focus-within:border-[var(--primary)]/60">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={dictating ? "Je vous écoute…" : "Écrivez à Toumaï AI…"}
+                rows={1}
+                disabled={!session}
+                className="max-h-[200px] w-full resize-none bg-transparent px-2 pb-1 pt-1.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
+              />
+              <div className="flex items-center gap-1.5">
               <div className="relative">
                 <button
                   onClick={() => setToolsOpen((o) => !o)}
@@ -813,17 +827,8 @@ export default function ChatPage() {
                   </>
                 )}
               </div>
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKeyDown}
-                placeholder={dictating ? "Je vous écoute…" : "Écrivez à Toumaï AI…"}
-                rows={1}
-                disabled={!session}
-                className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
-              />
               <ModelSelector value={model} onChange={setModel} />
+              <div className="flex-1" />
               <button
                 onClick={toggleDictation}
                 aria-label={dictating ? "Arrêter la dictée" : "Dicter"}
@@ -864,6 +869,7 @@ export default function ChatPage() {
                   <SendIcon />
                 </button>
               )}
+              </div>
             </div>
             <p className="text-center text-[11px] text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getWaSettings, updateWaSettings, type WaSettings } from "@/lib/connectors-api";
+import { WhatsAppIcon } from "./BrandIcons";
+import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 import { Segmented } from "./Rows";
 
 type BoolKey = Exclude<keyof WaSettings, "status_audience">;
@@ -76,35 +78,55 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className={`${cxScopeClass} fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm`}
+      style={cxScopeStyle}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Permissions WhatsApp"
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)]"
+        className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-[18px] border border-[var(--cx-border-default)] bg-[var(--cx-surface)]"
+        style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-[var(--border)] px-6 py-4">
-          <span className="text-2xl" aria-hidden="true">💬</span>
+        <div className="flex items-center gap-3.5 border-b border-[var(--cx-border-subtle)] px-6 py-4">
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]"
+            style={{ background: "#ffffff", boxShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
+            aria-hidden="true"
+          >
+            <WhatsAppIcon size={24} />
+          </span>
           <div className="min-w-0 flex-1">
-            <h2 className="landing-serif text-lg tracking-tight">Permissions WhatsApp</h2>
-            <p className="text-xs text-[var(--text-tertiary)]">
+            <h2
+              className="text-[19px] font-medium tracking-[-0.01em] text-[var(--cx-text-primary)]"
+              style={cxDisplayStyle}
+            >
+              Permissions WhatsApp
+            </h2>
+            <p className="text-xs text-[var(--cx-text-muted)]">
               Contrôlez précisément ce que Toumaï AI peut faire sur votre compte.
             </p>
           </div>
           {savedAt > 0 && (
-            <span className="text-xs font-medium" style={{ color: "var(--success)" }}>
-              Enregistré ✓
+            <span
+              className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+              style={{
+                color: "var(--cx-success-text)",
+                background: "var(--cx-success-bg)",
+                borderColor: "var(--cx-success-border)",
+              }}
+            >
+              <CheckMini /> Enregistré
             </span>
           )}
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)]"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--cx-text-muted)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
@@ -112,67 +134,67 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
           {!settings && !error && (
             <div className="space-y-3" aria-hidden="true">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-14 animate-pulse rounded-2xl bg-[var(--card)]" />
+                <div key={i} className="h-14 animate-pulse rounded-[14px] bg-[var(--cx-input)]" />
               ))}
             </div>
           )}
-          {error && <p className="mb-3 text-sm text-[var(--error)]">{error}</p>}
+          {error && <p className="mb-3 text-sm text-[var(--cx-error-text)]">{error}</p>}
 
           {settings &&
             GROUPS.map((group) => (
               <section key={group.title} className="mb-6">
-                <h3 className="mb-2 px-0.5 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
+                <h3 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--cx-text-label)]">
                   {group.title}
                 </h3>
-                <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-                  {group.items.map((p) => (
-                    <div
-                      key={p.key}
-                      className="flex items-center gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
-                    >
-                      <span
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                        style={{
-                          background: "color-mix(in srgb, var(--primary) 10%, transparent)",
-                          color: "var(--primary)",
-                        }}
-                        aria-hidden="true"
-                      >
-                        {p.icon}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{p.label}</p>
-                        <p className="text-xs text-[var(--text-tertiary)]">{p.desc}</p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={settings[p.key]}
-                        aria-label={p.label}
-                        onClick={() => patch({ [p.key]: !settings[p.key] } as Partial<WaSettings>)}
-                        className="relative h-6 w-11 shrink-0 rounded-full transition"
-                        style={{ background: settings[p.key] ? "var(--primary)" : "var(--border)" }}
+                <div className="overflow-hidden rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+                  {group.items.map((p) => {
+                    const on = settings[p.key];
+                    return (
+                      <div
+                        key={p.key}
+                        className="flex items-center gap-3.5 border-t border-[var(--cx-border-subtle)] px-4 py-3 transition-colors first:border-t-0 hover:bg-[var(--cx-hover-row)]"
                       >
                         <span
-                          className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform"
-                          style={{ transform: settings[p.key] ? "translateX(22px)" : "translateX(2px)" }}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] transition-colors"
+                          style={
+                            on
+                              ? { background: "var(--cx-accent-bg)", color: "var(--cx-accent-text)" }
+                              : { background: "var(--cx-hover)", color: "var(--cx-text-faint)" }
+                          }
+                          aria-hidden="true"
+                        >
+                          {p.icon}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="text-sm font-medium transition-colors"
+                            style={{ color: on ? "var(--cx-text-primary)" : "var(--cx-text-muted)" }}
+                          >
+                            {p.label}
+                          </p>
+                          <p className="text-xs text-[var(--cx-text-muted)]">{p.desc}</p>
+                        </div>
+                        <CxSwitch
+                          checked={on}
+                          label={p.label}
+                          onChange={(v) => patch({ [p.key]: v } as Partial<WaSettings>)}
                         />
-                      </button>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             ))}
 
           {settings && (
             <section className="mb-2">
-              <h3 className="mb-2 px-0.5 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
-                Audience des statuts publiés par l'IA
+              <h3 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--cx-text-label)]">
+                Audience des statuts publiés par l&apos;IA
               </h3>
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-[var(--border)] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium">Partager avec</p>
-                  <p className="text-xs text-[var(--text-tertiary)]">
+                  <p className="text-sm font-medium text-[var(--cx-text-primary)]">Partager avec</p>
+                  <p className="text-xs text-[var(--cx-text-muted)]">
                     Qui voit les statuts que Toumaï AI publie pour vous.
                   </p>
                 </div>
@@ -193,9 +215,66 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Interrupteur « Pro » — état explicite : libellé Actif/Inactif + rail accent
+ * avec coche dans le pouce quand la permission est accordée. */
+function CxSwitch({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-2.5">
+      <span
+        className="hidden w-[42px] text-right text-[11px] font-semibold sm:block"
+        style={{ color: checked ? "var(--cx-success-text)" : "var(--cx-text-faint)" }}
+        aria-hidden="true"
+      >
+        {checked ? "Actif" : "Inactif"}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className="relative h-[26px] w-[46px] rounded-full border transition-colors"
+        style={
+          checked
+            ? { background: "var(--cx-accent)", borderColor: "var(--cx-accent)" }
+            : { background: "var(--cx-input)", borderColor: "var(--cx-border-strong)" }
+        }
+      >
+        <span
+          className="absolute top-1/2 flex h-[20px] w-[20px] -translate-y-1/2 items-center justify-center rounded-full bg-white transition-all"
+          style={{
+            left: checked ? "23px" : "2px",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+            color: checked ? "var(--cx-accent)" : "var(--cx-text-faint)",
+          }}
+        >
+          {checked ? <CheckMini /> : <MinusMini />}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 /* ---------- Icônes dédiées ---------- */
 const S = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
 
+function CloseIcon() {
+  return <svg {...S} width={16} height={16} strokeWidth={2}><path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" /></svg>;
+}
+function CheckMini() {
+  return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+function MinusMini() {
+  return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14" strokeLinecap="round" /></svg>;
+}
 function ChatIcon() {
   return <svg {...S}><path d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }

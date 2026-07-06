@@ -20,6 +20,7 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "@/components/settings/cx-fonts";
+import { useCached } from "@/lib/swr-cache";
 
 const PERIODS = [
   { days: 7, label: "7 jours" },
@@ -62,11 +63,6 @@ export default function WhatsAppDashboardPage() {
   const guestAttempted = useRef(false);
   const [days, setDays] = useState(30);
   const [category, setCategory] = useState("");
-  const [items, setItems] = useState<WaActivityItem[]>([]);
-  const [stats, setStats] = useState<WaActivityStats | null>(null);
-  const [waState, setWaState] = useState<WhatsAppState | null>(null);
-  const [fetching, setFetching] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading || session || guestAttempted.current) return;
@@ -74,25 +70,23 @@ export default function WhatsAppDashboardPage() {
     loginAsGuest().catch(() => {});
   }, [loading, session, loginAsGuest]);
 
-  useEffect(() => {
-    if (!session) return;
-    getWhatsAppStatus()
-      .then(setWaState)
-      .catch(() => {});
-  }, [session]);
-
-  useEffect(() => {
-    if (!session) return;
-    setFetching(true);
-    setError(null);
-    getWaActivity({ category: category || undefined, days, limit: 150 })
-      .then((d) => {
-        setItems(d.items);
-        setStats(d.stats);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"))
-      .finally(() => setFetching(false));
-  }, [session, category, days]);
+  // Cache persistant : la page rend immédiatement les dernières données
+  // connues (statut + journal) et revalide en arrière-plan — plus de
+  // rechargement complet à chaque visite.
+  const { data: waState } = useCached<WhatsAppState>("wa:status", getWhatsAppStatus, {
+    enabled: !!session,
+  });
+  const {
+    data: activity,
+    loading: fetching,
+    error,
+  } = useCached<{ items: WaActivityItem[]; stats: WaActivityStats }>(
+    `wa:activity:${days}:${category || "all"}`,
+    () => getWaActivity({ category: category || undefined, days, limit: 150 }),
+    { enabled: !!session },
+  );
+  const items = activity?.items ?? [];
+  const stats = activity?.stats ?? null;
 
   const connected = waState?.status === "connected";
 
@@ -383,26 +377,6 @@ export default function WhatsAppDashboardPage() {
                     Les statistiques apparaîtront dès la première action sur la période.
                   </p>
                 )}
-              </RailCard>
-
-              <RailCard label="Confidentialité">
-                <ul className="space-y-2.5">
-                  {[
-                    "Numéros masqués côté serveur",
-                    "Données chiffrées de bout en bout",
-                    "Chaque action sensible confirmée",
-                  ].map((line) => (
-                    <li
-                      key={line}
-                      className="flex items-start gap-2.5 text-[13px] leading-snug text-[var(--cx-text-secondary)]"
-                    >
-                      <span className="mt-0.5 shrink-0 text-[var(--cx-success-text)]" aria-hidden="true">
-                        <CheckIcon />
-                      </span>
-                      {line}
-                    </li>
-                  ))}
-                </ul>
               </RailCard>
 
               <RailCard label="Actions rapides">
@@ -731,14 +705,6 @@ function ShieldIcon() {
     <svg width="13" height="13" viewBox="0 0 24 24" {...S}>
       <path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z" strokeLinejoin="round" />
       <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" {...S} strokeWidth={2}>
-      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
