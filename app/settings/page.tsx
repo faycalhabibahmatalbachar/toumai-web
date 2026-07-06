@@ -243,7 +243,26 @@ export default function SettingsPage() {
             </Link>
             <h1 className="landing-serif text-lg tracking-tight">Paramètres</h1>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            {section === "connectors" && (
+              <span
+                className="hidden items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium sm:flex"
+                style={{
+                  color: "var(--success)",
+                  background: "color-mix(in srgb, var(--success) 10%, transparent)",
+                  borderColor: "color-mix(in srgb, var(--success) 22%, transparent)",
+                }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: "var(--success)", animation: "cx-pulse 2.4s ease-in-out infinite" }}
+                  aria-hidden="true"
+                />
+                Tous les systèmes opérationnels
+              </span>
+            )}
+            <ThemeToggle />
+          </div>
         </header>
 
         {/* Mobile : identité + pills horizontales. */}
@@ -275,11 +294,18 @@ export default function SettingsPage() {
         </div>
 
         <div key={section} className="animate-fade-in px-4 pb-16 pt-2 md:px-8 md:pt-6">
-          <div className="max-w-3xl">
-            <h2 className="landing-serif text-[26px] tracking-tight">{current.title}</h2>
-            <p className="mb-8 mt-1.5 max-w-lg text-sm leading-relaxed text-[var(--text-tertiary)]">
-              {current.sub}
-            </p>
+          {/* Connecteurs = mise en page large (liste groupée + rail droit),
+              avec son propre en-tête display — les autres sections gardent
+              la colonne étroite et le titre du shell. */}
+          <div className={section === "connectors" ? "max-w-[1240px]" : "max-w-3xl"}>
+            {section !== "connectors" && (
+              <>
+                <h2 className="landing-serif text-[26px] tracking-tight">{current.title}</h2>
+                <p className="mb-8 mt-1.5 max-w-lg text-sm leading-relaxed text-[var(--text-tertiary)]">
+                  {current.sub}
+                </p>
+              </>
+            )}
 
             {!session ? (
               <div className="h-64 w-full animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden="true" />

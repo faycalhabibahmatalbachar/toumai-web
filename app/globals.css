@@ -124,6 +124,99 @@ svg {
   background: transparent;
 }
 
+/* ── Connecteurs Pro — jetons scopés à la page Connecteurs (spec
+ * « Connecteurs Pro.dc.html »). Valeurs sombres = spec exacte ; le thème
+ * clair reçoit des équivalents adaptés pour rester lisible. ── */
+.cx-scope {
+  --cx-surface: #171412;
+  --cx-input: #1b1815;
+  --cx-border-subtle: rgba(255, 255, 255, 0.06);
+  --cx-border-default: rgba(255, 255, 255, 0.08);
+  --cx-border-strong: rgba(255, 255, 255, 0.12);
+  --cx-text-primary: #f4f0ea;
+  --cx-text-body: #ede8e1;
+  --cx-text-secondary: #b8b0a6;
+  --cx-text-muted: #9a9188;
+  --cx-text-faint: #6e675e;
+  --cx-text-label: #7c746b;
+  --cx-accent: #e8683a;
+  --cx-accent-hover: #f0784c;
+  --cx-accent-text: #f0906a;
+  --cx-accent-bg: rgba(232, 104, 58, 0.1);
+  --cx-accent-border: rgba(232, 104, 58, 0.4);
+  --cx-success: #3fa46a;
+  --cx-success-text: #6fbf8f;
+  --cx-success-bg: rgba(63, 164, 106, 0.1);
+  --cx-success-border: rgba(63, 164, 106, 0.2);
+  --cx-info-text: #a8b8cc;
+  --cx-info-bg: rgba(140, 170, 210, 0.09);
+  --cx-info-border: rgba(140, 170, 210, 0.18);
+  --cx-warn-text: #d9b36a;
+  --cx-warn-bg: rgba(217, 164, 65, 0.1);
+  --cx-warn-border: rgba(217, 164, 65, 0.22);
+  --cx-error: #d65a4a;
+  --cx-error-text: #e07a6c;
+  --cx-error-bg: rgba(214, 90, 74, 0.1);
+  --cx-error-border: rgba(214, 90, 74, 0.25);
+  --cx-hover-row: rgba(255, 255, 255, 0.015);
+  --cx-hover: rgba(255, 255, 255, 0.05);
+  color: var(--cx-text-body);
+}
+
+[data-theme="light"] .cx-scope {
+  --cx-surface: #ffffff;
+  --cx-input: #f3efe7;
+  --cx-border-subtle: rgba(31, 27, 22, 0.07);
+  --cx-border-default: rgba(31, 27, 22, 0.1);
+  --cx-border-strong: rgba(31, 27, 22, 0.16);
+  --cx-text-primary: #1f1b16;
+  --cx-text-body: #2a251f;
+  --cx-text-secondary: #5c564b;
+  --cx-text-muted: #6b6257;
+  --cx-text-faint: #98907f;
+  --cx-text-label: #857c6b;
+  --cx-accent: #c2562f;
+  --cx-accent-hover: #b04a26;
+  --cx-accent-text: #b04a26;
+  --cx-accent-bg: rgba(194, 86, 47, 0.08);
+  --cx-accent-border: rgba(194, 86, 47, 0.35);
+  --cx-success: #2e8b57;
+  --cx-success-text: #22754a;
+  --cx-success-bg: rgba(46, 139, 87, 0.1);
+  --cx-success-border: rgba(46, 139, 87, 0.22);
+  --cx-info-text: #46617d;
+  --cx-info-bg: rgba(70, 97, 125, 0.09);
+  --cx-info-border: rgba(70, 97, 125, 0.2);
+  --cx-warn-text: #9a7020;
+  --cx-warn-bg: rgba(154, 112, 32, 0.1);
+  --cx-warn-border: rgba(154, 112, 32, 0.22);
+  --cx-error: #b8452f;
+  --cx-error-text: #a53c28;
+  --cx-error-bg: rgba(184, 69, 47, 0.08);
+  --cx-error-border: rgba(184, 69, 47, 0.25);
+  --cx-hover-row: rgba(31, 27, 22, 0.02);
+  --cx-hover: rgba(31, 27, 22, 0.05);
+}
+
+/* Divider entre rangées visibles d'un groupe — l'attribut hidden retire une
+ * rangée du flux (recherche/filtre) sans laisser de bordure orpheline. */
+.cx-rows > div:not([hidden]) ~ div:not([hidden]) {
+  border-top: 1px solid var(--cx-border-subtle);
+}
+
+/* Point vert animé du badge « Tous les systèmes opérationnels ». */
+@keyframes cx-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(63, 164, 106, 0.45);
+  }
+  50% {
+    opacity: 0.75;
+    box-shadow: 0 0 0 4px rgba(63, 164, 106, 0);
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

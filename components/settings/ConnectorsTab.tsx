@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+/** Connecteurs & Intégrations — refonte « Connecteurs Pro » : liste groupée
+ * (Communication / Productivité / Données en temps réel), bandeau stats,
+ * recherche ⌘K + segmented control, rail droit sticky. Jetons visuels scopés
+ * dans .cx-scope (globals.css) — spec « Connecteurs Pro.dc.html ». */
+
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Instrument_Sans, Newsreader } from "next/font/google";
 import {
   connectMail,
   disconnectGoogle,
@@ -15,408 +21,683 @@ import {
   type MailStatus,
   type WhatsAppState,
 } from "@/lib/connectors-api";
-import { ConnectorCard, type ConnectorStatus } from "./ConnectorCard";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
-
 import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
 
-interface ActivityEntry {
-  id: string;
-  label: string;
-  detail: string;
-  at: Date;
-}
+const displayFont = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--cx-font-display",
+});
 
-type OnStatus = (status: ConnectorStatus) => void;
-type StatusFilter = "all" | "connected" | "disconnected";
+const uiFont = Instrument_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--cx-font-ui",
+});
 
-const FILTER_LABEL: Record<StatusFilter, string> = {
-  all: "Tous les statuts",
-  connected: "Connectés",
-  disconnected: "Non connectés",
+/* ---------- Types & configuration ---------- */
+
+type RowStatus =
+  | "connected"
+  | "always"
+  | "pending"
+  | "disconnected"
+  | "loading"
+  | "unavailable"
+  | "error";
+
+type ConnectorId = "whatsapp" | "mail" | "google" | "meteo";
+type StatusFilter = "all" | "connected" | "inactive";
+type OnStatus = (s: RowStatus) => void;
+
+const SEARCH_KEYWORDS: Record<ConnectorId, string> = {
+  whatsapp: "whatsapp auto-pilote messages baileys",
+  mail: "mail gmail e-mail email outlook imap smtp",
+  google: "google agenda calendar calendrier événements",
+  meteo: "météo meteo weather pluie température",
 };
+
+const GROUPS: { label: string; ids: ConnectorId[] }[] = [
+  { label: "Communication", ids: ["whatsapp", "mail"] },
+  { label: "Productivité", ids: ["google"] },
+  { label: "Données en temps réel", ids: ["meteo"] },
+];
+
+const BADGE: Record<
+  RowStatus,
+  { label: string; text: string; bg: string; border: string; dot: string }
+> = {
+  connected: {
+    label: "Connecté",
+    text: "var(--cx-success-text)",
+    bg: "var(--cx-success-bg)",
+    border: "var(--cx-success-border)",
+    dot: "var(--cx-success)",
+  },
+  always: {
+    label: "Toujours actif",
+    text: "var(--cx-info-text)",
+    bg: "var(--cx-info-bg)",
+    border: "var(--cx-info-border)",
+    dot: "var(--cx-info-text)",
+  },
+  pending: {
+    label: "En attente",
+    text: "var(--cx-warn-text)",
+    bg: "var(--cx-warn-bg)",
+    border: "var(--cx-warn-border)",
+    dot: "var(--cx-warn-text)",
+  },
+  disconnected: {
+    label: "Non connecté",
+    text: "var(--cx-text-muted)",
+    bg: "var(--cx-hover)",
+    border: "var(--cx-border-default)",
+    dot: "var(--cx-text-faint)",
+  },
+  loading: {
+    label: "Vérification…",
+    text: "var(--cx-text-muted)",
+    bg: "var(--cx-hover)",
+    border: "var(--cx-border-default)",
+    dot: "var(--cx-text-faint)",
+  },
+  unavailable: {
+    label: "Indisponible",
+    text: "var(--cx-text-muted)",
+    bg: "var(--cx-hover)",
+    border: "var(--cx-border-default)",
+    dot: "var(--cx-text-faint)",
+  },
+  error: {
+    label: "Erreur",
+    text: "var(--cx-error-text)",
+    bg: "var(--cx-error-bg)",
+    border: "var(--cx-error-border)",
+    dot: "var(--cx-error)",
+  },
+};
+
+const ACTIVE = (s: RowStatus | undefined) => s === "connected" || s === "always";
+
+/* ---------- Composant principal ---------- */
 
 export function ConnectorsTab() {
   const [query, setQuery] = useState("");
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [filterOpen, setFilterOpen] = useState(false);
-  // Statuts remontés en direct par chaque carte — alimente l'Aperçu et le filtre.
-  const [statuses, setStatuses] = useState<Record<string, ConnectorStatus>>({});
-  // Bump de clé = « Tester les connexions » : chaque carte re-vérifie son statut.
+  // Statuts remontés en direct par chaque rangée — alimente stats et filtre.
+  const [statuses, setStatuses] = useState<Partial<Record<ConnectorId, RowStatus>>>({});
+  // Bump de clé = « Tester les connexions » : chaque rangée re-vérifie.
   const [checkKey, setCheckKey] = useState(0);
+  const [kbdLabel, setKbdLabel] = useState("Ctrl K");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  function log(label: string, detail: string) {
-    setActivity((prev) => [{ id: `${Date.now()}-${Math.random()}`, label, detail, at: new Date() }, ...prev].slice(0, 20));
-  }
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setKbdLabel("⌘K");
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
-  const reportStatus = (name: string) => (s: ConnectorStatus) =>
-    setStatuses((prev) => (prev[name] === s ? prev : { ...prev, [name]: s }));
+  const reportStatus = (id: ConnectorId) => (s: RowStatus) =>
+    setStatuses((prev) => (prev[id] === s ? prev : { ...prev, [id]: s }));
 
   const q = query.trim().toLowerCase();
-  const match = (name: string) => {
-    if (q && !name.toLowerCase().includes(q)) return false;
+  const visible = (id: ConnectorId) => {
+    if (q && !SEARCH_KEYWORDS[id].includes(q)) return false;
     if (statusFilter === "all") return true;
-    const s = statuses[name] ?? "loading";
-    return statusFilter === "connected" ? s === "connected" : s !== "connected";
+    const active = ACTIVE(statuses[id]);
+    return statusFilter === "connected" ? active : !active;
   };
 
-  const activeCount = Object.values(statuses).filter((s) => s === "connected").length;
+  const activeCount = Object.values(statuses).filter((s) => ACTIVE(s)).length;
+  const errorCount = Object.values(statuses).filter((s) => s === "error").length;
+  const noResults = GROUPS.every((g) => g.ids.every((id) => !visible(id)));
+
+  function addConnector() {
+    setStatusFilter("inactive");
+    setQuery("");
+    searchRef.current?.focus();
+  }
+
+  function testAll() {
+    setStatuses({});
+    setCheckKey((k) => k + 1);
+  }
 
   return (
-    <div className="flex flex-col gap-6 xl:flex-row">
-      {/* ── Colonne principale ── */}
-      <div className="min-w-0 flex-1">
-        <div className="mb-5 flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
-              <SearchIcon />
-            </span>
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher des connecteurs…"
-              className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[var(--primary)]"
-            />
-          </div>
-          {/* Filtre par statut */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setFilterOpen((o) => !o)}
-              aria-haspopup="listbox"
-              aria-expanded={filterOpen}
-              className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm text-[var(--text-secondary)] transition hover:border-[var(--primary)]/50"
-            >
-              <FilterIcon />
-              <span className="hidden sm:inline">{FILTER_LABEL[statusFilter]}</span>
-              <ChevronDownIcon />
-            </button>
-            {filterOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setFilterOpen(false)} />
-                <div className="absolute right-0 top-full z-20 mt-1.5 w-48 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl">
-                  {(Object.keys(FILTER_LABEL) as StatusFilter[]).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => {
-                        setStatusFilter(f);
-                        setFilterOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between px-3.5 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
-                      style={{ color: statusFilter === f ? "var(--primary)" : "var(--text-secondary)" }}
-                    >
-                      {FILTER_LABEL[f]}
-                      {statusFilter === f && <span aria-hidden="true">✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div key={checkKey} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className={match("Google Agenda") ? "" : "hidden"}>
-            <GoogleConnector onLog={log} onStatus={reportStatus("Google Agenda")} />
-          </div>
-          <div className={match("Mail") ? "" : "hidden"}>
-            <MailConnector onLog={log} onStatus={reportStatus("Mail")} />
-          </div>
-          <div className={match("WhatsApp") ? "" : "hidden"}>
-            <WhatsAppConnector onLog={log} onStatus={reportStatus("WhatsApp")} />
-          </div>
-          <div className={match("Météo") ? "" : "hidden"}>
-            <MeteoConnector onStatus={reportStatus("Météo")} />
-          </div>
-        </div>
-
-        {/* Bandeau confiance */}
-        <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5">
-          <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-            style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)" }}
-            aria-hidden="true"
+    <div
+      className={`cx-scope ${displayFont.variable} ${uiFont.variable}`}
+      style={{ fontFamily: "var(--cx-font-ui), system-ui, sans-serif" }}
+    >
+      {/* ── En-tête : H1 display + bouton primaire ── */}
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2
+            className="text-[30px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--cx-text-primary)] sm:text-[38px]"
+            style={{ fontFamily: "var(--cx-font-display), Georgia, serif" }}
           >
-            <InfoIcon />
-          </span>
-          <p className="text-[13px] text-[var(--text-secondary)]">
-            <span className="font-semibold text-[var(--text-primary)]">Bon à savoir</span> — vos
-            connexions sont chiffrées, chaque action sensible demande votre confirmation, et vous
-            contrôlez chaque permission.
+            Connecteurs &amp; Intégrations
+          </h2>
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-[var(--cx-text-muted)]">
+            Gérez les services tiers reliés à Toumaï AI — chaque connexion reste sous votre
+            contrôle, chaque action sensible demande votre accord.
           </p>
         </div>
+        <button
+          onClick={addConnector}
+          className="flex items-center gap-2 rounded-[10px] px-[18px] py-2.5 text-sm font-semibold text-[#FFF6F1] transition hover:bg-[var(--cx-accent-hover)]"
+          style={{ background: "var(--cx-accent)", boxShadow: "0 4px 14px rgba(232,104,58,0.25)" }}
+        >
+          <PlusIcon />
+          Ajouter un connecteur
+        </button>
       </div>
 
-      {/* ── Rail latéral : aperçu dynamique + actions rapides + aide ── */}
-      <aside className="w-full shrink-0 space-y-4 xl:w-72">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <PulseIcon /> Aperçu
-          </p>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ background: "color-mix(in srgb, var(--success) 12%, transparent)", color: "var(--success)" }}
-                aria-hidden="true"
-              >
-                <PlugMiniIcon />
+      <div className="flex flex-col gap-9 xl:flex-row">
+        {/* ── Colonne principale ── */}
+        <div className="min-w-0 flex-1">
+          {/* Bandeau stats */}
+          <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-[var(--cx-border-subtle)] pb-5">
+            <Stat n={activeCount} label={activeCount > 1 ? "connectés" : "connecté"} />
+            <StatBar />
+            <Stat
+              n={errorCount}
+              label={errorCount > 1 ? "erreurs" : "erreur"}
+              tone={errorCount > 0 ? "var(--cx-error-text)" : undefined}
+            />
+            <StatBar />
+            <div className="flex items-center gap-2 text-[13px] text-[var(--cx-text-muted)]">
+              <span className="text-[var(--cx-success-text)]" aria-hidden="true">
+                <LockIcon />
               </span>
-              <div>
-                <p className="text-sm font-semibold">{activeCount}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Connecteur{activeCount > 1 ? "s" : ""} actif{activeCount > 1 ? "s" : ""}
+              Connexions chiffrées
+            </div>
+          </div>
+
+          {/* Recherche + filtres */}
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--cx-text-faint)]">
+                <SearchIcon />
+              </span>
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher un connecteur…"
+                className="w-full rounded-[10px] border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] py-2.5 pl-10 pr-16 text-sm text-[var(--cx-text-body)] outline-none transition placeholder:text-[var(--cx-text-faint)] focus:border-[var(--cx-accent-border)]"
+              />
+              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-[var(--cx-border-default)] px-1.5 py-0.5 text-[10.5px] font-medium text-[var(--cx-text-faint)]">
+                {kbdLabel}
+              </kbd>
+            </div>
+            <div
+              className="flex shrink-0 gap-1 rounded-[10px] border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] p-1"
+              role="tablist"
+              aria-label="Filtrer par statut"
+            >
+              {(
+                [
+                  ["all", "Tous"],
+                  ["connected", "Connectés"],
+                  ["inactive", "Inactifs"],
+                ] as [StatusFilter, string][]
+              ).map(([f, label]) => {
+                const active = statusFilter === f;
+                return (
+                  <button
+                    key={f}
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setStatusFilter(f)}
+                    className="rounded-lg px-3 py-1.5 text-[13px] font-medium transition"
+                    style={{
+                      background: active ? "var(--cx-surface)" : "transparent",
+                      color: active ? "var(--cx-text-primary)" : "var(--cx-text-muted)",
+                      boxShadow: active ? "0 1px 3px rgba(0,0,0,0.25)" : undefined,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Groupes de connecteurs — rangées remontées, jamais démontées
+              (le filtre utilise l'attribut hidden pour préserver l'état). */}
+          <div key={checkKey} className="space-y-6">
+            <Group label="Communication" hidden={!visible("whatsapp") && !visible("mail")}>
+              <div hidden={!visible("whatsapp")}>
+                <WhatsAppRow onStatus={reportStatus("whatsapp")} />
+              </div>
+              <div hidden={!visible("mail")}>
+                <MailRow onStatus={reportStatus("mail")} />
+              </div>
+            </Group>
+            <Group label="Productivité" hidden={!visible("google")}>
+              <div hidden={!visible("google")}>
+                <GoogleRow onStatus={reportStatus("google")} />
+              </div>
+            </Group>
+            <Group label="Données en temps réel" hidden={!visible("meteo")}>
+              <div hidden={!visible("meteo")}>
+                <MeteoRow onStatus={reportStatus("meteo")} />
+              </div>
+            </Group>
+
+            {noResults && (
+              <div className="rounded-[14px] border border-dashed border-[var(--cx-border-default)] bg-[var(--cx-surface)] px-6 py-12 text-center">
+                <p className="text-sm text-[var(--cx-text-secondary)]">
+                  Aucun connecteur ne correspond
+                  {q ? (
+                    <>
+                      {" "}
+                      à «&nbsp;<span className="text-[var(--cx-text-primary)]">{query}</span>&nbsp;»
+                    </>
+                  ) : (
+                    " à ce filtre"
+                  )}
+                  .
                 </p>
+                <button
+                  onClick={() => {
+                    setQuery("");
+                    setStatusFilter("all");
+                  }}
+                  className="mt-4 rounded-[9px] border border-[var(--cx-border-strong)] px-3.5 py-2 text-[13px] font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)]"
+                >
+                  Réinitialiser la recherche
+                </button>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", color: "var(--accent)" }}
-                aria-hidden="true"
+            )}
+          </div>
+
+          {/* Bannière « Bon à savoir » */}
+          <div
+            className="mt-6 flex items-start gap-3 rounded-[14px] border p-4"
+            style={{
+              borderColor: "rgba(232,104,58,0.18)",
+              background:
+                "linear-gradient(135deg, rgba(232,104,58,0.06), rgba(232,104,58,0.015))",
+            }}
+          >
+            <span className="mt-0.5 shrink-0 text-[var(--cx-accent-text)]" aria-hidden="true">
+              <InfoIcon />
+            </span>
+            <p className="text-[13px] leading-relaxed text-[var(--cx-text-secondary)]">
+              <span className="font-semibold text-[var(--cx-text-primary)]">Bon à savoir</span> —
+              vos connexions sont chiffrées, chaque action sensible demande votre confirmation et
+              vous pouvez révoquer une permission à tout moment.{" "}
+              <a
+                href="/settings?tab=support"
+                className="font-medium text-[var(--cx-accent-text)] transition hover:text-[var(--cx-accent-hover)]"
               >
-                <BoltMiniIcon />
-              </span>
-              <div>
-                <p className="text-sm font-semibold">{activity.length}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">Actions cette session</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)" }}
-                aria-hidden="true"
-              >
-                <ShieldIcon />
-              </span>
-              <div>
-                <p className="text-sm font-semibold">Tout est sécurisé</p>
-                <p className="text-xs text-[var(--text-tertiary)]">Vos connexions sont chiffrées</p>
-              </div>
-            </div>
+                En savoir plus →
+              </a>
+            </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
-            <BoltMiniIcon /> Actions rapides
-          </p>
-          {[
-            {
-              label: "Ajouter un connecteur",
-              icon: <PlusMiniIcon />,
-              onClick: () => {
-                setStatusFilter("disconnected");
-                searchRef.current?.focus();
-              },
-            },
-            {
-              label: "Tester les connexions",
-              icon: <RefreshMiniIcon />,
-              onClick: () => {
-                setStatuses({});
-                setCheckKey((k) => k + 1);
-                log("Test des connexions", "Vérification relancée");
-              },
-            },
-          ].map((a) => (
-            <button
-              key={a.label}
-              onClick={a.onClick}
-              className="flex w-full items-center justify-between gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
-            >
-              <span className="flex items-center gap-2.5">
-                {a.icon}
-                {a.label}
-              </span>
-              <ChevronRightMini />
-            </button>
-          ))}
-          <a
-            href="/whatsapp"
-            className="flex w-full items-center justify-between gap-2 rounded-xl px-2 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
-          >
-            <span className="flex items-center gap-2.5">
-              <JournalMiniIcon />
-              Voir les journaux
-            </span>
-            <ChevronRightMini />
-          </a>
-        </div>
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="mb-2 text-sm font-semibold">Activité récente</p>
-          {activity.length === 0 ? (
-            <p className="text-xs text-[var(--text-tertiary)]">
-              Aucune action sur les connecteurs pendant cette session.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {activity.slice(0, 6).map((a) => (
-                <li key={a.id} className="text-xs">
-                  <span className="block font-medium text-[var(--text-secondary)]">{a.label}</span>
-                  <span className="text-[var(--text-tertiary)]">
-                    {a.detail} · {a.at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+        {/* ── Rail droit ── */}
+        <aside className="w-full shrink-0 xl:w-[280px]">
+          <div className="space-y-4 xl:sticky xl:top-[84px]">
+            <RailCard label="Actions rapides">
+              {[
+                { label: "Ajouter un connecteur", icon: <PlusIcon />, onClick: addConnector },
+                { label: "Tester les connexions", icon: <RefreshIcon />, onClick: testAll },
+                {
+                  label: "Voir les journaux",
+                  icon: <JournalIcon />,
+                  onClick: () => {
+                    window.location.href = "/whatsapp";
+                  },
+                },
+              ].map((a) => (
+                <button
+                  key={a.label}
+                  onClick={a.onClick}
+                  className="flex w-full items-center justify-between gap-2 rounded-[9px] px-2 py-2.5 text-left text-[13px] font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className="text-[var(--cx-text-muted)]" aria-hidden="true">
+                      {a.icon}
+                    </span>
+                    {a.label}
                   </span>
-                </li>
+                  <ChevronRightIcon />
+                </button>
               ))}
-            </ul>
-          )}
-        </div>
+            </RailCard>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="mb-1 text-sm font-semibold">Besoin d&apos;aide ?</p>
-          <p className="text-xs leading-relaxed text-[var(--text-tertiary)]">
-            Consultez le guide des connecteurs ou contactez le support.
-          </p>
-          <a
-            href="/settings?tab=support"
-            className="mt-3 inline-block rounded-full border border-[var(--border)] px-4 py-1.5 text-xs font-medium transition hover:border-[var(--primary)]/60"
-          >
-            Aide & Support ↗
-          </a>
-        </div>
-      </aside>
+            <RailCard label="Sécurité">
+              <ul className="space-y-2.5">
+                {[
+                  "Connexions chiffrées de bout en bout",
+                  "Confirmation avant chaque action sensible",
+                  "Permissions révocables à tout moment",
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-2.5 text-[13px] leading-snug text-[var(--cx-text-secondary)]">
+                    <span className="mt-0.5 shrink-0 text-[var(--cx-success-text)]" aria-hidden="true">
+                      <CheckIcon />
+                    </span>
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </RailCard>
+
+            <RailCard label="Besoin d'aide ?">
+              <p className="text-[13px] leading-relaxed text-[var(--cx-text-muted)]">
+                Consultez le guide des connecteurs ou écrivez directement au support.
+              </p>
+              <a
+                href="/settings?tab=support"
+                className="mt-3 block rounded-[9px] border border-[var(--cx-border-strong)] px-3.5 py-2 text-center text-[13px] font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+              >
+                Aide &amp; Support
+              </a>
+            </RailCard>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
 
-/** Météo — toujours actif, sans configuration. */
-function MeteoConnector({ onStatus }: { onStatus?: OnStatus }) {
-  useEffect(() => {
-    onStatus?.("connected");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+/* ---------- Blocs de mise en page ---------- */
+
+function Stat({ n, label, tone }: { n: number; label: string; tone?: string }) {
   return (
-    <ConnectorCard
-      icon={<MeteoIcon />}
-      name="Météo"
-      description="Toujours actif — Toumaï AI consulte la météo en direct quand vous le demandez, sans configuration."
-      status="connected"
-    />
+    <div className="flex items-baseline gap-2">
+      <span
+        className="text-[26px] font-medium leading-none tabular-nums"
+        style={{ fontFamily: "var(--cx-font-display), Georgia, serif", color: tone ?? "var(--cx-text-primary)" }}
+      >
+        {n}
+      </span>
+      <span className="text-[13px] text-[var(--cx-text-muted)]">{label}</span>
+    </div>
   );
 }
 
-function FilterIcon() {
+function StatBar() {
+  return <span className="h-[22px] w-px bg-[var(--cx-border-default)]" aria-hidden="true" />;
+}
+
+function Group({ label, hidden, children }: { label: string; hidden: boolean; children: ReactNode }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M3 5h18l-7 8v6l-4-2v-4L3 5z" strokeLinejoin="round" />
-    </svg>
+    <section hidden={hidden}>
+      <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--cx-text-label)]">
+        {label}
+      </p>
+      <div className="cx-rows overflow-hidden rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+        {children}
+      </div>
+    </section>
   );
 }
 
-function ChevronDownIcon() {
+function RailCard({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-4">
+      <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--cx-text-label)]">
+        {label}
+      </p>
+      {children}
+    </div>
   );
 }
 
-function ChevronRightMini() {
+/* ---------- Rangée de connecteur ---------- */
+
+interface MenuItem {
+  label: string;
+  onClick: () => void;
+}
+
+function Row({
+  icon,
+  tile = "white",
+  name,
+  status,
+  meta,
+  actions,
+  expanded,
+  menuItems,
+}: {
+  icon: ReactNode;
+  tile?: "white" | "night";
+  name: string;
+  status: RowStatus;
+  meta: ReactNode;
+  actions?: ReactNode;
+  expanded?: ReactNode;
+  menuItems?: MenuItem[];
+}) {
+  const badge = BADGE[status];
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--text-tertiary)]">
-      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="transition-colors hover:bg-[var(--cx-hover-row)]">
+      <div className="flex flex-wrap items-center gap-4 px-5 py-[18px]">
+        {/* Tuile icône — fond blanc pour les vrais logos de marque. */}
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px]"
+          style={
+            tile === "white"
+              ? { background: "#ffffff", boxShadow: "0 1px 3px rgba(0,0,0,0.4)" }
+              : {
+                  background: "linear-gradient(160deg, #2E4A6B, #1C3050)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                }
+          }
+          aria-hidden="true"
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-[1_1_220px]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[15px] font-semibold text-[var(--cx-text-primary)]">{name}</span>
+            <span
+              className="flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[11.5px] font-semibold"
+              style={{ color: badge.text, background: badge.bg, borderColor: badge.border }}
+            >
+              <span
+                className="h-[5px] w-[5px] rounded-full"
+                style={{ background: badge.dot }}
+                aria-hidden="true"
+              />
+              {badge.label}
+            </span>
+          </div>
+          <p className="mt-1 text-[13px] leading-snug text-[var(--cx-text-muted)]">{meta}</p>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {actions}
+          {menuItems && menuItems.length > 0 && <Kebab items={menuItems} />}
+        </div>
+      </div>
+      {expanded && <div className="px-5 pb-[18px] sm:pl-[80px]">{expanded}</div>}
+    </div>
   );
 }
 
-function PulseIcon() {
+function Kebab({ items }: { items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M2 12h4l3-8 6 16 3-8h4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Plus d'options"
+        className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-[var(--cx-text-muted)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+      >
+        <DotsIcon />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            role="menu"
+            className="absolute right-0 top-full z-20 mt-1.5 w-52 overflow-hidden rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] py-1"
+            style={{ boxShadow: "0 12px 32px rgba(0,0,0,0.45)" }}
+          >
+            {items.map((it) => (
+              <button
+                key={it.label}
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  it.onClick();
+                }}
+                className="block w-full px-3.5 py-2 text-left text-[13px] text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
-function PlusMiniIcon() {
+/* ---------- Boutons ---------- */
+
+function BtnPrimary({
+  children,
+  onClick,
+  disabled,
+  type = "button",
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  type?: "button" | "submit";
+}) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8v8M8 12h8" strokeLinecap="round" />
-    </svg>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-[9px] px-3.5 py-2 text-[13px] font-semibold text-[#FFF6F1] transition hover:bg-[var(--cx-accent-hover)] disabled:opacity-40"
+      style={{ background: "var(--cx-accent)" }}
+    >
+      {children}
+    </button>
   );
 }
 
-function RefreshMiniIcon() {
+function BtnAccentOutline({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <button
+      onClick={onClick}
+      className="rounded-[9px] border px-3.5 py-2 text-[13px] font-semibold transition hover:brightness-110"
+      style={{
+        background: "var(--cx-accent-bg)",
+        borderColor: "var(--cx-accent-border)",
+        color: "var(--cx-accent-text)",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
-function JournalMiniIcon() {
+function BtnGhost({
+  children,
+  onClick,
+  disabled,
+  href,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  href?: string;
+}) {
+  const cls =
+    "rounded-[9px] border border-[var(--cx-border-strong)] px-3.5 py-2 text-[13px] font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)] disabled:opacity-40";
+  if (href) {
+    return (
+      <a href={href} className={cls}>
+        {children}
+      </a>
+    );
+  }
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinejoin="round" />
-      <path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" />
-    </svg>
+    <button onClick={onClick} disabled={disabled} className={cls}>
+      {children}
+    </button>
   );
 }
 
-function InfoIcon() {
+/* ---------- Confirmation (action sensible) ---------- */
+
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  busy?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8h.01M12 11v5" strokeLinecap="round" />
-    </svg>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="alertdialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
+      <div
+        className="relative w-full max-w-sm rounded-[14px] border border-[var(--cx-border-default)] bg-[var(--cx-surface)] p-5"
+        style={{ boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}
+      >
+        <p className="text-[15px] font-semibold text-[var(--cx-text-primary)]">{title}</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--cx-text-secondary)]">{body}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <BtnGhost onClick={onCancel}>Annuler</BtnGhost>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="rounded-[9px] px-3.5 py-2 text-[13px] font-semibold text-white transition hover:brightness-110 disabled:opacity-40"
+            style={{ background: "var(--cx-error)" }}
+          >
+            {busy ? "Déconnexion…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function PlugMiniIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 01-12 0V8zM12 18v4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+/* ---------- Connecteurs ---------- */
 
-function BoltMiniIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5l8-3z" strokeLinejoin="round" />
-      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-type OnLog = (label: string, detail: string) => void;
-
-function GoogleConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus }) {
+function GoogleRow({ onStatus }: { onStatus: OnStatus }) {
   const [connected, setConnected] = useState<boolean | null>(null);
-  const [checkedAt, setCheckedAt] = useState<Date | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function refresh() {
     return getGoogleStatus()
-      .then((s) => {
-        setConnected(s.connected);
-        setCheckedAt(new Date());
-      })
+      .then((s) => setConnected(s.connected))
       .catch(() => setConnected(false));
   }
 
@@ -439,9 +720,7 @@ function GoogleConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatu
         const s = await getGoogleStatus().catch(() => null);
         if (s?.connected) {
           setConnected(true);
-          setCheckedAt(new Date());
           setBusy(false);
-          onLog("Google Agenda connecté", "Autorisation accordée");
           if (pollRef.current) clearInterval(pollRef.current);
         } else if (attempts > 40) {
           setBusy(false);
@@ -460,8 +739,7 @@ function GoogleConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatu
     try {
       await disconnectGoogle();
       setConnected(false);
-      setCheckedAt(new Date());
-      onLog("Google Agenda déconnecté", "Par l'utilisateur");
+      setConfirmOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la déconnexion");
     } finally {
@@ -469,61 +747,77 @@ function GoogleConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatu
     }
   }
 
-  const status: ConnectorStatus = connected === null ? "loading" : connected ? "connected" : "disconnected";
+  const status: RowStatus = error
+    ? "error"
+    : connected === null
+      ? "loading"
+      : connected
+        ? "connected"
+        : "disconnected";
   useEffect(() => {
-    onStatus?.(status);
+    onStatus(status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   return (
-    <ConnectorCard
-      icon={<GoogleCalendarIcon />}
-      name="Google Agenda"
-      description="Permet à Toumaï AI de lire et créer des événements dans votre agenda."
-      status={status}
-      lastChecked={checkedAt}
-    >
-      <div className="flex flex-col gap-1.5">
-        {connected ? (
-          <button
-            onClick={disconnect}
-            disabled={busy}
-            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--error)] hover:text-[var(--error)] disabled:opacity-40"
-          >
-            Déconnecter
-          </button>
-        ) : (
-          <button
-            onClick={connect}
-            disabled={busy || connected === null}
-            className="w-fit rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
-            style={{ background: "var(--primary)" }}
-          >
-            {busy ? "En attente d'autorisation…" : "Connecter"}
-          </button>
-        )}
-        {error && <p className="text-xs text-[var(--error)]">{error}</p>}
-      </div>
-    </ConnectorCard>
+    <>
+      <Row
+        icon={<GoogleCalendarIcon size={26} />}
+        name="Google Agenda"
+        status={status}
+        meta={
+          error ? (
+            <span className="text-[var(--cx-error-text)]">{error}</span>
+          ) : connected ? (
+            "Lecture et création d'événements autorisées"
+          ) : (
+            "Laissez Toumaï AI lire et créer des événements dans votre agenda."
+          )
+        }
+        actions={
+          connected ? (
+            <BtnGhost onClick={() => setConfirmOpen(true)} disabled={busy}>
+              Déconnecter
+            </BtnGhost>
+          ) : (
+            <BtnPrimary onClick={connect} disabled={busy || connected === null}>
+              {busy ? "En attente d'autorisation…" : "Connecter"}
+            </BtnPrimary>
+          )
+        }
+        menuItems={[{ label: "Tester la connexion", onClick: refresh }]}
+      />
+      {confirmOpen && (
+        <ConfirmDialog
+          title="Déconnecter Google Agenda ?"
+          body="Toumaï AI ne pourra plus lire ni créer d'événements dans votre agenda. Vous pourrez vous reconnecter à tout moment."
+          confirmLabel="Déconnecter"
+          busy={busy}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={disconnect}
+        />
+      )}
+    </>
   );
 }
 
-function MailConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus }) {
+function MailRow({ onStatus }: { onStatus: OnStatus }) {
   const [status, setStatus] = useState<MailStatus | null>(null);
-  const [checkedAt, setCheckedAt] = useState<Date | undefined>(undefined);
   const [form, setForm] = useState(false);
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function refresh() {
+    return getMailStatus()
+      .then(setStatus)
+      .catch(() => setStatus({ connected: false, email: null }));
+  }
 
   useEffect(() => {
-    getMailStatus()
-      .then((s) => {
-        setStatus(s);
-        setCheckedAt(new Date());
-      })
-      .catch(() => setStatus({ connected: false, email: null }));
+    refresh();
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -533,10 +827,8 @@ function MailConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus 
     try {
       const res = await connectMail(email, pwd);
       setStatus({ connected: res.connected, email: res.email });
-      setCheckedAt(new Date());
       setForm(false);
       setPwd("");
-      onLog("Mail connecté", res.email);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connexion échouée");
     } finally {
@@ -550,8 +842,7 @@ function MailConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus 
     try {
       await disconnectMail();
       setStatus({ connected: false, email: null });
-      setCheckedAt(new Date());
-      onLog("Mail déconnecté", "Par l'utilisateur");
+      setConfirmOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la déconnexion");
     } finally {
@@ -559,93 +850,106 @@ function MailConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus 
     }
   }
 
-  const cStatus: ConnectorStatus = status === null ? "loading" : status.connected ? "connected" : "disconnected";
+  const rowStatus: RowStatus = error
+    ? "error"
+    : status === null
+      ? "loading"
+      : status.connected
+        ? "connected"
+        : "disconnected";
   useEffect(() => {
-    onStatus?.(cStatus);
+    onStatus(rowStatus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cStatus]);
+  }, [rowStatus]);
+
+  const inputCls =
+    "rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-[13px] text-[var(--cx-text-body)] outline-none transition placeholder:text-[var(--cx-text-faint)] focus:border-[var(--cx-accent-border)]";
 
   return (
-    <ConnectorCard
-      icon={<GmailIcon />}
-      name="Mail"
-      description={
-        status?.connected && status.email
-          ? `Connecté à ${status.email}`
-          : "Lisez et envoyez des e-mails via Toumaï AI (Gmail, Outlook…)."
-      }
-      status={cStatus}
-      lastChecked={checkedAt}
-    >
-      {status?.connected ? (
-        <button
-          onClick={disconnect}
-          disabled={busy}
-          className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--error)] hover:text-[var(--error)] disabled:opacity-40"
-        >
-          Déconnecter
-        </button>
-      ) : form ? (
-        <form onSubmit={submit} className="flex flex-col gap-2">
-          <input
-            type="email"
-            required
-            placeholder="vous@gmail.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs outline-none focus:border-[var(--primary)]"
-          />
-          <input
-            type="password"
-            required
-            placeholder="Mot de passe d'application"
-            value={pwd}
-            onChange={(e) => setPwd(e.target.value)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs outline-none focus:border-[var(--primary)]"
-          />
-          <p className="text-[11px] text-[var(--text-tertiary)]">
-            Utilisez un « mot de passe d'application », pas votre mot de passe principal
-            (Gmail : myaccount.google.com/apppasswords).
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
-              style={{ background: "var(--primary)" }}
-            >
-              {busy ? "Vérification…" : "Connecter"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm(false)}
-              className="rounded-lg px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]"
-            >
-              Annuler
-            </button>
-          </div>
-          {error && <p className="text-xs text-[var(--error)]">{error}</p>}
-        </form>
-      ) : (
-        <button
-          onClick={() => setForm(true)}
-          className="w-fit rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
-          style={{ background: "var(--primary)" }}
-        >
-          Connecter
-        </button>
+    <>
+      <Row
+        icon={<GmailIcon size={26} />}
+        name="Gmail"
+        status={rowStatus}
+        meta={
+          error ? (
+            <span className="text-[var(--cx-error-text)]">{error}</span>
+          ) : status?.connected && status.email ? (
+            <>
+              <span className="text-[var(--cx-text-secondary)]">{status.email}</span> · lecture et
+              envoi d&apos;e-mails
+            </>
+          ) : (
+            "Lisez et envoyez des e-mails via Toumaï AI (Gmail, Outlook…)."
+          )
+        }
+        actions={
+          status?.connected ? (
+            <BtnGhost onClick={() => setConfirmOpen(true)} disabled={busy}>
+              Déconnecter
+            </BtnGhost>
+          ) : (
+            <BtnPrimary onClick={() => setForm((f) => !f)}>
+              {form ? "Fermer" : "Connecter"}
+            </BtnPrimary>
+          )
+        }
+        menuItems={[{ label: "Tester la connexion", onClick: refresh }]}
+        expanded={
+          !status?.connected && form ? (
+            <form onSubmit={submit} className="flex max-w-sm flex-col gap-2">
+              <input
+                type="email"
+                required
+                placeholder="vous@gmail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputCls}
+              />
+              <input
+                type="password"
+                required
+                placeholder="Mot de passe d'application"
+                value={pwd}
+                onChange={(e) => setPwd(e.target.value)}
+                className={inputCls}
+              />
+              <p className="text-[11.5px] leading-relaxed text-[var(--cx-text-faint)]">
+                Utilisez un « mot de passe d&apos;application », pas votre mot de passe principal
+                (Gmail : myaccount.google.com/apppasswords).
+              </p>
+              <div className="flex gap-2">
+                <BtnPrimary type="submit" disabled={busy}>
+                  {busy ? "Vérification…" : "Connecter"}
+                </BtnPrimary>
+                <BtnGhost onClick={() => setForm(false)}>Annuler</BtnGhost>
+              </div>
+            </form>
+          ) : undefined
+        }
+      />
+      {confirmOpen && (
+        <ConfirmDialog
+          title="Déconnecter Gmail ?"
+          body="Toumaï AI ne pourra plus lire ni envoyer d'e-mails avec ce compte. Vos identifiants seront supprimés."
+          confirmLabel="Déconnecter"
+          busy={busy}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={disconnect}
+        />
       )}
-    </ConnectorCard>
+    </>
   );
 }
 
-function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnStatus }) {
+function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
   const [state, setState] = useState<WhatsAppState | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
-  const [checkedAt, setCheckedAt] = useState<Date | undefined>(undefined);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function stopPolling() {
@@ -659,23 +963,25 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
       const s = await getWhatsAppStatus().catch(() => null);
       if (!s) return;
       setState(s);
-      setCheckedAt(new Date());
       if (s.status === "connected" || s.status === "disconnected" || s.status === "error") {
         stopPolling();
-        if (s.status === "connected") onLog("WhatsApp connecté", s.number || "Numéro lié");
       }
     }, 3000);
   }
 
-  useEffect(() => {
-    getWhatsAppStatus()
+  function refresh() {
+    return getWhatsAppStatus()
       .then((s) => {
         setState(s);
-        setCheckedAt(new Date());
         if (s.status === "qr" || s.status === "pairing" || s.status === "connecting") startPolling();
       })
       .catch(() => setState({ status: "disconnected" }));
+  }
+
+  useEffect(() => {
+    refresh();
     return stopPolling;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function link() {
@@ -685,8 +991,6 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
     try {
       const s = await linkWhatsApp(phone.trim());
       setState(s);
-      setCheckedAt(new Date());
-      if (s.pairingCode) onLog("Code WhatsApp généré", phone.trim());
       startPolling();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la liaison");
@@ -700,8 +1004,9 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
     setError(null);
     try {
       const res = await refreshWhatsAppCode();
-      setState((prev) => (prev ? { ...prev, pairingCode: res.pairingCode, codeExpiresAt: res.codeExpiresAt } : prev));
-      onLog("Code WhatsApp régénéré", phone.trim() || "—");
+      setState((prev) =>
+        prev ? { ...prev, pairingCode: res.pairingCode, codeExpiresAt: res.codeExpiresAt } : prev,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec du rafraîchissement");
     } finally {
@@ -715,9 +1020,9 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
     try {
       await disconnectWhatsApp();
       setState({ status: "disconnected" });
-      setCheckedAt(new Date());
+      setLinkOpen(false);
       stopPolling();
-      onLog("WhatsApp déconnecté", "Par l'utilisateur");
+      setConfirmOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de la déconnexion");
     } finally {
@@ -725,103 +1030,233 @@ function WhatsAppConnector({ onLog, onStatus }: { onLog: OnLog; onStatus?: OnSta
     }
   }
 
-  const cStatus: ConnectorStatus =
+  const rowStatus: RowStatus =
     state === null
       ? "loading"
       : state.status === "unconfigured"
         ? "unavailable"
         : state.status === "connected"
           ? "connected"
-          : state.status === "qr" || state.status === "pairing" || state.status === "connecting"
-            ? "pending"
-            : "disconnected";
-  // Toujours AVANT le return conditionnel (règles des hooks React).
+          : state.status === "error"
+            ? "error"
+            : state.status === "qr" || state.status === "pairing" || state.status === "connecting"
+              ? "pending"
+              : "disconnected";
   useEffect(() => {
-    onStatus?.(cStatus);
+    onStatus(rowStatus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cStatus]);
+  }, [rowStatus]);
 
-  if (state?.status === "unconfigured") {
-    return (
-      <ConnectorCard
-        icon={<WhatsAppIcon />}
-        name="WhatsApp"
-        description="Auto-pilote WhatsApp — pas encore disponible sur cette instance."
-        status="unavailable"
-      />
-    );
-  }
-
-  const description =
-    state?.status === "connected" && state.number
-      ? `Connecté — ${state.number}`
-      : "Laissez Toumaï AI répondre automatiquement sur WhatsApp (auto-pilote).";
+  const meta = error ? (
+    <span className="text-[var(--cx-error-text)]">{error}</span>
+  ) : state?.status === "unconfigured" ? (
+    "Auto-pilote WhatsApp — pas encore disponible sur cette instance."
+  ) : state?.status === "connected" && state.number ? (
+    <>
+      <span className="tabular-nums text-[var(--cx-text-secondary)]">{state.number}</span> ·
+      auto-pilote actif
+    </>
+  ) : rowStatus === "pending" ? (
+    "Liaison en cours — saisissez le code dans WhatsApp pour terminer."
+  ) : (
+    "Laissez Toumaï AI répondre automatiquement sur WhatsApp (auto-pilote)."
+  );
 
   return (
-    <ConnectorCard icon={<WhatsAppIcon />} name="WhatsApp" description={description} status={cStatus} lastChecked={checkedAt}>
-      {state?.status === "connected" ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setPermissionsOpen(true)}
-            className="w-fit rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
-            style={{ background: "var(--primary)" }}
-          >
-            Gérer les permissions
-          </button>
-          <a
-            href="/whatsapp"
-            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--primary)]/60"
-          >
-            Tableau de bord
-          </a>
-          <button
-            onClick={disconnect}
-            disabled={busy}
-            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--error)] hover:text-[var(--error)] disabled:opacity-40"
-          >
-            Déconnecter
-          </button>
-        </div>
-      ) : state?.pairingCode ? (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-[var(--text-secondary)]">
-            Dans WhatsApp : Appareils connectés → Lier avec le numéro de téléphone, puis saisissez :
-          </p>
-          <p
-            className="w-fit rounded-lg px-3 py-1.5 font-mono text-lg font-semibold tracking-widest"
-            style={{ background: "var(--surface)" }}
-          >
-            {state.pairingCode}
-          </p>
-          <button
-            onClick={refreshCode}
-            disabled={busy}
-            className="w-fit text-xs text-[var(--text-tertiary)] underline transition hover:text-[var(--text-primary)] disabled:opacity-40"
-          >
-            Code expiré ? Regénérer
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <input
-            type="tel"
-            placeholder="+235 XX XX XX XX"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full max-w-[220px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs outline-none focus:border-[var(--primary)]"
-          />
-          <button
-            onClick={link}
-            disabled={busy || !phone.trim()}
-            className="w-fit rounded-lg px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-40"
-            style={{ background: "var(--primary)" }}
-          >
-            {busy ? "Liaison…" : "Obtenir un code"}
-          </button>
-        </div>
-      )}
-      {error && <p className="mt-1.5 text-xs text-[var(--error)]">{error}</p>}
+    <>
+      <Row
+        icon={<WhatsAppIcon size={26} />}
+        name="WhatsApp"
+        status={rowStatus}
+        meta={meta}
+        actions={
+          state?.status === "connected" ? (
+            <>
+              <BtnAccentOutline onClick={() => setPermissionsOpen(true)}>
+                Gérer les permissions
+              </BtnAccentOutline>
+              <BtnGhost onClick={() => setConfirmOpen(true)} disabled={busy}>
+                Déconnecter
+              </BtnGhost>
+            </>
+          ) : state?.status === "unconfigured" || state === null ? undefined : rowStatus ===
+            "pending" ? undefined : (
+            <BtnPrimary onClick={() => setLinkOpen((o) => !o)}>
+              {linkOpen ? "Fermer" : "Connecter"}
+            </BtnPrimary>
+          )
+        }
+        menuItems={
+          state?.status === "unconfigured"
+            ? undefined
+            : [
+                { label: "Tester la connexion", onClick: refresh },
+                {
+                  label: "Voir les journaux",
+                  onClick: () => {
+                    window.location.href = "/whatsapp";
+                  },
+                },
+                ...(state?.status === "connected"
+                  ? [{ label: "Paramètres", onClick: () => setPermissionsOpen(true) }]
+                  : []),
+              ]
+        }
+        expanded={
+          state?.pairingCode && rowStatus === "pending" ? (
+            <div className="flex max-w-md flex-col gap-2">
+              <p className="text-[13px] text-[var(--cx-text-secondary)]">
+                Dans WhatsApp : Appareils connectés → Lier avec le numéro de téléphone, puis
+                saisissez :
+              </p>
+              <p
+                className="w-fit rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-4 py-2 font-mono text-lg font-semibold tracking-[0.2em] text-[var(--cx-text-primary)]"
+              >
+                {state.pairingCode}
+              </p>
+              <button
+                onClick={refreshCode}
+                disabled={busy}
+                className="w-fit text-[12px] text-[var(--cx-text-faint)] underline underline-offset-2 transition hover:text-[var(--cx-text-primary)] disabled:opacity-40"
+              >
+                Code expiré ? Regénérer
+              </button>
+            </div>
+          ) : linkOpen && rowStatus === "disconnected" ? (
+            <div className="flex max-w-sm flex-col gap-2">
+              <input
+                type="tel"
+                placeholder="+235 XX XX XX XX"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-[13px] tabular-nums text-[var(--cx-text-body)] outline-none transition placeholder:text-[var(--cx-text-faint)] focus:border-[var(--cx-accent-border)]"
+              />
+              <div className="flex gap-2">
+                <BtnPrimary onClick={link} disabled={busy || !phone.trim()}>
+                  {busy ? "Liaison…" : "Obtenir un code"}
+                </BtnPrimary>
+                <BtnGhost onClick={() => setLinkOpen(false)}>Annuler</BtnGhost>
+              </div>
+            </div>
+          ) : undefined
+        }
+      />
       {permissionsOpen && <WhatsAppPermissionsPanel onClose={() => setPermissionsOpen(false)} />}
-    </ConnectorCard>
+      {confirmOpen && (
+        <ConfirmDialog
+          title="Déconnecter WhatsApp ?"
+          body="L'auto-pilote sera désactivé et l'appareil lié sera retiré de votre compte WhatsApp."
+          confirmLabel="Déconnecter"
+          busy={busy}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={disconnect}
+        />
+      )}
+    </>
+  );
+}
+
+/** Météo — service interne, toujours actif, sans configuration. */
+function MeteoRow({ onStatus }: { onStatus: OnStatus }) {
+  useEffect(() => {
+    onStatus("always");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <Row
+      icon={<MeteoIcon size={26} />}
+      tile="night"
+      name="Météo"
+      status="always"
+      meta="Toumaï AI consulte la météo en direct (Open-Meteo) — aucune configuration requise."
+    />
+  );
+}
+
+/* ---------- Icônes UI (traits SVG, jamais d'emoji) ---------- */
+
+function SearchIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function JournalIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinejoin="round" />
+      <path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="text-[var(--cx-text-faint)]"
+    >
+      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01M12 11v5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 018 0v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </svg>
   );
 }
