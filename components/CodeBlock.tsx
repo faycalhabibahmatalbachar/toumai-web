@@ -162,61 +162,160 @@ function ArtifactPreview({
   );
 }
 
-/* ── Console d'exécution inline (Python navigateur + backend) ─────────────── */
+/* ── Exécuteur plein écran — code à gauche (masquable), Console à droite ──── */
 
 interface OutLine {
   text: string;
   stream: "out" | "err" | "status";
 }
 
-function OutputConsole({
-  lines,
-  running,
-  onClear,
+function RunnerOverlay({
+  language,
+  code,
+  onClose,
 }: {
-  lines: OutLine[];
-  running: boolean;
-  onClear: () => void;
+  language: string;
+  code: string;
+  onClose: () => void;
 }) {
+  const [lines, setLines] = useState<OutLine[]>([]);
+  const [running, setRunning] = useState(false);
+  const [showCode, setShowCode] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
+  const startedRef = useRef(false);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [lines]);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function log(text: string, stream: OutLine["stream"]) {
+    setLines((prev) => [...prev, { text, stream }]);
+  }
+
+  async function run() {
+    if (running) return;
+    setLines([]);
+    setRunning(true);
+    const t0 = performance.now();
+    log("Exécution lancée", "status");
+    try {
+      if (isBrowserPython(language)) {
+        log("Initialisation de l'environnement", "status");
+        await runPythonInBrowser(code, (line, stream) => log(line, stream));
+      } else {
+        log("Exécution dans le sandbox distant", "status");
+        const res = await runViaBackend(language, code);
+        if (res.error) {
+          log(res.error, "err");
+        } else {
+          if (res.output?.trim()) {
+            // La sortie combinée est en erreur si SEUL stderr a produit du texte.
+            const onlyErr = Boolean(res.stderr?.trim()) && res.output.trim() === res.stderr?.trim();
+            log(res.output.replace(/\n$/, ""), onlyErr ? "err" : "out");
+          } else {
+            log("(aucune sortie)", "status");
+          }
+          if (typeof res.exitCode === "number" && res.exitCode !== 0) {
+            log(`— code de sortie ${res.exitCode}`, "status");
+          }
+        }
+      }
+    } finally {
+      log(`Exécution terminée en ${Math.round(performance.now() - t0)} ms`, "status");
+      setRunning(false);
+    }
+  }
+
+  // Lancement automatique à l'ouverture (une seule fois).
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="border-t border-[var(--border)] bg-[#0d0d0f]">
-      <div className="flex items-center justify-between px-3 py-1.5 text-[11px] text-[var(--text-tertiary)]">
-        <span className="flex items-center gap-1.5 font-medium">
-          <TerminalIcon />
-          {running ? "Exécution…" : "Sortie"}
-        </span>
-        <button onClick={onClear} className="rounded px-1.5 py-0.5 transition hover:text-[var(--text-primary)]">
-          Effacer
+    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--background)]">
+      {/* Barre supérieure */}
+      <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
+        <button
+          onClick={onClose}
+          title="Fermer"
+          aria-label="Fermer l'exécuteur"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+        >
+          <CloseIcon />
         </button>
+        <button
+          onClick={() => setShowCode((s) => !s)}
+          className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+        >
+          <PanelIcon />
+          {showCode ? "Masquer le code" : "Afficher le code"}
+        </button>
+        <span className="ml-auto text-xs text-[var(--text-tertiary)]">{language || "code"}</span>
       </div>
-      <div className="max-h-64 overflow-auto px-3 pb-3 font-mono text-[12.5px] leading-relaxed">
-        {lines.length === 0 && !running ? (
-          <p className="text-[var(--text-tertiary)]">Aucune sortie.</p>
-        ) : (
-          lines.map((l, i) => (
-            <pre
-              key={i}
-              className="m-0 whitespace-pre-wrap break-words"
-              style={{
-                color:
-                  l.stream === "err"
-                    ? "#ff7b6b"
-                    : l.stream === "status"
-                      ? "#d9a441"
-                      : "#e6e1d8",
-              }}
-            >
-              {l.text}
-            </pre>
-          ))
+
+      {/* Corps : code | console */}
+      <div className="flex min-h-0 flex-1">
+        {showCode && (
+          <div className="hidden min-w-0 flex-1 overflow-auto border-r border-[var(--border)] p-4 md:block">
+            <CodeBlock language={language} code={code} runnable={false} />
+          </div>
         )}
-        {running && <span className="streaming-cursor text-[#d9a441]">▋</span>}
-        <div ref={endRef} />
+        <div className={`flex min-w-0 flex-1 flex-col p-4 ${showCode ? "md:max-w-[56%]" : ""}`}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
+              <span className="text-sm font-semibold">Console</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setLines([])}
+                  title="Effacer la console"
+                  aria-label="Effacer la console"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                >
+                  <TrashIcon />
+                </button>
+                <button
+                  onClick={run}
+                  disabled={running}
+                  className="flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3.5 py-1.5 text-xs font-semibold transition hover:bg-[var(--hover)] disabled:opacity-50"
+                >
+                  <PlayIcon />
+                  {running ? "Exécution…" : "Exécuter"}
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto px-4 py-3 font-mono text-[13px] leading-relaxed">
+              {lines.map((l, i) => (
+                <pre
+                  key={i}
+                  className="m-0 whitespace-pre-wrap break-words"
+                  style={{
+                    color:
+                      l.stream === "err"
+                        ? "var(--error)"
+                        : l.stream === "status"
+                          ? "var(--text-tertiary)"
+                          : "var(--text-primary)",
+                  }}
+                >
+                  {l.text}
+                </pre>
+              ))}
+              {running && <span className="streaming-cursor" style={{ color: "var(--primary)" }}>▋</span>}
+              <div ref={endRef} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -238,9 +337,7 @@ export function CodeBlock({
   const ref = useRef<HTMLElement>(null);
   const [copied, setCopied] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [out, setOut] = useState<OutLine[]>([]);
-  const [running, setRunning] = useState(false);
-  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [runnerOpen, setRunnerOpen] = useState(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -262,36 +359,6 @@ export function CodeBlock({
   const webPreview = runnable && isWebPreview(language, code);
   const consoleRun = runnable && !webPreview && isConsoleRunnable(language);
 
-  function log(text: string, stream: OutLine["stream"]) {
-    setOut((prev) => [...prev, { text, stream }]);
-  }
-
-  async function run() {
-    setConsoleOpen(true);
-    setOut([]);
-    setRunning(true);
-    try {
-      if (isBrowserPython(language)) {
-        // Python exécuté dans le navigateur : installe et utilise de vraies
-        // bibliothèques (numpy, pandas, requests…) à la volée.
-        await runPythonInBrowser(code, (line, stream) => log(line, stream));
-      } else {
-        const res = await runViaBackend(language, code);
-        if (res.error) {
-          log(res.error, "err");
-        } else {
-          if (res.output?.trim()) log(res.output.replace(/\n$/, ""), res.stderr ? "err" : "out");
-          if (!res.output?.trim()) log("(aucune sortie)", "status");
-          if (typeof res.exitCode === "number" && res.exitCode !== 0) {
-            log(`— code de sortie ${res.exitCode}`, "status");
-          }
-        }
-      }
-    } finally {
-      setRunning(false);
-    }
-  }
-
   return (
     <div className="my-2 overflow-hidden rounded-lg border border-[var(--border)]">
       <div className="flex items-center justify-between bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-tertiary)]">
@@ -309,13 +376,12 @@ export function CodeBlock({
           )}
           {consoleRun && (
             <button
-              onClick={run}
-              disabled={running}
-              className="flex items-center gap-1.5 rounded px-2 py-0.5 font-semibold transition hover:bg-[var(--hover)] disabled:opacity-50"
+              onClick={() => setRunnerOpen(true)}
+              className="flex items-center gap-1.5 rounded px-2 py-0.5 font-semibold transition hover:bg-[var(--hover)]"
               style={{ color: "var(--primary)" }}
             >
               <PlayIcon />
-              {running ? "…" : "Exécuter"}
+              Exécuter
             </button>
           )}
           <button
@@ -331,15 +397,8 @@ export function CodeBlock({
           {code}
         </code>
       </pre>
-      {consoleOpen && (
-        <OutputConsole
-          lines={out}
-          running={running}
-          onClear={() => {
-            setOut([]);
-            setConsoleOpen(false);
-          }}
-        />
+      {runnerOpen && (
+        <RunnerOverlay language={language} code={code} onClose={() => setRunnerOpen(false)} />
       )}
       {previewOpen && (
         <ArtifactPreview language={language} code={code} onClose={() => setPreviewOpen(false)} />
@@ -358,10 +417,19 @@ function PlayIcon() {
   );
 }
 
-function TerminalIcon() {
+function PanelIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M4 17l6-5-6-5M12 19h8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M10 4v16" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
