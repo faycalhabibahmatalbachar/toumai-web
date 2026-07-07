@@ -7,6 +7,8 @@ import { confirmToolAction, sendFeedback } from "@/lib/chat-api";
 import type { ToolConfirmation } from "@/lib/chat-stream";
 import { CodeBlock } from "./CodeBlock";
 import { SiteBuildingCard, SiteSuggestions } from "./SiteBuilder";
+import { ProjectCard } from "./ProjectViewer";
+import { parseProject } from "@/lib/project-parser";
 
 /** Détecte un bloc ```html en cours d'écriture (ouvert mais pas encore fermé)
  * dans un message en streaming — déclenche la carte de construction animée. */
@@ -387,11 +389,18 @@ export function ChatMessage({
   // reste rendu). Une fois le site terminé, on propose des améliorations.
   const buildingLen = message.streaming ? pendingHtmlBlock(message.content || "") : null;
   const building = buildingLen !== null;
+
+  // Projet multi-fichiers terminé (≥2 fichiers nommés) → IDE au lieu des blocs.
+  const project = !message.streaming ? parseProject(message.content || "") : [];
+  const isProject = project.length >= 2;
   const hasFinishedHtml =
-    !message.streaming && /```html[\s\S]*?```/i.test(message.content || "");
-  const visibleContent = building
-    ? (message.content || "").replace(/```html[\s\S]*$/i, "").trimEnd()
-    : message.content || "";
+    !isProject && !message.streaming && /```html[\s\S]*?```/i.test(message.content || "");
+
+  let visibleContent = message.content || "";
+  if (building) visibleContent = visibleContent.replace(/```html[\s\S]*$/i, "").trimEnd();
+  // Pour un projet, on retire tous les blocs de code (montrés dans l'IDE) et on
+  // ne garde que le texte narratif.
+  if (isProject) visibleContent = visibleContent.replace(/```[^\n`]*\n[\s\S]*?```/g, "").trim();
 
   return (
     <div className="animate-fade-in">
@@ -422,6 +431,7 @@ export function ChatMessage({
               {visibleContent}
             </ReactMarkdown>
             {building && <SiteBuildingCard codeLength={buildingLen ?? 0} />}
+            {isProject && <ProjectCard content={message.content || ""} onSuggest={onSuggest} />}
             {hasFinishedHtml && <SiteSuggestions onSuggest={onSuggest} />}
           </div>
         )}
