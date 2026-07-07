@@ -59,8 +59,14 @@ export function getWhatsAppStatus(): Promise<WhatsAppState> {
   return http.get("/whatsapp/status");
 }
 
+/** Liaison par code de jumelage (saisie du numéro). */
 export function linkWhatsApp(phone: string): Promise<WhatsAppState> {
   return http.post("/whatsapp/link", { phone });
+}
+
+/** Liaison par QR (sans numéro) — souvent plus fiable, comme sur mobile. */
+export function linkWhatsAppQr(): Promise<WhatsAppState> {
+  return http.post("/whatsapp/link", {});
 }
 
 export function refreshWhatsAppCode(): Promise<{ pairingCode: string; codeExpiresAt: string }> {

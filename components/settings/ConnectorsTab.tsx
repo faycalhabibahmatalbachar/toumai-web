@@ -17,6 +17,7 @@ import {
   getMailStatus,
   getWhatsAppStatus,
   linkWhatsApp,
+  linkWhatsAppQr,
   refreshWhatsAppCode,
   type MailStatus,
   type WhatsAppState,
@@ -1032,6 +1033,21 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
     }
   }
 
+  // Liaison par QR (sans numéro) — méthode par défaut, la plus fiable.
+  async function linkQr() {
+    setBusy(true);
+    setError(null);
+    try {
+      const s = await linkWhatsAppQr();
+      apply(s);
+      startPolling();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la liaison");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshCode() {
     setBusy(true);
     setError(null);
@@ -1182,19 +1198,42 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
               </div>
             </div>
           ) : linkOpen && (rowStatus === "disconnected" || rowStatus === "error") ? (
-            <div className="flex max-w-sm flex-col gap-2">
-              <input
-                type="tel"
-                placeholder="+235 XX XX XX XX"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-[13px] tabular-nums text-[var(--cx-text-body)] outline-none transition placeholder:text-[var(--cx-text-faint)] focus:border-[var(--cx-accent-border)]"
-              />
-              <div className="flex gap-2">
-                <BtnPrimary onClick={link} disabled={busy || !phone.trim()}>
-                  {busy ? "Liaison…" : "Obtenir un code"}
+            <div className="flex max-w-md flex-col gap-3">
+              {/* Méthode 1 (recommandée) : QR à scanner — la plus fiable, comme
+                  sur l'application mobile. */}
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[13px] font-medium text-[var(--cx-text-primary)]">
+                  Recommandé — scanner un QR code
+                </p>
+                <p className="text-[12px] text-[var(--cx-text-muted)]">
+                  Dans WhatsApp : Appareils connectés → Lier un appareil → scannez le QR affiché.
+                </p>
+                <BtnPrimary onClick={linkQr} disabled={busy}>
+                  {busy ? "Génération…" : "Afficher le QR code"}
                 </BtnPrimary>
-                <BtnGhost onClick={() => setLinkOpen(false)}>Annuler</BtnGhost>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-[var(--cx-text-faint)]">
+                <span className="h-px flex-1 bg-[var(--cx-border-subtle)]" />
+                ou par numéro
+                <span className="h-px flex-1 bg-[var(--cx-border-subtle)]" />
+              </div>
+
+              {/* Méthode 2 : code de jumelage par numéro. */}
+              <div className="flex flex-col gap-2">
+                <input
+                  type="tel"
+                  placeholder="+235 XX XX XX XX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-[13px] tabular-nums text-[var(--cx-text-body)] outline-none transition placeholder:text-[var(--cx-text-faint)] focus:border-[var(--cx-accent-border)]"
+                />
+                <div className="flex gap-2">
+                  <BtnGhost onClick={link} disabled={busy || !phone.trim()}>
+                    {busy ? "Liaison…" : "Obtenir un code par numéro"}
+                  </BtnGhost>
+                  <BtnGhost onClick={() => setLinkOpen(false)}>Annuler</BtnGhost>
+                </div>
               </div>
             </div>
           ) : undefined
