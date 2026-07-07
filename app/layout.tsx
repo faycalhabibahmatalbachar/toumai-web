@@ -128,9 +128,14 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--text-primary)]">
+      {/* Scripts dans <head> : exécutés depuis le HTML serveur (l'init du
+          thème doit tourner AVANT la première peinture), et React ne les
+          re-rend plus côté client dans le body (avertissement React 19). */}
+      <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
+      </head>
+      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--text-primary)]">
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>

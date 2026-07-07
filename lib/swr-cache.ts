@@ -6,7 +6,15 @@
  * à jour l'écran + le cache. Un échec réseau conserve silencieusement les
  * données en cache au lieu de vider la page. */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+
+/* IMPORTANT hydratation : les pages sont pré-rendues SANS localStorage. Lire
+ * le cache pendant le rendu initial (useState(() => cacheSeed(...))) fait
+ * diverger le HTML serveur et le premier rendu client → erreur d'hydratation
+ * React. La règle : état initial NEUTRE, puis seed via useLayoutEffect —
+ * il s'exécute après l'hydratation mais AVANT la peinture, donc l'utilisateur
+ * voit quand même le cache instantanément, sans flash ni erreur. */
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const PREFIX = "toumai:cache:";
 
@@ -66,6 +74,22 @@ export function cachePurge(prefix = ""): void {
   } catch {}
 }
 
+/** Seed hydration-safe : applique la valeur en cache UNE fois, juste après
+ * l'hydratation et avant la peinture. À utiliser à la place de
+ * `useState(() => cacheSeed(key))` dans les composants pré-rendus. */
+export function useCacheSeed<T>(key: string, apply: (value: T) => void): void {
+  const appliedRef = useRef(false);
+  const applyRef = useRef(apply);
+  applyRef.current = apply;
+  useIsoLayoutEffect(() => {
+    if (appliedRef.current) return;
+    appliedRef.current = true;
+    const e = cacheRead<T>(key);
+    if (e) applyRef.current(e.v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
 interface UseCachedOptions {
   /** Ne déclenche pas la revalidation tant que false (ex. session absente). */
   enabled?: boolean;
@@ -97,23 +121,33 @@ export function useCached<T>(
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
+  // État initial NEUTRE (identique au HTML pré-rendu) — le cache est appliqué
+  // en layout-effect ci-dessous, après l'hydratation.
   const [state, setState] = useState<{
     key: string;
     data: T | null;
     fromCache: boolean;
     loading: boolean;
     error: string | null;
-  }>(() => {
-    const e = cacheRead<T>(key);
-    return { key, data: e ? e.v : null, fromCache: !!e, loading: !e, error: null };
-  });
+  }>({ key, data: null, fromCache: false, loading: true, error: null });
 
-  // Changement de clé (filtre, période…) : bascule synchrone sur le cache de
-  // la nouvelle clé pour éviter d'afficher les données de l'ancienne.
+  // Changement de clé (filtre, période…) : reset synchrone pour ne jamais
+  // afficher les données de l'ancienne clé.
   if (state.key !== key) {
-    const e = cacheRead<T>(key);
-    setState({ key, data: e ? e.v : null, fromCache: !!e, loading: !e, error: null });
+    setState({ key, data: null, fromCache: false, loading: true, error: null });
   }
+
+  // Seed depuis le cache — avant peinture, donc affichage instantané sans
+  // divergence d'hydratation.
+  useIsoLayoutEffect(() => {
+    const e = cacheRead<T>(key);
+    if (!e) return;
+    setState((s) =>
+      s.key === key && s.data === null
+        ? { ...s, data: e.v, fromCache: true, loading: false }
+        : s,
+    );
+  }, [key]);
 
   const revalidate = useCallback(async () => {
     try {

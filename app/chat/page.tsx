@@ -18,7 +18,7 @@ import { Waveform } from "@/components/Waveform";
 import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
-import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { applyChatFontSize } from "@/lib/ui-prefs";
 
 /** Synchronise l'URL avec la conversation active (/chat?c=<id>) — chaque
@@ -161,11 +161,13 @@ export default function ChatPage() {
   // Prénom affiché dans l'accueil pour les comptes réels (comme
   // "À vous la parole, {NOM}" sur Gemini) — les invités gardent la version
   // générique, on n'a pas d'identité à afficher pour eux.
-  const [firstName, setFirstName] = useState<string | null>(
-    () =>
-      cacheSeed<{ full_name?: string | null }>("user:profile")?.full_name?.trim().split(/\s+/)[0] ??
-      null,
-  );
+  // Hydration-safe : état neutre au rendu (identique au HTML pré-rendu),
+  // seed du cache appliqué avant peinture par useCacheSeed.
+  const [firstName, setFirstName] = useState<string | null>(null);
+  useCacheSeed<{ full_name?: string | null }>("user:profile", (p) => {
+    const name = p.full_name?.trim().split(/\s+/)[0];
+    if (name) setFirstName(name);
+  });
   useEffect(() => {
     if (!session || session.is_guest) return;
     getProfile()

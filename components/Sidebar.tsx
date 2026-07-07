@@ -12,7 +12,7 @@ import {
   type ChatSession,
 } from "@/lib/chat-api";
 import { getProfile, type UserProfile } from "@/lib/user-api";
-import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { Logo } from "./Logo";
 
 interface SidebarProps {
@@ -29,11 +29,15 @@ const COLLAPSE_KEY = "toumai_sidebar_collapsed";
 export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClose }: SidebarProps) {
   const { session } = useAuth();
   // Cache persistant : l'historique s'affiche instantanément au retour sur la
-  // page, puis se revalide en arrière-plan (plus de squelette à chaque visite).
-  const [sessions, setSessions] = useState<ChatSession[]>(
-    () => cacheSeed<ChatSession[]>("chat:sessions") ?? [],
-  );
-  const [loading, setLoading] = useState(sessions.length === 0);
+  // page (seed hydration-safe avant peinture), puis se revalide en arrière-plan.
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  useCacheSeed<ChatSession[]>("chat:sessions", (cached) => {
+    if (cached.length) {
+      setSessions(cached);
+      setLoading(false);
+    }
+  });
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   // Repli façon Gemini (desktop uniquement) — rail d'icônes, persisté.
@@ -54,20 +58,19 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
   const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  // Profil seedé depuis le cache : nom + avatar affichés immédiatement,
-  // plus de « Connexion… » à chaque retour sur la page.
-  const [displayName, setDisplayName] = useState<string | null>(
-    () => cacheSeed<UserProfile>("user:profile")?.full_name ?? null,
-  );
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    () => cacheSeed<UserProfile>("user:profile")?.avatar_url ?? null,
-  );
+  // Profil seedé depuis le cache (hydration-safe) : nom + avatar affichés
+  // avant peinture — plus de « Connexion… » à chaque retour sur la page.
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   // Ne jamais afficher « Session invité » à un compte connecté le temps que
   // le profil charge — on attend la réponse avant de trancher (sauf si le
   // cache a déjà tranché).
-  const [profileResolved, setProfileResolved] = useState(
-    () => cacheSeed<UserProfile>("user:profile") !== null,
-  );
+  const [profileResolved, setProfileResolved] = useState(false);
+  useCacheSeed<UserProfile>("user:profile", (p) => {
+    setDisplayName(p.full_name ?? null);
+    setAvatarUrl(p.avatar_url ?? null);
+    setProfileResolved(true);
+  });
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
