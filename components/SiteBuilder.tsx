@@ -109,15 +109,22 @@ export function SiteBuildingCard({ code }: { code: string }) {
 
 /** Suggestions d'amélioration cliquables — proposées sous un site généré.
  * Un clic renvoie la demande dans le chat pour itérer sur le site. */
+/** Préfixe commun : force l'IA à MODIFIER le site déjà créé (présent dans
+ * l'historique) au lieu d'en recréer un nouveau à part. */
+const EDIT_PREFIX =
+  "Reprends EXACTEMENT le site HTML que tu viens de créer juste au-dessus et modifie-le SANS repartir de zéro (garde tout le contenu, les sections et le style existants). Modification demandée : ";
+const EDIT_SUFFIX =
+  " Renvoie le SITE COMPLET mis à jour dans un seul bloc ```html (pas seulement l'ajout, pas un nouveau site séparé).";
+
 export function SiteSuggestions({ onSuggest }: { onSuggest?: (text: string) => void }) {
   if (!onSuggest) return null;
   const ideas = [
-    { label: "🎨 Change les couleurs", prompt: "Change la palette de couleurs du site pour quelque chose de plus moderne et chaleureux." },
-    { label: "📱 Rends-le responsive", prompt: "Améliore le site pour qu'il soit parfaitement responsive sur mobile." },
-    { label: "✨ Ajoute des animations", prompt: "Ajoute des animations douces et des transitions au survol sur le site." },
-    { label: "🖼️ Ajoute une section galerie", prompt: "Ajoute une section galerie d'images au site." },
-    { label: "📞 Améliore le formulaire", prompt: "Améliore le formulaire de contact avec une validation et un joli style." },
-  ];
+    { label: "🎨 Change les couleurs", instr: "adopte une palette de couleurs plus moderne et chaleureuse." },
+    { label: "📱 Rends-le responsive", instr: "rends-le parfaitement responsive sur mobile et tablette." },
+    { label: "✨ Ajoute des animations", instr: "ajoute des animations fluides et des transitions au survol partout." },
+    { label: "🖼️ Ajoute une galerie", instr: "ajoute une belle section galerie d'images." },
+    { label: "📞 Améliore le formulaire", instr: "améliore le formulaire de contact avec validation et joli style." },
+  ].map((i) => ({ label: i.label, prompt: EDIT_PREFIX + i.instr + EDIT_SUFFIX }));
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       <span className="mr-1 self-center text-xs text-[var(--text-tertiary)]">Améliorer :</span>

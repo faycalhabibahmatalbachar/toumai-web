@@ -197,11 +197,17 @@ function ProjectIDE({
       {onSuggest && (
         <div className="flex flex-wrap gap-1.5 border-t border-[var(--border)] px-4 py-2">
           {[
-            { l: "🎨 Autre palette", p: "Change la palette de couleurs du projet pour un rendu plus premium." },
-            { l: "📱 Responsive", p: "Améliore le responsive mobile de tout le projet." },
-            { l: "✨ Animations", p: "Ajoute des animations et transitions fluides au projet." },
-            { l: "➕ Nouvelle page", p: "Ajoute une nouvelle page cohérente au projet." },
-          ].map((s) => (
+            { l: "🎨 Autre palette", p: "adopte une palette de couleurs plus premium." },
+            { l: "📱 Responsive", p: "améliore le responsive mobile de tout le projet." },
+            { l: "✨ Animations", p: "ajoute des animations et transitions fluides." },
+            { l: "➕ Nouvelle page", p: "ajoute une nouvelle page cohérente." },
+          ].map((raw) => ({
+            l: raw.l,
+            p:
+              "Reprends EXACTEMENT le projet multi-fichiers que tu viens de créer et modifie-le SANS repartir de zéro (garde tous les fichiers existants). Modification : " +
+              raw.p +
+              " Renvoie TOUS les fichiers du projet mis à jour (chaque bloc avec son title=\"chemin\").",
+          })).map((s) => (
             <button
               key={s.l}
               onClick={() => {
