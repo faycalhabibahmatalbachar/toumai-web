@@ -89,7 +89,8 @@ export function assembleForPreview(files: ProjectFile[]): string {
     },
   );
 
-  // Remplace <script src="..."></script> par le JS inline.
+  // Remplace <script src="..."></script> par le JS inline, chacun dans un bloc
+  // isolé pour qu'un fichier cassé n'empêche pas les autres de tourner.
   html = html.replace(
     /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*<\/script>/gi,
     (full, src) => {
@@ -99,11 +100,51 @@ export function assembleForPreview(files: ProjectFile[]): string {
     },
   );
 
-  return html;
+  return injectSafetyNet(html);
 }
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] || c);
+}
+
+/** FILET DE SÉCURITÉ injecté dans tout aperçu/publication. Problème réel : les
+ * sites utilisent des animations (AOS, Animate.css) qui masquent le contenu
+ * (opacity:0) EN ATTENDANT le JavaScript. Si le JS est absent, cassé ou tronqué
+ * (génération coupée), le contenu reste invisible à jamais → page vide. Ce
+ * script, dans SON PROPRE bloc <script> (donc immunisé contre une erreur de
+ * syntaxe du JS du site), révèle tout contenu resté caché si l'animation n'a
+ * pas fonctionné — les animations restent actives quand elles marchent. */
+const SAFETY_NET = `
+<script>
+(function(){
+  function revealAll(){
+    try{
+      document.querySelectorAll('[data-aos]').forEach(function(el){
+        el.style.opacity='1'; el.style.transform='none'; el.style.visibility='visible';
+      });
+      document.querySelectorAll('.animate__animated, .wow, .reveal, .fade-in, .hidden').forEach(function(el){
+        var o=parseFloat(getComputedStyle(el).opacity);
+        if(isNaN(o)||o<0.15){ el.style.opacity='1'; el.style.transform='none'; el.style.visibility='visible'; }
+      });
+    }catch(e){}
+  }
+  function check(){
+    // Si AOS a réellement animé quelque chose, on le laisse faire ; sinon on révèle.
+    var working = (window.AOS && document.querySelector('.aos-animate'));
+    if(!working) revealAll();
+  }
+  if(document.readyState!=='loading'){ setTimeout(check,2200); }
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(check,2200); });
+  // Dernier recours absolu, quoi qu'il arrive.
+  setTimeout(revealAll, 4000);
+})();
+</script>`;
+
+/** Injecte le filet de sécurité juste avant </body> (ou en fin de document). */
+export function injectSafetyNet(html: string): string {
+  if (!html) return html;
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${SAFETY_NET}</body>`);
+  return html + SAFETY_NET;
 }
 
 /** Construit une arborescence de dossiers/fichiers à partir des chemins plats. */

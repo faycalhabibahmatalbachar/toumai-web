@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { publishSite } from "@/lib/sites-api";
+import { injectSafetyNet } from "@/lib/project-parser";
 
 /** Extrait le contenu d'un unique bloc ```html d'un message terminé. */
 export function extractHtml(content: string): string | null {
@@ -148,12 +149,14 @@ export function SiteArtifactCard({
   const [publishing, setPublishing] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Filet de sécurité : le contenu reste visible même si le JS du site échoue.
+  const safeHtml = useMemo(() => injectSafetyNet(html), [html]);
 
   async function publish() {
     setPublishing(true);
     try {
       const title = (html.match(/<title>([^<]{1,80})<\/title>/i)?.[1] || "Mon site").trim();
-      const res = await publishSite(html, title);
+      const res = await publishSite(safeHtml, title);
       setUrl(`${window.location.origin}${res.path}`);
     } catch {
       /* garde le bouton */
@@ -162,7 +165,7 @@ export function SiteArtifactCard({
     }
   }
   function download() {
-    const blob = new Blob([html], { type: "text/html" });
+    const blob = new Blob([safeHtml], { type: "text/html" });
     const u = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = u;
@@ -203,7 +206,7 @@ export function SiteArtifactCard({
         <iframe
           title="Aperçu du site"
           sandbox="allow-scripts allow-modals allow-forms allow-popups"
-          srcDoc={html}
+          srcDoc={safeHtml}
           className="h-full w-full border-0"
         />
       </div>
@@ -279,7 +282,7 @@ export function SiteArtifactCard({
             <iframe
               title="Aperçu plein écran"
               sandbox="allow-scripts allow-modals allow-forms allow-popups"
-              srcDoc={html}
+              srcDoc={safeHtml}
               className="w-full flex-1 border-0 bg-white"
             />
           ) : (
