@@ -976,6 +976,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [phone, setPhone] = useState("");
+  const [copiedCode, setCopiedCode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -1156,19 +1157,37 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
             <div className="flex max-w-md flex-col gap-3">
               {state?.pairingCode ? (
                 <>
-                  <p className="text-[13px] text-[var(--cx-text-secondary)]">
-                    Dans WhatsApp : <strong>Appareils connectés → Lier un appareil → Lier avec le
-                    numéro de téléphone</strong>, puis saisissez ce code :
-                  </p>
-                  <p className="w-fit rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-4 py-2 font-mono text-lg font-semibold tracking-[0.2em] text-[var(--cx-text-primary)]">
-                    {state.pairingCode}
+                  <ol className="ml-4 list-decimal space-y-1 text-[13px] text-[var(--cx-text-secondary)]">
+                    <li>Ouvrez WhatsApp <strong>sur le téléphone de ce numéro</strong>.</li>
+                    <li>Réglages → <strong>Appareils connectés</strong> → <strong>Lier un appareil</strong>.</li>
+                    <li>En bas : <strong>Lier avec le numéro de téléphone à la place</strong>.</li>
+                    <li>Saisissez ce code (8 caractères, <strong>sans le tiret</strong>) :</li>
+                  </ol>
+                  <div className="flex items-center gap-2">
+                    <p className="w-fit rounded-[9px] border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-4 py-2 font-mono text-xl font-semibold tracking-[0.25em] text-[var(--cx-text-primary)]">
+                      {state.pairingCode}
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText((state.pairingCode || "").replace(/-/g, ""));
+                        setCopiedCode(true);
+                        setTimeout(() => setCopiedCode(false), 1500);
+                      }}
+                      className="rounded-[9px] border border-[var(--cx-border-strong)] px-3 py-2 text-xs font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)]"
+                    >
+                      {copiedCode ? "Copié ✓" : "Copier"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[var(--cx-text-faint)]">
+                    ⚠️ Le code expire vite. Si WhatsApp affiche « impossible de lier », régénérez un
+                    nouveau code ci-dessous et saisissez-le rapidement, sans le tiret.
                   </p>
                   <button
                     onClick={refreshCode}
                     disabled={busy}
                     className="w-fit text-[12px] text-[var(--cx-text-faint)] underline underline-offset-2 transition hover:text-[var(--cx-text-primary)] disabled:opacity-40"
                   >
-                    Code expiré ? Regénérer
+                    Régénérer un nouveau code
                   </button>
                 </>
               ) : (
