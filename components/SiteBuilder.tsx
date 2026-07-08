@@ -109,22 +109,68 @@ export function SiteBuildingCard({ code }: { code: string }) {
 
 /** Suggestions d'amélioration cliquables — proposées sous un site généré.
  * Un clic renvoie la demande dans le chat pour itérer sur le site. */
-/** Préfixe commun : force l'IA à MODIFIER le site déjà créé (présent dans
- * l'historique) au lieu d'en recréer un nouveau à part. */
-const EDIT_PREFIX =
-  "Reprends EXACTEMENT le site HTML que tu viens de créer juste au-dessus et modifie-le SANS repartir de zéro (garde tout le contenu, les sections et le style existants). Modification demandée : ";
-const EDIT_SUFFIX =
-  " Renvoie le SITE COMPLET mis à jour dans un seul bloc ```html (pas seulement l'ajout, pas un nouveau site séparé).";
+/** Construit un prompt d'édition 100% FIDÈLE : le code EXACT du site est
+ * ré-injecté pour que l'IA reparte de l'existant réel (pas de sa mémoire). */
+export function buildEditPrompt(currentHtml: string, instruction: string): string {
+  return (
+    `Voici le CODE EXACT du site actuel. Modifie-le pour : ${instruction}\n` +
+    "Garde tout le reste À L'IDENTIQUE (contenu, sections, structure) et renvoie le SITE COMPLET " +
+    "mis à jour dans un seul bloc ```html.\n\n" +
+    "```html\n" +
+    currentHtml +
+    "\n```"
+  );
+}
 
-export function SiteSuggestions({ onSuggest }: { onSuggest?: (text: string) => void }) {
+/** Script injecté dans l'aperçu pour SÉLECTIONNER un élément : surligne au
+ * survol, capture au clic (sélecteur + texte) et l'envoie au parent. */
+const ELEMENT_PICKER = `
+<script>
+(function(){
+  var last;
+  function sel(el){
+    if(el.id) return '#'+el.id;
+    var p=el.tagName.toLowerCase();
+    if(el.className && typeof el.className==='string'){
+      var c=el.className.trim().split(/\\s+/).filter(function(x){return x && x.indexOf('aos')<0;}).slice(0,2).join('.');
+      if(c) p+='.'+c;
+    }
+    return p;
+  }
+  document.documentElement.style.cursor='crosshair';
+  document.addEventListener('mouseover',function(e){
+    if(last){ last.style.outline=''; last.style.outlineOffset=''; }
+    last=e.target; if(last && last.style){ last.style.outline='2px solid #e8683a'; last.style.outlineOffset='1px'; }
+  },true);
+  document.addEventListener('click',function(e){
+    e.preventDefault(); e.stopPropagation();
+    var el=e.target;
+    try{ parent.postMessage({__toumaiPick:{selector:sel(el), tag:el.tagName.toLowerCase(), text:((el.innerText||'').trim()).slice(0,60)}},'*'); }catch(_){}
+  },true);
+})();
+</script>`;
+
+export function SiteSuggestions({
+  onSuggest,
+  html,
+}: {
+  onSuggest?: (text: string) => void;
+  html?: string;
+}) {
   if (!onSuggest) return null;
   const ideas = [
     { label: "🎨 Change les couleurs", instr: "adopte une palette de couleurs plus moderne et chaleureuse." },
     { label: "📱 Rends-le responsive", instr: "rends-le parfaitement responsive sur mobile et tablette." },
     { label: "✨ Ajoute des animations", instr: "ajoute des animations fluides et des transitions au survol partout." },
-    { label: "🖼️ Ajoute une galerie", instr: "ajoute une belle section galerie d'images." },
-    { label: "📞 Améliore le formulaire", instr: "améliore le formulaire de contact avec validation et joli style." },
-  ].map((i) => ({ label: i.label, prompt: EDIT_PREFIX + i.instr + EDIT_SUFFIX }));
+    { label: "🖼️ Ajoute une galerie", instr: "ajoute une belle section galerie d'images (vraies images loremflickr)." },
+    { label: "📄 Ajoute des sous-pages", instr: "transforme-le en plusieurs pages (À propos, Contact…) avec navigation par liens entre les pages." },
+  ].map((i) => ({
+    label: i.label,
+    // Si on a le code exact → édition fidèle ; sinon fallback sur l'historique.
+    prompt: html
+      ? buildEditPrompt(html, i.instr)
+      : `Reprends EXACTEMENT le site que tu viens de créer et modifie-le pour : ${i.instr} Renvoie le SITE COMPLET mis à jour dans un seul bloc \`\`\`html.`,
+  }));
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       <span className="mr-1 self-center text-xs text-[var(--text-tertiary)]">Améliorer :</span>
@@ -156,8 +202,38 @@ export function SiteArtifactCard({
   const [publishing, setPublishing] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Sélecteur d'élément : cibler visuellement une partie du site à modifier.
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<{ selector: string; tag: string; text: string } | null>(null);
+  const [pickInstr, setPickInstr] = useState("");
   // Filet de sécurité : le contenu reste visible même si le JS du site échoue.
   const safeHtml = useMemo(() => injectSafetyNet(html), [html]);
+  // Version avec sélecteur d'élément injecté (surlignage + capture au clic).
+  const pickHtml = useMemo(() => safeHtml + ELEMENT_PICKER, [safeHtml]);
+
+  // Reçoit l'élément cliqué dans l'aperçu.
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      const p = e.data && (e.data as { __toumaiPick?: typeof picked }).__toumaiPick;
+      if (p) {
+        setPicked(p);
+        setPicking(false);
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  function sendTargetedEdit() {
+    if (!picked || !onSuggest) return;
+    const target = picked.text
+      ? `l'élément « ${picked.text} » (${picked.selector})`
+      : `l'élément ${picked.selector}`;
+    onSuggest(buildEditPrompt(html, `sur ${target}, ${pickInstr}`));
+    setPicked(null);
+    setPickInstr("");
+    setFull(false);
+  }
 
   async function publish() {
     setPublishing(true);
@@ -247,7 +323,7 @@ export function SiteArtifactCard({
           Télécharger
         </button>
       </div>
-      {onSuggest && <div className="px-3 pb-2.5"><SiteSuggestions onSuggest={onSuggest} /></div>}
+      {onSuggest && <div className="px-3 pb-2.5"><SiteSuggestions onSuggest={onSuggest} html={html} /></div>}
 
       {full && (
         <div className="fixed inset-0 z-50 flex flex-col bg-[var(--background)]">
@@ -273,6 +349,19 @@ export function SiteArtifactCard({
                   </button>
                 ))}
               </div>
+              {tab === "preview" && onSuggest && (
+                <button
+                  onClick={() => { setPicking((p) => !p); setPicked(null); }}
+                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
+                  style={
+                    picking
+                      ? { background: "var(--primary)", color: "#fff", borderColor: "var(--primary)" }
+                      : { borderColor: "var(--border)", color: "var(--text-secondary)" }
+                  }
+                >
+                  🎯 {picking ? "Cliquez un élément…" : "Cibler un élément"}
+                </button>
+              )}
               {!url && (
                 <button
                   onClick={publish}
@@ -285,11 +374,40 @@ export function SiteArtifactCard({
               )}
             </div>
           </div>
+
+          {/* Barre de modification ciblée — après avoir cliqué un élément. */}
+          {picked && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] px-4 py-2">
+              <span className="text-xs text-[var(--text-secondary)]">
+                🎯 Élément ciblé : <span className="font-mono">{picked.text || picked.selector}</span>
+              </span>
+              <input
+                autoFocus
+                value={pickInstr}
+                onChange={(e) => setPickInstr(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && pickInstr.trim() && sendTargetedEdit()}
+                placeholder="Que changer ici ? (ex : mets ce bouton en vert, agrandis ce titre…)"
+                className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm outline-none focus:border-[var(--primary)]"
+              />
+              <button
+                onClick={sendTargetedEdit}
+                disabled={!pickInstr.trim()}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                style={{ background: "var(--primary)" }}
+              >
+                Appliquer
+              </button>
+              <button onClick={() => setPicked(null)} className="rounded-lg px-2 py-1.5 text-xs text-[var(--text-tertiary)]">
+                Annuler
+              </button>
+            </div>
+          )}
+
           {tab === "preview" ? (
             <iframe
               title="Aperçu plein écran"
               sandbox="allow-scripts allow-modals allow-forms allow-popups"
-              srcDoc={safeHtml}
+              srcDoc={picking ? pickHtml : safeHtml}
               className="w-full flex-1 border-0 bg-white"
             />
           ) : (

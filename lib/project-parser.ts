@@ -59,11 +59,17 @@ export function entryHtml(files: ProjectFile[]): ProjectFile | null {
   );
 }
 
-/** Assemble le projet en UN document autonome : les <link rel=stylesheet> et
- * <script src> pointant vers des fichiers du projet sont remplacés par le
- * contenu inline. Résultat = rendu visuel complet et fusionné. */
-export function assembleForPreview(files: ProjectFile[]): string {
-  const entry = entryHtml(files);
+/** Liste des pages HTML navigables d'un projet (pour les sous-pages). */
+export function htmlPages(files: ProjectFile[]): ProjectFile[] {
+  return files.filter((f) => f.path.toLowerCase().endsWith(".html"));
+}
+
+/** Assemble UNE page du projet en document autonome : CSS/JS du projet inlinés,
+ * et liens vers les AUTRES pages .html interceptés pour naviguer dans l'aperçu.
+ * `entryPath` cible la page à afficher (défaut : index.html). */
+export function assembleForPreview(files: ProjectFile[], entryPath?: string): string {
+  const entry =
+    (entryPath && files.find((f) => f.path === entryPath)) || entryHtml(files);
   if (!entry) {
     // Pas de HTML : si un seul CSS/JS/SVG, on l'enveloppe pour l'afficher.
     const svg = files.find((f) => f.path.endsWith(".svg"));
@@ -100,7 +106,24 @@ export function assembleForPreview(files: ProjectFile[]): string {
     },
   );
 
-  return injectSafetyNet(html);
+  // Navigation entre sous-pages : intercepte les clics vers d'autres .html du
+  // projet et demande au parent d'afficher cette page (l'aperçu réassemble).
+  const NAV = `
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var a = e.target && e.target.closest && e.target.closest('a[href]');
+    if(!a) return;
+    var href = a.getAttribute('href')||'';
+    if(/^(https?:|mailto:|tel:|#)/i.test(href)) return;
+    if(/\\.html?($|[?#])/i.test(href)){
+      e.preventDefault();
+      try{ parent.postMessage({__toumaiNav: href.replace(/^\\.?\\//,'')}, '*'); }catch(_){}
+    }
+  }, true);
+})();
+</script>`;
+  return injectSafetyNet(html) + NAV;
 }
 
 function escapeHtml(s: string): string {

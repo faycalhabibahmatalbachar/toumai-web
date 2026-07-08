@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CodeBlock } from "./CodeBlock";
 import { publishSite } from "@/lib/sites-api";
 import {
@@ -65,9 +65,25 @@ function ProjectIDE({
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Page HTML actuellement affichée dans l'aperçu (navigation entre sous-pages).
+  const [previewPage, setPreviewPage] = useState<string>(entry?.path || "");
+
+  // Navigation entre sous-pages : l'aperçu poste le chemin cliqué, on l'affiche.
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      const nav = (e.data && (e.data as { __toumaiNav?: string }).__toumaiNav) || "";
+      if (!nav) return;
+      const target = files.find(
+        (f) => f.path === nav || f.path.endsWith("/" + nav) || f.path.split("/").pop() === nav,
+      );
+      if (target) setPreviewPage(target.path);
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [files]);
 
   const active = files.find((f) => f.path === activePath) || files[0];
-  const assembled = useMemo(() => assembleForPreview(files), [files]);
+  const assembled = useMemo(() => assembleForPreview(files, previewPage), [files, previewPage]);
 
   async function publish() {
     setPublishing(true);

@@ -364,11 +364,22 @@ export function ChatMessage({
         </div>
       );
     }
+    // Message d'ÉDITION de site : contient une consigne + le code exact du site
+    // joint. On n'affiche que la consigne, le code est résumé en une puce.
+    const editMatch =
+      message.content.length > 1500 && /```html\n[\s\S]*```/.test(message.content)
+        ? message.content.replace(/```html\n[\s\S]*?```/g, "").trim()
+        : null;
     return (
       <div className="group flex animate-fade-in justify-end">
         <div className="flex max-w-[85%] flex-col items-end gap-1 sm:max-w-[70%]">
           <div className="rounded-3xl px-4 py-2.5 text-[length:var(--chat-fs,15px)] leading-relaxed whitespace-pre-wrap" style={{ background: "var(--card)" }}>
-            {message.content}
+            {editMatch ?? message.content}
+            {editMatch && (
+              <span className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
+                <span aria-hidden="true">📄</span> Code du site joint pour modification
+              </span>
+            )}
           </div>
           {editable && onEdit && (
             <button
