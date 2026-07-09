@@ -3,6 +3,7 @@ import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { MaintenanceGate } from "@/components/MaintenanceGate";
 
 // Applique le thème sauvegardé AVANT le premier rendu — évite un flash du
 // mauvais thème (dark forcé puis bascule vers light) au chargement.
@@ -137,7 +138,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--text-primary)]">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <MaintenanceGate />
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

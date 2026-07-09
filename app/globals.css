@@ -277,6 +277,26 @@ svg {
   animation: blink-cursor 1s step-start infinite;
 }
 
+/* Page de maintenance — halo dégradé qui dérive lentement derrière le logo. */
+@keyframes maintenance-drift {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg);
+  }
+}
+.maintenance-halo {
+  animation: maintenance-drift 18s linear infinite;
+}
+.maintenance-orb {
+  animation: voice-orb-breathe 3.2s ease-in-out infinite;
+}
+.maintenance-dot {
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
 /* Rendu markdown des réponses — sobre, sans dégradé ni ombre décorative. */
 .prose-toumai p {
   margin: 0 0 0.75em;
