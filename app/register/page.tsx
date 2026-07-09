@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,6 +24,10 @@ export default function RegisterPage() {
     setInfo(null);
     if (password.length < 8) {
       setError("Choisissez un mot de passe d'au moins 8 caractères.");
+      return;
+    }
+    if (!acceptedTerms) {
+      setError("Vous devez accepter les conditions générales et la politique de confidentialité.");
       return;
     }
     setLoading(true);
@@ -113,11 +118,30 @@ export default function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
           />
+          <label className="flex items-start gap-2.5 px-2 text-xs text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--primary)]"
+            />
+            <span>
+              J&apos;accepte les{" "}
+              <Link href="/terms" className="font-medium underline" style={{ color: "var(--primary)" }}>
+                conditions générales
+              </Link>{" "}
+              et la{" "}
+              <Link href="/privacy" className="font-medium underline" style={{ color: "var(--primary)" }}>
+                politique de confidentialité
+              </Link>
+              .
+            </span>
+          </label>
           {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
           {info && <p className="px-2 text-sm text-[var(--success)]">{info}</p>}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !acceptedTerms}
             className="w-full rounded-full py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             style={{ background: "var(--primary)" }}
           >

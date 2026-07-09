@@ -77,6 +77,20 @@ export async function login(email: string, password: string): Promise<TokenPaylo
   return payload;
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  await request<null>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(supabaseAccessToken: string, newPassword: string): Promise<void> {
+  await request<null>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ supabase_access_token: supabaseAccessToken, new_password: newPassword }),
+  });
+}
+
 export async function register(
   email: string,
   password: string,

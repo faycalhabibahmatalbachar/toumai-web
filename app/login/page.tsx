@@ -100,6 +100,11 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
           />
+          <p className="px-2 text-right text-xs">
+            <Link href="/forgot" className="text-[var(--text-tertiary)] hover:text-[var(--primary)]">
+              Mot de passe oublié ?
+            </Link>
+          </p>
           {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
           <button
             type="submit"
