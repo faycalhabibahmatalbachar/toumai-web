@@ -13,18 +13,19 @@ export function Landing() {
       {/* Hero */}
       <section className="px-6 pb-16 pt-24 text-center sm:pt-32">
         <h1 className="landing-serif mx-auto max-w-3xl text-5xl font-medium leading-[1.08] tracking-tight sm:text-7xl">
-          L&apos;assistant IA qui parle{" "}
+          Construisez une entreprise{" "}
           <em className="font-normal not-italic" style={{ color: "var(--landing-terra)", fontStyle: "italic" }}>
-            votre langue.
-          </em>
+            plus intelligente
+          </em>{" "}
+          avec Toumaï AI.
         </h1>
         <p
           className="mx-auto mt-7 max-w-xl text-lg leading-relaxed"
           style={{ color: "var(--landing-muted)" }}
         >
-          L&apos;assistant qui rédige vos rapports, répond à vos clients et
-          automatise vos tâches — en français, en arabe et en anglais.
-          Déployez-le sur WhatsApp, sur le web ou pour toute votre équipe.
+          Une IA qui rédige, analyse, répond et automatise vos tâches.
+          Déployable sur WhatsApp, le Web ou à l&apos;échelle de votre équipe,
+          en français, arabe et anglais.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-6">
           <Link
@@ -162,7 +163,7 @@ export function Landing() {
           </p>
           <h2 className="landing-serif max-w-xl text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
             Un seul assistant,{" "}
-            <em style={{ color: "var(--landing-terra)" }}>tout l&apos;essentiel.</em>
+            <em style={{ color: "var(--landing-terra)" }}>toute l&apos;entreprise.</em>
           </h2>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -442,11 +443,11 @@ export function Landing() {
           style={{ background: "var(--landing-ink)", color: "var(--landing-on-ink)" }}
         >
           <h2 className="landing-serif text-4xl font-medium tracking-tight sm:text-5xl">
-            Commencez{" "}
-            <em style={{ color: "var(--landing-gold)" }}>la conversation.</em>
+            Commencez à{" "}
+            <em style={{ color: "var(--landing-gold)" }}>construire.</em>
           </h2>
           <p className="mx-auto mt-4 max-w-md opacity-70">
-            Ouvrez le chat et parlez à Toumaï AI maintenant.
+            Ouvrez Toumaï AI et voyez ce qu&apos;il peut faire pour votre activité.
           </p>
           <Link
             href="/chat"
