@@ -98,6 +98,58 @@ export function Landing() {
         </div>
       </section>
 
+      {/* Comment ça marche */}
+      <section className="px-6 pt-24">
+        <div className="mx-auto max-w-5xl">
+          <p
+            className="mb-3 text-[13px] font-semibold uppercase tracking-[0.08em]"
+            style={{ color: "var(--landing-terra)" }}
+          >
+            Comment ça marche
+          </p>
+          <h2 className="landing-serif max-w-xl text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+            Trois façons d&apos;y accéder,{" "}
+            <em style={{ color: "var(--landing-terra)" }}>zéro installation.</em>
+          </h2>
+          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                step: "1",
+                title: "Sur le web",
+                desc: "Ouvrez toumaiai.com et commencez à discuter — aucun compte requis pour essayer.",
+              },
+              {
+                step: "2",
+                title: "Sur WhatsApp",
+                desc: "Ajoutez le numéro Toumaï AI à vos contacts et écrivez-lui comme à n'importe qui.",
+              },
+              {
+                step: "3",
+                title: "Sur mobile",
+                desc: "L'application Android reprend votre historique et fonctionne hors ligne pour la lecture.",
+              },
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="rounded-[20px] border p-7"
+                style={{ borderColor: "var(--landing-line)", background: "var(--landing-card)" }}
+              >
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
+                  style={{ background: "var(--landing-terra-soft)", color: "var(--landing-terra)" }}
+                >
+                  {item.step}
+                </span>
+                <h3 className="mt-4 text-base font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm" style={{ color: "var(--landing-muted)" }}>
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Capacités */}
       <section id="capacites" className="scroll-mt-24 px-6 pt-24">
         <div className="mx-auto max-w-5xl">
@@ -321,6 +373,62 @@ export function Landing() {
                   {m.use}
                 </p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="px-6 pt-24">
+        <div className="mx-auto max-w-3xl">
+          <p
+            className="mb-3 text-[13px] font-semibold uppercase tracking-[0.08em]"
+            style={{ color: "var(--landing-terra)" }}
+          >
+            Questions fréquentes
+          </p>
+          <h2 className="landing-serif max-w-xl text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
+            Ce qu&apos;on nous demande{" "}
+            <em style={{ color: "var(--landing-terra)" }}>le plus souvent.</em>
+          </h2>
+          <div className="mt-10 divide-y" style={{ borderColor: "var(--landing-line)" }}>
+            {[
+              {
+                q: "Est-ce vraiment gratuit ?",
+                a: "Oui — discuter, générer des images et utiliser le mode vocal ne coûte rien. Certaines fonctionnalités avancées (connecteurs professionnels, gros volumes) sont payables via Mobile Money, sans carte bancaire nécessaire.",
+              },
+              {
+                q: "Mes données sont-elles vendues ou utilisées pour de la publicité ?",
+                a: "Non. Toumaï AI ne vend aucune donnée et ne fait pas de publicité ciblée à partir de vos conversations. Détails dans la politique de confidentialité.",
+              },
+              {
+                q: "Le connecteur WhatsApp lit-il tous mes messages en permanence ?",
+                a: "Non. Chaque capacité (lecture, envoi, résumé…) est désactivable individuellement, une action sensible demande toujours votre confirmation, et vous pouvez restreindre l'accès à des contacts ou groupes précis.",
+              },
+              {
+                q: "Fonctionne-t-il en arabe tchadien, pas seulement en arabe standard ?",
+                a: "Oui, c'est l'un des objectifs premiers du projet — comprendre et répondre dans le dialecte parlé au quotidien, en plus du français et de l'anglais.",
+              },
+              {
+                q: "Puis-je supprimer mes conversations ?",
+                a: "À tout moment, directement depuis l'interface — suppression immédiate, sans avoir à contacter le support.",
+              },
+            ].map((item) => (
+              <details key={item.q} className="group py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-medium">
+                  {item.q}
+                  <span
+                    className="shrink-0 text-lg transition group-open:rotate-45"
+                    style={{ color: "var(--landing-terra)" }}
+                    aria-hidden="true"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--landing-muted)" }}>
+                  {item.a}
+                </p>
+              </details>
             ))}
           </div>
         </div>
