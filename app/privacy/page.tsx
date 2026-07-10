@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Politique de confidentialité" updated="5 juillet 2026">
+    <LegalLayout title="Politique de confidentialité" updated="10 juillet 2026">
       <p>
         Votre confiance est notre actif le plus précieux. Cette politique explique quelles données
         Toumaï AI traite, pourquoi, et les contrôles dont vous disposez. Responsable du
@@ -55,26 +55,38 @@ export default function PrivacyPage() {
         agissent comme sous-traitants et ne sont pas autorisés à réutiliser vos données.
       </p>
 
-      <h2>4. Conservation</h2>
+      <h2>4. Partenaires de données et modèles tiers</h2>
+      <p>
+        Certains contenus utilisés pour entraîner ou améliorer nos modèles proviennent de
+        partenaires tiers (par exemple des organisations fournissant des données linguistiques
+        sous licence). Ces partenariats sont toujours régis par un accord écrit distinct précisant
+        le périmètre autorisé, et n&apos;impliquent jamais le partage de vos conversations ou de
+        vos données personnelles avec ces partenaires — seuls les modèles ou données entraînées
+        peuvent, le cas échéant, faire l&apos;objet d&apos;un accord de réciprocité, toujours
+        conditionné au respect intégral de la présente politique et de nos{" "}
+        <a href="/terms">conditions d&apos;utilisation</a>.
+      </p>
+
+      <h2>5. Conservation</h2>
       <ul>
         <li>Conversations et fichiers : conservés tant que votre compte existe, supprimables à tout moment depuis l&apos;interface.</li>
         <li>Sessions invité : purge automatique périodique.</li>
         <li>Jetons de connexion : expirent automatiquement.</li>
       </ul>
 
-      <h2>5. Partage de conversations</h2>
+      <h2>6. Partage de conversations</h2>
       <p>
         Une conversation partagée n&apos;est visible que via son lien ; en mode anonyme, votre nom
         n&apos;apparaît pas. La révocation du lien la rend immédiatement inaccessible.
       </p>
 
-      <h2>6. Sécurité</h2>
+      <h2>7. Sécurité</h2>
       <p>
         Chiffrement en transit (HTTPS), jetons d&apos;accès à courte durée de vie, isolation des
         données par utilisateur, confirmation obligatoire des actions sensibles.
       </p>
 
-      <h2>7. Vos droits</h2>
+      <h2>8. Vos droits</h2>
       <p>
         Accès, rectification, suppression, portabilité : écrivez-nous à{" "}
         <a href="mailto:contact@toumaiai.com">contact@toumaiai.com</a> ou utilisez les outils
