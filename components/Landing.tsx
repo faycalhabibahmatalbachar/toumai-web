@@ -22,8 +22,9 @@ export function Landing() {
           className="mx-auto mt-7 max-w-xl text-lg leading-relaxed"
           style={{ color: "var(--landing-muted)" }}
         >
-          Discutez, codez, créez des images et parlez à voix haute — en
-          français, en arabe et en anglais. Gratuit, sans compte.
+          L&apos;assistant qui rédige vos rapports, répond à vos clients et
+          automatise vos tâches — en français, en arabe et en anglais.
+          Déployez-le sur WhatsApp, sur le web ou pour toute votre équipe.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-6">
           <Link
