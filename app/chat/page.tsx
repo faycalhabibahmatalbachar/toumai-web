@@ -16,6 +16,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { Waveform } from "@/components/Waveform";
 import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
+import { LiveAvatarOverlay } from "@/components/LiveAvatarOverlay";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
@@ -127,6 +128,7 @@ export default function ChatPage() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
+  const [liveAvatarOpen, setLiveAvatarOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   // Tâche de navigation web détectée → fenêtre dédiée de l'Agent Navigateur.
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
@@ -911,6 +913,16 @@ export default function ChatPage() {
               >
                 <VoiceModeIcon />
               </button>
+              <button
+                onClick={() => setLiveAvatarOpen(true)}
+                aria-label="Parler en direct avec l'avatar"
+                title="Parler en direct (avatar)"
+                disabled={!session}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-30"
+                style={{ background: "var(--primary)" }}
+              >
+                <AvatarLiveIcon />
+              </button>
               {sending ? (
                 <button
                   onClick={stopGenerating}
@@ -942,6 +954,9 @@ export default function ChatPage() {
       </div>
       {voiceModeOpen && (
         <VoiceModeOverlay onSend={voiceSend} onClose={() => setVoiceModeOpen(false)} />
+      )}
+      {liveAvatarOpen && (
+        <LiveAvatarOverlay onSend={voiceSend} onClose={() => setLiveAvatarOpen(false)} />
       )}
       {shareOpen && activeSessionId && (
         <ShareDialog sessionId={activeSessionId} onClose={() => setShareOpen(false)} />
@@ -1070,6 +1085,15 @@ function VoiceModeIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M4 12v0M8 8v8M12 5v14M16 8v8M20 12v0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AvatarLiveIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="9" r="4" />
+      <path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round" />
     </svg>
   );
 }
