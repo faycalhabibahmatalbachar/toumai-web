@@ -19,6 +19,7 @@ import {
   type TokenPayload,
 } from "./api";
 import { cachePurge } from "./swr-cache";
+import { registerDeviceOnce } from "./device-fingerprint";
 
 interface AuthState {
   session: TokenPayload | null;
@@ -37,25 +38,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setSession(loadSession());
+    const s = loadSession();
+    setSession(s);
     setLoading(false);
+    if (s) void registerDeviceOnce();
   }, []);
 
   const loginAsGuest = useCallback(async () => {
     const s = await guestLogin();
     setSession(s);
+    void registerDeviceOnce();
   }, []);
 
   const loginWithPassword = useCallback(async (email: string, password: string) => {
     const s = await apiLogin(email, password);
     cachePurge(); // changement d'identité : jamais servir le cache d'un autre compte
     setSession(s);
+    void registerDeviceOnce();
   }, []);
 
   const loginWithGoogle = useCallback(async (idToken: string) => {
     const s = await apiLoginWithGoogle(idToken);
     cachePurge();
     setSession(s);
+    void registerDeviceOnce();
   }, []);
 
   const registerAccount = useCallback(
@@ -64,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s) {
         cachePurge();
         setSession(s);
+        void registerDeviceOnce();
         return true;
       }
       return false;
@@ -74,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     clearSession();
     cachePurge(); // les données mises en cache appartiennent à la session close
+    window.sessionStorage.removeItem("toumai_device_registered_v1");
     setSession(null);
   }, []);
 
