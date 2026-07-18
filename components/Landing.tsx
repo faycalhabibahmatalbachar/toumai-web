@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Logo } from "@/components/Logo";
+import { API_BASE } from "@/lib/config";
 
 export function Landing() {
   return (
@@ -50,12 +54,7 @@ export function Landing() {
       </section>
 
       {/* Faits */}
-      <p
-        className="px-6 pb-4 pt-14 text-center text-[13px] tracking-[0.08em]"
-        style={{ color: "var(--landing-faint)" }}
-      >
-        GRATUIT&ensp;·&ensp;FRANÇAIS · ARABE · ANGLAIS&ensp;·&ensp;WEB &amp; MOBILE
-      </p>
+      <StatsBar />
 
       {/* Différenciation — pourquoi Toumaï AI plutôt qu'un assistant généraliste */}
       <section className="px-6 pt-20">
@@ -557,6 +556,64 @@ export function Landing() {
 }
 
 /* ---------- Composants locaux ---------- */
+
+interface PublicStats {
+  registered_users: number | null;
+  conversations: number | null;
+  languages: number | null;
+  countries: number | null;
+}
+
+function fmtCompact(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`.replace(".0k", "k");
+  return String(n);
+}
+
+/** Chiffres réels (utilisateurs, conversations, langues, pays) — jamais de
+ * valeur par défaut inventée : un champ absent est simplement omis. */
+function StatsBar() {
+  const [stats, setStats] = useState<PublicStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/app/public-stats`)
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled && j?.success) setStats(j.data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Seuils volontaires : un chiffre de croissance en dessous de ce seuil
+  // affaiblirait la crédibilité plutôt que de la renforcer. En dessous, on
+  // garde la ligne de capacités (toujours vraie) sans afficher de compteur.
+  const items: { value: string; label: string }[] = [];
+  if (stats?.registered_users && stats.registered_users >= 100) {
+    items.push({ value: `${fmtCompact(stats.registered_users)}+`, label: "utilisateurs inscrits" });
+  }
+  if (stats?.conversations && stats.conversations >= 500) {
+    items.push({ value: `${fmtCompact(stats.conversations)}+`, label: "conversations" });
+  }
+
+  return (
+    <div className="px-6 pb-4 pt-14 text-center">
+      {items.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
+          {items.map((it) => (
+            <div key={it.label}>
+              <p className="landing-serif text-3xl font-medium">{it.value}</p>
+              <p className="mt-0.5 text-[12px] tracking-[0.06em]" style={{ color: "var(--landing-faint)" }}>
+                {it.label.toUpperCase()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-[13px] tracking-[0.08em]" style={{ color: "var(--landing-faint)" }}>
+        GRATUIT&ensp;·&ensp;FRANÇAIS · ARABE · ANGLAIS&ensp;·&ensp;WEB &amp; MOBILE
+      </p>
+    </div>
+  );
+}
 
 function Tile({
   children,
