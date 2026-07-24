@@ -30,6 +30,11 @@ export interface StreamMetadata {
   sources?: WebSource[];
   search_images?: SearchImage[];
   tool_confirmation?: ToolConfirmation;
+  /** Modèle qui a RÉELLEMENT produit la réponse. */
+  actual_model?: string;
+  /** Présent uniquement si le modèle demandé n'était pas disponible et que la
+   * cascade a rétrogradé. On le dit à l'utilisateur au lieu de le masquer. */
+  model_notice?: string;
   [key: string]: unknown;
 }
 

@@ -43,6 +43,10 @@ export interface Message {
   /** Sources et images réelles trouvées pendant une recherche web (jamais générées). */
   sources?: WebSource[];
   searchImages?: SearchImage[];
+  /** Renseigné quand le modèle demandé était indisponible et que la cascade a
+   * rétrogradé. Affiché sous la réponse : l'utilisateur doit savoir qui lui a
+   * répondu, on ne laisse pas croire qu'il a eu Toumaï 5. */
+  modelNotice?: string;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -477,6 +481,9 @@ export function ChatMessage({
       )}
       {!message.streaming && message.sources && message.sources.length > 0 && (
         <WebSourcesRow sources={message.sources} />
+      )}
+      {!message.streaming && message.modelNotice && (
+        <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>
       )}
       {!message.streaming && message.content && (
         <div className="flex items-center gap-0.5 pt-1 text-[var(--text-tertiary)]">

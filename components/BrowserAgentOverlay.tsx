@@ -282,15 +282,43 @@ export function BrowserAgentOverlay({
   );
 }
 
+/** Contenus qui ne sont JAMAIS un objectif de navigation, même s'ils contiennent
+ * des URL : code, patchs SEARCH/REPLACE, HTML complet. Un prompt d'édition de
+ * site embarque le HTML courant — donc des dizaines d'URL (CDN, images) — et se
+ * retrouvait détourné vers l'agent navigateur, qui échouait faute de pouvoir
+ * répondre en JSON. C'est la cause du « Tâche non terminée » signalé. */
+const NON_NAVIGATION = [
+  /```/,
+  /<{7}\s*SEARCH/i,
+  /={7}/,
+  /<!DOCTYPE\s+html/i,
+  /<\/(html|body|head|main|div)>/i,
+];
+
+/** Verbes qui expriment réellement l'intention de faire naviguer l'agent. */
+const NAVIGATION_INTENT =
+  /\b(va|vas|allez|rends[- ]toi|navigue[rz]?|ouvre|connecte[- ]toi|inscris[- ]toi|réserve[rz]?|commande[rz]?|achète[rz]?|remplis|remplir|télécharge[rz]?)\b/i;
+
 /** Détection d'une demande de navigation web — déclenche l'agent dédié.
- * Volontairement stricte pour ne pas capturer les questions normales. */
+ * Volontairement stricte : une URL seule ne suffit pas, il faut une INTENTION. */
 export function detectBrowserGoal(text: string): boolean {
   const t = text.trim();
   if (t.length < 10) return false;
+
+  // Garde-fou prioritaire : du code n'est jamais une tâche de navigation.
+  if (NON_NAVIGATION.some((re) => re.test(t))) return false;
+
+  // Un message court qui n'est essentiellement qu'une URL = « ouvre ça ».
+  const bareUrl = /^\s*(https?:\/\/|www\.)\S+\s*$/i.test(t);
+  if (bareUrl) return true;
+
+  const hasUrl = /\bhttps?:\/\/\S+/i.test(t) || /\bwww\.\S+\.\w{2,}/i.test(t);
+
   return (
     /\b(va|vas|allez|rends[- ]toi|navigue[rz]?|ouvre|connecte[- ]toi)\b.{0,24}\b(sur|au site|le site|à la page)\b/i.test(t) ||
     /\b(remplis?|compare[rz]?|cherche[rz]?|regarde[rz]?|extrais?)\b.{0,30}\b(site|page web|formulaire en ligne)\b/i.test(t) ||
-    /\bhttps?:\/\/\S+/i.test(t) ||
-    /\bwww\.\S+\.\w{2,}/i.test(t)
+    // Une URL ne déclenche l'agent que si elle est accompagnée d'une intention
+    // de navigation ET que le message reste court (un vrai objectif, pas un doc).
+    (hasUrl && NAVIGATION_INTENT.test(t) && t.length < 400)
   );
 }

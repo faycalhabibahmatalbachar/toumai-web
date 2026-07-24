@@ -225,11 +225,92 @@ const SAFETY_NET = `
 })();
 </script>`;
 
-/** Injecte le filet de sécurité juste avant </body> (ou en fin de document). */
+/** Domaines d'images notoirement instables : lents, 502 fréquents, ou morts.
+ * Une image cassée dans un aperçu donne l'impression que le site est raté. */
+const UNRELIABLE_IMAGE_HOSTS = /(loremflickr\.com|source\.unsplash\.com|placeimg\.com|lorempixel\.com)/i;
+
+/** Remplace les sources d'images non fiables par un service stable et
+ * déterministe (picsum + seed), en conservant les dimensions demandées. */
+export function rewriteUnreliableImages(html: string): string {
+  if (!html) return html;
+  return html.replace(
+    /(<img\b[^>]*?\bsrc=)(["'])(.*?)\2/gi,
+    (match, prefix: string, quote: string, url: string) => {
+      if (!UNRELIABLE_IMAGE_HOSTS.test(url)) return match;
+      const dims = url.match(/\/(\d{2,4})\/(\d{2,4})/);
+      const w = dims?.[1] ?? "1200";
+      const h = dims?.[2] ?? "800";
+      // Graine stable dérivée de l'URL d'origine : la même image reste la même
+      // d'un rendu à l'autre (sinon l'aperçu change à chaque rechargement).
+      let seed = 0;
+      for (let i = 0; i < url.length; i++) seed = (seed * 31 + url.charCodeAt(i)) >>> 0;
+      return `${prefix}${quote}https://picsum.photos/seed/${seed}/${w}/${h}${quote}`;
+    },
+  );
+}
+
+/** Filet de sécurité images : toute image qui échoue est remplacée par un
+ * dégradé lisible portant son texte alternatif, au lieu de l'icône « cassée ».
+ * Placé ici parce que `injectSafetyNet` est le point de passage UNIQUE de tout
+ * aperçu, publication et téléchargement. */
+const IMAGE_SAFETY_NET = `
+<script>
+(function(){
+  // La taille voulue doit être lue AVANT que l'image casse : une image brisée
+  // s'effondre à la taille de son texte alternatif, ce qui donnerait une boîte
+  // de quelques pixels de haut au lieu du bloc attendu.
+  function intendedSize(img){
+    var w=img.style.width || img.getAttribute('width') || '';
+    var h=img.style.height || img.getAttribute('height') || '';
+    if(/^\\d+$/.test(w)) w=w+'px';
+    if(/^\\d+$/.test(h)) h=h+'px';
+    if(!w || !h){
+      var cs=getComputedStyle(img);
+      if(!w && cs.width && cs.width!=='auto' && parseFloat(cs.width)>40) w=cs.width;
+      if(!h && cs.height && cs.height!=='auto' && parseFloat(cs.height)>40) h=cs.height;
+    }
+    return { w: w||'100%', h: h||'220px', r: getComputedStyle(img).borderRadius||'0' };
+  }
+  function degrade(img, size){
+    if(img.dataset.toumaiFallback) return;
+    img.dataset.toumaiFallback='1';
+    var s=size||intendedSize(img);
+    var label=(img.getAttribute('alt')||'').trim();
+    var box=document.createElement('div');
+    box.style.cssText='display:flex;align-items:center;justify-content:center;'+
+      'background:linear-gradient(135deg,#2a2622,#4a3f36);color:#e8e0d8;'+
+      'font:500 14px/1.4 system-ui,sans-serif;text-align:center;padding:12px;'+
+      'box-sizing:border-box;overflow:hidden;min-height:120px;';
+    box.style.width=s.w;
+    box.style.height=s.h;
+    box.style.borderRadius=s.r;
+    box.textContent=label;
+    if(img.parentNode) img.parentNode.replaceChild(box,img);
+  }
+  function watch(img){
+    if(img.dataset.toumaiWatched) return;
+    img.dataset.toumaiWatched='1';
+    // Mesure immédiate, tant que l'image est encore intacte.
+    var size=intendedSize(img);
+    if(img.complete && img.naturalWidth===0) return degrade(img,size);
+    img.addEventListener('error',function(){ degrade(img,size); },{once:true});
+  }
+  function scan(){ try{ document.querySelectorAll('img').forEach(function(i){ watch(i); }); }catch(e){} }
+  if(document.readyState!=='loading') scan();
+  else document.addEventListener('DOMContentLoaded',scan);
+  // Les images lentes (502 tardif) ne déclenchent parfois 'error' que plus tard.
+  setTimeout(scan,3000);
+})();
+</script>`;
+
+/** Injecte le filet de sécurité juste avant </body> (ou en fin de document).
+ * Réécrit aussi les sources d'images non fiables au passage. */
 export function injectSafetyNet(html: string): string {
   if (!html) return html;
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${SAFETY_NET}</body>`);
-  return html + SAFETY_NET;
+  const safe = rewriteUnreliableImages(html);
+  const nets = `${SAFETY_NET}${IMAGE_SAFETY_NET}`;
+  if (/<\/body>/i.test(safe)) return safe.replace(/<\/body>/i, `${nets}</body>`);
+  return safe + nets;
 }
 
 /** Construit une arborescence de dossiers/fichiers à partir des chemins plats. */

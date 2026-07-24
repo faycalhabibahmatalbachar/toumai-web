@@ -317,7 +317,10 @@ export default function ChatPage() {
     if (!text || sending || !session) return;
     // Demande de navigation web → l'Agent Navigateur prend le relais dans sa
     // fenêtre dédiée (l'utilisateur n'a plus à le lancer manuellement).
-    if (detectBrowserGoal(text)) {
+    // Second garde-fou : une édition de site (prompt de patch contenant le HTML
+    // courant, donc plein d'URL) ne doit jamais partir vers l'agent.
+    const isCodePrompt = text.includes("```") || /<{7}\s*SEARCH/i.test(text);
+    if (!isCodePrompt && detectBrowserGoal(text)) {
       setInput("");
       setBrowserGoal(text);
       return;
@@ -432,6 +435,7 @@ export default function ChatPage() {
             const toolConfirmation = evt.metadata?.tool_confirmation;
             const sources = evt.metadata?.sources;
             const searchImages = evt.metadata?.search_images;
+            const modelNotice = evt.metadata?.model_notice;
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {
@@ -442,6 +446,8 @@ export default function ChatPage() {
                     imageUrls: imageUrls?.length ? imageUrls : m.imageUrls,
                     sources: sources?.length ? sources : m.sources,
                     searchImages: searchImages?.length ? searchImages : m.searchImages,
+                    // Rétrogradation de modèle : on l'affiche, on ne la cache pas.
+                    modelNotice: modelNotice ?? m.modelNotice,
                     // Action sensible (WhatsApp/mail) : la carte
                     // Confirmer/Annuler déclenche la vraie exécution.
                     toolConfirmation: toolConfirmation ?? m.toolConfirmation,
