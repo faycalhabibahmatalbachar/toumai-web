@@ -41,20 +41,21 @@ export function Landing() {
           </Link>
           <a
             href="#capacites"
-            className="text-[15px] font-medium transition hover:opacity-70"
+            className="rounded-full border px-8 py-4 text-base font-medium transition hover:opacity-70"
+            style={{ borderColor: "var(--landing-line)" }}
           >
-            Découvrir les capacités →
+            Voir la démo
           </a>
         </div>
       </section>
+
+      {/* Barre de confiance — tôt dans la page, chiffres réels uniquement */}
+      <StatsBar />
 
       {/* Fenêtre produit */}
       <section className="px-6">
         <ProductWindow />
       </section>
-
-      {/* Faits */}
-      <StatsBar />
 
       {/* Différenciation — pourquoi Toumaï AI plutôt qu'un assistant généraliste */}
       <section className="px-6 pt-20">
@@ -66,8 +67,8 @@ export function Landing() {
             Pourquoi Toumaï AI
           </p>
           <h2 className="landing-serif max-w-2xl text-4xl font-medium leading-tight tracking-tight sm:text-5xl">
-            Pensé pour le Tchad,{" "}
-            <em style={{ color: "var(--landing-terra)" }}>dès la première ligne de code.</em>
+            Pensé pour{" "}
+            <em style={{ color: "var(--landing-terra)" }}>le Tchad.</em>
           </h2>
           <div className="mt-12 grid gap-4 sm:grid-cols-3">
             {[
