@@ -9,6 +9,8 @@ import { CodeBlock } from "./CodeBlock";
 import { SiteBuildingCard, SiteArtifactCard, extractHtml } from "./SiteBuilder";
 import { ProjectCard } from "./ProjectViewer";
 import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/lib/project-parser";
+import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
+import type { ChatImage } from "./chat/media/types";
 
 /** Extrait le HTML de base d'un message d'édition (qui embarque le code du
  * site dans un bloc ```html) pour appliquer un patch. */
@@ -185,79 +187,6 @@ function RegenerateIcon() {
   );
 }
 
-/** Indicateur "Toumaï AI réfléchit" — affiché avant le premier token, comme
- * les trois points de ChatGPT/Gemini pendant la latence initiale. */
-function DownloadIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** Image générée par l'IA — bouton de téléchargement au survol. */
-function ImageTile({ url }: { url: string }) {
-  const [preview, setPreview] = useState(false);
-
-  async function download(e: React.MouseEvent) {
-    e.stopPropagation();
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "toumai-ai.png";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  return (
-    <>
-      <div
-        className="group/img relative cursor-zoom-in overflow-hidden rounded-2xl border border-[var(--border)]"
-        onClick={() => setPreview(true)}
-        role="button"
-        tabIndex={0}
-        aria-label="Agrandir l'image"
-      >
-        {/* Le watermark "Toumaï AI" est désormais incrusté dans les pixels
-            côté backend (services/watermark_service.py) — plus de pastille
-            CSS ici, elle doublonnait le texte et disparaissait au
-            téléchargement puisqu'elle n'existait que dans le DOM. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt="Image générée par Toumaï AI" className="block w-full" loading="lazy" />
-        <button
-          onClick={download}
-          title="Télécharger"
-          aria-label="Télécharger l'image"
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 backdrop-blur transition group-hover/img:opacity-100 hover:bg-black/70"
-        >
-          <DownloadIcon />
-        </button>
-      </div>
-      {preview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-          onClick={() => setPreview(false)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt="Image générée par Toumaï AI — aperçu"
-            className="max-h-full max-w-full rounded-lg object-contain"
-          />
-          <button
-            onClick={() => setPreview(false)}
-            aria-label="Fermer l'aperçu"
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
 function LinkIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -302,52 +231,6 @@ function WebSourcesRow({ sources }: { sources: WebSource[] }) {
 
 /** Images réelles trouvées pendant une recherche web (jamais générées) — galerie
  * horizontale, façon Perplexity/ChatGPT Search. */
-function SearchImagesRow({ images }: { images: SearchImage[] }) {
-  const items = images.filter((i) => i.url);
-  const [preview, setPreview] = useState<SearchImage | null>(null);
-  if (items.length === 0) return null;
-  return (
-    <>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-        {items.map((img, i) => (
-          <button
-            key={img.url + i}
-            onClick={() => setPreview(img)}
-            className="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-xl border border-[var(--border)]"
-            aria-label="Agrandir l'image"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt={img.title || "Image issue de la recherche"} className="h-full w-full object-cover" loading="lazy" />
-          </button>
-        ))}
-      </div>
-      {preview && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/80 p-6"
-          onClick={() => setPreview(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={preview.url}
-            alt={preview.title || "Image issue de la recherche"}
-            className="max-h-[80vh] max-w-full rounded-lg object-contain"
-          />
-          {preview.source_url && (
-            <span className="text-xs text-white/70">{domainFromUrl(preview.source_url)}</span>
-          )}
-          <button
-            onClick={() => setPreview(null)}
-            aria-label="Fermer l'aperçu"
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-          >
-            <CloseIcon />
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
 function CloseIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -573,14 +456,24 @@ export function ChatMessage({
         <ToolConfirmCard confirmation={message.toolConfirmation} />
       )}
       {!message.streaming && message.imageUrls && message.imageUrls.length > 0 && (
-        <div className="mt-2 grid max-w-[420px] grid-cols-2 gap-2">
-          {message.imageUrls.map((url, i) => (
-            <ImageTile key={url + i} url={url} />
-          ))}
+        <div className="mt-2">
+          <MediaMessage images={imagesFromUrls(message.imageUrls, { alt: "Image générée par Toumaï AI" })} />
         </div>
       )}
       {!message.streaming && message.searchImages && message.searchImages.length > 0 && (
-        <SearchImagesRow images={message.searchImages} />
+        <div className="mt-2">
+          <MediaMessage
+            images={message.searchImages.map(
+              (img, i): ChatImage => ({
+                id: `${img.url}-${i}`,
+                url: img.url,
+                alt: img.title,
+                sourceUrl: img.source_url,
+                sourceTitle: img.title,
+              }),
+            )}
+          />
+        </div>
       )}
       {!message.streaming && message.sources && message.sources.length > 0 && (
         <WebSourcesRow sources={message.sources} />
