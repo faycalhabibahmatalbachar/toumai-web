@@ -7,10 +7,43 @@ import {
   getTask,
   startTask,
   type BrowserTask,
+  type BrowserStep,
 } from "@/lib/agent-api";
 import { Logo } from "./Logo";
 
 const TERMINAL = new Set(["done", "error", "cancelled"]);
+
+/** Actions internes qui correspondent à un vrai jalon visible pour
+ * l'utilisateur — tout le reste (retries, échecs de décision, réflexion
+ * intermédiaire) est condensé dans l'indicateur "En réflexion…" plutôt que
+ * déversé en transcript brut façon logs de debug. */
+const MILESTONE_ACTIONS = new Set(["navigate", "click", "fill", "select", "extract", "done"]);
+
+function domainFromUrl(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/** Libellé humain d'une étape jalon — jamais de détail interne (index DOM,
+ * sélecteur) affiché tel quel. */
+function stepLabel(step: BrowserStep): string {
+  if (step.thought) return step.thought;
+  switch (step.action) {
+    case "navigate":
+      return "Ouverture de la page…";
+    case "click":
+      return "Interaction avec la page…";
+    case "extract":
+      return "Lecture du contenu…";
+    case "done":
+      return "Synthèse de la réponse…";
+    default:
+      return "Étape suivante…";
+  }
+}
 
 /** Fenêtre dédiée de l'Agent Navigateur — invoquée automatiquement par le
  * chat quand l'utilisateur demande une navigation web. Montre le parcours en
@@ -118,25 +151,50 @@ export function BrowserAgentOverlay({
               ))}
             </div>
           )}
-          {task?.steps.map((s) => (
-            <div key={s.index} className="animate-fade-in mb-3 flex gap-3">
-              <span
-                className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-                style={{
-                  background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                  color: "var(--primary)",
-                }}
-              >
-                {s.index + 1}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm">{s.thought || s.action}</p>
-                {s.detail && (
-                  <p className="truncate text-xs text-[var(--text-tertiary)]">{s.detail}</p>
+          {(() => {
+            const steps = task?.steps || [];
+            // Ne montrer que les jalons concrets (navigation, clic, extraction,
+            // conclusion) — les retries/échecs de décision internes sont des
+            // détails d'implémentation, pas une information utile pour
+            // l'utilisateur. On les condense dans l'indicateur de réflexion.
+            const milestones = steps.filter((s) => MILESTONE_ACTIONS.has(s.action));
+            const trailingThinking =
+              running && steps.length > 0 && !MILESTONE_ACTIONS.has(steps[steps.length - 1].action);
+            return (
+              <>
+                {milestones.map((s, i) => (
+                  <div key={s.index} className="animate-fade-in mb-3 flex gap-3">
+                    <span
+                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                      style={{
+                        background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                        color: "var(--primary)",
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm">{stepLabel(s)}</p>
+                    </div>
+                  </div>
+                ))}
+                {trailingThinking && (
+                  <div className="mb-3 flex items-center gap-3">
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)" }}
+                    >
+                      <span
+                        className="h-2 w-2 animate-pulse rounded-full"
+                        style={{ background: "var(--primary)" }}
+                      />
+                    </span>
+                    <p className="text-sm text-[var(--text-tertiary)]">Réflexion en cours…</p>
+                  </div>
                 )}
-              </div>
-            </div>
-          ))}
+              </>
+            );
+          })()}
 
           {task?.status === "needs_confirmation" && (
             <div className="mt-2 rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
@@ -167,12 +225,46 @@ export function BrowserAgentOverlay({
                 ✓ Tâche terminée
               </p>
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">{task.answer}</p>
+              {!!task.images?.length && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {task.images.map((url, i) => (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      key={url + i}
+                      src={url}
+                      alt="Image trouvée pendant la recherche"
+                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                  ))}
+                </div>
+              )}
+              {!!task.sources?.length && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {task.sources.slice(0, 5).map((s, i) => (
+                    <a
+                      key={s.url + i}
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="max-w-[160px] truncate rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
+                    >
+                      {s.title || domainFromUrl(s.url)}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {task?.status === "error" && (
-            <p className="mt-2 text-sm text-[var(--error)]">
-              {task.error || "L'agent n'a pas pu terminer la tâche."}
-            </p>
+            <div className="animate-fade-in mt-2 rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--error)" }}>
+                Tâche non terminée
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-secondary)]">
+                {task.error || "Je n'ai pas réussi à mener cette recherche à bien. Essaie de reformuler ta demande, ou avec moins d'étapes à la fois."}
+              </p>
+            </div>
           )}
           <div ref={stepsEndRef} />
         </div>

@@ -22,6 +22,11 @@ export interface BrowserPendingAction {
   [key: string]: unknown;
 }
 
+export interface BrowserSource {
+  url: string;
+  title: string;
+}
+
 export interface BrowserTask {
   id: string;
   goal: string;
@@ -31,6 +36,8 @@ export interface BrowserTask {
   error: string;
   current_url: string;
   pending_action: BrowserPendingAction | null;
+  sources?: BrowserSource[];
+  images?: string[];
 }
 
 export function getAgentAvailability(): Promise<{ available: boolean }> {
