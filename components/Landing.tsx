@@ -349,7 +349,10 @@ export function Landing() {
             préparé pour y répondre. Aucun réglage requis.
           </p>
 
-          {/* Schéma de routage : hub central → 7 modèles spécialisés */}
+          {/* Schéma de routage : hub central → les deux modèles proposés.
+              On n'affiche que ce que l'utilisateur peut réellement choisir dans
+              le sélecteur — annoncer des modèles indisponibles serait une
+              promesse non tenue. */}
           <div className="mt-14">
             <div className="mx-auto flex w-fit items-center gap-2.5 rounded-full border px-5 py-2.5" style={{ borderColor: "var(--landing-line)", background: "var(--landing-card)" }}>
               <Logo size={16} />
@@ -357,15 +360,10 @@ export function Landing() {
             </div>
             <div className="mx-auto mt-1 h-8 w-px" style={{ background: "var(--landing-line)" }} aria-hidden="true" />
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mx-auto grid max-w-2xl gap-3 sm:grid-cols-2">
               {[
                 { name: "Sao 4", tag: "Code & quotidien", badge: "S4", default: true },
                 { name: "Toumaï 5", tag: "Raisonnement profond", badge: "T5" },
-                { name: "Ennedi", tag: "Génération d'images", badge: "En" },
-                { name: "Ouaddaï Pro", tag: "Analyse de documents", badge: "OP" },
-                { name: "Kanem Flash", tag: "Conversation vocale", badge: "KF" },
-                { name: "Tibesti Code", tag: "Code expert", badge: "TC" },
-                { name: "Chari", tag: "CV, lettres & rapports", badge: "Ch" },
               ].map((m) => (
                 <div
                   key={m.name}
