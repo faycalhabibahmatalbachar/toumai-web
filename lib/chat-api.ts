@@ -20,6 +20,10 @@ export interface HistoryMessage {
     image_urls?: string[];
     sources?: WebSource[];
     search_images?: SearchImage[];
+    /** Trace de raisonnement conservée — alimente le panneau « Réflexion »
+     * quand on rouvre une conversation. */
+    reasoning?: string;
+    reasoning_ms?: number;
   } | null;
   created_at: string;
 }

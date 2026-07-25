@@ -11,6 +11,7 @@ import { ProjectCard } from "./ProjectViewer";
 import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/lib/project-parser";
 import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
 import type { ChatImage } from "./chat/media/types";
+import { ReasoningPanel } from "./chat/ReasoningPanel";
 
 /** Extrait le HTML de base d'un message d'édition (qui embarque le code du
  * site dans un bloc ```html) pour appliquer un patch. */
@@ -47,6 +48,12 @@ export interface Message {
    * rétrogradé. Affiché sous la réponse : l'utilisateur doit savoir qui lui a
    * répondu, on ne laisse pas croire qu'il a eu Toumaï 5. */
   modelNotice?: string;
+  /** Trace de raisonnement réellement produite par le modèle (panneau
+   * « Réflexion »). Absente si le modèle ne raisonne pas — on n'affiche alors
+   * aucune promesse de réflexion. */
+  reasoning?: string;
+  /** Durée mesurée du raisonnement, en millisecondes. */
+  reasoningMs?: number;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -421,6 +428,13 @@ export function ChatMessage({
 
   return (
     <div className="animate-fade-in">
+      {message.reasoning && (
+        <ReasoningPanel
+          reasoning={message.reasoning}
+          durationMs={message.reasoningMs}
+          streaming={message.streaming}
+        />
+      )}
       <div className="max-w-[80ch] text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && !message.content ? (
           <TypingDots />

@@ -279,6 +279,9 @@ export default function ChatPage() {
         imageUrls: m.metadata?.image_urls,
         sources: m.metadata?.sources,
         searchImages: m.metadata?.search_images,
+        // Le panneau « Réflexion » reste disponible en rouvrant la conversation.
+        reasoning: m.metadata?.reasoning,
+        reasoningMs: m.metadata?.reasoning_ms,
       }));
       setMessages(mapped);
       // On borne à 60 messages en cache : assez pour un retour instantané,
@@ -436,6 +439,8 @@ export default function ChatPage() {
             const sources = evt.metadata?.sources;
             const searchImages = evt.metadata?.search_images;
             const modelNotice = evt.metadata?.model_notice;
+            const reasoning = evt.metadata?.reasoning;
+            const reasoningMs = evt.metadata?.reasoning_ms;
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {
@@ -448,6 +453,9 @@ export default function ChatPage() {
                     searchImages: searchImages?.length ? searchImages : m.searchImages,
                     // Rétrogradation de modèle : on l'affiche, on ne la cache pas.
                     modelNotice: modelNotice ?? m.modelNotice,
+                    // Trace de raisonnement réelle (panneau « Réflexion »).
+                    reasoning: reasoning ?? m.reasoning,
+                    reasoningMs: reasoningMs ?? m.reasoningMs,
                     // Action sensible (WhatsApp/mail) : la carte
                     // Confirmer/Annuler déclenche la vraie exécution.
                     toolConfirmation: toolConfirmation ?? m.toolConfirmation,

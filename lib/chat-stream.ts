@@ -32,6 +32,12 @@ export interface StreamMetadata {
   tool_confirmation?: ToolConfirmation;
   /** Modèle qui a RÉELLEMENT produit la réponse. */
   actual_model?: string;
+  /** Trace de raisonnement réellement produite par le modèle — absente si le
+   * modèle ne raisonne pas. Jamais fabriquée côté client. */
+  reasoning?: string;
+  reasoning_effort?: string;
+  /** Durée mesurée du raisonnement, en millisecondes. */
+  reasoning_ms?: number;
   /** Présent uniquement si le modèle demandé n'était pas disponible et que la
    * cascade a rétrogradé. On le dit à l'utilisateur au lieu de le masquer. */
   model_notice?: string;
