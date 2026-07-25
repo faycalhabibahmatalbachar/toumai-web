@@ -9,7 +9,7 @@ import {
   getChatImages,
   getFiles,
   isImage,
-  type ChatImage,
+  type LibraryImage,
   type DocumentFile,
   type GeneratedFile,
 } from "@/lib/library-api";
@@ -41,7 +41,7 @@ export default function LibraryPage() {
   const { session, loading, loginAsGuest } = useAuth();
   const [generated, setGenerated] = useState<GeneratedFile[]>([]);
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
-  const [chatImages, setChatImages] = useState<ChatImage[]>([]);
+  const [chatImages, setChatImages] = useState<LibraryImage[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export default function LibraryPage() {
     if (!session) return;
     Promise.all([
       getFiles(),
-      getChatImages().catch(() => ({ images: [] as ChatImage[] })),
+      getChatImages().catch(() => ({ images: [] as LibraryImage[] })),
     ])
       .then(([data, imgs]) => {
         setGenerated(data.generated);

@@ -457,6 +457,19 @@ export function ChatMessage({
                   }
                   return <CodeBlock language={match![1]} code={text} />;
                 },
+                img(props) {
+                  // Une image markdown passait en <img> nu : ni squelette de
+                  // chargement, ni repli si l'URL casse, ni ouverture en
+                  // visionneuse. On la route vers le même widget que les images
+                  // générées ou trouvées sur le web.
+                  const src = typeof props.src === "string" ? props.src : "";
+                  if (!src) return null;
+                  return (
+                    <MediaMessage
+                      images={[{ id: src, url: src, alt: props.alt || undefined }]}
+                    />
+                  );
+                },
               }}
             >
               {visibleContent}

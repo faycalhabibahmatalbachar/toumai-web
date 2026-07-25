@@ -27,15 +27,30 @@ function domainFromUrl(url: string): string {
   }
 }
 
+/** Une pensée écrite « pour soi » plutôt que pour l'utilisateur : notes internes
+ * en anglais, fragments télégraphiques. On préfère alors un libellé propre. */
+function isInternalThought(t: string): boolean {
+  const s = t.trim();
+  if (s.length < 12) return true;
+  return /^(user |the user|need |must |should |i (will|need|should)|ok[,.]|let'?s |provide |answer )/i.test(s);
+}
+
 /** Libellé humain d'une étape jalon — jamais de détail interne (index DOM,
  * sélecteur) affiché tel quel. */
 function stepLabel(step: BrowserStep): string {
-  if (step.thought) return step.thought;
+  const thought = (step.thought || "").trim();
+  if (thought && !isInternalThought(thought)) return thought;
+
+  const domain = step.detail ? domainFromUrl(step.detail) : "";
   switch (step.action) {
     case "navigate":
-      return "Ouverture de la page…";
+      return domain ? `Ouverture de ${domain}…` : "Ouverture de la page…";
+    case "search":
+      return "Recherche sur le web…";
     case "click":
       return "Interaction avec la page…";
+    case "fill":
+      return "Saisie dans le formulaire…";
     case "extract":
       return "Lecture du contenu…";
     case "done":

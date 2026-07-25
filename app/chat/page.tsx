@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { streamChat } from "@/lib/chat-stream";
@@ -19,6 +19,8 @@ import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
 import { LiveAvatarOverlay } from "@/components/LiveAvatarOverlay";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
+import { DropZone } from "@/components/chat/media/DropZone";
+import { useClipboardImage } from "@/hooks/useClipboardImage";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { applyChatFontSize } from "@/lib/ui-prefs";
 
@@ -654,6 +656,39 @@ export default function ChatPage() {
     }
   }
 
+  /** Import d'un fichier venant du glisser-déposer ou du presse-papiers —
+   * même chemin que le sélecteur de fichiers, mêmes contrôles de taille. */
+  const importFile = useCallback(async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Fichier trop volumineux (10 Mo max).");
+      return;
+    }
+    setUploadingDoc(true);
+    setError(null);
+    try {
+      const doc = await uploadDocument(file);
+      setAttachedDoc(doc);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'import du fichier.");
+    } finally {
+      setUploadingDoc(false);
+    }
+  }, []);
+
+  // Le backend n'accepte qu'une pièce jointe par message : on prend la première
+  // et on le dit, plutôt que d'en perdre silencieusement.
+  const onDroppedFiles = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return;
+      if (files.length > 1) setError("Un seul fichier par message — le premier a été retenu.");
+      void importFile(files[0]);
+    },
+    [importFile],
+  );
+
+  // Collage d'une image depuis le presse-papiers (capture d'écran, copie web).
+  useClipboardImage(onDroppedFiles, Boolean(session));
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -795,8 +830,9 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Saisie */}
+        {/* Saisie — glisser-déposer actif sur toute la zone du composeur. */}
         <footer className="px-4 py-4">
+          <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
             {webSearch && (
               <button
@@ -970,6 +1006,7 @@ export default function ChatPage() {
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
             </p>
           </div>
+          </DropZone>
         </footer>
       </div>
       {voiceModeOpen && (
