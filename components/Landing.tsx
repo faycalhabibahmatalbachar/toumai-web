@@ -80,10 +80,6 @@ export function Landing() {
                 title: "Déjà dans votre WhatsApp",
                 desc: "Rien à télécharger. Vous lui écrivez comme à n'importe quel autre contact.",
               },
-              {
-                title: "Payez avec ce que vous avez",
-                desc: "Mesomb, Airtel Money : aucune carte bancaire n'est nécessaire.",
-              },
             ].map((item) => (
               <div
                 key={item.title}
@@ -413,7 +409,7 @@ export function Landing() {
             {[
               {
                 q: "Est-ce vraiment gratuit ?",
-                a: "Oui — discuter, générer des images et utiliser le mode vocal ne coûte rien. Certaines fonctionnalités avancées (connecteurs professionnels, gros volumes) sont payables via Mobile Money, sans carte bancaire nécessaire.",
+                a: "Oui, entièrement. Discuter, générer des images, utiliser le mode vocal, les agents et les connecteurs — tout est gratuit, sans abonnement ni carte bancaire.",
               },
               {
                 q: "Mes données sont-elles vendues ou utilisées pour de la publicité ?",
