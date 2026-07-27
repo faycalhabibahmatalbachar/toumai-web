@@ -1,6 +1,7 @@
 import { API_BASE } from "./config";
 import { authHeaders, tryRefreshSession } from "./api";
 import { handleUnauthorized } from "./session-guard";
+import { HttpError } from "./errors";
 
 interface ApiEnvelope<T> {
   success: boolean;
@@ -35,7 +36,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!res.ok || body.success === false) {
-    throw new Error(body.message || `Erreur ${res.status}`);
+    // On remonte le statut : c'est `describeError` qui choisit la phrase vue
+    // par l'utilisateur, pas cette couche.
+    throw new HttpError(res.ok ? 400 : res.status, body.message);
   }
   return body.data as T;
 }

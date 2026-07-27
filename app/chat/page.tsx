@@ -23,6 +23,31 @@ import { DropZone } from "@/components/chat/media/DropZone";
 import { useClipboardImage } from "@/hooks/useClipboardImage";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { applyChatFontSize } from "@/lib/ui-prefs";
+import { describeError, errorMessage, microphoneErrorMessage } from "@/lib/errors";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { SELECTABLE_MODELS } from "@/lib/models";
+import {
+  CommandPalette,
+  filterPalette,
+  type PaletteItem,
+} from "@/components/chat/CommandPalette";
+
+/** Repère un `/commande` ou un `@modèle` en cours de frappe juste avant le
+ * curseur. Le déclencheur ne compte qu'en début de champ ou après un espace,
+ * pour ne pas s'ouvrir au milieu d'une URL ou d'une adresse e-mail. */
+function detectTrigger(
+  value: string,
+  caret: number,
+): { kind: "slash" | "at"; start: number; query: string } | null {
+  const before = value.slice(0, caret);
+  const m = /(^|\s)([/@])([\p{L}\d-]*)$/u.exec(before);
+  if (!m) return null;
+  return {
+    kind: m[2] === "/" ? "slash" : "at",
+    start: caret - m[3].length - 1,
+    query: m[3],
+  };
+}
 
 /** Synchronise l'URL avec la conversation active (/chat?c=<id>) — chaque
  * conversation a son adresse, ouvrable/partageable comme sur Gemini. */
@@ -45,13 +70,6 @@ interface SpeechRecognitionLike extends EventTarget {
   onerror: ((e: { error: string }) => void) | null;
   onstart: (() => void) | null;
 }
-
-const DICTATION_ERROR_LABEL: Record<string, string> = {
-  "not-allowed": "Accès au microphone refusé — autorisez-le dans les paramètres du navigateur.",
-  "audio-capture": "Aucun microphone détecté.",
-  network: "Problème réseau pendant la dictée.",
-  "no-speech": "Aucune parole détectée.",
-};
 
 let idCounter = 0;
 function nextId() {
@@ -121,6 +139,8 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [model, setModel] = useState("auto");
   const [error, setError] = useState<string | null>(null);
+  /** Une erreur « collante » attend une action : on ne l'efface pas toute seule. */
+  const [errorSticky, setErrorSticky] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -132,6 +152,14 @@ export default function ChatPage() {
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   const [liveAvatarOpen, setLiveAvatarOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const online = useOnlineStatus();
+  // Palette `/` (commandes) et `@` (modèles) ouverte sous le curseur.
+  const [palette, setPalette] = useState<{
+    kind: "slash" | "at";
+    start: number;
+    query: string;
+  } | null>(null);
+  const [paletteIndex, setPaletteIndex] = useState(0);
   // Tâche de navigation web détectée → fenêtre dédiée de l'Agent Navigateur.
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
   const urlConvAttempted = useRef(false);
@@ -250,12 +278,20 @@ export default function ChatPage() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
-  // Effacement automatique après quelques secondes — non bloquant.
+  function clearError() {
+    setError(null);
+    setErrorSticky(false);
+  }
+
+  // Effacement automatique — mais seulement pour ce qui n'appelle aucune
+  // action. Une panne réseau qui disparaît toute seule au bout de 6 secondes
+  // laisse l'utilisateur devant un écran muet sans savoir ce qui s'est passé :
+  // ces messages-là restent jusqu'à ce qu'on les ferme ou qu'un envoi réussisse.
   useEffect(() => {
-    if (!error) return;
-    const t = setTimeout(() => setError(null), 6000);
+    if (!error || errorSticky) return;
+    const t = setTimeout(() => setError(null), 8000);
     return () => clearTimeout(t);
-  }, [error]);
+  }, [error, errorSticky]);
 
   // Chargement de l'historique quand l'utilisateur change de conversation.
   // Cache persistant : la conversation s'affiche instantanément depuis le
@@ -270,7 +306,7 @@ export default function ChatPage() {
     } else {
       setHistoryLoading(true);
     }
-    setError(null);
+    clearError();
     try {
       const history = await getHistory(id);
       const mapped: Message[] = history.map((m) => ({
@@ -292,17 +328,17 @@ export default function ChatPage() {
       const lastUser = [...history].reverse().find((m) => m.role === "user");
       lastUserMessageRef.current = lastUser?.content ?? "";
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
+      const friendly = describeError(err, "history");
       // Conversation inexistante ou appartenant à une autre session (ancien
       // lien, compte changé) : on repart proprement sur un nouveau chat au
       // lieu de laisser une erreur 404 « Session introuvable » à l'écran.
-      if (/introuvable|404/i.test(msg)) {
+      if (friendly.kind === "not-found") {
         setActiveSessionId(null);
         setUrlConversation(null);
         setMessages([]);
         setError("Cette conversation n'est plus accessible avec ce compte — nouvelle conversation ouverte.");
-      } else {
-        setError(msg || "Impossible de charger cette conversation.");
+      } else if (friendly.message) {
+        setError(friendly.message);
       }
     } finally {
       setHistoryLoading(false);
@@ -313,7 +349,7 @@ export default function ChatPage() {
     setActiveSessionId(null);
     setUrlConversation(null);
     setMessages([]);
-    setError(null);
+    clearError();
   }
 
 
@@ -331,7 +367,7 @@ export default function ChatPage() {
       return;
     }
     setInput("");
-    setError(null);
+    clearError();
     stickToBottomRef.current = true;
     lastUserMessageRef.current = text;
 
@@ -350,7 +386,7 @@ export default function ChatPage() {
    * dernière réponse assistant par une nouvelle génération. */
   async function regenerate() {
     if (sending || !session || !lastUserMessageRef.current) return;
-    setError(null);
+    clearError();
     stickToBottomRef.current = true;
     const assistantId = nextId();
     setMessages((prev) => {
@@ -366,7 +402,7 @@ export default function ChatPage() {
    * branche) et relance la génération à partir de là. */
   async function editMessage(id: string, newContent: string) {
     if (sending || !session) return;
-    setError(null);
+    clearError();
     stickToBottomRef.current = true;
     const idx = messages.findIndex((m) => m.id === id);
     if (idx === -1) return;
@@ -477,10 +513,17 @@ export default function ChatPage() {
         controller.signal,
       );
     } catch (err) {
-      // Interruption volontaire (bouton Stop) : pas une erreur à afficher.
-      const isAbort = err instanceof DOMException && err.name === "AbortError";
-      if (!isAbort) {
-        setError(err instanceof Error ? err.message : "Erreur réseau");
+      // `describeError` couvre l'interruption volontaire (bouton Arrêter), le
+      // hors-ligne, le serveur qui redémarre… et renvoie une phrase vide quand
+      // il n'y a rien à dire.
+      const friendly = describeError(err, "chat");
+      if (friendly.message) {
+        setError(friendly.message);
+        // Réseau, serveur, session expirée : rien ne repartira tant que la
+        // personne n'agit pas — le message doit rester à l'écran.
+        setErrorSticky(
+          ["offline", "unreachable", "server", "unauthorized", "timeout"].includes(friendly.kind),
+        );
       }
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
@@ -558,7 +601,7 @@ export default function ChatPage() {
     recognition.onerror = (e) => {
       setDictating(false);
       if (e.error === "not-allowed" || e.error === "audio-capture") {
-        setError(DICTATION_ERROR_LABEL[e.error]);
+        setError(microphoneErrorMessage(e.error));
         return;
       }
       // Erreur réseau/service de la Web Speech API → fallback Whisper
@@ -582,8 +625,8 @@ export default function ChatPage() {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setError(DICTATION_ERROR_LABEL["not-allowed"]);
+    } catch (err) {
+      setError(microphoneErrorMessage(err instanceof Error ? err.name : "not-allowed"));
       return;
     }
     dictationBaseRef.current = input;
@@ -645,12 +688,12 @@ export default function ChatPage() {
       return;
     }
     setUploadingDoc(true);
-    setError(null);
+    clearError();
     try {
       const doc = await uploadDocument(file);
       setAttachedDoc(doc);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'import du fichier.");
+      setError(errorMessage(err, "upload"));
     } finally {
       setUploadingDoc(false);
     }
@@ -664,12 +707,12 @@ export default function ChatPage() {
       return;
     }
     setUploadingDoc(true);
-    setError(null);
+    clearError();
     try {
       const doc = await uploadDocument(file);
       setAttachedDoc(doc);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'import du fichier.");
+      setError(errorMessage(err, "upload"));
     } finally {
       setUploadingDoc(false);
     }
@@ -689,7 +732,139 @@ export default function ChatPage() {
   // Collage d'une image depuis le presse-papiers (capture d'écran, copie web).
   useClipboardImage(onDroppedFiles, Boolean(session));
 
+  // ── Commandes `/` et mentions `@` ────────────────────────────────────────
+  // Chaque commande déclenche une action qui existe déjà dans cette page :
+  // rien n'est listé ici qui ne soit réellement branché.
+
+  const slashCommands: (PaletteItem & { run: () => void })[] = [
+    {
+      id: "web",
+      trigger: "web",
+      label: webSearch ? "Désactiver la recherche web" : "Rechercher sur le web",
+      hint: "Toumaï consulte des sources en ligne et les cite",
+      keywords: ["internet", "source", "actualité"],
+      run: () => setWebSearch((w) => !w),
+    },
+    {
+      id: "fichier",
+      trigger: "fichier",
+      label: "Joindre un fichier",
+      hint: "PDF, Word, Excel ou image",
+      keywords: ["document", "pdf", "importer", "pièce jointe"],
+      run: () => fileInputRef.current?.click(),
+    },
+    {
+      id: "reflexion",
+      trigger: "reflexion",
+      label: "Passer à Toumaï 5 (réflexion)",
+      hint: "Raisonnement profond, tâches complexes",
+      keywords: ["modèle", "toumai", "raisonnement"],
+      run: () => setModel("sayibi-reflexion"),
+    },
+    {
+      id: "rapide",
+      trigger: "rapide",
+      label: "Passer à Sao 4 (rapide)",
+      hint: "Code et aide au quotidien",
+      keywords: ["modèle", "sao"],
+      run: () => setModel("auto"),
+    },
+    {
+      id: "vocal",
+      trigger: "vocal",
+      label: "Ouvrir le mode vocal",
+      hint: "Parler à Toumaï et écouter sa réponse",
+      keywords: ["voix", "micro", "parler"],
+      disabledReason: session ? undefined : "Connectez-vous pour utiliser la voix",
+      run: () => setVoiceModeOpen(true),
+    },
+    {
+      id: "nouveau",
+      trigger: "nouveau",
+      label: "Nouvelle conversation",
+      keywords: ["reset", "recommencer"],
+      run: newChat,
+    },
+    {
+      id: "partager",
+      trigger: "partager",
+      label: "Partager cette conversation",
+      keywords: ["lien", "envoyer"],
+      disabledReason: activeSessionId ? undefined : "Disponible une fois la conversation commencée",
+      run: () => setShareOpen(true),
+    },
+  ];
+
+  const paletteItems: PaletteItem[] =
+    palette?.kind === "at"
+      ? filterPalette(
+          SELECTABLE_MODELS.map((m) => ({
+            id: m.id,
+            trigger: m.name,
+            label: m.name,
+            hint: m.tagline,
+            color: m.color,
+            keywords: [m.tagline],
+          })),
+          palette.query,
+        )
+      : palette
+        ? filterPalette(slashCommands, palette.query)
+        : [];
+
+  /** Retire le `/xxx` ou `@xxx` en cours de frappe. */
+  function stripTrigger() {
+    if (!palette) return;
+    const caret = palette.start + 1 + palette.query.length;
+    setInput((v) => v.slice(0, palette.start) + v.slice(caret));
+    setPalette(null);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.selectionStart = el.selectionEnd = palette.start;
+    });
+  }
+
+  function runPaletteItem(item: PaletteItem) {
+    if (item.disabledReason) return;
+    stripTrigger();
+    if (palette?.kind === "at") {
+      setModel(item.id);
+      return;
+    }
+    slashCommands.find((c) => c.id === item.id)?.run();
+  }
+
+  function syncPalette(value: string, caret: number) {
+    const found = detectTrigger(value, caret);
+    setPalette(found);
+    setPaletteIndex(0);
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (palette && paletteItems.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setPaletteIndex((i) => (i + 1) % paletteItems.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setPaletteIndex((i) => (i - 1 + paletteItems.length) % paletteItems.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        runPaletteItem(paletteItems[paletteIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPalette(null);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -815,18 +990,46 @@ export default function ChatPage() {
           </div>
         </main>
 
-        {/* Toast d'erreur — non bloquant */}
-        {error && (
+        {/* Perte de réseau : bandeau permanent tant que ça dure, distinct de
+            l'erreur ponctuelle — l'utilisateur n'a pas la même chose à faire. */}
+        {!online && (
           <div
-            role="alert"
-            className="mx-auto mb-2 w-fit max-w-[90%] rounded-lg border px-3.5 py-2 text-sm"
+            role="status"
+            className="mx-auto mb-2 flex w-fit max-w-[90%] items-center gap-2 rounded-full px-3.5 py-1.5 text-sm"
             style={{
-              borderColor: "var(--error)",
-              background: "rgba(239,68,68,0.08)",
-              color: "var(--error)",
+              border: "1px solid var(--border)",
+              background: "var(--card)",
+              color: "var(--text-secondary)",
             }}
           >
-            {error}
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: "var(--text-tertiary)" }}
+            />
+            Hors ligne — vos messages partiront dès le retour de la connexion.
+          </div>
+        )}
+
+        {/* Erreur ponctuelle — non bloquante, refermable. */}
+        {error && online && (
+          <div
+            role="alert"
+            className="mx-auto mb-2 flex w-fit max-w-[90%] items-start gap-2.5 rounded-xl border px-3.5 py-2 text-sm"
+            style={{
+              borderColor: "color-mix(in srgb, var(--error) 35%, transparent)",
+              background: "color-mix(in srgb, var(--error) 8%, transparent)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span>{error}</span>
+            <button
+              onClick={clearError}
+              aria-label="Masquer ce message"
+              className="shrink-0 text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -879,6 +1082,19 @@ export default function ChatPage() {
                 </span>
               </div>
             )}
+            {palette && paletteItems.length > 0 && (
+              <CommandPalette
+                items={paletteItems}
+                activeIndex={paletteIndex}
+                onHover={setPaletteIndex}
+                onPick={runPaletteItem}
+                footer={
+                  palette.kind === "at"
+                    ? "↑↓ pour choisir, Entrée pour appliquer le modèle"
+                    : "↑↓ pour choisir, Entrée pour lancer, Échap pour fermer"
+                }
+              />
+            )}
             {/* Composer en DEUX rangées : la zone de texte occupe toute la
                 largeur (elle ne se coince plus entre les icônes), les
                 contrôles vivent sur leur propre ligne en dessous. */}
@@ -886,9 +1102,23 @@ export default function ChatPage() {
               <textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  syncPalette(e.target.value, e.target.selectionStart ?? e.target.value.length);
+                }}
+                onKeyUp={(e) => {
+                  // Déplacement du curseur aux flèches / clic : la palette doit
+                  // suivre ce qui est réellement sous le curseur.
+                  const el = e.currentTarget;
+                  if (e.key.startsWith("Arrow") && !palette) {
+                    syncPalette(el.value, el.selectionStart ?? 0);
+                  }
+                }}
+                onBlur={() => setPalette(null)}
                 onKeyDown={onKeyDown}
-                placeholder={dictating ? "Je vous écoute…" : "Écrivez à Toumaï AI…"}
+                placeholder={
+                  dictating ? "Je vous écoute…" : "Écrivez à Toumaï AI…  «/» commandes, «@» modèle"
+                }
                 rows={1}
                 disabled={!session}
                 className="max-h-[200px] w-full resize-none bg-transparent px-2 pb-1 pt-1.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
@@ -929,6 +1159,17 @@ export default function ChatPage() {
                         Recherche web
                         {webSearch && <CheckIcon className="ml-auto" />}
                       </button>
+                      <button
+                        onClick={() => {
+                          setToolsOpen(false);
+                          setLiveAvatarOpen(true);
+                        }}
+                        disabled={!session}
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--hover)] disabled:opacity-40"
+                      >
+                        <AvatarLiveIcon />
+                        Avatar en direct
+                      </button>
                       <div className="my-1 h-px bg-[var(--border)]" />
                       <Link
                         href="/settings?tab=connectors"
@@ -959,25 +1200,19 @@ export default function ChatPage() {
               >
                 {dictating ? <StopIcon /> : <MicIcon />}
               </button>
+              {/* Un seul bouton pour la voix : trois pastilles côte à côte
+                  donnaient une barre encombrée et illisible. L'avatar en
+                  direct, plus rare, vit dans le menu Outils. */}
               <button
                 onClick={() => setVoiceModeOpen(true)}
-                aria-label="Mode vocal"
-                title="Mode vocal"
+                aria-label="Parler à Toumaï AI"
+                title="Parler à Toumaï AI"
                 disabled={!session}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-30"
-                style={{ background: "var(--thinking)" }}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-30"
+                style={{ background: "var(--text-primary)", color: "var(--bg)" }}
               >
                 <VoiceModeIcon />
-              </button>
-              <button
-                onClick={() => setLiveAvatarOpen(true)}
-                aria-label="Parler en direct avec l'avatar"
-                title="Parler en direct (avatar)"
-                disabled={!session}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-30"
-                style={{ background: "var(--primary)" }}
-              >
-                <AvatarLiveIcon />
+                <span className="hidden sm:inline">Parler</span>
               </button>
               {sending ? (
                 <button

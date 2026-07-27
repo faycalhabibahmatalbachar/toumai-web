@@ -12,6 +12,7 @@ import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/li
 import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
 import type { ChatImage } from "./chat/media/types";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
+import { useSpeakText } from "@/hooks/useSpeakText";
 
 /** Extrait le HTML de base d'un message d'édition (qui embarque le code du
  * site dans un bloc ```html) pour appliquer un patch. */
@@ -186,6 +187,40 @@ function ThumbDownIcon({ filled }: { filled?: boolean }) {
   );
 }
 
+function SpeakerIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M11 5L6 9H3v6h3l5 4V5z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SpeakerStopIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M11 5L6 9H3v6h3l5 4V5z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 9l5 6M21 9l-5 6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="animate-spin"
+    >
+      <path d="M12 3a9 9 0 019 9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function RegenerateIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -287,6 +322,7 @@ export function ChatMessage({
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [rated, setRated] = useState<"up" | "down" | null>(null);
+  const speech = useSpeakText();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
 
@@ -561,6 +597,22 @@ export function ChatMessage({
               )}
             </>
           )}
+          <button
+            onClick={() => speech.speak(message.content)}
+            title={speech.state === "idle" ? "Lire à voix haute" : "Arrêter la lecture"}
+            aria-label={speech.state === "idle" ? "Lire la réponse à voix haute" : "Arrêter la lecture"}
+            disabled={speech.state === "loading"}
+            className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+            style={speech.state === "playing" ? { color: "var(--primary)" } : undefined}
+          >
+            {speech.state === "loading" ? (
+              <SpinnerIcon />
+            ) : speech.state === "playing" ? (
+              <SpeakerStopIcon />
+            ) : (
+              <SpeakerIcon />
+            )}
+          </button>
           {onRegenerate && (
             <button
               onClick={onRegenerate}
@@ -570,6 +622,9 @@ export function ChatMessage({
             >
               <RegenerateIcon />
             </button>
+          )}
+          {speech.error && (
+            <span className="pl-1 text-xs text-[var(--text-tertiary)]">{speech.error}</span>
           )}
         </div>
       )}

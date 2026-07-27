@@ -1,6 +1,7 @@
 import { API_BASE } from "./config";
 import { authHeaders } from "./api";
 import { handleUnauthorized } from "./session-guard";
+import { HttpError } from "./errors";
 
 export interface TranscribeResult {
   text: string;
@@ -19,7 +20,7 @@ export async function transcribeAudio(blob: Blob): Promise<TranscribeResult> {
   if (res.status === 401) handleUnauthorized();
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
-    throw new Error(body.message || `Erreur ${res.status}`);
+    throw new HttpError(res.ok ? 400 : res.status, body.message);
   }
   return body.data as TranscribeResult;
 }
@@ -41,7 +42,7 @@ export async function synthesizeSpeech(text: string, voice?: string): Promise<Sy
   if (res.status === 401) handleUnauthorized();
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
-    throw new Error(body.message || `Erreur ${res.status}`);
+    throw new HttpError(res.ok ? 400 : res.status, body.message);
   }
   return body.data as SynthesizeResult;
 }

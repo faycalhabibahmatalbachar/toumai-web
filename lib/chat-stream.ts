@@ -1,6 +1,7 @@
 import { API_BASE } from "./config";
 import { authHeaders, tryRefreshSession } from "./api";
 import { handleUnauthorized } from "./session-guard";
+import { HttpError } from "./errors";
 
 /** Action sensible (WhatsApp, mail…) en attente de confirmation explicite —
  * émise par le backend dans les métadonnées du flux. Le frontend affiche une
@@ -103,11 +104,14 @@ export async function streamChat(
     if (renewed) res = await doFetch();
     if (res.status === 401) handleUnauthorized();
   }
-  if (res.status === 429) {
-    throw new Error("Trop de messages envoyés d'un coup. Patientez quelques secondes avant de réessayer.");
-  }
   if (!res.ok || !res.body) {
-    throw new Error(`Le serveur a répondu ${res.status}`);
+    // Le statut porte le cas ; la phrase montrée est choisie par `describeError`.
+    const detail = await res
+      .clone()
+      .json()
+      .then((b) => (b as { message?: string }).message)
+      .catch(() => undefined);
+    throw new HttpError(res.ok ? 502 : res.status, detail);
   }
 
   const reader = res.body.getReader();
