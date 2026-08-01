@@ -15,11 +15,15 @@ export function ImageBubble({
   onOpen,
   aspectClassName = "aspect-[4/3]",
   onDelete,
+  onFailed,
 }: {
   image: ChatImage;
   onOpen: () => void;
   aspectClassName?: string;
   onDelete?: () => void;
+  /** Appelé quand la source distante ne rend pas d'image : la grille retire
+   *  alors la tuile au lieu d'afficher un rectangle vide. */
+  onFailed?: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -33,11 +37,7 @@ export function ImageBubble({
     >
       {!loaded && !failed && <ImageSkeleton className="absolute inset-0 z-0" />}
 
-      {failed ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-[var(--card)] text-xs text-[var(--text-tertiary)]">
-          Image indisponible
-        </div>
-      ) : (
+      {failed ? null : (
         <motion.button
           type="button"
           onClick={onOpen}
@@ -55,7 +55,15 @@ export function ImageBubble({
             sizes="(max-width: 640px) 100vw, 480px"
             className="object-cover"
             onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
+            onError={() => {
+              // On prévient la grille : elle retire la tuile plutôt que de
+              // laisser un rectangle vide. Une case « Image indisponible » au
+              // milieu d'une réponse ajoute du bruit sans rien apprendre, et
+              // laisse croire à un échec de notre fait alors que c'est la
+              // source distante qui a disparu.
+              setFailed(true);
+              onFailed?.();
+            }}
           />
         </motion.button>
       )}
