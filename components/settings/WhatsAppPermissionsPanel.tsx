@@ -46,6 +46,16 @@ const GROUPS: { title: string; items: PermDef[] }[] = [
       { key: "advanced", label: "Fonctions avancées", desc: "Mode furtif, présence, messages éphémères…", icon: <BoltIcon /> },
     ],
   },
+  {
+    title: "Compte WhatsApp",
+    items: [
+      { key: "manage_account", label: "Profil & confidentialité", desc: "Changer votre nom affiché, votre « à propos », votre photo, vos réglages de confidentialité.", icon: <AccountIcon /> },
+      { key: "manage_contacts", label: "Contacts", desc: "Bloquer ou débloquer, enregistrer, renommer, retirer un contact.", icon: <BlockIcon /> },
+      { key: "manage_groups", label: "Groupes", desc: "Créer un groupe, ajouter ou retirer des membres, nommer des admins, quitter.", icon: <GroupIcon /> },
+      { key: "manage_chats", label: "Conversations", desc: "Archiver, épingler, mettre en sourdine, vider ou supprimer une conversation.", icon: <FolderIcon /> },
+      { key: "calls", label: "Appels", desc: "Consulter le journal des appels reçus et rejeter un appel en cours.", icon: <PhoneIcon /> },
+    ],
+  },
 ];
 
 /** Panneau de contrôle complet des permissions WhatsApp — chaque interrupteur
@@ -319,4 +329,19 @@ function ContactIcon() {
 }
 function BoltIcon() {
   return <svg {...S}><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" /></svg>;
+}
+function AccountIcon() {
+  return <svg {...S}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" strokeLinecap="round" /></svg>;
+}
+function BlockIcon() {
+  return <svg {...S}><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" strokeLinecap="round" /></svg>;
+}
+function GroupIcon() {
+  return <svg {...S}><circle cx="9" cy="9" r="3.2" /><path d="M2.5 19c0-3 2.9-4.6 6.5-4.6s6.5 1.6 6.5 4.6" strokeLinecap="round" /><path d="M17 6.2a3.2 3.2 0 010 6M18.5 14.6c2 .5 3 1.9 3 4.4" strokeLinecap="round" /></svg>;
+}
+function FolderIcon() {
+  return <svg {...S}><path d="M3 7a2 2 0 012-2h4l2 2.5h8a2 2 0 012 2V18a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" strokeLinejoin="round" /></svg>;
+}
+function PhoneIcon() {
+  return <svg {...S}><path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 006.5 6.5L17 13l4 1.5v3a2 2 0 01-2.2 2A17 17 0 013.5 5.2 2 2 0 015.5 3h1z" strokeLinejoin="round" /></svg>;
 }

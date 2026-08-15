@@ -95,6 +95,14 @@ export interface WaSettings {
   advanced: boolean;
   sync_contacts: boolean;
   save_contacts: boolean;
+  // Le compte WhatsApp lui-même, distinct de la messagerie : on peut vouloir
+  // que l'assistant écrive à ses contacts sans qu'il touche à son profil, à sa
+  // confidentialité, à ses groupes ni à l'organisation de ses conversations.
+  manage_account: boolean;
+  manage_contacts: boolean;
+  manage_groups: boolean;
+  manage_chats: boolean;
+  calls: boolean;
   status_audience: "all" | "contacts";
 }
 
