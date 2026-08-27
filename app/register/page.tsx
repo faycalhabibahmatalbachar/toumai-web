@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Logo } from "@/components/Logo";
+import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function RegisterPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstilePoignee | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +35,7 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      const loggedIn = await registerAccount(email, password, name);
+      const loggedIn = await registerAccount(email, password, name, turnstileToken);
       if (loggedIn) {
         router.push("/chat");
       } else {
@@ -40,6 +43,9 @@ export default function RegisterPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'inscription");
+      // Le jeton Turnstile est à usage unique : sans cette remise à zéro, la
+      // deuxième tentative échouerait sur un jeton déjà consommé.
+      turnstile.current?.reinitialiser();
     } finally {
       setLoading(false);
     }
@@ -139,6 +145,7 @@ export default function RegisterPage() {
           </label>
           {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
           {info && <p className="px-2 text-sm text-[var(--success)]">{info}</p>}
+          <Turnstile onToken={setTurnstileToken} poignee={turnstile} />
           <button
             type="submit"
             disabled={loading || !acceptedTerms}

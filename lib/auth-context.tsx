@@ -25,9 +25,18 @@ interface AuthState {
   session: TokenPayload | null;
   loading: boolean;
   loginAsGuest: () => Promise<void>;
-  loginWithPassword: (email: string, password: string) => Promise<void>;
+  loginWithPassword: (
+    email: string,
+    password: string,
+    turnstileToken?: string | null,
+  ) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
-  registerAccount: (email: string, password: string, name: string) => Promise<boolean>;
+  registerAccount: (
+    email: string,
+    password: string,
+    name: string,
+    turnstileToken?: string | null,
+  ) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -50,8 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void registerDeviceOnce();
   }, []);
 
-  const loginWithPassword = useCallback(async (email: string, password: string) => {
-    const s = await apiLogin(email, password);
+  const loginWithPassword = useCallback(async (
+    email: string,
+    password: string,
+    turnstileToken?: string | null,
+  ) => {
+    const s = await apiLogin(email, password, turnstileToken);
     cachePurge(); // changement d'identité : jamais servir le cache d'un autre compte
     setSession(s);
     void registerDeviceOnce();
@@ -65,8 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const registerAccount = useCallback(
-    async (email: string, password: string, name: string) => {
-      const s = await apiRegister(email, password, name);
+    async (
+      email: string,
+      password: string,
+      name: string,
+      turnstileToken?: string | null,
+    ) => {
+      const s = await apiRegister(email, password, name, turnstileToken);
       if (s) {
         cachePurge();
         setSession(s);

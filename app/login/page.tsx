@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Logo } from "@/components/Logo";
+import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstilePoignee | null>(null);
 
   // Arrivée depuis une session expirée (voir session-guard).
   useEffect(() => {
@@ -27,10 +30,13 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await loginWithPassword(email, password);
+      await loginWithPassword(email, password, turnstileToken);
       router.push("/chat");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de connexion");
+      // Un jeton Turnstile ne sert qu'une fois : sans remise à zéro, la
+      // tentative suivante échouerait sur un jeton déjà consommé.
+      turnstile.current?.reinitialiser();
     } finally {
       setLoading(false);
     }
@@ -106,6 +112,7 @@ export default function LoginPage() {
             </Link>
           </p>
           {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
+          <Turnstile onToken={setTurnstileToken} poignee={turnstile} />
           <button
             type="submit"
             disabled={loading}

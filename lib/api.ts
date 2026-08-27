@@ -66,10 +66,14 @@ export async function guestLogin(): Promise<TokenPayload> {
   return payload;
 }
 
-export async function login(email: string, password: string): Promise<TokenPayload> {
+export async function login(
+  email: string,
+  password: string,
+  turnstileToken?: string | null,
+): Promise<TokenPayload> {
   const res = await request<TokenPayload>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
   });
   if (!res.data) throw new Error("Réponse invalide du serveur");
   const payload: TokenPayload = { ...res.data, is_guest: false };
@@ -95,10 +99,11 @@ export async function register(
   email: string,
   password: string,
   name: string,
+  turnstileToken?: string | null,
 ): Promise<TokenPayload | null> {
   const res = await request<TokenPayload>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({ email, password, name, turnstile_token: turnstileToken }),
   });
   if (res.data) {
     const payload: TokenPayload = { ...res.data, is_guest: false };

@@ -3,6 +3,10 @@ export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ??
   "https://api.toumaiai.com/api/v1";
 
+/** Clé publique Turnstile — publique par nature, elle vit dans la page. */
+export const TURNSTILE_SITE_KEY =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "0x4AAAAAAEdxs3dOVW3EFTsf";
+
 export const SITE_NAME = "Toumaï AI";
 export const SITE_TAGLINE = "Votre assistant IA, toujours là.";
 
