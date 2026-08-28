@@ -14,47 +14,51 @@ export function Landing() {
     >
       <Navbar />
 
-      {/* Hero */}
-      <section className="px-6 pb-16 pt-24 text-center sm:pt-32">
-        <h1 className="landing-serif mx-auto max-w-3xl text-5xl font-medium leading-[1.08] tracking-tight sm:text-7xl">
-          Construisez une entreprise{" "}
-          <em className="font-normal not-italic" style={{ color: "var(--landing-terra)", fontStyle: "italic" }}>
-            plus intelligente
-          </em>{" "}
-          avec Toumaï AI.
-        </h1>
-        <p
-          className="mx-auto mt-7 max-w-xl text-lg leading-relaxed"
-          style={{ color: "var(--landing-muted)" }}
-        >
-          Une IA qui rédige, analyse, répond et automatise vos tâches.
-          Déployable sur WhatsApp, le Web ou à l&apos;échelle de votre équipe,
-          en français, arabe et anglais.
-        </p>
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-6">
-          <Link
-            href="/chat"
-            className="rounded-full px-8 py-4 text-base font-medium transition hover:opacity-85"
-            style={{ background: "var(--landing-ink)", color: "var(--landing-on-ink)" }}
-          >
-            Commencer gratuitement
-          </Link>
-          <a
-            href="#capacites"
-            className="rounded-full border px-8 py-4 text-base font-medium transition hover:opacity-70"
-            style={{ borderColor: "var(--landing-line)" }}
-          >
-            Voir la démo
-          </a>
+      {/* Hero — deux colonnes : la promesse à gauche, la preuve à droite.
+       *
+       * L'ancienne version empilait titre, sous-titre et boutons sur toute la
+       * largeur, centrés : la première capture d'écran du produit n'arrivait
+       * qu'à 956 px, donc jamais avant le premier défilement. Ici la fenêtre
+       * de l'application est visible d'emblée, à côté des boutons. */}
+      <section className="px-6 pb-14 pt-10 sm:pt-16 lg:pt-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-16">
+          <div className="text-center lg:text-left">
+            {/* Sur un écran de 375 px, 2.75rem faisait quatre lignes et
+             * repoussait les boutons sous la ligne de flottaison. */}
+            <h1 className="landing-serif mx-auto max-w-xl text-[2.1rem] font-medium leading-[1.08] tracking-tight sm:text-5xl lg:mx-0 lg:text-6xl">
+              L&apos;intelligence artificielle qui parle{" "}
+              <em className="font-normal" style={{ color: "var(--landing-terra)", fontStyle: "italic" }}>
+                votre arabe.
+              </em>
+            </h1>
+            <p
+              className="mx-auto mt-6 max-w-xl text-lg leading-relaxed lg:mx-0"
+              style={{ color: "var(--landing-muted)" }}
+            >
+              Toumaï AI répond en arabe tchadien, en français et en anglais.
+              Sur le Web ou directement dans WhatsApp — sans rien installer.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+              <Link
+                href="/chat"
+                className="rounded-full px-8 py-4 text-base font-medium transition hover:opacity-85"
+                style={{ background: "var(--landing-ink)", color: "var(--landing-on-ink)" }}
+              >
+                Commencer gratuitement
+              </Link>
+              <a
+                href="#capacites"
+                className="rounded-full border px-8 py-4 text-base font-medium transition hover:opacity-70"
+                style={{ borderColor: "var(--landing-line)" }}
+              >
+                Voir les capacités
+              </a>
+            </div>
+            <StatsBar />
+          </div>
+
+          <ProductWindow />
         </div>
-      </section>
-
-      {/* Barre de confiance — tôt dans la page, chiffres réels uniquement */}
-      <StatsBar />
-
-      {/* Fenêtre produit */}
-      <section className="px-6">
-        <ProductWindow />
       </section>
 
       {/* Différenciation — pourquoi Toumaï AI plutôt qu'un assistant généraliste */}
@@ -70,7 +74,7 @@ export function Landing() {
             Pensé pour{" "}
             <em style={{ color: "var(--landing-terra)" }}>le Tchad.</em>
           </h2>
-          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+          <div className="mt-12 grid gap-4 sm:grid-cols-2">
             {[
               {
                 title: "L'arabe tel qu'on le parle ici",
@@ -607,9 +611,9 @@ function StatsBar() {
   }
 
   return (
-    <div className="px-6 pb-4 pt-14 text-center">
+    <div className="pt-10 text-center lg:text-left">
       {items.length > 0 && (
-        <div className="mb-5 flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
+        <div className="mb-5 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 lg:justify-start">
           {items.map((it) => (
             <div key={it.label}>
               <p className="landing-serif text-3xl font-medium">{it.value}</p>
@@ -654,15 +658,15 @@ function Tile({
 function ProductWindow() {
   return (
     <div
-      className="mx-auto flex h-[420px] max-w-4xl overflow-hidden rounded-2xl border text-left"
+      className="mx-auto flex h-[400px] w-full max-w-2xl overflow-hidden rounded-2xl border text-left lg:max-w-none"
       style={{
         borderColor: "var(--landing-line)",
         background: "var(--landing-card)",
-        boxShadow: "0 24px 60px -24px rgba(31,27,22,.18)",
+        boxShadow: "0 24px 60px -24px rgba(31,27,22,.35)",
       }}
     >
       <div
-        className="hidden w-52 shrink-0 border-r p-3 text-xs sm:block"
+        className="hidden w-48 shrink-0 border-r p-3 text-xs sm:block"
         style={{
           borderColor: "var(--landing-line)",
           color: "var(--landing-muted)",
@@ -679,10 +683,10 @@ function ProductWindow() {
           + Nouvelle conversation
         </div>
         {[
-          { label: "Fonction Fibonacci en Python", on: true },
+          { label: "Traduction en arabe tchadien", on: true },
           { label: "Résumé du royaume du Kanem", on: false },
+          { label: "Fonction Fibonacci en Python", on: false },
           { label: "Image — coucher de soleil", on: false },
-          { label: "Traduction en arabe", on: false },
         ].map((c) => (
           <div
             key={c.label}
@@ -703,26 +707,28 @@ function ProductWindow() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex-1 overflow-hidden p-6">
+          {/* L'échange montré doit prouver la promesse du titre : on affiche
+           * donc l'arabe tchadien, pas un exemple de code générique. */}
           <div
-            className="ml-auto mb-4 w-fit max-w-[75%] rounded-2xl px-4 py-2.5 text-sm"
+            className="ml-auto mb-4 w-fit max-w-[80%] rounded-2xl px-4 py-2.5 text-sm"
             style={{ background: "color-mix(in srgb, var(--landing-line) 45%, transparent)" }}
           >
-            Écris une fonction Python qui calcule la suite de Fibonacci.
+            Comment on dit « Comment vas-tu aujourd&apos;hui ? » en arabe tchadien ?
           </div>
-          <div className="max-w-[90%] text-sm">
-            Voici une version itérative, simple et efficace :
-            <pre
-              className="mt-2.5 overflow-hidden whitespace-pre rounded-xl p-4 font-mono text-[12.5px] leading-7"
-              style={{ background: "#1f1b16", color: "#e8e2d6" }}
+          <div className="max-w-[92%] text-sm leading-relaxed">
+            <p
+              dir="rtl"
+              lang="ar"
+              className="landing-serif mb-2.5 text-2xl"
+              style={{ color: "var(--landing-terra)" }}
             >
-              <span style={{ color: "#d9a441" }}>def</span>{" "}
-              <span style={{ color: "#8fb4e3" }}>fibonacci</span>(n):
-              {"\n"}    a, b = 0, 1
-              {"\n"}    <span style={{ color: "#d9a441" }}>for</span> _{" "}
-              <span style={{ color: "#d9a441" }}>in</span> range(n):
-              {"\n"}        a, b = b, a + b
-              {"\n"}    <span style={{ color: "#d9a441" }}>return</span> a
-            </pre>
+              إنت كيف اليوم؟
+            </p>
+            <p>
+              C&apos;est la formulation du quotidien. L&apos;arabe littéraire
+              dirait «&nbsp;كيف حالك اليوم؟&nbsp;», mais personne ne parle comme
+              ça au marché de N&apos;Djaména.
+            </p>
           </div>
         </div>
         <div
