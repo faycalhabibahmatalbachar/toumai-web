@@ -57,6 +57,14 @@ export function Landing() {
             <StatsBar />
           </div>
 
+          <HeroVisuel />
+        </div>
+      </section>
+
+      {/* Fenêtre produit — déplacée hors du hero, qui porte désormais le
+       * visuel. La preuve produit garde sa place, juste en dessous. */}
+      <section className="px-6 pt-10">
+        <div className="mx-auto max-w-4xl">
           <ProductWindow />
         </div>
       </section>
@@ -696,6 +704,51 @@ function Tile({
       }
     >
       {children}
+    </div>
+  );
+}
+
+/** Visuel du hero.
+ *
+ * L'image est sur fond quasi noir (coins mesurés à ~(10,8,5), 68 % des pixels
+ * sous 24). Posée telle quelle, elle afficherait un rectangle sombre sur le
+ * fond chaud de la page. En fusion `screen`, le noir devient transparent et
+ * seul l'or subsiste : plus aucun bord visible, l'image se fond dans le fond.
+ *
+ * Un halo ambré posé derrière lui donne de la profondeur, et une dérive lente
+ * l'empêche d'être tout à fait figée — coupée si la personne a demandé moins
+ * d'animations.
+ */
+function HeroVisuel() {
+  return (
+    <div className="relative mx-auto w-full max-w-[600px] lg:max-w-none lg:scale-[1.08]" aria-hidden="true">
+      {/* Halo : chaleur derrière l'image, jamais un contour net */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[112%] w-[112%] -translate-x-1/2 -translate-y-1/2"
+        style={{
+          background:
+            "radial-gradient(closest-side, color-mix(in srgb, var(--landing-terra) 26%, transparent), transparent 72%)",
+          filter: "blur(26px)",
+        }}
+      />
+      <picture>
+        <source srcSet="/landing/hero-afrique.avif" type="image/avif" />
+        <source srcSet="/landing/hero-afrique.webp" type="image/webp" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/landing/hero-afrique.webp"
+          alt="Visage de profil composé d'un réseau de points lumineux, épousant la carte de l'Afrique"
+          width={1672}
+          height={941}
+          className="hero-derive w-full select-none"
+          style={{
+            // Aucun mode de fusion, aucun masque : la transparence est gravée
+            // dans le fichier, l'alpha suivant la luminosité. Les bords se
+            // dissolvent d'eux-mêmes sur n'importe quel fond.
+            filter: "drop-shadow(0 0 42px color-mix(in srgb, var(--landing-terra) 22%, transparent))",
+          }}
+        />
+      </picture>
     </div>
   );
 }

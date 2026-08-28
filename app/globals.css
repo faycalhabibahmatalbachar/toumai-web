@@ -1330,3 +1330,25 @@ span.flatpickr-weekday,
   opacity: 0.8;
   cursor: grabbing; /* Changes the cursor to indicate dragging */
 }
+
+/* Visuel du hero — dérive à peine perceptible : l'image respire au lieu
+   d'être un aplat figé. Amplitude volontairement faible (8 px sur 14 s) pour
+   ne jamais attirer l'œil au détriment du titre. */
+@keyframes hero-derive {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0) scale(1.012);
+  }
+}
+.hero-derive {
+  animation: hero-derive 14s ease-in-out infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-derive {
+    animation: none;
+  }
+}
