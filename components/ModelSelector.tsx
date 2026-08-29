@@ -55,52 +55,38 @@ export function ModelSelector({
           <div
             role="listbox"
             aria-label="Modèle"
-            className="absolute bottom-full right-0 z-20 mb-2 w-[21rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]"
+            className="absolute bottom-full right-0 z-20 mb-2 w-[17rem] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1"
             style={{ boxShadow: "var(--chat-elev-2, 0 24px 60px -24px rgba(0,0,0,.6))" }}
           >
-            <div className="py-1.5">
-              {SELECTABLE_MODELS.map((m) => {
-                const active = m.id === value;
-                return (
-                  <button
-                    key={m.id}
-                    role="option"
-                    aria-selected={active}
-                    onClick={() => {
-                      onChange(m.id);
-                      setOpen(false);
-                    }}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-[var(--hover)]"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline gap-2">
-                        <span className="text-[15px] font-semibold text-[var(--text-primary)]">
-                          {m.name}
-                        </span>
-                        {m.isNew && (
-                          <span className="text-[11px] uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-                            Nouveau
-                          </span>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block text-[13px] text-[var(--text-secondary)]">
-                        {m.tagline}
-                      </span>
-                      <span className="mt-1 block text-[12.5px] leading-snug text-[var(--text-tertiary)]">
-                        {m.description}
-                      </span>
+            {SELECTABLE_MODELS.map((m) => {
+              const active = m.id === value;
+              return (
+                <button
+                  key={m.id}
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(m.id);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[var(--hover)]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-medium text-[var(--text-primary)]">
+                      {m.name}
                     </span>
-                    <span className="mt-1 w-4 shrink-0 text-[var(--text-primary)]">
-                      {active && <CheckIcon />}
+                    {/* Une seule ligne sous le nom : la description complète
+                        transformait un choix à deux entrées en pavé de texte. */}
+                    <span className="block truncate text-[12.5px] text-[var(--text-tertiary)]">
+                      {m.tagline}
                     </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="border-t border-[var(--border)] px-4 py-2.5 text-[11.5px] leading-snug text-[var(--text-tertiary)]">
-              Images, documents et code sont dirigés automatiquement vers le modèle
-              spécialisé.
-            </p>
+                  </span>
+                  <span className="w-4 shrink-0 text-[var(--primary)]">
+                    {active && <CheckIcon />}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}

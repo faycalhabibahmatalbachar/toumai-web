@@ -13,7 +13,7 @@ import {
 } from "@/lib/chat-api";
 import { getProfile, type UserProfile } from "@/lib/user-api";
 import { cacheWrite, useCacheSeed } from "@/lib/swr-cache";
-import { Logo } from "./Logo";
+import { describeError } from "@/lib/errors";
 
 interface SidebarProps {
   activeId: string | null;
@@ -112,7 +112,9 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
         cacheWrite("chat:sessions", data);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur réseau");
+        // « Failed to fetch » n'est pas une phrase adressée à quelqu'un : on
+        // passe par le même traducteur d'erreurs que le reste de l'app.
+        if (!cancelled) setError(describeError(err, "history").message || "Historique indisponible pour le moment.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -198,9 +200,8 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "md:w-[68px]" : "md:w-72"}`}
       >
-        {/* En-tête du menu — comme Gemini : ouvert, on montre le logo + le nom
-            avec une icône « fermer le panneau » au bout de la rangée ; replié,
-            le logo seul sert de bouton d'ouverture. */}
+        {/* En-tête du menu : ouvert, le nom du produit et l'icône « fermer le
+            panneau » ; replié, l'icône « ouvrir le panneau » seule. */}
         <div className={`hidden px-3 pt-3 md:block ${collapsed ? "md:px-3.5" : ""}`}>
           {collapsed ? (
             /* Rail replié : l'icône du panneau, pas la marque. Un logo posé là
@@ -215,8 +216,10 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               <PanelOpenIcon />
             </button>
           ) : (
-            <div className="flex select-none items-center gap-2.5 px-1">
-              <Logo size={24} />
+            /* Le nom seul, sans la marque : le logo est déjà partout ailleurs
+               (onglet, réponses, écran d'accueil) et il n'apportait rien ici
+               qu'une répétition. */
+            <div className="flex select-none items-center gap-2.5 px-2">
               <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">
                 Toumaï AI
               </span>

@@ -1037,16 +1037,6 @@ export default function ChatPage() {
                 message affiché juste en dessous, et il tenait la place d'un
                 nom que l'IA n'avait pas encore donné. Le nom du fil vit dans la
                 barre latérale, là où il sert à retrouver la conversation. */}
-            {sending && (
-              <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-tertiary)] sm:flex">
-                <span
-                  aria-hidden="true"
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: "var(--primary)", animation: "typing-bounce 1.1s ease-in-out infinite" }}
-                />
-                Génération…
-              </span>
-            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
