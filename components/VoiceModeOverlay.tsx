@@ -5,6 +5,8 @@ import { transcribeAudio, synthesizeSpeech } from "@/lib/voice-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { useMicLevels } from "./Waveform";
 import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
+import { NetworkBadge } from "./chat/NetworkBadge";
+import { MoniteurReseau, type QualiteReseau } from "@/lib/network-quality";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
@@ -31,6 +33,28 @@ const MIN_TOTAL_SPEECH_MS = 400;
 // jamais (l'utilisateur devait toujours cliquer un bouton manuel).
 const RECORDER_TIMESLICE_MS = 250;
 const SLOW_RESPONSE_HINT_MS = 6000;
+
+/** Contraintes du micro — les trois demandées, pas « audio: true ».
+ *
+ * `echoCancellation` est celle qui compte : c'est elle qui permet d'écouter
+ * PENDANT que l'assistant parle sans l'entendre lui-même, et donc de couper la
+ * parole à la voix. Demander ne suffit pas — on relit ce que la piste applique
+ * vraiment avant d'y croire. */
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
+/** Le temps que l'annulation d'écho converge sur le signal de référence.
+ * Écouter avant, c'est entendre le haut-parleur. */
+const BARGE_WARMUP_MS = 450;
+/** Franc, et volontairement plus haut que le seuil d'écoute normale : ce qui
+ * reste après annulation d'écho n'est pas du silence parfait. */
+const BARGE_THRESHOLD = 0.2;
+/** Une parole SOUTENUE, pas un pic : une toux, un claquement de porte ou un
+ * raclement de gorge ne doivent pas couper une réponse en cours. */
+const BARGE_SUSTAINED_MS = 380;
 
 // Découpe la réponse en phrases complètes dès qu'elles arrivent dans le flux,
 // pour lancer la synthèse vocale phrase par phrase (temps réel) plutôt que
@@ -110,6 +134,33 @@ export function VoiceModeOverlay({
   // Écrire quand la voix ne suffit pas : un nom propre, une adresse, une
   // référence exacte que la transcription écorchera toujours.
   const [typed, setTyped] = useState("");
+  // Ce que vaut la liaison. Mesuré, pas déduit de `navigator.onLine` : le
+  // navigateur dit s'il a une interface active, pas si les paquets arrivent.
+  const [reseau, setReseau] = useState<QualiteReseau>("inconnue");
+  const moniteurRef = useRef<MoniteurReseau | null>(null);
+  // Lecture en cours : ce qui permet de l'ARRÊTER net quand on coupe la parole.
+  const speakingRef = useRef(false);
+  const interruptRef = useRef(false);
+  /** L'annulation d'écho du navigateur est-elle réellement engagée ?
+   *
+   * C'est toute la différence avec le mobile. Là-bas, la détection
+   * d'interruption à la voix a été abandonnée après cinq tentatives : sans
+   * annulation d'écho matérielle, le micro entend le haut-parleur et
+   * l'assistant se coupe lui-même — cinq fausses interruptions en soixante-
+   * quinze secondes, relevées dans les journaux.
+   *
+   * Sur le web, `getUserMedia` expose une AEC logicielle qu'on peut EXIGER et
+   * surtout VÉRIFIER (`getSettings().echoCancellation`). Quand elle est là, la
+   * voix peut couper la parole ; quand elle n'y est pas, on ne tente rien et
+   * le geste reste le seul chemin — couper quelqu'un au milieu de sa phrase
+   * est bien pire que de lui demander un clic. */
+  const echoAnnuleRef = useRef(false);
+  /** L'invitation « parlez ou touchez pour interrompre » a-t-elle déjà été
+   * montrée ? Répétée à chaque réponse, elle devient un bandeau qu'on ne lit
+   * plus — et l'écran se remet à ressembler à un tableau de bord. */
+  const [interruptionVue, setInterruptionVue] = useState(false);
+  const bargeStreamRef = useRef<MediaStream | null>(null);
+  const bargeStopRef = useRef<(() => void) | null>(null);
   // Vitesse de lecture (préférence utilisateur) — appliquée via playbackRate,
   // indépendante du moteur TTS.
   const speedRef = useRef(1.0);
@@ -134,6 +185,24 @@ export function VoiceModeOverlay({
   // Micro coupé : on n'analyse plus rien non plus. Laisser l'analyseur ouvert
   // garderait le voyant d'enregistrement du navigateur allumé alors qu'on a
   // demandé le silence.
+  // Le moniteur vit le temps de l'écran. `online`/`offline` du navigateur sont
+  // des faits certains : ils publient immédiatement, sans attendre confirmation.
+  useEffect(() => {
+    const moniteur = new MoniteurReseau((q) => setReseau(q));
+    moniteurRef.current = moniteur;
+    moniteur.demarrer();
+    const perdu = () => moniteur.signalerRupture();
+    const revenu = () => moniteur.demarrer();
+    window.addEventListener("offline", perdu);
+    window.addEventListener("online", revenu);
+    return () => {
+      window.removeEventListener("offline", perdu);
+      window.removeEventListener("online", revenu);
+      moniteur.arreter();
+      moniteurRef.current = null;
+    };
+  }, []);
+
   const listening = phase === "listening" && !muted;
   const levels = useMicLevels(listening, 24);
   const avgLevel = levels.reduce((a, b) => a + b, 0) / levels.length;
@@ -210,6 +279,83 @@ export function VoiceModeOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avgLevel, phase]);
 
+  /** Écoute discrète pendant que l'assistant parle, pour reconnaître qu'on lui
+   * coupe la parole.
+   *
+   * Rien n'est enregistré ni envoyé ici : on ne lit qu'un niveau. Trois gardes,
+   * et il faut les trois — c'est ce qui manquait au mobile :
+   *   1. l'annulation d'écho doit être RÉELLEMENT engagée, sinon on entend le
+   *      haut-parleur et l'assistant se coupe lui-même ;
+   *   2. un délai après le début de la lecture, le temps que l'AEC apprenne le
+   *      signal de référence ;
+   *   3. une parole SOUTENUE au-dessus du bruit résiduel — un claquement de
+   *      porte ou une toux ne doit pas interrompre une réponse. */
+  async function startBargeListening() {
+    if (bargeStreamRef.current || mutedRef.current) return;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+    } catch {
+      return; // pas de micro disponible : le clic reste le chemin d'interruption
+    }
+    if (closedRef.current || !speakingRef.current) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    const aec = stream.getAudioTracks()[0]?.getSettings?.().echoCancellation === true;
+    echoAnnuleRef.current = aec;
+    if (!aec) {
+      // Sans annulation d'écho, écouter pendant la lecture ne distingue pas la
+      // voix de l'utilisateur de la nôtre. On n'essaie pas.
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    bargeStreamRef.current = stream;
+
+    const ctx = new AudioContext();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.6;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    let raf = 0;
+    let depuis: number | null = null;
+    const demarreA = performance.now();
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      if (!speakingRef.current || closedRef.current) return;
+      // Garde 2 : l'AEC a besoin de quelques centaines de millisecondes pour
+      // converger sur le signal de référence.
+      if (performance.now() - demarreA < BARGE_WARMUP_MS) return;
+      analyser.getByteFrequencyData(data);
+      let somme = 0;
+      for (let i = 0; i < data.length; i++) somme += data[i];
+      const niveau = somme / data.length / 255;
+      if (niveau > BARGE_THRESHOLD) {
+        // Garde 3 : la parole doit DURER. Un pic isolé n'interrompt pas.
+        if (depuis === null) depuis = performance.now();
+        else if (performance.now() - depuis >= BARGE_SUSTAINED_MS) interrupt();
+      } else {
+        depuis = null;
+      }
+    };
+    raf = requestAnimationFrame(tick);
+
+    bargeStopRef.current = () => {
+      cancelAnimationFrame(raf);
+      void ctx.close().catch(() => {});
+      stream.getTracks().forEach((t) => t.stop());
+      bargeStreamRef.current = null;
+      bargeStopRef.current = null;
+    };
+  }
+
+  function stopBargeListening() {
+    bargeStopRef.current?.();
+  }
+
   function stopRecorderTracks() {
     try {
       recorderRef.current?.stop();
@@ -256,8 +402,12 @@ export function VoiceModeOverlay({
     // aucun flux n'est demandé.
     if (mutedRef.current) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
       streamRef.current = stream;
+      // On RELIT ce que la piste applique vraiment : demander l'annulation
+      // d'écho ne garantit pas de l'obtenir, et c'est elle qui autorise (ou
+      // non) l'interruption à la voix.
+      echoAnnuleRef.current = stream.getAudioTracks()[0]?.getSettings?.().echoCancellation === true;
       const recorder = new MediaRecorder(stream);
       recorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
@@ -295,13 +445,42 @@ export function VoiceModeOverlay({
 
   function playAudio(audioBase64: string, mimeType: string): Promise<void> {
     return new Promise((resolve) => {
+      // Coupé pendant que ce segment attendait son tour : on ne le joue pas.
+      if (interruptRef.current || closedRef.current) {
+        resolve();
+        return;
+      }
       const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
       audio.playbackRate = speedRef.current;
       audioElRef.current = audio;
       audio.onended = () => resolve();
       audio.onerror = () => resolve();
+      // La mesure de latence est faussée pendant qu'on télécharge et joue de
+      // l'audio : ce qu'on mesurerait est notre propre file d'attente.
+      moniteurRef.current?.signalerVoixEntrante();
       audio.play().catch(() => resolve());
     });
+  }
+
+  /** COUPER LA PAROLE À L'ASSISTANT.
+   *
+   * Un seul chemin, quelle que soit l'origine — clic sur l'orbe ou voix
+   * détectée : la lecture s'arrête net, la file de segments est abandonnée, et
+   * le micro se rouvre. Deux chemins auraient fini par laisser un segment
+   * traîner et reprendre la parole tout seul après l'interruption. */
+  function interrupt() {
+    if (!speakingRef.current || closedRef.current) return;
+    interruptRef.current = true;
+    speakingRef.current = false;
+    const el = audioElRef.current;
+    if (el) {
+      el.onended = null;
+      el.pause();
+      el.src = "";
+    }
+    audioElRef.current = null;
+    stopBargeListening();
+    startListening();
   }
 
   async function handleRecordingStopped() {
@@ -342,6 +521,7 @@ export function VoiceModeOverlay({
    * teste le moins qui casse. */
   async function runTurn(text: string) {
     if (closedRef.current) return;
+    interruptRef.current = false;
     stopListening();
     setError(null);
     setReplyCaption("");
@@ -368,6 +548,12 @@ export function VoiceModeOverlay({
           if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
           setSlowHint(false);
           setPhase("speaking");
+          speakingRef.current = true;
+          setInterruptionVue((vue) => {
+            if (!vue) setTimeout(() => setInterruptionVue(true), 6000);
+            return vue;
+          });
+          void startBargeListening();
           playbackPromise = playQueueInOrder(audioQueue);
         }
       }
@@ -394,7 +580,11 @@ export function VoiceModeOverlay({
       // remplit (même tableau référencé) ; on attend juste sa fin réelle
       // pour rouvrir le micro seulement une fois la dernière phrase jouée.
       if (playbackPromise) await playbackPromise;
-      if (!closedRef.current) startListening();
+      speakingRef.current = false;
+      stopBargeListening();
+      // Interrompu : `interrupt()` a déjà rouvert le micro, ne pas le refaire —
+      // deux `startListening()` concurrents laissent un enregistreur orphelin.
+      if (!closedRef.current && !interruptRef.current) startListening();
     } catch (err) {
       if (closedRef.current) return;
       setError(err instanceof Error ? err.message : "Erreur pendant la conversation vocale.");
@@ -407,6 +597,9 @@ export function VoiceModeOverlay({
   function close() {
     closedRef.current = true;
     mutedRef.current = false;
+    speakingRef.current = false;
+    stopBargeListening();
+    moniteurRef.current?.arreter();
     stopRecorderTracks();
     audioElRef.current?.pause();
     onClose();
@@ -442,6 +635,22 @@ export function VoiceModeOverlay({
           couperait net et ferait apparaître un cadre. */}
       <VoiceOrb phase={orbPhase} level={avgLevel} className="absolute inset-0 h-full w-full" />
 
+      {/* COUPER LA PAROLE D'UN GESTE.
+          Un clic ne se trompe jamais : pas de seuil, pas d'écho, pas de faux
+          positif. La détection à la voix (plus haut) vient en plus, jamais à la
+          place — l'app mobile a abandonné la détection seule après cinq
+          tentatives, et c'est le geste qui a été retenu. */}
+      {phase === "speaking" && (
+        <button
+          onClick={interrupt}
+          aria-label="Interrompre Toumaï AI"
+          title="Interrompre"
+          className="absolute inset-x-0 top-0 bottom-24 w-full cursor-pointer"
+        >
+          <span className="sr-only">Interrompre</span>
+        </button>
+      )}
+
       {/* Deux boutons rigoureusement identiques, placés symétriquement : aucun
           des deux n'est plus important que l'autre, et surtout aucun ne doit
           disputer l'attention à l'orbe. */}
@@ -449,7 +658,11 @@ export function VoiceModeOverlay({
         <VoiceRoundButton onClick={close} label="Fermer le mode vocal">
           <CloseIcon />
         </VoiceRoundButton>
-        <div className="flex min-w-0 flex-1 justify-center px-3 pt-3">
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-2 px-3 pt-1">
+          {/* L'état de la liaison : en haut et au centre, le seul endroit qui ne
+              dispute rien à l'orbe, et le premier où le regard revient quand une
+              réponse tarde. Muet tant que tout va bien. */}
+          <NetworkBadge qualite={reseau} />
           {/* AUCUN LIBELLÉ DE PHASE. « Je vous écoute », « Toumaï réfléchit » :
               l'orbe le dit déjà par son mouvement, et le dire deux fois
               transforme un espace en tableau de bord. Ne reste que ce que le
@@ -485,6 +698,13 @@ export function VoiceModeOverlay({
         {muted && (
           <p className="text-[13px]" style={{ color: rgbaAmbre(0.85) }}>
             Micro coupé — la conversation continue.
+          </p>
+        )}
+        {/* L'invitation ne s'affiche qu'une fois : au premier tour parlé. Répétée
+            à chaque réponse, elle deviendrait un bandeau qu'on ne lit plus. */}
+        {phase === "speaking" && !interruptionVue && (
+          <p className="text-[12.5px]" style={{ color: rgbaIvoire(0.4) }}>
+            Parlez ou touchez l&apos;écran pour l&apos;interrompre
           </p>
         )}
         {error && (
@@ -527,8 +747,11 @@ export function VoiceModeOverlay({
           <input
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
-            placeholder="Écrire plutôt que parler…"
-            className="min-w-0 flex-1 bg-transparent px-3 text-[14px] outline-none"
+            placeholder={
+              reseau === "rompue" ? "Connexion perdue…" : "Écrire plutôt que parler…"
+            }
+            disabled={reseau === "rompue"}
+            className="min-w-0 flex-1 bg-transparent px-3 text-[14px] outline-none disabled:opacity-50"
             style={{ color: rgbaIvoire(0.92) }}
           />
           <button
