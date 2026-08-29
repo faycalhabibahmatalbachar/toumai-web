@@ -88,6 +88,24 @@ export const metadata: Metadata = {
   },
   authors: [{ name: "Faycal Habib Ahmat", url: "https://toumaiai.com" }],
   creator: "Faycal Habib Ahmat",
+  // VÉRIFICATION DE PROPRIÉTÉ — la seule étape que je ne peux pas faire à
+  // votre place, puisqu'elle passe par vos comptes Google et Microsoft.
+  //
+  // Elle est réduite au minimum : posez les deux variables dans les réglages
+  // Cloudflare Pages (Settings → Environment variables) et le prochain
+  // déploiement pose les balises. Rien à modifier dans le code.
+  //
+  //   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION  (Search Console → balise HTML)
+  //   NEXT_PUBLIC_BING_SITE_VERIFICATION    (Bing Webmaster Tools)
+  //
+  // Sans valeur, aucune balise n'est émise : une balise vide vaut mieux
+  // absente que présente et fausse.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : undefined,
+  },
   icons: {
     icon: [
       { url: "/favicon.ico" },

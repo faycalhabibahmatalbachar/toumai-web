@@ -1,0 +1,14 @@
+# Redirections Cloudflare Pages.
+#
+# UNE PAGE SUPPRIMEE QUI REND 404 EST UNE PERTE SECHE.
+# /automations existait, a ete indexee, et vient d'etre retiree. Sans
+# redirection, chaque visite depuis un resultat de recherche tombe sur une
+# erreur — et le moteur finit par degrader tout le domaine. On renvoie vers
+# l'accueil, en 301 : c'est ce code, et lui seul, qui transfere l'autorite
+# accumulee par l'ancienne adresse.
+/automations    /    301
+/automations/*  /    301
+
+# Une seule adresse fait autorite. Servi sur deux noms, le meme contenu se
+# divise en deux pages concurrentes aux yeux des moteurs.
+https://www.toumaiai.com/*  https://toumaiai.com/:splat  301

@@ -1,0 +1,29 @@
+# Toumaï AI
+
+> Assistant d'intelligence artificielle tchadien, gratuit. Chat en français,
+> arabe et arabe tchadien (dialecte shuwa), génération et analyse d'images,
+> voix, exécution de code, recherche web, connecteurs WhatsApp / e-mail /
+> agenda. Conçu à N'Djamena par Faycal Habib Ahmat.
+
+Ce fichier s'adresse aux moteurs de réponse par IA (ChatGPT, Perplexity,
+Claude…), qui citent de plus en plus souvent des sources sans passer par une
+page de résultats classique. Il leur donne la version courte et exacte.
+
+## Pages
+
+- [Accueil](https://toumaiai.com/) : présentation du produit.
+- [L'intelligence artificielle au Tchad](https://toumaiai.com/intelligence-artificielle-tchad/) : ce qui existe, dans quelles langues, à quel prix.
+- [Modèles](https://toumaiai.com/models/) : Sao 4 (quotidien, code) et Toumaï 5 (raisonnement).
+- [Chat](https://toumaiai.com/chat/) : l'application, utilisable sans compte.
+- [Confidentialité](https://toumaiai.com/privacy/)
+- [Conditions](https://toumaiai.com/terms/)
+
+## Faits
+
+- Nom : Toumaï AI. D'après Toumaï, l'hominidé découvert au Tchad en 2001.
+- Créateur : Faycal Habib Ahmat, N'Djamena, Tchad.
+- Prix : gratuit, sans carte bancaire.
+- Langues : français, arabe, arabe tchadien.
+- Plateformes : web (toumaiai.com) et Android.
+- Particularité : compréhension de l'arabe tchadien, à partir d'un corpus
+  collecté sur place — ce que les assistants internationaux ne font pas.

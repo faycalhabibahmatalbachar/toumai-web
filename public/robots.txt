@@ -7,4 +7,19 @@ Disallow: /reset-password
 Disallow: /forgot
 Disallow: /delete-account
 
+# Les moteurs de reponse par IA sont une porte d'entree reelle : les bloquer
+# revient a disparaitre des reponses de ChatGPT et Perplexity, la ou une part
+# croissante des recherches se termine desormais.
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://toumaiai.com/sitemap.xml
