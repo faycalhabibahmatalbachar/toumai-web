@@ -49,7 +49,8 @@ export function CommandPalette({
   return (
     <div
       role="listbox"
-      className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
+      className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]"
+      style={{ boxShadow: "var(--chat-elev-2, 0 24px 60px -24px rgba(0,0,0,.6))" }}
     >
       <div ref={listRef} className="max-h-64 overflow-y-auto py-1">
         {items.map((item, i) => {

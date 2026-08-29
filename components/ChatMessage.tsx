@@ -12,6 +12,7 @@ import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/li
 import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
 import type { ChatImage } from "./chat/media/types";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
+import { Logo } from "./Logo";
 import { useSpeakText } from "@/hooks/useSpeakText";
 
 /** Extrait le HTML de base d'un message d'édition (qui embarque le code du
@@ -142,6 +143,20 @@ function EditIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+/** Trombone du résumé « code joint » — remplace l'emoji 📄, hors charte. */
+function FileChipIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M14 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -309,6 +324,7 @@ export function ChatMessage({
   editable = true,
   onRegenerate,
   onSuggest,
+  isLast = false,
 }: {
   message: Message;
   /** Contenu du message précédent — base HTML pour appliquer un patch d'édition. */
@@ -318,6 +334,10 @@ export function ChatMessage({
   onRegenerate?: () => void;
   /** Renvoie une demande d'amélioration dans le chat (suggestions de site). */
   onSuggest?: (text: string) => void;
+  /** Dernier message de la conversation : sa barre d'actions reste visible
+   * (c'est celle qu'on veut copier, noter ou régénérer) au lieu de n'apparaître
+   * qu'au survol. */
+  isLast?: boolean;
 }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -404,24 +424,33 @@ export function ChatMessage({
         ? message.content.replace(/```html\n[\s\S]*?```/g, "").trim()
         : null;
     return (
-      <div className="group flex animate-fade-in justify-end">
-        <div className="flex max-w-[85%] flex-col items-end gap-1 sm:max-w-[70%]">
-          <div className="rounded-3xl px-4 py-2.5 text-[length:var(--chat-fs,15px)] leading-relaxed whitespace-pre-wrap" style={{ background: "var(--card)" }}>
+      <div className="msg-row msg-in flex justify-end">
+        <div className="flex max-w-[85%] flex-col items-end gap-1 sm:max-w-[76%]">
+          <div
+            className="whitespace-pre-wrap rounded-[20px] rounded-br-[8px] px-4 py-2.5 text-[length:var(--chat-fs,15px)] leading-relaxed text-[var(--text-primary)]"
+            style={{
+              background: "var(--card)",
+              border: "1px solid color-mix(in srgb, var(--text-primary) 7%, transparent)",
+            }}
+          >
             {editMatch ?? message.content}
             {editMatch && (
               <span className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
-                <span aria-hidden="true">📄</span> Code du site joint pour modification
+                <FileChipIcon /> Code du site joint pour modification
               </span>
             )}
           </div>
           {editable && onEdit && (
-            <button
-              onClick={startEdit}
-              aria-label="Modifier le message"
-              className="flex items-center gap-1 rounded p-1 text-[11px] text-[var(--text-tertiary)] opacity-0 transition hover:text-[var(--text-primary)] group-hover:opacity-100"
-            >
-              <EditIcon /> Modifier
-            </button>
+            <div className="msg-actions flex items-center">
+              <button
+                onClick={startEdit}
+                aria-label="Modifier le message"
+                title="Modifier le message"
+                className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+              >
+                <EditIcon /> Modifier
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -463,7 +492,17 @@ export function ChatMessage({
   if (isProject || isSite) visibleContent = visibleContent.replace(/```[^\n`]*\n[\s\S]*?```/g, "").trim();
 
   return (
-    <div className="animate-fade-in">
+    <div className="msg-row msg-in">
+      {/* Signature de la réponse — la marque et son nom, discrets, au-dessus du
+          texte : sans eux, réponses et messages de l'utilisateur se lisaient
+          comme un seul bloc anonyme. Le nom scintille tant que la réponse
+          s'écrit, ce qui rend l'attente visible sans rien promettre de faux. */}
+      <div className="mb-2 flex items-center gap-2">
+        <Logo size={18} className="rounded-[5px]" />
+        <span className={`text-[12px] tracking-[0.01em] ${message.streaming ? "chat-thinking" : "text-[var(--text-tertiary)]"}`}>
+          Toumaï AI
+        </span>
+      </div>
       {message.reasoning && (
         <ReasoningPanel
           reasoning={message.reasoning}
@@ -471,7 +510,7 @@ export function ChatMessage({
           streaming={message.streaming}
         />
       )}
-      <div className="max-w-[80ch] text-[length:var(--chat-fs,15px)] leading-relaxed">
+      <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && !message.content ? (
           <TypingDots />
         ) : (
@@ -549,7 +588,10 @@ export function ChatMessage({
         <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>
       )}
       {!message.streaming && message.content && (
-        <div className="flex items-center gap-0.5 pt-1 text-[var(--text-tertiary)]">
+        <div
+          className="msg-actions flex items-center gap-0.5 pt-2 text-[var(--text-tertiary)]"
+          data-pinned={isLast}
+        >
           <button
             onClick={copy}
             title="Copier"

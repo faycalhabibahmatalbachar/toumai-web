@@ -236,7 +236,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               onClose();
             }}
             title="Nouvelle conversation"
-            className={`flex items-center gap-2.5 rounded-full text-sm font-medium transition hover:bg-[var(--hover)] ${
+            className={`flex items-center gap-2.5 rounded-full border border-[var(--border)] text-sm font-medium text-[var(--text-primary)] transition hover:border-[color-mix(in_srgb,var(--primary)_45%,transparent)] ${
               collapsed ? "md:h-9 md:w-9 md:justify-center md:px-0 w-full px-2.5 py-2" : "w-full px-2.5 py-2"
             }`}
             style={{ background: "var(--card)" }}
@@ -261,7 +261,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             </button>
           ) : null}
           <label
-            className={`flex items-center gap-2.5 rounded-full px-2.5 py-2 text-[var(--text-secondary)] transition focus-within:bg-[var(--hover)] hover:bg-[var(--hover)] ${
+            className={`flex items-center gap-2.5 rounded-full border border-transparent px-2.5 py-2 text-[var(--text-secondary)] transition focus-within:border-[var(--border)] focus-within:bg-[var(--card)] hover:bg-[var(--hover)] ${
               collapsed ? "md:hidden" : ""
             }`}
           >
@@ -317,8 +317,8 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             </p>
           )}
           {grouped.map((group) => (
-            <div key={group.label} className="mb-3">
-              <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-tertiary)]">
+            <div key={group.label} className="mb-4">
+              <p className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
                 {group.label}
               </p>
               {group.items.map((s) =>
@@ -336,16 +336,16 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
                     className="w-full rounded-lg border border-[var(--primary)] bg-transparent px-2.5 py-2 text-sm outline-none"
                   />
                 ) : (
-                  <div key={s.id} className="group relative">
+                  <div key={s.id} className="sb-row group relative" data-active={s.id === activeId}>
                     <button
                       onClick={() => {
                         onSelect(s.id);
                         onClose();
                       }}
-                      className={`flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                      className={`flex w-full items-center gap-1.5 rounded-lg px-2.5 py-[7px] text-left text-sm transition ${
                         s.id === activeId
-                          ? "bg-[var(--card)] text-[var(--text-primary)]"
-                          : "text-[var(--text-secondary)] hover:bg-[var(--hover)]"
+                          ? "bg-[var(--card)] font-medium text-[var(--text-primary)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
                       }`}
                     >
                       {s.pinned && <PinIcon className="shrink-0 text-[var(--text-tertiary)]" />}

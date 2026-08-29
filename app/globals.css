@@ -1352,3 +1352,368 @@ span.flatpickr-weekday,
     animation: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * CONVERSATION (/chat) — design system dédié, au niveau des consoles IA du
+ * marché : chrome translucide, composeur surélevé, colonne de lecture calibrée,
+ * micro-animations sobres. Tout est scopé à `.chat-shell` pour ne pas déteindre
+ * sur la landing, les paramètres (`.cx-scope`) ou l'admin (`.admin-scope`).
+ *
+ * TOUT est déclaré dans `@layer components` : hors calque, ces règles battraient
+ * les utilitaires Tailwind (qui vivent dans `@layer utilities`, déclaré après)
+ * — `.chat-iconbtn` écrasait alors le `md:hidden` du bouton de menu mobile, qui
+ * restait visible en grand écran.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+.chat-shell {
+  /* Largeur de lecture : ~72 caractères, la mesure confortable des longues
+   * réponses. Le composeur s'aligne dessus pour que la colonne forme une seule
+   * ligne verticale du haut en bas de l'écran. */
+  --chat-measure: 46rem;
+  --chat-radius: 26px;
+
+  --chat-elev-1: 0 1px 2px rgba(0, 0, 0, 0.18), 0 10px 28px -14px rgba(0, 0, 0, 0.55);
+  --chat-elev-2: 0 2px 5px rgba(0, 0, 0, 0.22), 0 28px 64px -28px rgba(0, 0, 0, 0.7);
+  --chat-ring: 0 0 0 1px color-mix(in srgb, var(--primary) 50%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+
+  /* Voile du chrome (barre du haut, socle du composeur) : la conversation
+   * glisse dessous sans jamais « traverser » l'interface. */
+  --chat-veil: color-mix(in srgb, var(--background) 90%, transparent);
+  --chat-line: color-mix(in srgb, var(--text-primary) 9%, transparent);
+}
+
+[data-theme="light"] .chat-shell {
+  --chat-elev-1: 0 1px 2px rgba(31, 27, 22, 0.05), 0 10px 28px -16px rgba(31, 27, 22, 0.2);
+  --chat-elev-2: 0 2px 6px rgba(31, 27, 22, 0.06), 0 28px 64px -30px rgba(31, 27, 22, 0.28);
+  --chat-line: color-mix(in srgb, var(--text-primary) 11%, transparent);
+}
+
+/* ── Chrome ──────────────────────────────────────────────────────────────── */
+
+/* Barre supérieure : transparente en haut de conversation, elle gagne son
+ * voile et son filet dès que le contenu passe dessous — un filet permanent
+ * coupait l'écran en deux pour rien sur une conversation vide. */
+.chat-topbar {
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition: background 180ms ease, border-color 180ms ease, backdrop-filter 180ms ease;
+}
+.chat-topbar[data-scrolled="true"] {
+  background: var(--chat-veil);
+  border-bottom-color: var(--chat-line);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Socle du composeur : dégradé qui absorbe le dernier message au lieu de le
+ * couper net sous une barre opaque. */
+.chat-dock::before {
+  content: "";
+  position: absolute;
+  inset: -56px 0 auto 0;
+  height: 56px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--background));
+}
+
+/* ── Composeur ───────────────────────────────────────────────────────────── */
+.chat-composer {
+  position: relative;
+  border-radius: var(--chat-radius);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--chat-elev-1);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+.chat-composer:hover {
+  border-color: color-mix(in srgb, var(--text-primary) 16%, transparent);
+}
+.chat-composer:focus-within {
+  border-color: transparent;
+  box-shadow: var(--chat-ring), var(--chat-elev-2);
+}
+
+/* Zone de saisie : la hauteur est pilotée en JS (auto-grandissement), mais on
+ * borne le champ en CSS pour qu'un composeur vide ne s'étale jamais sur toute
+ * la hauteur avant que le script n'ait mesuré. */
+.chat-input {
+  min-height: 2.25rem;
+  max-height: 12.5rem;
+}
+
+/* ── Boutons d'icône du chat ─────────────────────────────────────────────── */
+.chat-iconbtn {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+.chat-iconbtn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+.chat-iconbtn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.chat-iconbtn:disabled {
+  opacity: 0.35;
+}
+.chat-iconbtn[data-active="true"] {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+/* Pastille d'envoi — pleine, contrastée, jamais fantomatique. */
+.chat-send {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--primary) 60%, transparent);
+}
+.chat-send:hover:not(:disabled) {
+  background: var(--primary-light);
+  color: #fff;
+}
+.chat-send:disabled {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  color: var(--text-tertiary);
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* Bouton texte secondaire du composeur (« Parler ») — contour, jamais un
+ * aplat de la couleur du texte : le libellé y devenait invisible. */
+.chat-ghost {
+  display: flex;
+  height: 2.25rem;
+  flex: none;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 0 0.75rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.chat-ghost:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
+}
+.chat-ghost:disabled {
+  opacity: 0.35;
+}
+
+/* ── Cartes de suggestion de l'écran d'accueil ───────────────────────────── */
+.chat-suggest {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 55%, transparent);
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease,
+    box-shadow 180ms ease;
+}
+.chat-suggest:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: var(--card);
+  transform: translateY(-2px);
+  box-shadow: var(--chat-elev-1);
+}
+
+/* ── Rangées de la barre latérale ────────────────────────────────────────── */
+/* Filet d'accent à gauche de la conversation ouverte : l'aplat seul ne se
+ * distinguait pas assez du survol. */
+.sb-row[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1.1rem;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+  transform: translateY(-50%);
+}
+
+/* ── Messages ────────────────────────────────────────────────────────────── */
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.msg-in {
+  animation: msg-in 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* Barre d'actions : révélée au survol du message, toujours visible sur la
+ * dernière réponse (celle qu'on veut copier ou régénérer) et au toucher. */
+.msg-actions {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.msg-actions[data-pinned="true"],
+.msg-actions:focus-within,
+.msg-row:hover .msg-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .msg-actions {
+    opacity: 1;
+  }
+}
+
+/* Lueur de génération : un dégradé qui balaie le libellé tant que la réponse
+ * n'est pas arrivée — plus vivant qu'un simple point fixe. */
+@keyframes shimmer-sweep {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+.chat-thinking {
+  background-image: linear-gradient(
+    100deg,
+    var(--text-tertiary) 20%,
+    var(--text-primary) 45%,
+    var(--text-tertiary) 70%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-sweep 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-in,
+  .chat-thinking,
+  .streaming-cursor {
+    animation: none;
+  }
+  .chat-suggest:hover {
+    transform: none;
+  }
+  .chat-thinking {
+    -webkit-text-fill-color: var(--text-secondary);
+    color: var(--text-secondary);
+  }
+}
+
+/* ── Typographie de lecture longue ───────────────────────────────────────── */
+.prose-toumai {
+  line-height: 1.72;
+}
+.prose-toumai > :first-child {
+  margin-top: 0;
+}
+.prose-toumai p {
+  margin: 0 0 1em;
+}
+.prose-toumai ul,
+.prose-toumai ol {
+  margin: 0 0 1em;
+  padding-left: 1.35em;
+}
+.prose-toumai li {
+  margin: 0.3em 0;
+  padding-left: 0.15em;
+}
+.prose-toumai li::marker {
+  color: var(--text-tertiary);
+}
+.prose-toumai h1,
+.prose-toumai h2,
+.prose-toumai h3 {
+  letter-spacing: -0.01em;
+  margin: 1.5em 0 0.5em;
+}
+.prose-toumai h1 {
+  font-size: 1.3em;
+}
+.prose-toumai h2 {
+  font-size: 1.16em;
+}
+.prose-toumai strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.prose-toumai a {
+  color: var(--primary-light);
+  text-decoration-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color 140ms ease;
+}
+.prose-toumai a:hover {
+  text-decoration-color: var(--primary);
+}
+.prose-toumai hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.prose-toumai blockquote {
+  border-left: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  margin: 1em 0;
+  padding-left: 1em;
+}
+/* Un tableau large ne doit jamais pousser la colonne de lecture : il défile
+ * dans sa propre boîte. */
+.prose-toumai table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  margin: 1em 0;
+}
+.prose-toumai th {
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  font-weight: 600;
+}
+.prose-toumai th,
+.prose-toumai td {
+  padding: 0.5em 0.75em;
+}
+
+/* Barre de défilement plus douce dans les deux colonnes qui défilent vraiment.
+ * Volontairement PAS appliquée à `.chat-shell *` : la règle réservait alors
+ * 10 px de gouttière dans la zone de saisie, qui se retrouvait tronquée à
+ * droite d'un liseré permanent. */
+.chat-shell main::-webkit-scrollbar,
+.chat-shell nav::-webkit-scrollbar {
+  width: 10px;
+}
+.chat-shell main::-webkit-scrollbar-thumb,
+.chat-shell nav::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 99px;
+}
+.chat-shell main::-webkit-scrollbar-thumb:hover,
+.chat-shell nav::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-primary) 26%, transparent);
+  background-clip: padding-box;
+}
+
+/* Le champ de saisie garde une barre fine, et seulement une fois plafonné. */
+.chat-input::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-input::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  border-radius: 99px;
+}
+}

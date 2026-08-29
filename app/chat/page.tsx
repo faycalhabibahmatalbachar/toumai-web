@@ -77,28 +77,45 @@ function nextId() {
   return `m${Date.now()}${idCounter}`;
 }
 
-/** Pool de suggestions — 4 tirées au hasard à chaque visite, libellés
- * complets (jamais tronqués). */
-const SUGGESTION_POOL = [
-  "Explique-moi un concept simplement",
-  "Génère une image créative",
-  "Écris une fonction Python",
-  "Traduis ce texte en arabe",
-  "Résume-moi mes messages WhatsApp",
-  "Rédige un e-mail professionnel",
-  "Aide-moi à préparer un CV",
-  "Donne-moi la météo à N'Djamena",
-  "Propose des idées de business au Tchad",
-  "Corrige ce texte en français",
+/** Suggestions de l'écran d'accueil — une tirée au hasard dans CHAQUE famille
+ * d'usage, plutôt que quatre au hasard dans un sac commun : l'accueil doit
+ * montrer l'étendue du produit (rédiger, coder, créer, connecter), pas quatre
+ * variantes de la même chose. */
+type SuggestionKind = "write" | "code" | "image" | "connect";
+
+interface Suggestion {
+  /** Ce qui part réellement dans le composeur. */
+  label: string;
+  /** Famille affichée en surtitre sur la carte. */
+  hint: string;
+  kind: SuggestionKind;
+}
+
+const SUGGESTION_FAMILIES: Suggestion[][] = [
+  [
+    { label: "Rédige un e-mail professionnel de relance client", hint: "Rédiger", kind: "write" },
+    { label: "Corrige et améliore ce texte en français", hint: "Rédiger", kind: "write" },
+    { label: "Aide-moi à préparer un CV pour une candidature", hint: "Rédiger", kind: "write" },
+  ],
+  [
+    { label: "Écris une fonction Python et teste-la", hint: "Coder", kind: "code" },
+    { label: "Crée un site vitrine complet pour mon commerce", hint: "Coder", kind: "code" },
+    { label: "Explique-moi ce message d'erreur", hint: "Coder", kind: "code" },
+  ],
+  [
+    { label: "Génère une image de l'Ennedi au coucher du soleil", hint: "Créer", kind: "image" },
+    { label: "Dessine un logo moderne pour ma boutique", hint: "Créer", kind: "image" },
+    { label: "Génère une illustration pour ma présentation", hint: "Créer", kind: "image" },
+  ],
+  [
+    { label: "Résume-moi mes derniers messages WhatsApp", hint: "Connecté", kind: "connect" },
+    { label: "Donne-moi la météo à N'Djamena cette semaine", hint: "Connecté", kind: "connect" },
+    { label: "Traduis ce texte en arabe tchadien", hint: "Connecté", kind: "connect" },
+  ],
 ];
 
-function pickSuggestions(): string[] {
-  const pool = [...SUGGESTION_POOL];
-  const out: string[] = [];
-  while (out.length < 4 && pool.length) {
-    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  }
-  return out;
+function pickSuggestions(): Suggestion[] {
+  return SUGGESTION_FAMILIES.map((f) => f[Math.floor(Math.random() * f.length)]);
 }
 
 /** Bref signal sonore (deux notes montantes) au démarrage de la dictée —
@@ -181,14 +198,28 @@ export default function ChatPage() {
   const lastUserMessageRef = useRef<string>("");
   const stickToBottomRef = useRef(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  /** Vrai dès que la conversation passe sous la barre supérieure — celle-ci
+   * prend alors son voile et son filet (elle reste invisible au repos). */
+  const [scrolled, setScrolled] = useState(false);
+  /** Écran étroit : le rappel « /commandes, @modèle » du champ de saisie y
+   * passait à la ligne et doublait la hauteur du composeur au repos. */
+  const [narrow, setNarrow] = useState(false);
 
   // Calculé après montage (pas au rendu serveur statique) pour éviter un
   // écart d'hydratation lié au fuseau horaire du visiteur.
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   useEffect(() => {
     setGreeting(timeGreeting());
     // Après montage (pas au rendu statique) — Math.random casserait l'hydratation.
     setSuggestions(pickSuggestions());
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const apply = () => setNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, []);
 
   // Prénom affiché dans l'accueil pour les comptes réels (comme
@@ -262,6 +293,7 @@ export default function ChatPage() {
     const atBottom = distanceFromBottom < 120;
     stickToBottomRef.current = atBottom;
     setShowScrollDown(!atBottom);
+    setScrolled(el.scrollTop > 8);
   }
 
   function scrollToBottom() {
@@ -271,11 +303,26 @@ export default function ChatPage() {
   }
 
   // Auto-grandissement de la zone de saisie au fil de la frappe.
+  //
+  // La mesure est repoussée d'une frame : au tout premier rendu, la feuille de
+  // style n'est pas encore appliquée (le champ n'a ni sa largeur ni sa
+  // hauteur max), `scrollHeight` renvoyait alors une valeur aberrante et le
+  // composeur vide s'ouvrait figé à 200 px de haut. Mesurer après peinture
+  // donne la hauteur réelle du contenu.
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    const measure = () => {
+      el.style.height = "auto";
+      const content = el.scrollHeight;
+      el.style.height = `${Math.min(content, 200)}px`;
+      // La barre de défilement ne doit apparaître qu'une fois le champ plafonné :
+      // l'arrondi du calcul de hauteur suffisait à faire surgir un liseré
+      // permanent au bord droit d'un composeur d'une seule ligne.
+      el.style.overflowY = content > 200 ? "auto" : "hidden";
+    };
+    const raf = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(raf);
   }, [input]);
 
   function clearError() {
@@ -873,8 +920,14 @@ export default function ChatPage() {
 
   const canSend = Boolean(input.trim()) && !sending && Boolean(session);
 
+  // Titre affiché dans la barre supérieure — première ligne du premier message
+  // de l'utilisateur (la même source que celle qui nomme la session côté
+  // backend). Sans lui, l'en-tête restait une bande vide au-dessus du contenu.
+  const conversationTitle =
+    messages.find((m) => m.role === "user")?.content.trim().split("\n")[0] ?? "";
+
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="chat-shell flex h-dvh overflow-hidden">
       <Sidebar
         activeId={activeSessionId}
         onSelect={openSession}
@@ -884,27 +937,63 @@ export default function ChatPage() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Barre supérieure */}
-        <header className="flex select-none items-center justify-between px-3 py-3 md:px-4">
-          <div className="flex items-center gap-2">
-            {/* Mobile : le logo Toumaï ouvre le menu latéral (comme Gemini) —
-                plus de hamburger ni de texte de marque dans le header. */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Ouvrir les conversations"
-              className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--hover)] md:hidden"
-            >
-              <Logo size={24} />
-            </button>
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* Barre supérieure — flottante au-dessus de la conversation : elle ne
+            se matérialise (voile + filet) que lorsque du contenu passe
+            dessous, et porte le titre de la conversation en cours. */}
+        <header
+          data-scrolled={scrolled}
+          className="chat-topbar absolute inset-x-0 top-0 z-20 flex h-14 select-none items-center gap-2 px-3 md:px-4"
+        >
+          {/* Mobile : le logo Toumaï ouvre le menu latéral (comme Gemini) —
+              plus de hamburger ni de texte de marque dans le header. */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Ouvrir les conversations"
+            className="chat-iconbtn h-10 w-10 md:hidden"
+          >
+            <Logo size={24} />
+          </button>
+
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {conversationTitle ? (
+              <h1 className="min-w-0 truncate text-[14px] font-medium text-[var(--text-secondary)]">
+                {conversationTitle}
+              </h1>
+            ) : (
+              <span className="hidden text-[13px] text-[var(--text-tertiary)] md:inline">
+                Nouvelle conversation
+              </span>
+            )}
+            {sending && (
+              <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-tertiary)] sm:flex">
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: "var(--primary)", animation: "typing-bounce 1.1s ease-in-out infinite" }}
+                />
+                Génération…
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className="flex shrink-0 items-center gap-1">
+            {messages.length > 0 && (
+              <button
+                onClick={newChat}
+                aria-label="Nouvelle conversation"
+                title="Nouvelle conversation"
+                className="chat-iconbtn"
+              >
+                <ComposeIcon />
+              </button>
+            )}
             {activeSessionId && messages.length > 0 && (
               <button
                 onClick={() => setShareOpen(true)}
                 aria-label="Partager la conversation"
                 title="Partager la conversation"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                className="chat-iconbtn"
               >
                 <ShareIcon />
               </button>
@@ -917,28 +1006,31 @@ export default function ChatPage() {
             barre de défilement reste au bord réel de la page (comme Gemini),
             pas au bord d'une colonne centrée. Le contenu se centre à
             l'intérieur via ce wrapper. */}
-        <main ref={mainRef} onScroll={handleMainScroll} className="relative flex-1 overflow-y-auto">
-          {showScrollDown && (
-            <button
-              onClick={scrollToBottom}
-              aria-label="Aller au dernier message"
-              title="Aller au dernier message"
-              className="absolute bottom-4 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105"
-              style={{
-                borderColor: "var(--border)",
-                background: "var(--card)",
-                color: "var(--text-secondary)",
-              }}
-            >
-              <ChevronDownIcon />
-            </button>
-          )}
-          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-5 px-4 py-6">
+        <main
+          ref={mainRef}
+          onScroll={handleMainScroll}
+          className="flex-1 overflow-y-auto overflow-x-hidden pt-14"
+        >
+          <div className="mx-auto flex min-h-full w-full max-w-[var(--chat-measure)] flex-col gap-7 px-4 pb-10 pt-4 sm:px-6">
             {historyLoading && <HistorySkeleton />}
 
             {!historyLoading && messages.length === 0 && (
-              <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
-                <p className="landing-serif text-4xl tracking-tight text-[var(--text-primary)] sm:text-[40px]">
+              <div className="flex flex-1 flex-col items-center justify-center px-1 py-8">
+                {/* Marque en tête d'accueil : un halo doux derrière le logo —
+                    l'écran vide portait uniquement du texte et ne ressemblait
+                    à aucun produit en particulier. */}
+                <div className="relative mb-5 flex h-14 w-14 items-center justify-center sm:mb-7">
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-full blur-xl"
+                    style={{
+                      background:
+                        "radial-gradient(circle, color-mix(in srgb, var(--primary) 45%, transparent), transparent 70%)",
+                    }}
+                  />
+                  <Logo size={46} className="relative" />
+                </div>
+                <h2 className="landing-serif text-center text-[34px] leading-[1.1] tracking-tight text-[var(--text-primary)] sm:text-[42px]">
                   {greeting}
                   {firstName && (
                     <>
@@ -946,21 +1038,38 @@ export default function ChatPage() {
                       <em style={{ color: "var(--primary)" }}>{firstName}.</em>
                     </>
                   )}
+                </h2>
+                <p className="mt-3 max-w-md text-center text-[14px] leading-relaxed text-[var(--text-tertiary)] sm:text-[15px]">
+                  Posez votre question, ou partez d&apos;une de ces pistes.
                 </p>
-                <p className="mt-3 text-sm text-[var(--text-tertiary)]">
-                  Comment puis-je vous aider ?
-                </p>
-                <div className="mt-8 flex max-w-xl flex-wrap justify-center gap-2.5">
+                <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-2 sm:mt-9 sm:gap-2.5 sm:grid-cols-2">
                   {suggestions.map((s) => (
                     <button
-                      key={s}
+                      key={s.label}
                       onClick={() => {
-                        setInput(s);
+                        setInput(s.label);
                         textareaRef.current?.focus();
                       }}
-                      className="whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[13px] text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--text-primary)]"
+                      className="chat-suggest group flex items-center gap-3 p-3 text-left sm:items-start sm:p-3.5"
                     >
-                      {s}
+                      <span
+                        aria-hidden="true"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] transition group-hover:text-[var(--primary)] sm:mt-0.5"
+                        style={{ background: "color-mix(in srgb, var(--text-primary) 6%, transparent)" }}
+                      >
+                        <SuggestionIcon kind={s.kind} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
+                          {s.hint}
+                        </span>
+                        {/* Deux lignes maximum : sur mobile, quatre cartes à
+                            trois lignes poussaient la dernière sous le
+                            composeur. */}
+                        <span className="mt-0.5 line-clamp-2 block text-[13.5px] leading-snug text-[var(--text-secondary)] transition group-hover:text-[var(--text-primary)]">
+                          {s.label}
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -972,6 +1081,7 @@ export default function ChatPage() {
                 <ChatMessage
                   key={m.id}
                   message={m}
+                  isLast={i === messages.length - 1}
                   // Message précédent : sert de base HTML pour appliquer un
                   // patch d'édition (SEARCH/REPLACE) renvoyé par l'IA.
                   prevContent={i > 0 ? messages[i - 1].content : undefined}
@@ -989,6 +1099,28 @@ export default function ChatPage() {
             <div ref={bottomRef} />
           </div>
         </main>
+
+        {/* Retour au dernier message — flotte juste au-dessus du composeur.
+            Placé DANS la zone défilante, il descendait avec le contenu au lieu
+            de rester à portée de clic. */}
+        {showScrollDown && (
+          <div className="pointer-events-none relative z-10 h-0" aria-hidden={false}>
+            <button
+              onClick={scrollToBottom}
+              aria-label="Aller au dernier message"
+              title="Aller au dernier message"
+              className="chat-iconbtn pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2 border"
+              style={{
+                borderColor: "var(--border)",
+                background: "var(--card)",
+                color: "var(--text-secondary)",
+                boxShadow: "var(--chat-elev-1)",
+              }}
+            >
+              <ChevronDownIcon />
+            </button>
+          </div>
+        )}
 
         {/* Perte de réseau : bandeau permanent tant que ça dure, distinct de
             l'erreur ponctuelle — l'utilisateur n'a pas la même chose à faire. */}
@@ -1034,33 +1166,44 @@ export default function ChatPage() {
         )}
 
         {/* Saisie — glisser-déposer actif sur toute la zone du composeur. */}
-        <footer className="px-4 py-4">
+        <footer className="chat-dock relative px-4 pb-3 pt-1 sm:px-6">
           <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">
-          <div className="mx-auto flex max-w-3xl flex-col gap-2">
-            {webSearch && (
-              <button
-                onClick={() => setWebSearch(false)}
-                className="flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                <GlobeIcon /> Recherche web <span aria-hidden="true">✕</span>
-              </button>
-            )}
-            {(attachedDoc || uploadingDoc) && (
-              <div
-                className="flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                <FileIcon />
-                {uploadingDoc ? "Import en cours…" : attachedDoc?.filename}
-                {attachedDoc && (
+          <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-col gap-2">
+            {(webSearch || attachedDoc || uploadingDoc) && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {webSearch && (
                   <button
-                    onClick={() => setAttachedDoc(null)}
-                    aria-label="Retirer le fichier"
-                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                    onClick={() => setWebSearch(false)}
+                    title="Désactiver la recherche web"
+                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition hover:opacity-80"
+                    style={{
+                      border: "1px solid color-mix(in srgb, var(--primary) 40%, transparent)",
+                      background: "color-mix(in srgb, var(--primary) 12%, transparent)",
+                      color: "var(--primary)",
+                    }}
                   >
-                    ✕
+                    <GlobeIcon /> Recherche web <span aria-hidden="true">✕</span>
                   </button>
+                )}
+                {(attachedDoc || uploadingDoc) && (
+                  <div
+                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
+                    style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+                  >
+                    <FileIcon />
+                    <span className="max-w-[16rem] truncate">
+                      {uploadingDoc ? "Import en cours…" : attachedDoc?.filename}
+                    </span>
+                    {attachedDoc && (
+                      <button
+                        onClick={() => setAttachedDoc(null)}
+                        aria-label="Retirer le fichier"
+                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -1074,7 +1217,10 @@ export default function ChatPage() {
             {dictating && (
               <div
                 className="flex items-center justify-center gap-3 rounded-2xl px-4 py-3"
-                style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
+                style={{
+                  background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--primary) 25%, transparent)",
+                }}
               >
                 <Waveform active bars={40} height={30} color="var(--primary)" />
                 <span className="shrink-0 text-sm font-medium" style={{ color: "var(--primary)" }}>
@@ -1098,7 +1244,7 @@ export default function ChatPage() {
             {/* Composer en DEUX rangées : la zone de texte occupe toute la
                 largeur (elle ne se coince plus entre les icônes), les
                 contrôles vivent sur leur propre ligne en dessous. */}
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 focus-within:border-[var(--primary)]/60">
+            <div className="chat-composer px-2.5 pb-2 pt-1.5">
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -1117,32 +1263,41 @@ export default function ChatPage() {
                 onBlur={() => setPalette(null)}
                 onKeyDown={onKeyDown}
                 placeholder={
-                  dictating ? "Je vous écoute…" : "Écrivez à Toumaï AI…  «/» commandes, «@» modèle"
+                  dictating
+                    ? "Je vous écoute…"
+                    : narrow
+                      ? "Écrivez à Toumaï AI…"
+                      : "Écrivez à Toumaï AI…  «/» commandes, «@» modèle"
                 }
                 rows={1}
                 disabled={!session}
-                className="max-h-[200px] w-full resize-none bg-transparent px-2 pb-1 pt-1.5 text-[15px] outline-none placeholder:text-[var(--text-tertiary)]"
+                className="chat-input w-full resize-none bg-transparent px-1.5 pb-1 pt-2 text-[15px] leading-relaxed outline-none placeholder:text-[var(--text-tertiary)]"
               />
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
               <div className="relative">
                 <button
                   onClick={() => setToolsOpen((o) => !o)}
                   aria-label="Outils"
                   title="Outils"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                  aria-expanded={toolsOpen}
+                  data-active={toolsOpen}
+                  className="chat-iconbtn"
                 >
                   <PlusIcon />
                 </button>
                 {toolsOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setToolsOpen(false)} />
-                    <div className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl">
+                    <div
+                      className="absolute bottom-full left-0 z-20 mb-2 w-60 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] py-1.5"
+                      style={{ boxShadow: "var(--chat-elev-2)" }}
+                    >
                       <button
                         onClick={() => {
                           setToolsOpen(false);
                           fileInputRef.current?.click();
                         }}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--hover)]"
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
                       >
                         <FileIcon />
                         Importer des fichiers
@@ -1153,7 +1308,7 @@ export default function ChatPage() {
                           setWebSearch((w) => !w);
                           setToolsOpen(false);
                         }}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--hover)]"
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
                       >
                         <GlobeIcon />
                         Recherche web
@@ -1165,7 +1320,7 @@ export default function ChatPage() {
                           setLiveAvatarOpen(true);
                         }}
                         disabled={!session}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--hover)] disabled:opacity-40"
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
                       >
                         <AvatarLiveIcon />
                         Avatar en direct
@@ -1173,14 +1328,14 @@ export default function ChatPage() {
                       <div className="my-1 h-px bg-[var(--border)]" />
                       <Link
                         href="/settings?tab=connectors"
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--hover)]"
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
                       >
                         <PlugIcon />
                         Connecteurs
                       </Link>
                       <Link
                         href="/automations"
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--hover)]"
+                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
                       >
                         <BoltIcon />
                         Automatisation IA
@@ -1189,14 +1344,27 @@ export default function ChatPage() {
                   </>
                 )}
               </div>
+              {/* Recherche web : bascule visible dans la barre, pas seulement
+                  enfouie dans le menu — c'est l'option qu'on active et coupe
+                  le plus souvent d'un message à l'autre. */}
+              <button
+                onClick={() => setWebSearch((w) => !w)}
+                aria-label="Recherche web"
+                aria-pressed={webSearch}
+                title={webSearch ? "Recherche web activée" : "Chercher sur le web"}
+                data-active={webSearch}
+                className="chat-iconbtn"
+              >
+                <GlobeIcon />
+              </button>
               <div className="flex-1" />
               <ModelSelector value={model} onChange={setModel} />
               <button
                 onClick={toggleDictation}
                 aria-label={dictating ? "Arrêter la dictée" : "Dicter"}
                 title={dictating ? "Arrêter la dictée" : "Dicter"}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--hover)]"
-                style={{ color: dictating ? "var(--primary)" : "var(--text-tertiary)" }}
+                data-active={dictating}
+                className="chat-iconbtn"
               >
                 {dictating ? <StopIcon /> : <MicIcon />}
               </button>
@@ -1208,8 +1376,7 @@ export default function ChatPage() {
                 aria-label="Parler à Toumaï AI"
                 title="Parler à Toumaï AI"
                 disabled={!session}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition hover:opacity-90 disabled:opacity-30"
-                style={{ background: "var(--text-primary)", color: "var(--bg)" }}
+                className="chat-ghost"
               >
                 <VoiceModeIcon />
                 <span className="hidden sm:inline">Parler</span>
@@ -1219,8 +1386,8 @@ export default function ChatPage() {
                   onClick={stopGenerating}
                   aria-label="Arrêter la génération"
                   title="Arrêter"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90"
-                  style={{ background: "var(--text-secondary)" }}
+                  className="chat-iconbtn text-white"
+                  style={{ background: "var(--text-secondary)", color: "var(--background)" }}
                 >
                   <StopIcon />
                 </button>
@@ -1229,15 +1396,15 @@ export default function ChatPage() {
                   onClick={() => send()}
                   disabled={!canSend}
                   aria-label="Envoyer le message"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:opacity-90 disabled:opacity-30"
-                  style={{ background: "var(--primary)" }}
+                  title="Envoyer (Entrée)"
+                  className="chat-iconbtn chat-send"
                 >
                   <SendIcon />
                 </button>
               )}
               </div>
             </div>
-            <p className="text-center text-[11px] text-[var(--text-tertiary)]">
+            <p className="px-2 text-center text-[11px] leading-relaxed text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
             </p>
           </div>
@@ -1273,17 +1440,76 @@ export default function ChatPage() {
 
 function HistorySkeleton() {
   return (
-    <div className="flex flex-1 flex-col gap-5 py-2" aria-hidden="true">
+    <div className="flex flex-1 flex-col gap-7 py-2" aria-hidden="true">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className={`flex gap-2.5 ${i % 2 === 0 ? "" : "justify-end"}`}>
-          {i % 2 === 0 && <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-[var(--card)]" />}
+        <div key={i} className={`flex flex-col gap-2 ${i % 2 === 0 ? "" : "items-end"}`}>
+          {i % 2 === 0 && <div className="h-3 w-24 animate-pulse rounded-full bg-[var(--card)]" />}
           <div
-            className="h-14 w-2/3 animate-pulse rounded-2xl bg-[var(--card)] sm:w-1/2"
+            className={`animate-pulse rounded-2xl bg-[var(--card)] ${
+              i % 2 === 0 ? "h-16 w-full" : "h-10 w-1/2"
+            }`}
             style={{ animationDelay: `${i * 120}ms` }}
           />
         </div>
       ))}
     </div>
+  );
+}
+
+/** Icône de famille des cartes de suggestion — trait fin, jamais d'emoji. */
+function SuggestionIcon({ kind }: { kind: SuggestionKind }) {
+  const common = {
+    width: 17,
+    height: 17,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (kind === "code") {
+    return (
+      <svg {...common}>
+        <path d="M8 18l-5-6 5-6M16 6l5 6-5 6" />
+      </svg>
+    );
+  }
+  if (kind === "image") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="4" width="18" height="16" rx="2.5" />
+        <circle cx="8.5" cy="9.5" r="1.5" />
+        <path d="M4 17l4.5-4.5a2 2 0 012.8 0L20 20" />
+      </svg>
+    );
+  }
+  if (kind === "connect") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3.2 9h17.6M3.2 15h17.6M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M4 20h4L19 9a2.5 2.5 0 10-3.5-3.5L4.5 16.5 4 20z" />
+      <path d="M14.5 6.5L17.5 9.5" />
+    </svg>
+  );
+}
+
+/** Nouvelle conversation — crayon sur feuille, comme les consoles du marché. */
+function ComposeIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

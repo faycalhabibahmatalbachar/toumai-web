@@ -37,7 +37,9 @@ export function ModelSelector({
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Changer de modèle"
-        className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
+        // Même hauteur (36 px) que les pastilles d'icône de la barre du
+        // composeur : à 30 px, le sélecteur flottait entre deux lignes.
+        className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
       >
         <span
           aria-hidden="true"
@@ -55,7 +57,8 @@ export function ModelSelector({
             ref={panelRef}
             role="listbox"
             aria-label="Modèle"
-            className="absolute bottom-full right-0 z-20 mb-2 w-[19rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
+            className="absolute bottom-full right-0 z-20 mb-2 w-[19rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]"
+            style={{ boxShadow: "var(--chat-elev-2, 0 24px 60px -24px rgba(0,0,0,.6))" }}
           >
             <div className="px-4 pb-1 pt-3">
               <p className="text-sm font-semibold text-[var(--text-primary)]">Modèle</p>
