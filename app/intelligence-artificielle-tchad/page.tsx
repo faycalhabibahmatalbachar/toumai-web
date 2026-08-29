@@ -20,7 +20,16 @@ export const metadata: Metadata = {
   title: "Intelligence artificielle au Tchad — Toumaï AI",
   description:
     "L'intelligence artificielle au Tchad : Toumaï AI, l'IA tchadienne gratuite qui parle français, arabe et arabe tchadien. Chat, images, WhatsApp, voix. Créée à N'Djamena.",
-  alternates: { canonical: "https://toumaiai.com/intelligence-artificielle-tchad" },
+  // `hreflang` réciproque : sans lui, les versions française et arabe se
+  // concurrencent au lieu de s'appuyer l'une sur l'autre — les moteurs les
+  // lisent comme deux pages rivales sur le même sujet.
+  alternates: {
+    canonical: "https://toumaiai.com/intelligence-artificielle-tchad",
+    languages: {
+      fr: "https://toumaiai.com/intelligence-artificielle-tchad",
+      ar: "https://toumaiai.com/ar",
+    },
+  },
   openGraph: {
     title: "Intelligence artificielle au Tchad — Toumaï AI",
     description:
@@ -172,6 +181,10 @@ export default function Page() {
           ou{" "}
           <Link href="/privacy" className="underline underline-offset-2">
             la politique de confidentialité
+          </Link>
+          . هذه الصفحة متاحة أيضًا{" "}
+          <Link href="/ar" hrefLang="ar" className="underline underline-offset-2">
+            بالعربية
           </Link>
           .
         </p>
