@@ -15,7 +15,15 @@ const THEME_INIT_SCRIPT = `
     var stored = localStorage.getItem('toumai_theme');
     var theme = stored || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     document.documentElement.setAttribute('data-theme', theme);
+    // La propriete color-scheme fait suivre les elements natifs : barres de
+    // defilement, menus deroulants, champs de saisie. Sans elle, une page
+    // sombre garde des ascenseurs blancs.
+    document.documentElement.style.colorScheme = theme;
   } catch (e) {}
+  // Marque que le JavaScript tourne : les apparitions au defilement de la page
+  // d'accueil ne posent leur etat initial (invisible) que sous cette classe.
+  // Sans elle -- script bloque, robot d'indexation -- tout reste visible.
+  document.documentElement.classList.add('tm-js');
 })();
 `;
 
@@ -196,6 +204,17 @@ export default function RootLayout({
           thème doit tourner AVANT la première peinture), et React ne les
           re-rend plus côté client dans le body (avertissement React 19). */}
       <head>
+        {/* La barre d'adresse du navigateur mobile prend la couleur de la page
+            au lieu de trancher avec elle — une seule ligne, et le site cesse
+            d'avoir un bandeau blanc au-dessus de lui sur Android. */}
+        <meta name="theme-color" content="#14110e" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#fbf8f2" media="(prefers-color-scheme: light)" />
+        {/* La page d'accueil interroge l'API dès son affichage (compteurs
+            publics). Ouvrir la connexion en avance économise la résolution DNS
+            et la poignée de main TLS — sur une liaison lente, c'est la moitié
+            du temps d'attente. */}
+        <link rel="preconnect" href="https://api.toumaiai.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://api.toumaiai.com" />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON_LD }} />
       </head>

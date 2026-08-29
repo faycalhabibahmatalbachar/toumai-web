@@ -1,0 +1,1148 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+ * TOUMAÏ AI — SYSTÈME VISUEL DE LA PAGE D'ACCUEIL
+ *
+ * Tout est scopé à `.tm` : la vitrine a sa propre identité, l'application
+ * garde la sienne. Aucune règle ici ne peut déteindre sur /chat, /settings
+ * ou les pages légales.
+ *
+ * L'IDENTITÉ VIENT DU LOGO, PAS D'UNE MODE.
+ * -----------------------------------------
+ * Le logo Toumaï est un profil humain en dégradé indigo → or → terracotta —
+ * les trois couleurs du drapeau tchadien. C'est ce dégradé, et lui seul, qui
+ * sert de signature : la ligne d'horizon sous le hero, le trait actif des
+ * onglets, le faisceau du routeur. Personne d'autre ne l'a. Aucun violet
+ * SaaS générique, aucun bleu électrique de fond d'écran.
+ *
+ * La lumière suit celle du Sahel : un soleil bas, chaud, qui rase la page
+ * depuis le bas du hero — la lumière du crépuscule de l'image de dunes que
+ * Toumaï AI a lui-même générée.
+ *
+ * TOUT est dans `@layer components` pour que les utilitaires Tailwind
+ * puissent encore l'emporter, comme le fait déjà `.chat-shell`.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+/* ── Jetons ──────────────────────────────────────────────────────────────── */
+
+.tm {
+  /* Fonds — charbon chaud, jamais de bleu-nuit froid */
+  --tm-void: #0c0a08;
+  --tm-bg: #14110e;
+  --tm-bg-2: #1a1613;
+  --tm-bg-3: #211c17;
+
+  /* Surfaces de verre : une teinte ivoire très diluée, pas du blanc pur —
+   * le blanc pur sur un fond chaud tire au gris et casse la chaleur. */
+  --tm-surface: rgba(255, 246, 232, 0.035);
+  --tm-surface-2: rgba(255, 246, 232, 0.062);
+  --tm-surface-3: rgba(255, 246, 232, 0.09);
+  --tm-line: rgba(243, 229, 208, 0.11);
+  --tm-line-2: rgba(243, 229, 208, 0.19);
+
+  /* ENCRES — les quatre niveaux ont été mesurés, pas choisis à l'œil.
+   * Sur #14110e : 16,6 / 9,9 / 5,5 / 4,8 pour un.
+   * Le quatrième niveau (mentions, unités, translittérations) était à 3,3 —
+   * joli sur un grand écran calibré, illisible sur un téléphone en plein
+   * soleil à N'Djaména. Il passe la barre des 4,5, comme les autres. */
+  --tm-ink: #f6f0e5;
+  --tm-ink-2: #c6bbaa;
+  --tm-ink-3: #948a79;
+  --tm-ink-4: #8a8071;
+
+  /* Spectre Toumaï — les trois couleurs du logo.
+   * L'indigo sert aussi à colorer des identifiants dans l'extrait de code :
+   * à #3f63d8 il tombait à 3,6 sur le fond sombre. Éclairci jusqu'à 4,9 sans
+   * quitter le bleu du drapeau. */
+  --tm-indigo: #5a7ce8;
+  --tm-violet: #9b7ce8;
+  --tm-amber: #e8a13c;
+  --tm-terra: #dd6039;
+  --tm-terra-2: #f0805c;
+
+  --tm-accent: #e2714a;
+  --tm-accent-ink: #1a0f09;
+  --tm-accent-soft: rgba(226, 113, 74, 0.14);
+  --tm-accent-line: rgba(226, 113, 74, 0.34);
+
+  --tm-spectrum: linear-gradient(
+    90deg,
+    var(--tm-indigo) 0%,
+    var(--tm-violet) 24%,
+    var(--tm-amber) 62%,
+    var(--tm-terra) 100%
+  );
+
+  /* Boutons pleins : ivoire sur charbon (inversion nette, très lisible) */
+  --tm-solid: #f6f0e5;
+  --tm-solid-ink: #16120f;
+
+  --tm-radius: 20px;
+  --tm-radius-lg: 28px;
+
+  --tm-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  --tm-shadow-2: 0 2px 6px rgba(0, 0, 0, 0.32), 0 34px 70px -34px rgba(0, 0, 0, 0.92);
+  --tm-shadow-glow: 0 30px 90px -40px rgba(226, 113, 74, 0.55);
+
+  /* Rythme vertical fluide : un seul réglage pour toutes les sections.
+   * Deux sections successives ajoutent leurs marges : à 9 rem, cela faisait
+   * près de trois cents pixels de vide entre deux mouvements — de l'air, puis
+   * de l'absence. */
+  --tm-gap: clamp(3.75rem, 7vw, 7rem);
+  --tm-pad: clamp(1.15rem, 4vw, 2.5rem);
+
+  background: var(--tm-bg);
+  color: var(--tm-ink);
+  /* `clip` et non `hidden` : `hidden` sur un ancêtre transforme tout `sticky`
+   * descendant en `static` — la section « Partout » perdrait son épinglage. */
+  overflow-x: clip;
+  position: relative;
+  isolation: isolate;
+}
+
+[data-theme="light"] .tm {
+  --tm-void: #f2ebe0;
+  --tm-bg: #fbf8f2;
+  --tm-bg-2: #ffffff;
+  --tm-bg-3: #f5efe4;
+
+  --tm-surface: rgba(28, 21, 15, 0.028);
+  --tm-surface-2: rgba(28, 21, 15, 0.05);
+  --tm-surface-3: rgba(28, 21, 15, 0.075);
+  --tm-line: rgba(28, 21, 15, 0.1);
+  --tm-line-2: rgba(28, 21, 15, 0.18);
+
+  /* Mêmes mesures en thème clair, sur #fbf8f2 : le quatrième niveau était à
+   * 3,2 et le terracotta des liens à 4,4 — tous deux sous la barre. */
+  --tm-ink: #17120e;
+  --tm-ink-2: #514839;
+  --tm-ink-3: #776c5b;
+  --tm-ink-4: #776d5c;
+
+  --tm-indigo: #2c48b4;
+  --tm-violet: #6a45c4;
+  /* L'or porte l'arabe, en grand ET en petit (translittérations) : il lui faut
+   * les 4,5 du texte courant, pas les 3 d'un aplat décoratif. */
+  --tm-amber: #9e6212;
+  --tm-terra: #b8481f;
+  --tm-terra-2: #c2502c;
+
+  --tm-accent: #b8481f;
+  --tm-accent-ink: #fff8f2;
+  --tm-accent-soft: rgba(184, 72, 31, 0.1);
+  --tm-accent-line: rgba(184, 72, 31, 0.3);
+
+  --tm-solid: #17120e;
+  --tm-solid-ink: #fbf8f2;
+
+  --tm-shadow-1: 0 1px 2px rgba(48, 34, 22, 0.06), 0 10px 30px -18px rgba(48, 34, 22, 0.3);
+  --tm-shadow-2: 0 2px 6px rgba(48, 34, 22, 0.07), 0 34px 70px -34px rgba(48, 34, 22, 0.35);
+  --tm-shadow-glow: 0 30px 90px -40px rgba(184, 72, 31, 0.35);
+}
+
+/* Défilement doux pour les ancres du menu — et SEULEMENT sur les pages qui
+ * portent la vitrine : dans le chat, un saut instantané vaut mieux qu'un
+ * glissement quand on remonte trois cents messages.
+ * La règle est neutralisée plus bas si la personne a demandé moins
+ * d'animations : un défilement automatique long est l'un des mouvements qui
+ * déclenchent le plus de malaises vestibulaires. */
+html:has(.tm) {
+  scroll-behavior: smooth;
+  /* Vaut aussi pour le focus clavier : sans cette réserve, tabuler vers un
+   * lien situé juste sous le bord haut le fait défiler SOUS la barre collante,
+   * et l'anneau de focus devient invisible. */
+  scroll-padding-top: 5.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(.tm) {
+    scroll-behavior: auto;
+  }
+}
+
+/* ── Atmosphère : grain + halos ──────────────────────────────────────────── */
+
+/* Grain argentique. Une seule texture SVG en base64, 1,4 Ko, répétée — pas
+ * d'image téléchargée, pas de canvas animé. Il casse le banding des grands
+ * dégradés, qui est le défaut le plus visible d'une page sombre. */
+.tm::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.038;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-theme="light"] .tm::before {
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+}
+
+.tm > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Halo d'ambiance — posé derrière une section, jamais au-dessus. */
+.tm-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(70px);
+  opacity: 0.5;
+}
+[data-theme="light"] .tm-glow {
+  opacity: 0.34;
+  filter: blur(80px);
+}
+
+/* Trame sahélienne : losanges, comme les claustras et les tissages du Sahel.
+ * Dessinée en CSS (deux dégradés croisés), donc zéro requête réseau. */
+.tm-lattice {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(60deg, var(--tm-line) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-60deg, var(--tm-line) 0 1px, transparent 1px 42px);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 78%);
+}
+
+/* Strates de dunes : les lignes de crête du Sahel, en arrière-plan de section. */
+.tm-strata {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 46%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    to top,
+    var(--tm-line) 0 1px,
+    transparent 1px 26px
+  );
+  mask-image: linear-gradient(to top, #000, transparent);
+}
+
+/* ── Typographie ─────────────────────────────────────────────────────────── */
+
+.tm-display {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  line-height: 1.03;
+  text-wrap: balance;
+}
+.tm-h1 {
+  font-size: clamp(2.55rem, 7.4vw, 5.6rem);
+}
+.tm-h2 {
+  font-size: clamp(2.05rem, 4.7vw, 3.6rem);
+  line-height: 1.06;
+}
+.tm-h3 {
+  font-size: clamp(1.45rem, 2.6vw, 2.1rem);
+  line-height: 1.14;
+}
+.tm-em {
+  font-style: italic;
+  color: var(--tm-terra-2);
+}
+[data-theme="light"] .tm-em {
+  color: var(--tm-terra);
+}
+
+/* Sur-titre : un point du spectre, un mot, beaucoup d'air. */
+.tm-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--tm-ink-3);
+}
+.tm-eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--tm-spectrum);
+}
+
+.tm-lead {
+  font-size: clamp(1.02rem, 1.55vw, 1.22rem);
+  line-height: 1.62;
+  color: var(--tm-ink-2);
+  text-wrap: pretty;
+}
+
+.tm-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  font-variant-ligatures: none;
+}
+
+/* Texte peint par le spectre — réservé à UN mot par page, sinon ça devient
+ * un effet de gabarit. */
+.tm-spectrum-text {
+  background: var(--tm-spectrum);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Mise en page ────────────────────────────────────────────────────────── */
+
+.tm-section {
+  /* `env(safe-area-inset-*)` : sur un téléphone à encoche tenu à
+   * l'horizontale, les coins arrondis mangent une vingtaine de pixels de
+   * chaque côté. Sans cette marge, le texte y disparaît. */
+  padding-inline: max(var(--tm-pad), env(safe-area-inset-left)) max(var(--tm-pad), env(safe-area-inset-right));
+  padding-block: var(--tm-gap);
+  position: relative;
+}
+.tm-wrap {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1200px;
+}
+.tm-wrap-narrow {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 860px;
+}
+
+/* `min-width: 0` SUR CHAQUE ENFANT DE CONTENEUR.
+ *
+ * Un enfant de grille ou de flex garde par défaut une largeur minimale égale à
+ * la largeur minimale de son contenu. Sur un téléphone de 375 px, il suffisait
+ * du rail d'onglets de la console — cinq intitulés qui défilent DANS leur
+ * boîte, donc censés ne rien imposer — pour que la colonne entière réclame
+ * 474 px. Le `overflow-x: clip` de `.tm` masquait le débordement au lieu de le
+ * signaler : la page ne défilait pas de travers, elle était simplement coupée
+ * à droite. C'est la panne la plus sournoise du responsive, parce qu'elle ne
+ * se voit pas sur la barre de défilement.
+ *
+ * Avec une largeur minimale nulle, la piste reprend la largeur disponible et
+ * les boîtes qui défilent défilent enfin pour de bon. */
+.tm-wrap > *,
+.tm-wrap-narrow > * {
+  min-width: 0;
+}
+
+/* PAS DE `content-visibility: auto` ICI.
+ *
+ * Le gain de peinture est réel, mais il se paie deux fois sur cette page :
+ * la hauteur du document change pendant qu'on descend (la jauge de lecture
+ * saute, et une ancre `#modeles` atterrit à côté), et une section épinglée
+ * dans un sous-arbre non rendu se comporte mal. Ce qui coûte cher ici, ce
+ * n'est pas la peinture — c'est le nombre d'animations qui tournent en même
+ * temps. On les arrête plutôt (voir `.tm-paused`).
+ */
+
+/* Filet du spectre — sépare deux mouvements sans faire un trait de tableur. */
+.tm-rule {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(90deg, transparent, var(--tm-line-2) 18%, var(--tm-line-2) 82%, transparent);
+}
+
+/* ── Cartes et surfaces ──────────────────────────────────────────────────── */
+
+.tm-card {
+  position: relative;
+  border-radius: var(--tm-radius);
+  border: 1px solid var(--tm-line);
+  background: var(--tm-surface);
+  transition: border-color 260ms ease, background 260ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-card-hover:hover {
+  border-color: var(--tm-line-2);
+  background: var(--tm-surface-2);
+  transform: translateY(-3px);
+}
+
+/* Verre : utilisé seulement là où quelque chose passe DERRIÈRE (barre de nav,
+ * console posée sur un halo). Ailleurs, un `backdrop-filter` coûte cher pour
+ * un résultat invisible. */
+.tm-glass {
+  background: color-mix(in srgb, var(--tm-bg) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Liseré lumineux en haut d'une carte — la lumière rasante du Sahel. */
+.tm-lit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(160deg, rgba(255, 240, 220, 0.09), transparent 42%);
+}
+[data-theme="light"] .tm-lit::after {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), transparent 46%);
+}
+
+/* ── Boutons ─────────────────────────────────────────────────────────────── */
+
+.tm-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 550;
+  line-height: 1;
+  padding: 1rem 1.6rem;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 240ms ease,
+    background 200ms ease, border-color 200ms ease, color 200ms ease;
+  overflow: hidden;
+}
+.tm-btn:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* `manipulation` supprime l'attente du double-tap sur mobile : sans elle, le
+ * navigateur retient le premier appui trois cents millisecondes au cas où un
+ * second viendrait zoomer. C'est la latence la plus facile à effacer. */
+.tm-btn,
+.tm-tab,
+.tm-cap-item,
+.tm-navlink,
+.tm-faq summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--tm-accent) 18%, transparent);
+}
+
+.tm-btn-primary {
+  background: var(--tm-solid);
+  color: var(--tm-solid-ink);
+  box-shadow: var(--tm-shadow-1);
+}
+.tm-btn-primary:hover {
+  box-shadow: 0 14px 34px -14px rgba(226, 113, 74, 0.5), var(--tm-shadow-1);
+  transform: translateY(-2px);
+}
+/* Balayage de lumière au survol : la lumière traverse le bouton une fois. */
+.tm-btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-btn-primary:hover::after {
+  transform: translateX(120%);
+}
+[data-theme="light"] .tm-btn-primary::after {
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+}
+
+.tm-btn-ghost {
+  background: transparent;
+  color: var(--tm-ink);
+  border-color: var(--tm-line-2);
+}
+.tm-btn-ghost:hover {
+  background: var(--tm-surface-2);
+  border-color: var(--tm-ink-3);
+  transform: translateY(-2px);
+}
+
+.tm-btn-sm {
+  padding: 0.62rem 1.1rem;
+  font-size: 0.875rem;
+}
+
+/* Flèche qui avance au survol — la même partout, donc lisible comme un signe. */
+.tm-arrow {
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-btn:hover .tm-arrow,
+.tm-link:hover .tm-arrow {
+  transform: translateX(4px);
+}
+
+.tm-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--tm-ink);
+  font-weight: 500;
+  transition: color 200ms ease, opacity 200ms ease;
+}
+.tm-link:hover {
+  color: var(--tm-terra-2);
+}
+[data-theme="light"] .tm-link:hover {
+  color: var(--tm-terra);
+}
+
+/* Anneau de focus visible partout, jamais coupé par `overflow: hidden`. */
+.tm :is(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--tm-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Lien d'évitement : invisible jusqu'à ce qu'on tabule dessus. C'est la
+ * première chose que rencontre une personne au clavier, et sans lui il faut
+ * traverser toute la navigation à chaque page. */
+.tm-skip {
+  position: absolute;
+  left: 50%;
+  top: 0.6rem;
+  z-index: 100;
+  transform: translate(-50%, -180%);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* `:focus` ET `:focus-visible`. Un lien d'évitement n'est atteignable qu'au
+ * clavier : `:focus-visible` seul le laisse caché quand le focus est posé par
+ * programme (restauration de session, retour de modale), et il faut alors
+ * tabuler à l'aveugle. */
+.tm-skip:focus,
+.tm-skip:focus-visible {
+  transform: translate(-50%, 0);
+}
+
+/* ── Étiquettes ──────────────────────────────────────────────────────────── */
+
+.tm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--tm-line);
+  background: var(--tm-surface);
+  padding: 0.42rem 0.85rem;
+  font-size: 0.795rem;
+  color: var(--tm-ink-2);
+  white-space: nowrap;
+  transition: border-color 220ms ease, color 220ms ease, background 220ms ease;
+}
+.tm-chip-accent {
+  border-color: var(--tm-accent-line);
+  background: var(--tm-accent-soft);
+  color: var(--tm-terra-2);
+}
+[data-theme="light"] .tm-chip-accent {
+  color: var(--tm-terra);
+}
+
+.tm-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tm-terra);
+  flex: none;
+}
+
+/* ── Apparition au défilement ────────────────────────────────────────────── */
+
+/* L'état initial n'est posé QUE si le JavaScript a démarré (`.tm-js` sur
+ * <html>). Sans lui — script bloqué, moteur d'indexation — le contenu reste
+ * simplement visible : jamais de page blanche. */
+.tm-js [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition: opacity 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--tm-delay, 0ms);
+  will-change: opacity, transform;
+}
+.tm-js [data-reveal="left"] {
+  transform: translate3d(-22px, 0, 0);
+}
+.tm-js [data-reveal="right"] {
+  transform: translate3d(22px, 0, 0);
+}
+.tm-js [data-reveal="scale"] {
+  transform: scale(0.965);
+}
+.tm-js [data-reveal][data-in] {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+/* Mots qui arrivent un à un : la réponse se CONSTRUIT au lieu d'apparaître.
+ * Tout en CSS — pas un seul re-rendu React par caractère. */
+/* Opacité et déplacement, RIEN D'AUTRE.
+ *
+ * La première version ajoutait un `blur(4px)` : très joli sur un portable de
+ * développeur, très coûteux ailleurs. Un flou se repeint à chaque image, et
+ * une réponse de vingt mots, c'est vingt flous simultanés. L'opacité et la
+ * translation, elles, sont composées par le processeur graphique — même effet
+ * perçu, aucune peinture. */
+@keyframes tm-word-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* `backwards`, PAS `forwards` — et aucune opacité nulle dans l'état de base.
+ *
+ * Avec `opacity: 0` en dur et un remplissage avant, le mot n'existe que si
+ * l'animation tourne vraiment. Onglet en arrière-plan gelé, extension qui coupe
+ * les animations, moteur exotique : la démonstration se retrouve vide, et c'est
+ * la seule chose que le visiteur voit.
+ *
+ * Ici l'état normal est « visible ». Le remplissage arrière tient le mot caché
+ * pendant son seul délai d'attente, puis l'animation le révèle et rend la main
+ * au style de base. Si rien ne tourne, tout s'affiche : l'animation ne peut
+ * qu'ajouter, jamais faire disparaître. */
+.tm-word {
+  display: inline-block;
+  animation: tm-word-in 340ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--tm-t, 0ms) + var(--i, 0) * 42ms);
+}
+
+@keyframes tm-caret {
+  0%, 45% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+.tm-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: -0.14em;
+  margin-left: 3px;
+  background: var(--tm-terra-2);
+  animation: tm-caret 1.05s steps(1) infinite;
+}
+
+@keyframes tm-think {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+.tm-think span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: tm-think 1.25s ease-in-out infinite;
+}
+.tm-think span:nth-child(2) { animation-delay: 0.16s; }
+.tm-think span:nth-child(3) { animation-delay: 0.32s; }
+
+/* Voix — barres d'amplitude. Les hauteurs viennent d'une variable par barre,
+ * donc le motif n'est pas régulier comme un égaliseur de démo. */
+@keyframes tm-wave {
+  0%, 100% { transform: scaleY(0.22); }
+  50% { transform: scaleY(1); }
+}
+.tm-wave-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tm-spectrum);
+  transform-origin: center;
+  animation: tm-wave var(--d, 900ms) ease-in-out infinite;
+  animation-delay: var(--dl, 0ms);
+}
+
+/* Balayage de génération d'image : la lumière descend pendant que l'image
+ * « se développe ». */
+@keyframes tm-scan {
+  0% { transform: translateY(-110%); }
+  100% { transform: translateY(210%); }
+}
+.tm-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--tm-amber) 34%, transparent),
+    transparent
+  );
+  animation: tm-scan 1.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+@keyframes tm-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.tm-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--tm-surface-2) 25%,
+    var(--tm-surface-3) 50%,
+    var(--tm-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: tm-shimmer 1.5s linear infinite;
+}
+
+/* Respiration très lente d'un halo — 18 s, sous le seuil d'attention. */
+@keyframes tm-breathe {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate3d(0, -14px, 0) scale(1.06); opacity: 0.68; }
+}
+.tm-breathe {
+  animation: tm-breathe 18s ease-in-out infinite;
+}
+
+@keyframes tm-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+.tm-float {
+  animation: tm-float 13s ease-in-out infinite;
+}
+
+/* Impulsion le long d'un fil de connexion — le trajet de la donnée. */
+@keyframes tm-pulse-along {
+  0% { offset-distance: 0%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes tm-dash {
+  to { stroke-dashoffset: -40; }
+}
+.tm-dash {
+  stroke-dasharray: 3 7;
+  animation: tm-dash 1.4s linear infinite;
+}
+
+/* Tracé qui se dessine (schéma de routage). */
+@keyframes tm-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes tm-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+.tm-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: tm-marquee var(--dur, 52s) linear infinite;
+}
+.tm-marquee:hover .tm-marquee-track {
+  animation-play-state: paused;
+}
+.tm-marquee {
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* PORTE D'ANIMATION.
+ *
+ * Un état « pause » posé sur un conteneur suspend toute animation à
+ * l'intérieur. C'est ce qui empêche une page de neuf mille pixels de faire
+ * tourner quarante animations simultanées pour un lecteur qui n'en voit que
+ * six : chaque section reçoit cette classe dès qu'elle sort du champ.
+ *
+ * `will-change: auto` en même temps : une couche de composition maintenue pour
+ * une animation à l'arrêt, c'est de la mémoire vidéo réservée pour rien. */
+.tm-paused,
+.tm-paused * {
+  animation-play-state: paused !important;
+  will-change: auto !important;
+}
+
+/* ── Console de démonstration ────────────────────────────────────────────── */
+
+.tm-console {
+  position: relative;
+  border-radius: var(--tm-radius-lg);
+  border: 1px solid var(--tm-line-2);
+  background: linear-gradient(180deg, var(--tm-bg-3), var(--tm-bg-2));
+  box-shadow: var(--tm-shadow-2);
+  overflow: hidden;
+}
+[data-theme="light"] .tm-console {
+  background: linear-gradient(180deg, #ffffff, var(--tm-bg-3));
+}
+
+.tm-console-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.72rem 0.95rem;
+  border-bottom: 1px solid var(--tm-line);
+  background: var(--tm-surface);
+}
+
+/* Bulle utilisateur / réponse */
+.tm-bubble {
+  border-radius: 16px 16px 4px 16px;
+  background: var(--tm-surface-2);
+  border: 1px solid var(--tm-line);
+  padding: 0.62rem 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 88%;
+  margin-left: auto;
+  width: fit-content;
+}
+.tm-bubble[dir="rtl"] {
+  border-radius: 16px 16px 16px 4px;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Onglets de scène : le trait actif est un morceau du spectre. */
+.tm-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.2rem;
+  font-size: 0.82rem;
+  color: var(--tm-ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 220ms ease;
+  white-space: nowrap;
+}
+.tm-tab:hover {
+  color: var(--tm-ink-2);
+}
+.tm-tab[aria-selected="true"] {
+  color: var(--tm-ink);
+}
+.tm-tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--tm-spectrum);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-tab[aria-selected="true"]::after {
+  transform: scaleX(1);
+}
+
+/* Minuterie de la scène en cours — remplit la largeur de l'onglet actif. */
+@keyframes tm-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ── Vitrine des capacités ───────────────────────────────────────────────── */
+
+.tm-cap-item {
+  position: relative;
+  display: block;
+  /* PAS de `width: 100%` ici. Sur petit écran, ces mêmes boutons deviennent un
+   * rail horizontal : une largeur de 100 % s'y résout contre la largeur du
+   * rail, et chaque onglet occupait tout l'écran — on n'en voyait qu'un, donc
+   * on ne devinait pas qu'il y en avait huit. La pleine largeur est rétablie
+   * à partir de 1024 px (`lg:w-full`), là où la liste redevient verticale. */
+  width: auto;
+  text-align: left;
+  padding: 0.95rem 1rem 0.95rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: background 240ms ease, border-color 240ms ease, transform 240ms ease;
+}
+.tm-cap-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--tm-spectrum);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-cap-item:hover {
+  background: var(--tm-surface);
+}
+.tm-cap-item[aria-selected="true"] {
+  background: var(--tm-surface-2);
+  border-color: var(--tm-line);
+}
+.tm-cap-item[aria-selected="true"]::before {
+  transform: scaleY(1);
+}
+
+/* La scène change : elle ne clignote pas, elle se recompose. */
+@keyframes tm-stage-in {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.992); }
+  to { opacity: 1; transform: none; }
+}
+.tm-stage-in {
+  animation: tm-stage-in 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Connecteurs : le moyeu ──────────────────────────────────────────────── */
+
+@keyframes tm-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.tm-orbit-ring {
+  animation: tm-orbit var(--dur, 44s) linear infinite;
+}
+/* Le nœud tourne dans l'autre sens à la même vitesse : il reste droit. */
+.tm-orbit-node {
+  animation: tm-orbit var(--dur, 44s) linear infinite reverse;
+}
+
+/* ── Barre de navigation ─────────────────────────────────────────────────── */
+
+.tm-nav {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  transition: background 320ms ease, border-color 320ms ease, box-shadow 320ms ease;
+  border-bottom: 1px solid transparent;
+}
+.tm-nav[data-stuck="true"] {
+  border-bottom-color: var(--tm-line);
+  background: color-mix(in srgb, var(--tm-bg) 78%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 1px 30px -12px rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .tm-nav[data-stuck="true"] {
+  box-shadow: 0 1px 24px -12px rgba(48, 34, 22, 0.35);
+}
+
+/* Jauge de lecture : un fil du spectre, épais d'un pixel, sous la barre. */
+.tm-nav-progress {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: 100%;
+  transform-origin: left;
+  background: var(--tm-spectrum);
+  transform: scaleX(var(--p, 0));
+}
+
+.tm-navlink {
+  position: relative;
+  padding: 0.4rem 0;
+  font-size: 0.9rem;
+  color: var(--tm-ink-2);
+  transition: color 220ms ease;
+}
+.tm-navlink:hover,
+.tm-navlink[data-active="true"] {
+  color: var(--tm-ink);
+}
+.tm-navlink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--tm-spectrum);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-navlink:hover::after,
+.tm-navlink[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+/* Panneau mobile : il DESCEND, il n'apparaît pas — le mouvement dit d'où il
+ * vient et où il retourne. */
+.tm-sheet {
+  transform: translate3d(0, -8px, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-sheet[data-open="true"] {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Bouton menu : deux traits qui deviennent une croix. */
+.tm-burger span {
+  display: block;
+  width: 17px;
+  height: 1.6px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease;
+}
+.tm-burger span + span {
+  margin-top: 5px;
+}
+.tm-burger[data-open="true"] span:first-child {
+  transform: translateY(3.3px) rotate(45deg);
+}
+.tm-burger[data-open="true"] span:last-child {
+  transform: translateY(-3.3px) rotate(-45deg);
+}
+
+/* ── FAQ ─────────────────────────────────────────────────────────────────── */
+
+.tm-faq summary::-webkit-details-marker {
+  display: none;
+}
+.tm-faq summary {
+  list-style: none;
+}
+.tm-faq-sign {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.tm-faq-sign::before,
+.tm-faq-sign::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 1.6px;
+  border-radius: 2px;
+  background: var(--tm-terra-2);
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tm-faq-sign::after {
+  transform: rotate(90deg);
+}
+.tm-faq details[open] .tm-faq-sign::after {
+  transform: rotate(0deg);
+}
+[data-theme="light"] .tm-faq-sign::before,
+[data-theme="light"] .tm-faq-sign::after {
+  background: var(--tm-terra);
+}
+@keyframes tm-answer {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: none; }
+}
+.tm-faq details[open] .tm-answer {
+  animation: tm-answer 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Section épinglée (récit au défilement) ──────────────────────────────── */
+
+.tm-pin {
+  position: sticky;
+  top: clamp(4.75rem, 12vh, 7rem);
+}
+
+/* DÉSIGNER LE PASSAGE ACTIF SANS ÉTEINDRE LES AUTRES.
+ *
+ * La première version atténuait les passages inactifs à 34 % d'opacité. C'est
+ * l'effet cinématographique attendu — et c'est illisible : le texte tombait à
+ * 1,7 pour un de contraste, quand il en faut 4,5. Monter l'opacité jusqu'à
+ * 70 % ne suffisait toujours pas ; atténuer du texte et le garder lisible sont
+ * deux exigences qui ne se rencontrent jamais.
+ *
+ * Le repère devient donc un TRAIT, pas une baisse de lumière : un fil du
+ * spectre se déploie à gauche du passage qui commande l'appareil épinglé. Le
+ * texte, lui, reste à pleine lisibilité du haut en bas de la section. */
+@media (min-width: 1024px) {
+  .tm-surface-panel {
+    padding-left: 1.75rem;
+    position: relative;
+  }
+  .tm-surface-panel::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--tm-spectrum);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .tm-surface-panel[data-current="true"]::before {
+    transform: scaleY(1);
+  }
+}
+
+/* ── Défilement horizontal contenu ───────────────────────────────────────── */
+
+/* Les rails d'onglets défilent DANS leur boîte : jamais la page. */
+.tm-rail {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  /* Arrivé au bout du rail, le geste ne doit PAS se propager à la page — sur
+   * iOS, un balayage horizontal qui déborde déclenche le retour arrière. */
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.tm-rail::-webkit-scrollbar {
+  display: none;
+}
+.tm-rail > * {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+/* ── Respect des préférences système ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  /* On ne coupe pas « les animations » au hasard : on coupe le MOUVEMENT.
+   * Les états restent atteints (un mot animé reste visible, une réponse reste
+   * lisible) — sinon la démo afficherait des blocs vides. */
+  .tm *,
+  .tm *::before,
+  .tm *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tm-js [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+  .tm-word {
+    opacity: 1;
+    animation: none;
+  }
+  .tm-caret,
+  .tm-scan,
+  .tm-shimmer {
+    display: none;
+  }
+}
+
+} /* @layer components */
