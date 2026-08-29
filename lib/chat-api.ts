@@ -1,6 +1,6 @@
 import { API_BASE } from "./config";
 import { authHeaders } from "./api";
-import { handleUnauthorized } from "./session-guard";
+import { authFetch } from "./http";
 import type { WebSource, SearchImage } from "./chat-stream";
 
 export interface ChatSession {
@@ -29,8 +29,7 @@ export interface HistoryMessage {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { ...authHeaders() } });
-  if (res.status === 401) handleUnauthorized();
+  const res = await authFetch(path);
   const body = await res.json();
   if (!res.ok || body.success === false) {
     throw new Error(body.message || `Erreur ${res.status}`);
@@ -50,11 +49,7 @@ export async function getHistory(sessionId: string): Promise<HistoryMessage[]> {
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/session/${sessionId}`, {
-    method: "DELETE",
-    headers: { ...authHeaders() },
-  });
-  if (res.status === 401) handleUnauthorized();
+  const res = await authFetch(`/chat/session/${sessionId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 
@@ -62,12 +57,11 @@ async function updateSession(
   sessionId: string,
   patch: { title?: string; pinned?: boolean },
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/session/${sessionId}`, {
+  const res = await authFetch(`/chat/session/${sessionId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
-  if (res.status === 401) handleUnauthorized();
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
     throw new Error(body.message || `Erreur ${res.status}`);
@@ -109,21 +103,16 @@ export async function purgeEphemeralMedia(urls: string[]): Promise<void> {
 }
 
 export async function deleteMessageAndAfter(messageId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/message/${messageId}/after`, {
-    method: "DELETE",
-    headers: { ...authHeaders() },
-  });
-  if (res.status === 401) handleUnauthorized();
+  const res = await authFetch(`/chat/message/${messageId}/after`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 
 export async function sendFeedback(messageId: string, rating: "up" | "down"): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/feedback`, {
+  const res = await authFetch("/chat/feedback", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message_id: messageId, rating }),
   });
-  if (res.status === 401) handleUnauthorized();
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 
@@ -134,12 +123,11 @@ export async function confirmToolAction(
   tool: string,
   args: Record<string, unknown>,
 ): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}/chat/tool/confirm`, {
+  const res = await authFetch("/chat/tool/confirm", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tool, args }),
   });
-  if (res.status === 401) handleUnauthorized();
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.message || `Erreur ${res.status}`);
   return { ok: body.success !== false, message: body.message || "" };
@@ -165,12 +153,11 @@ export async function shareSession(
   sessionId: string,
   opts: { visibility: "unlisted" | "public"; anonymous: boolean },
 ): Promise<ShareResult> {
-  const res = await fetch(`${API_BASE}/chat/session/${sessionId}/share`, {
+  const res = await authFetch(`/chat/session/${sessionId}/share`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(opts),
   });
-  if (res.status === 401) handleUnauthorized();
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) throw new Error(body.message || `Erreur ${res.status}`);
   return body.data as ShareResult;
@@ -178,11 +165,7 @@ export async function shareSession(
 
 /** Révoque le partage — le lien cesse immédiatement de fonctionner. */
 export async function unshareSession(sessionId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/session/${sessionId}/share`, {
-    method: "DELETE",
-    headers: { ...authHeaders() },
-  });
-  if (res.status === 401) handleUnauthorized();
+  const res = await authFetch(`/chat/session/${sessionId}/share`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 

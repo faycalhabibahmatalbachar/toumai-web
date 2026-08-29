@@ -4,9 +4,29 @@
  * localStorage : chaque page affiche INSTANTANÉMENT les dernières données
  * connues (zéro squelette au retour), puis revalide en arrière-plan et met
  * à jour l'écran + le cache. Un échec réseau conserve silencieusement les
- * données en cache au lieu de vider la page. */
+ * données en cache au lieu de vider la page.
+ *
+ * CE QUI LE REND RÉSISTANT
+ * ------------------------
+ * 1. CLOISONNÉ PAR COMPTE. Chaque entrée est rangée sous l'identifiant de
+ *    l'utilisateur. Deux comptes sur le même navigateur ne peuvent pas se
+ *    voir, même si une purge est oubliée quelque part — le cloisonnement ne
+ *    dépend d'aucun appel à faire au bon moment.
+ * 2. VERSIONNÉ. Un changement de forme des données invalide l'ancien cache au
+ *    lieu de nourrir l'écran avec un objet qui n'a plus la bonne tête.
+ * 3. ÉVICTION PAR ANCIENNETÉ. Quota plein : on retire les entrées les plus
+ *    vieilles jusqu'à ce que ça rentre, au lieu de tout jeter et de renvoyer
+ *    l'utilisateur à un écran vide.
+ * 4. SYNCHRONISÉ ENTRE ONGLETS. Une écriture dans un onglet met à jour les
+ *    autres, sans rechargement.
+ * 5. REVALIDÉ AU BON MOMENT. Retour sur l'onglet, retour du réseau : les
+ *    données se rafraîchissent d'elles-mêmes.
+ * 6. TOLÉRANT AUX PANNES. Toute erreur de stockage (mode privé, quota, JSON
+ *    corrompu) est absorbée : le cache est une accélération, jamais une
+ *    dépendance. */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { loadSession } from "./api";
 
 /* IMPORTANT hydratation : les pages sont pré-rendues SANS localStorage. Lire
  * le cache pendant le rendu initial (useState(() => cacheSeed(...))) fait
@@ -17,20 +37,41 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const PREFIX = "toumai:cache:";
+/** Incrémenter invalide TOUT l'ancien cache — à faire quand la forme des
+ * données mises en cache change. */
+const VERSION = 2;
 
 interface Entry<T> {
   v: T;
   at: number;
+  /** Version du format et propriétaire, vérifiés à la lecture. */
+  ver?: number;
+  who?: string;
 }
 
-/** Lit une entrée brute du cache (valeur + horodatage), null si absente. */
+/** Identifiant du compte auquel appartiennent les données mises en cache.
+ * « anon » avant toute session : ces entrées-là ne survivront pas au login. */
+function owner(): string {
+  return loadSession()?.user_id || "anon";
+}
+
+function fullKey(key: string): string {
+  return `${PREFIX}${owner()}:${key}`;
+}
+
+/** Lit une entrée brute du cache (valeur + horodatage), null si absente,
+ * périmée par version, ou appartenant à un autre compte. */
 export function cacheRead<T>(key: string): Entry<T> | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(PREFIX + key);
+    const raw = localStorage.getItem(fullKey(key));
     if (!raw) return null;
     const e = JSON.parse(raw) as Entry<T>;
     if (!e || typeof e.at !== "number") return null;
+    if (e.ver !== VERSION) return null;
+    // Double garde : la clé porte déjà le propriétaire, mais un cache écrit
+    // avant connexion ne doit pas être servi au compte qui se connecte.
+    if (e.who && e.who !== owner()) return null;
     return e;
   } catch {
     return null;
@@ -44,34 +85,98 @@ export function cacheSeed<T>(key: string, maxAgeMs = Infinity): T | null {
   return Date.now() - e.at <= maxAgeMs ? e.v : null;
 }
 
-export function cacheWrite<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(PREFIX + key, JSON.stringify({ v: value, at: Date.now() }));
-  } catch {
-    // Quota plein : on purge le cache applicatif et on réessaie une fois.
+/** Retire les entrées les plus anciennes du cache applicatif jusqu'à libérer
+ * de la place. Tout jeter renverrait l'utilisateur à un écran vide alors
+ * qu'une poignée d'entrées suffit à faire de la place. */
+function evictOldest(count: number): void {
+  const entries: { k: string; at: number }[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(PREFIX)) continue;
+    let at = 0;
     try {
-      cachePurge();
-      localStorage.setItem(PREFIX + key, JSON.stringify({ v: value, at: Date.now() }));
+      at = (JSON.parse(localStorage.getItem(k) || "{}") as Entry<unknown>).at || 0;
+    } catch {
+      at = 0; // illisible : candidat idéal à l'éviction
+    }
+    entries.push({ k, at });
+  }
+  entries.sort((a, b) => a.at - b.at);
+  for (const e of entries.slice(0, Math.max(1, count))) {
+    try {
+      localStorage.removeItem(e.k);
     } catch {}
   }
 }
 
+export function cacheWrite<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  const payload = JSON.stringify({ v: value, at: Date.now(), ver: VERSION, who: owner() });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      localStorage.setItem(fullKey(key), payload);
+      notifyLocal(key);
+      return;
+    } catch {
+      // Quota plein : on fait de la place par les plus vieilles entrées.
+      evictOldest(4 * (attempt + 1));
+    }
+  }
+  // Toujours impossible (mode privé, stockage désactivé) : on abandonne
+  // silencieusement — le cache n'est jamais une condition d'affichage.
+}
+
 export function cacheRemove(key: string): void {
   try {
-    localStorage.removeItem(PREFIX + key);
+    localStorage.removeItem(fullKey(key));
+    notifyLocal(key);
   } catch {}
 }
 
-/** Purge toutes les entrées du cache applicatif (option : sous-préfixe). */
-export function cachePurge(prefix = ""): void {
+/** Purge le cache applicatif. Sans argument : tout, tous comptes confondus
+ * (déconnexion). Avec un sous-préfixe : seulement les clés du compte courant
+ * qui commencent par ce préfixe. */
+export function cachePurge(prefix?: string): void {
   if (typeof window === "undefined") return;
+  const target = prefix === undefined ? PREFIX : `${PREFIX}${owner()}:${prefix}`;
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(PREFIX + prefix)) localStorage.removeItem(k);
+      if (k && k.startsWith(target)) localStorage.removeItem(k);
     }
   } catch {}
+}
+
+// ── Diffusion des écritures ────────────────────────────────────────────────
+//
+// `storage` ne se déclenche QUE dans les autres onglets. Pour que les
+// composants du même onglet réagissent aussi, on double l'événement natif
+// d'un bus local.
+type Listener = (key: string) => void;
+const listeners = new Set<Listener>();
+
+function notifyLocal(key: string): void {
+  listeners.forEach((fn) => {
+    try {
+      fn(key);
+    } catch {}
+  });
+}
+
+/** S'abonne aux changements d'une clé, dans cet onglet comme dans les autres. */
+export function onCacheChange(key: string, fn: () => void): () => void {
+  const local: Listener = (k) => {
+    if (k === key) fn();
+  };
+  listeners.add(local);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === fullKey(key)) fn();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(local);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
 /** Seed hydration-safe : applique la valeur en cache UNE fois, juste après
@@ -96,6 +201,8 @@ interface UseCachedOptions {
   /** Fraîcheur : si le cache est plus jeune, la revalidation est différée
    * (0 = revalider systématiquement). */
   ttlMs?: number;
+  /** Revalider au retour sur l'onglet et au retour du réseau (défaut : oui). */
+  revalidateOnFocus?: boolean;
 }
 
 interface UseCachedResult<T> {
@@ -118,6 +225,7 @@ export function useCached<T>(
 ): UseCachedResult<T> {
   const enabled = opts?.enabled ?? true;
   const ttlMs = opts?.ttlMs ?? 0;
+  const revalidateOnFocus = opts?.revalidateOnFocus ?? true;
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
@@ -171,6 +279,29 @@ export function useCached<T>(
     if (e && ttlMs > 0 && Date.now() - e.at <= ttlMs) return; // encore frais
     revalidate();
   }, [key, enabled, ttlMs, revalidate]);
+
+  // Un autre onglet a écrit cette clé : on adopte sa valeur sans requête.
+  useEffect(() => {
+    if (!enabled) return;
+    return onCacheChange(key, () => {
+      const e = cacheRead<T>(key);
+      if (e) setState((s) => (s.key === key ? { ...s, data: e.v, loading: false } : s));
+    });
+  }, [key, enabled]);
+
+  // Retour sur l'onglet / retour du réseau : les données se rafraîchissent.
+  useEffect(() => {
+    if (!enabled || !revalidateOnFocus) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void revalidate();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
+    };
+  }, [enabled, revalidateOnFocus, revalidate]);
 
   return {
     data: state.data,

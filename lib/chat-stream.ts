@@ -1,5 +1,5 @@
 import { API_BASE } from "./config";
-import { authHeaders, tryRefreshSession } from "./api";
+import { authHeaders, ensureFreshSession, refreshSession } from "./api";
 import { handleUnauthorized } from "./session-guard";
 import { HttpError } from "./errors";
 
@@ -116,14 +116,20 @@ export async function streamChat(
       }),
     });
 
+  // Renouvellement EN AVANCE : une réponse peut durer une minute, on ne veut
+  // pas qu'elle parte avec un jeton qui expire pendant le streaming.
+  await ensureFreshSession();
   let res = await doFetch();
 
   if (res.status === 401) {
-    // Token expiré : refresh silencieux puis on rejoue la requête — évite de
-    // dégrader un compte connecté en "Session invité" au premier 401.
-    const renewed = await tryRefreshSession();
-    if (renewed) res = await doFetch();
-    if (res.status === 401) handleUnauthorized();
+    const outcome = await refreshSession();
+    if (outcome.status === "ok") res = await doFetch();
+    if (res.status === 401) {
+      // Serveur injoignable pendant le renouvellement : on ne déconnecte pas
+      // pour une panne passagère, on remonte une erreur que l'écran affiche.
+      if (outcome.status === "unavailable") throw new HttpError(503);
+      handleUnauthorized();
+    }
   }
   if (!res.ok || !res.body) {
     // Le statut porte le cas ; la phrase montrée est choisie par `describeError`.

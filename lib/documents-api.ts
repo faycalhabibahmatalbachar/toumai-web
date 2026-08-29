@@ -1,6 +1,4 @@
-import { API_BASE } from "./config";
-import { authHeaders } from "./api";
-import { handleUnauthorized } from "./session-guard";
+import { postForm } from "./http";
 
 export interface UploadedDocument {
   doc_id: string;
@@ -15,15 +13,5 @@ export interface UploadedDocument {
 export async function uploadDocument(file: File): Promise<UploadedDocument> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/documents/upload`, {
-    method: "POST",
-    headers: { ...authHeaders() },
-    body: form,
-  });
-  if (res.status === 401) handleUnauthorized();
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || body.success === false) {
-    throw new Error(body.message || `Erreur ${res.status}`);
-  }
-  return body.data as UploadedDocument;
+  return postForm<UploadedDocument>("/documents/upload", form);
 }

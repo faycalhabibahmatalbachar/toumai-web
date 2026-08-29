@@ -203,20 +203,16 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             le logo seul sert de bouton d'ouverture. */}
         <div className={`hidden px-3 pt-3 md:block ${collapsed ? "md:px-3.5" : ""}`}>
           {collapsed ? (
-            /* Au survol, le logo cède la place à l'icône du panneau : la marque
-               seule n'annonçait pas ce que le clic allait faire. */
+            /* Rail replié : l'icône du panneau, pas la marque. Un logo posé là
+               n'annonce pas ce que le clic va faire, et il occupait la place
+               d'une commande. */
             <button
               onClick={toggleCollapsed}
               aria-label="Afficher le menu"
               title="Afficher le menu"
-              className="logo-swap flex h-10 w-10 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
             >
-              <span className="logo-swap-mark">
-                <Logo size={24} />
-              </span>
-              <span className="logo-swap-icon" aria-hidden="true">
-                <PanelOpenIcon />
-              </span>
+              <PanelOpenIcon />
             </button>
           ) : (
             <div className="flex select-none items-center gap-2.5 px-1">

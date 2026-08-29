@@ -10,7 +10,9 @@ import {
 } from "react";
 
 import {
+  SESSION_STORAGE_KEY,
   clearSession,
+  ensureFreshSession,
   guestLogin,
   loadSession,
   login as apiLogin,
@@ -51,6 +53,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(s);
     setLoading(false);
     if (s) void registerDeviceOnce();
+  }, []);
+
+  // ── La session s'entretient toute seule ────────────────────────────────
+  //
+  // Le jeton d'accès dure trente minutes. Attendre un 401 pour le renouveler,
+  // c'est laisser au moins une requête échouer — et une requête de trop
+  // renvoyait la personne sur « votre session a expiré ». On renouvelle donc
+  // AVANT l'échéance : à intervalle régulier, au retour sur l'onglet, et au
+  // retour du réseau. Chaque appel est mutualisé côté `api.ts`, donc trois
+  // déclencheurs ne font pas trois rotations de jeton.
+  useEffect(() => {
+    if (!session) return;
+    const tick = () => void ensureFreshSession();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    const id = window.setInterval(tick, 5 * 60_000);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", tick);
+    window.addEventListener("focus", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", tick);
+      window.removeEventListener("focus", tick);
+    };
+  }, [session]);
+
+  // Un autre onglet vient de renouveler (ou de se déconnecter) : on adopte sa
+  // session au lieu de continuer avec un jeton que le serveur a fait tourner.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== SESSION_STORAGE_KEY) return;
+      setSession(loadSession());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const loginAsGuest = useCallback(async () => {

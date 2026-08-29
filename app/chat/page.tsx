@@ -4,13 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { streamChat, type HistoryTurn } from "@/lib/chat-stream";
-import {
-  getHistory,
-  deleteMessageAndAfter,
-  listSessions,
-  purgeEphemeralMedia,
-  type ChatSession,
-} from "@/lib/chat-api";
+import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/chat-api";
 import { getProfile } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { transcribeAudio } from "@/lib/voice-api";
@@ -184,10 +178,6 @@ export default function ChatPage() {
    * par R2 (c'est l'upload qui leur donne une adresse), et sont effacées à la
    * fermeture du fil — sinon « rien n'est enregistré » serait faux à moitié. */
   const ephemeralMediaRef = useRef<Set<string>>(new Set());
-  /** Titre de la conversation tel que Toumaï AI l'a nommée côté serveur — pas
-   * le début du message de l'utilisateur. */
-  const [conversationTitle, setConversationTitle] = useState("");
-
   // Calculé après montage (pas au rendu serveur statique) pour éviter un
   // écart d'hydratation lié au fuseau horaire du visiteur.
   useEffect(() => {
@@ -345,24 +335,9 @@ export default function ChatPage() {
     setEphemeral((on) => !on);
     setActiveSessionId(null);
     setUrlConversation(null);
-    setConversationTitle("");
     setMessages([]);
     clearError();
   }
-
-  /** Relit le titre que Toumaï AI a donné à la conversation. Le backend le
-   * génère APRÈS le premier échange (`_maybe_set_ai_session_title`) : on relit
-   * donc une fois le tour terminé, jamais en devinant depuis le prompt. */
-  const refreshTitle = useCallback(async (id: string) => {
-    try {
-      const list = await listSessions();
-      const found = list.find((s) => s.id === id);
-      if (found?.title) setConversationTitle(found.title);
-    } catch {
-      // Titre indisponible — l'en-tête retombe sur « Nouvelle conversation »
-      // plutôt que d'afficher un début de prompt à la place d'un vrai titre.
-    }
-  }, []);
 
   // Chargement de l'historique quand l'utilisateur change de conversation.
   // Cache persistant : la conversation s'affiche instantanément depuis le
@@ -377,10 +352,6 @@ export default function ChatPage() {
     }
     setActiveSessionId(id);
     setUrlConversation(id);
-    // Titre immédiat depuis le cache de la barre latérale, puis revalidation.
-    const cachedSessions = cacheSeed<ChatSession[]>("chat:sessions");
-    setConversationTitle(cachedSessions?.find((s) => s.id === id)?.title ?? "");
-    void refreshTitle(id);
     const cached = cacheSeed<Message[]>(`chat:history:${id}`);
     if (cached && cached.length) {
       setMessages(cached);
@@ -432,7 +403,6 @@ export default function ChatPage() {
     purgeEphemeral();
     setActiveSessionId(null);
     setUrlConversation(null);
-    setConversationTitle("");
     setMessages([]);
     clearError();
   }
@@ -616,15 +586,11 @@ export default function ChatPage() {
             if (isFirstMessage && !ephemeral) {
               setSidebarRefreshKey((k) => k + 1);
               const id = evt.session_id || activeSessionId;
-              // Second passage : au premier, la conversation porte encore le
-              // titre provisoire (le début du message) que `_ensure_conversation`
-              // pose avant que l'IA n'ait nommé le fil. Sans ce rappel, la barre
-              // latérale gardait ce provisoire jusqu'au prochain chargement.
-              if (id)
-                setTimeout(() => {
-                  void refreshTitle(id);
-                  setSidebarRefreshKey((k) => k + 1);
-                }, 1800);
+              // Second passage : au premier, la conversation porte encore son
+              // nom provisoire — l'IA la nomme juste APRÈS la fin du tour.
+              // Sans ce rappel, la barre latérale gardait « Nouvelle
+              // conversation » jusqu'au prochain chargement de page.
+              if (id) setTimeout(() => setSidebarRefreshKey((k) => k + 1), 1800);
             }
           }
           if (evt.error) {
@@ -1022,10 +988,6 @@ export default function ChatPage() {
 
   const canSend = Boolean(input.trim()) && !sending && Boolean(session);
 
-  // Titre de l'en-tête : celui que Toumaï AI a donné à la conversation côté
-  // serveur. Un fil éphémère n'a pas de titre — il n'est nommé nulle part.
-  const headerTitle = ephemeral ? "Discussion éphémère" : conversationTitle;
-
   return (
     <div className="chat-shell flex h-dvh overflow-hidden">
       <Sidebar
@@ -1045,22 +1007,16 @@ export default function ChatPage() {
           data-scrolled={scrolled}
           className="chat-topbar absolute inset-x-0 top-0 z-20 flex h-14 select-none items-center gap-2 px-3 md:px-4"
         >
-          {/* Mobile : le logo Toumaï ouvre le menu latéral (comme Gemini) —
-              plus de hamburger ni de texte de marque dans le header. Au survol,
-              il cède la place à l'icône « ouvrir le panneau » : le logo seul
-              n'annonçait pas ce que le clic allait faire. */}
+          {/* Ouvrir les conversations. La marque ne sert PAS de bouton ici :
+              un logo n'annonce pas ce que le clic va faire, et il doublait
+              celui de la barre latérale juste à côté. */}
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Ouvrir les conversations"
             title="Ouvrir les conversations"
-            className="chat-iconbtn logo-swap h-10 w-10 md:hidden"
+            className="chat-iconbtn md:hidden"
           >
-            <span className="logo-swap-mark">
-              <Logo size={24} />
-            </span>
-            <span className="logo-swap-icon" aria-hidden="true">
-              <PanelOpenIcon />
-            </span>
+            <PanelOpenIcon />
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1077,15 +1033,10 @@ export default function ChatPage() {
                 Éphémère
               </span>
             )}
-            {headerTitle && !ephemeral ? (
-              <h1 className="min-w-0 truncate text-[14px] font-medium text-[var(--text-secondary)]">
-                {headerTitle}
-              </h1>
-            ) : !ephemeral ? (
-              <span className="hidden text-[13px] text-[var(--text-tertiary)] md:inline">
-                Nouvelle conversation
-              </span>
-            ) : null}
+            {/* Pas de titre de conversation ici : il répétait mot pour mot le
+                message affiché juste en dessous, et il tenait la place d'un
+                nom que l'IA n'avait pas encore donné. Le nom du fil vit dans la
+                barre latérale, là où il sert à retrouver la conversation. */}
             {sending && (
               <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-tertiary)] sm:flex">
                 <span
