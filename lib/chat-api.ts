@@ -85,6 +85,29 @@ export function setSessionPinned(sessionId: string, pinned: boolean): Promise<vo
 /** Supprime un message et tout ce qui le suit dans sa session — utilisé
  * avant de renvoyer un message utilisateur édité, pour que le modèle ne
  * voie pas l'ancienne branche de la conversation. */
+/**
+ * Efface du stockage objet les images nées dans une discussion éphémère.
+ *
+ * Le texte d'un fil éphémère n'est jamais écrit — le backend s'en charge. Les
+ * IMAGES, elles, passent forcément par R2 : c'est l'upload qui leur donne une
+ * adresse. Sans ce nettoyage, « rien n'est enregistré » serait vrai à moitié.
+ * L'échec est silencieux : il ne doit rien casser à l'écran.
+ */
+export async function purgeEphemeralMedia(urls: string[]): Promise<void> {
+  if (!urls.length) return;
+  try {
+    await fetch(`${API_BASE}/chat/ephemeral/purge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ urls }),
+      keepalive: true,
+    });
+  } catch {
+    // Fermeture d'onglet, réseau coupé — les objets éphémères portent de toute
+    // façon un préfixe de durée de vie côté serveur.
+  }
+}
+
 export async function deleteMessageAndAfter(messageId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/chat/message/${messageId}/after`, {
     method: "DELETE",

@@ -203,13 +203,20 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             le logo seul sert de bouton d'ouverture. */}
         <div className={`hidden px-3 pt-3 md:block ${collapsed ? "md:px-3.5" : ""}`}>
           {collapsed ? (
+            /* Au survol, le logo cède la place à l'icône du panneau : la marque
+               seule n'annonçait pas ce que le clic allait faire. */
             <button
               onClick={toggleCollapsed}
               aria-label="Afficher le menu"
               title="Afficher le menu"
-              className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--hover)]"
+              className="logo-swap flex h-10 w-10 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
             >
-              <Logo size={24} />
+              <span className="logo-swap-mark">
+                <Logo size={24} />
+              </span>
+              <span className="logo-swap-icon" aria-hidden="true">
+                <PanelOpenIcon />
+              </span>
             </button>
           ) : (
             <div className="flex select-none items-center gap-2.5 px-1">
@@ -481,6 +488,16 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
         )}
       </aside>
     </>
+  );
+}
+
+/** « Ouvrir le panneau » — miroir de PanelCloseIcon, montré au survol du logo. */
+function PanelOpenIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M9.5 4v16M13 10l2.5 2-2.5 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

@@ -3,8 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { streamChat } from "@/lib/chat-stream";
-import { getHistory, deleteMessageAndAfter } from "@/lib/chat-api";
+import { streamChat, type HistoryTurn } from "@/lib/chat-stream";
+import {
+  getHistory,
+  deleteMessageAndAfter,
+  listSessions,
+  purgeEphemeralMedia,
+  type ChatSession,
+} from "@/lib/chat-api";
 import { getProfile } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { transcribeAudio } from "@/lib/voice-api";
@@ -75,47 +81,6 @@ let idCounter = 0;
 function nextId() {
   idCounter += 1;
   return `m${Date.now()}${idCounter}`;
-}
-
-/** Suggestions de l'écran d'accueil — une tirée au hasard dans CHAQUE famille
- * d'usage, plutôt que quatre au hasard dans un sac commun : l'accueil doit
- * montrer l'étendue du produit (rédiger, coder, créer, connecter), pas quatre
- * variantes de la même chose. */
-type SuggestionKind = "write" | "code" | "image" | "connect";
-
-interface Suggestion {
-  /** Ce qui part réellement dans le composeur. */
-  label: string;
-  /** Famille affichée en surtitre sur la carte. */
-  hint: string;
-  kind: SuggestionKind;
-}
-
-const SUGGESTION_FAMILIES: Suggestion[][] = [
-  [
-    { label: "Rédige un e-mail professionnel de relance client", hint: "Rédiger", kind: "write" },
-    { label: "Corrige et améliore ce texte en français", hint: "Rédiger", kind: "write" },
-    { label: "Aide-moi à préparer un CV pour une candidature", hint: "Rédiger", kind: "write" },
-  ],
-  [
-    { label: "Écris une fonction Python et teste-la", hint: "Coder", kind: "code" },
-    { label: "Crée un site vitrine complet pour mon commerce", hint: "Coder", kind: "code" },
-    { label: "Explique-moi ce message d'erreur", hint: "Coder", kind: "code" },
-  ],
-  [
-    { label: "Génère une image de l'Ennedi au coucher du soleil", hint: "Créer", kind: "image" },
-    { label: "Dessine un logo moderne pour ma boutique", hint: "Créer", kind: "image" },
-    { label: "Génère une illustration pour ma présentation", hint: "Créer", kind: "image" },
-  ],
-  [
-    { label: "Résume-moi mes derniers messages WhatsApp", hint: "Connecté", kind: "connect" },
-    { label: "Donne-moi la météo à N'Djamena cette semaine", hint: "Connecté", kind: "connect" },
-    { label: "Traduis ce texte en arabe tchadien", hint: "Connecté", kind: "connect" },
-  ],
-];
-
-function pickSuggestions(): Suggestion[] {
-  return SUGGESTION_FAMILIES.map((f) => f[Math.floor(Math.random() * f.length)]);
 }
 
 /** Bref signal sonore (deux notes montantes) au démarrage de la dictée —
@@ -190,6 +155,9 @@ export default function ChatPage() {
   const whisperRecRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dictationBaseRef = useRef("");
+  /** Dictée abandonnée : les transcriptions en vol ne doivent plus écrire dans
+   * le champ, et la passe finale de Whisper doit être sautée. */
+  const dictationCancelRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -205,13 +173,25 @@ export default function ChatPage() {
    * passait à la ligne et doublait la hauteur du composeur au repos. */
   const [narrow, setNarrow] = useState(false);
 
+  /** DISCUSSION ÉPHÉMÈRE — rien de ce fil n'est écrit nulle part.
+   *
+   * Le drapeau part à CHAQUE tour : il n'y a pas de « session éphémère » côté
+   * serveur, et un mode qui ne vivrait que dans la page serait une promesse
+   * invérifiable — l'écran dirait « rien n'est enregistré » pendant que la
+   * base, elle, enregistrerait. */
+  const [ephemeral, setEphemeral] = useState(false);
+  /** Adresses des images nées dans le fil éphémère : elles passent forcément
+   * par R2 (c'est l'upload qui leur donne une adresse), et sont effacées à la
+   * fermeture du fil — sinon « rien n'est enregistré » serait faux à moitié. */
+  const ephemeralMediaRef = useRef<Set<string>>(new Set());
+  /** Titre de la conversation tel que Toumaï AI l'a nommée côté serveur — pas
+   * le début du message de l'utilisateur. */
+  const [conversationTitle, setConversationTitle] = useState("");
+
   // Calculé après montage (pas au rendu serveur statique) pour éviter un
   // écart d'hydratation lié au fuseau horaire du visiteur.
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   useEffect(() => {
     setGreeting(timeGreeting());
-    // Après montage (pas au rendu statique) — Math.random casserait l'hydratation.
-    setSuggestions(pickSuggestions());
   }, []);
 
   useEffect(() => {
@@ -340,12 +320,67 @@ export default function ChatPage() {
     return () => clearTimeout(t);
   }, [error, errorSticky]);
 
+  /** Efface les images du fil éphémère qu'on quitte. Quitter un fil éphémère,
+   * c'est le détruire — y compris ce qu'il a produit. */
+  const purgeEphemeral = useCallback(() => {
+    const urls = [...ephemeralMediaRef.current];
+    ephemeralMediaRef.current = new Set();
+    if (urls.length) void purgeEphemeralMedia(urls);
+  }, []);
+
+  // Onglet fermé ou rechargé pendant un fil éphémère : les images partent quand
+  // même (requête `keepalive`). Sans ça, fermer l'onglet les laissait en ligne.
+  useEffect(() => {
+    if (!ephemeral) return;
+    const onLeave = () => purgeEphemeral();
+    window.addEventListener("pagehide", onLeave);
+    return () => window.removeEventListener("pagehide", onLeave);
+  }, [ephemeral, purgeEphemeral]);
+
+  /** Ouvre ou referme la discussion éphémère. La fermer détruit son contenu et
+   * repart sur un fil vide : ses messages n'existent nulle part, il n'y a rien
+   * à retrouver. */
+  function toggleEphemeral() {
+    purgeEphemeral();
+    setEphemeral((on) => !on);
+    setActiveSessionId(null);
+    setUrlConversation(null);
+    setConversationTitle("");
+    setMessages([]);
+    clearError();
+  }
+
+  /** Relit le titre que Toumaï AI a donné à la conversation. Le backend le
+   * génère APRÈS le premier échange (`_maybe_set_ai_session_title`) : on relit
+   * donc une fois le tour terminé, jamais en devinant depuis le prompt. */
+  const refreshTitle = useCallback(async (id: string) => {
+    try {
+      const list = await listSessions();
+      const found = list.find((s) => s.id === id);
+      if (found?.title) setConversationTitle(found.title);
+    } catch {
+      // Titre indisponible — l'en-tête retombe sur « Nouvelle conversation »
+      // plutôt que d'afficher un début de prompt à la place d'un vrai titre.
+    }
+  }, []);
+
   // Chargement de l'historique quand l'utilisateur change de conversation.
   // Cache persistant : la conversation s'affiche instantanément depuis le
   // localStorage (zéro squelette au retour), puis se revalide en arrière-plan.
   async function openSession(id: string) {
+    // Ouvrir une conversation enregistrée SORT du mode éphémère : sinon
+    // l'écran montrerait un fil de la base pendant que les nouveaux messages
+    // ne seraient jamais enregistrés.
+    if (ephemeral) {
+      purgeEphemeral();
+      setEphemeral(false);
+    }
     setActiveSessionId(id);
     setUrlConversation(id);
+    // Titre immédiat depuis le cache de la barre latérale, puis revalidation.
+    const cachedSessions = cacheSeed<ChatSession[]>("chat:sessions");
+    setConversationTitle(cachedSessions?.find((s) => s.id === id)?.title ?? "");
+    void refreshTitle(id);
     const cached = cacheSeed<Message[]>(`chat:history:${id}`);
     if (cached && cached.length) {
       setMessages(cached);
@@ -393,8 +428,11 @@ export default function ChatPage() {
   }
 
   function newChat() {
+    // On reste en éphémère si on y était, mais le fil quitté est détruit.
+    purgeEphemeral();
     setActiveSessionId(null);
     setUrlConversation(null);
+    setConversationTitle("");
     setMessages([]);
     clearError();
   }
@@ -489,6 +527,18 @@ export default function ChatPage() {
     try {
       const documentId = attachedDoc?.doc_id;
       setAttachedDoc(null);
+      // ÉPHÉMÈRE : le contexte voyage AVEC la requête. Sans identifiant de
+      // conversation, le serveur n'a rien à relire — chaque message serait le
+      // premier, et « résume ce que je viens de dire » ne répondrait rien.
+      const ephemeralHistory: HistoryTurn[] = ephemeral
+        ? messages
+            .filter((m) => m.content && !m.streaming)
+            .map((m) => ({ role: m.role, content: m.content }))
+            .slice(-20)
+        : [];
+      const ephemeralLastImage = ephemeral
+        ? [...messages].reverse().find((m) => m.imageUrls?.length)?.imageUrls?.slice(-1)[0]
+        : undefined;
       await streamChat(
         {
           message: text,
@@ -497,6 +547,9 @@ export default function ChatPage() {
           language: preferredLangRef.current,
           webSearch,
           documentId,
+          ephemeral,
+          history: ephemeralHistory,
+          lastImageUrl: ephemeralLastImage,
         },
         (evt) => {
           if (evt.chunk) {
@@ -506,7 +559,9 @@ export default function ChatPage() {
               prev.map((m) => (m.id === assistantId ? { ...m, content: acc } : m)),
             );
           }
-          if (evt.session_id && evt.session_id !== activeSessionId) {
+          // En éphémère, `session_id` revient vide : rien n'a été créé, il n'y
+          // a pas d'adresse à poser sur cette conversation.
+          if (!ephemeral && evt.session_id && evt.session_id !== activeSessionId) {
             setActiveSessionId(evt.session_id);
             setUrlConversation(evt.session_id);
           }
@@ -550,8 +605,27 @@ export default function ChatPage() {
                 return m;
               }),
             );
-            // Nouvelle conversation créée : rafraîchit la sidebar pour l'afficher.
-            if (isFirstMessage) setSidebarRefreshKey((k) => k + 1);
+            // Images nées dans un fil éphémère : on retient leur adresse pour
+            // les effacer de R2 à la fermeture du fil.
+            if (ephemeral && imageUrls?.length) {
+              imageUrls.forEach((u) => ephemeralMediaRef.current.add(u));
+            }
+            // Nouvelle conversation créée : rafraîchit la sidebar pour
+            // l'afficher, et relit le titre que l'IA vient de lui donner (le
+            // backend l'écrit juste après ce tour).
+            if (isFirstMessage && !ephemeral) {
+              setSidebarRefreshKey((k) => k + 1);
+              const id = evt.session_id || activeSessionId;
+              // Second passage : au premier, la conversation porte encore le
+              // titre provisoire (le début du message) que `_ensure_conversation`
+              // pose avant que l'IA n'ait nommé le fil. Sans ce rappel, la barre
+              // latérale gardait ce provisoire jusqu'au prochain chargement.
+              if (id)
+                setTimeout(() => {
+                  void refreshTitle(id);
+                  setSidebarRefreshKey((k) => k + 1);
+                }, 1800);
+            }
           }
           if (evt.error) {
             throw new Error(evt.error);
@@ -615,12 +689,30 @@ export default function ChatPage() {
    *    Whisper backend — enregistrement par tranches, transcription
    *    cumulative toutes les ~4 s, orthographe soignée. Plus d'erreur
    *    sèche pour l'utilisateur. */
+  /** Valide la dictée : le texte transcrit reste dans le champ. */
+  function acceptDictation() {
+    dictationCancelRef.current = false;
+    recognitionRef.current?.stop();
+    stopWhisperDictation();
+    textareaRef.current?.focus();
+  }
+
+  /** Abandonne la dictée : le champ retrouve ce qu'il contenait avant. Sans ce
+   * chemin, la seule sortie était de garder une transcription qu'on ne voulait
+   * pas et de l'effacer à la main. */
+  function cancelDictation() {
+    dictationCancelRef.current = true;
+    recognitionRef.current?.stop();
+    stopWhisperDictation();
+    setInput(dictationBaseRef.current);
+  }
+
   function toggleDictation() {
     if (dictating) {
-      recognitionRef.current?.stop();
-      stopWhisperDictation();
+      acceptDictation();
       return;
     }
+    dictationCancelRef.current = false;
     const Ctor =
       (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition;
@@ -639,6 +731,7 @@ export default function ChatPage() {
       playDictationChime();
     };
     recognition.onresult = (e) => {
+      if (dictationCancelRef.current) return;
       let transcript = "";
       for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
       const base = dictationBaseRef.current;
@@ -684,7 +777,7 @@ export default function ChatPage() {
 
     async function transcribeSoFar(final = false) {
       if (transcribing && !final) return; // pas de transcriptions concurrentes
-      if (!chunks.length) return;
+      if (dictationCancelRef.current || !chunks.length) return;
       transcribing = true;
       try {
         const { text } = await transcribeAudio(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
@@ -708,6 +801,7 @@ export default function ChatPage() {
       stream.getTracks().forEach((t) => t.stop());
       whisperRecRef.current = null;
       setDictating(false);
+      if (dictationCancelRef.current) return; // dictée abandonnée : rien à écrire
       await transcribeSoFar(true); // passe finale = orthographe la plus fiable
       textareaRef.current?.focus();
     };
@@ -833,6 +927,14 @@ export default function ChatPage() {
       run: newChat,
     },
     {
+      id: "ephemere",
+      trigger: "ephemere",
+      label: ephemeral ? "Fermer la discussion éphémère" : "Discussion éphémère",
+      hint: "Rien n'est enregistré : ni historique, ni mémoire",
+      keywords: ["incognito", "privé", "temporaire", "éphémère"],
+      run: toggleEphemeral,
+    },
+    {
       id: "partager",
       trigger: "partager",
       label: "Partager cette conversation",
@@ -920,11 +1022,9 @@ export default function ChatPage() {
 
   const canSend = Boolean(input.trim()) && !sending && Boolean(session);
 
-  // Titre affiché dans la barre supérieure — première ligne du premier message
-  // de l'utilisateur (la même source que celle qui nomme la session côté
-  // backend). Sans lui, l'en-tête restait une bande vide au-dessus du contenu.
-  const conversationTitle =
-    messages.find((m) => m.role === "user")?.content.trim().split("\n")[0] ?? "";
+  // Titre de l'en-tête : celui que Toumaï AI a donné à la conversation côté
+  // serveur. Un fil éphémère n'a pas de titre — il n'est nommé nulle part.
+  const headerTitle = ephemeral ? "Discussion éphémère" : conversationTitle;
 
   return (
     <div className="chat-shell flex h-dvh overflow-hidden">
@@ -946,25 +1046,46 @@ export default function ChatPage() {
           className="chat-topbar absolute inset-x-0 top-0 z-20 flex h-14 select-none items-center gap-2 px-3 md:px-4"
         >
           {/* Mobile : le logo Toumaï ouvre le menu latéral (comme Gemini) —
-              plus de hamburger ni de texte de marque dans le header. */}
+              plus de hamburger ni de texte de marque dans le header. Au survol,
+              il cède la place à l'icône « ouvrir le panneau » : le logo seul
+              n'annonçait pas ce que le clic allait faire. */}
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Ouvrir les conversations"
-            className="chat-iconbtn h-10 w-10 md:hidden"
+            title="Ouvrir les conversations"
+            className="chat-iconbtn logo-swap h-10 w-10 md:hidden"
           >
-            <Logo size={24} />
+            <span className="logo-swap-mark">
+              <Logo size={24} />
+            </span>
+            <span className="logo-swap-icon" aria-hidden="true">
+              <PanelOpenIcon />
+            </span>
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            {conversationTitle ? (
+            {ephemeral && (
+              <span
+                className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium"
+                style={{
+                  border: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
+                  background: "color-mix(in srgb, var(--primary) 10%, transparent)",
+                  color: "var(--primary)",
+                }}
+              >
+                <EphemeralIcon />
+                Éphémère
+              </span>
+            )}
+            {headerTitle && !ephemeral ? (
               <h1 className="min-w-0 truncate text-[14px] font-medium text-[var(--text-secondary)]">
-                {conversationTitle}
+                {headerTitle}
               </h1>
-            ) : (
+            ) : !ephemeral ? (
               <span className="hidden text-[13px] text-[var(--text-tertiary)] md:inline">
                 Nouvelle conversation
               </span>
-            )}
+            ) : null}
             {sending && (
               <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-tertiary)] sm:flex">
                 <span
@@ -978,6 +1099,20 @@ export default function ChatPage() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              onClick={toggleEphemeral}
+              aria-label="Discussion éphémère"
+              aria-pressed={ephemeral}
+              title={
+                ephemeral
+                  ? "Fermer la discussion éphémère"
+                  : "Discussion éphémère — rien n'est enregistré"
+              }
+              data-active={ephemeral}
+              className="chat-iconbtn"
+            >
+              <EphemeralIcon />
+            </button>
             {messages.length > 0 && (
               <button
                 onClick={newChat}
@@ -988,7 +1123,7 @@ export default function ChatPage() {
                 <ComposeIcon />
               </button>
             )}
-            {activeSessionId && messages.length > 0 && (
+            {!ephemeral && activeSessionId && messages.length > 0 && (
               <button
                 onClick={() => setShareOpen(true)}
                 aria-label="Partager la conversation"
@@ -1030,49 +1165,38 @@ export default function ChatPage() {
                   />
                   <Logo size={46} className="relative" />
                 </div>
-                <h2 className="landing-serif text-center text-[34px] leading-[1.1] tracking-tight text-[var(--text-primary)] sm:text-[42px]">
-                  {greeting}
-                  {firstName && (
-                    <>
-                      ,{" "}
-                      <em style={{ color: "var(--primary)" }}>{firstName}.</em>
-                    </>
-                  )}
-                </h2>
-                <p className="mt-3 max-w-md text-center text-[14px] leading-relaxed text-[var(--text-tertiary)] sm:text-[15px]">
-                  Posez votre question, ou partez d&apos;une de ces pistes.
-                </p>
-                <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-2 sm:mt-9 sm:gap-2.5 sm:grid-cols-2">
-                  {suggestions.map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => {
-                        setInput(s.label);
-                        textareaRef.current?.focus();
-                      }}
-                      className="chat-suggest group flex items-center gap-3 p-3 text-left sm:items-start sm:p-3.5"
+                {ephemeral ? (
+                  <>
+                    {/* Ce que le mode change, dit AVANT le premier message —
+                        un mode qui masquerait seulement la conversation à
+                        l'écran serait une promesse invérifiable. */}
+                    <h2 className="landing-serif text-center text-[30px] leading-[1.12] tracking-tight text-[var(--text-primary)] sm:text-[38px]">
+                      Vous êtes en discussion éphémère.
+                    </h2>
+                    <p className="mt-4 max-w-md text-center text-[14px] leading-relaxed text-[var(--text-tertiary)] sm:text-[15px]">
+                      Rien n&apos;est enregistré : ni dans votre historique, ni dans la
+                      mémoire de Toumaï AI. Les images produites ici sont effacées à
+                      la fermeture du fil.
+                    </p>
+                    <Link
+                      href="/privacy"
+                      className="mt-3 text-[13.5px] underline decoration-[color-mix(in_srgb,var(--primary)_45%,transparent)] underline-offset-4 transition hover:decoration-[var(--primary)]"
+                      style={{ color: "var(--primary-light)" }}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] transition group-hover:text-[var(--primary)] sm:mt-0.5"
-                        style={{ background: "color-mix(in srgb, var(--text-primary) 6%, transparent)" }}
-                      >
-                        <SuggestionIcon kind={s.kind} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[10.5px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-                          {s.hint}
-                        </span>
-                        {/* Deux lignes maximum : sur mobile, quatre cartes à
-                            trois lignes poussaient la dernière sous le
-                            composeur. */}
-                        <span className="mt-0.5 line-clamp-2 block text-[13.5px] leading-snug text-[var(--text-secondary)] transition group-hover:text-[var(--text-primary)]">
-                          {s.label}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                      En savoir plus sur l&apos;usage de vos données
+                    </Link>
+                  </>
+                ) : (
+                  <h2 className="landing-serif text-center text-[34px] leading-[1.1] tracking-tight text-[var(--text-primary)] sm:text-[42px]">
+                    {greeting}
+                    {firstName && (
+                      <>
+                        ,{" "}
+                        <em style={{ color: "var(--primary)" }}>{firstName}.</em>
+                      </>
+                    )}
+                  </h2>
+                )}
               </div>
             )}
 
@@ -1214,21 +1338,7 @@ export default function ChatPage() {
               accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.gif"
               onChange={onFilePicked}
             />
-            {dictating && (
-              <div
-                className="flex items-center justify-center gap-3 rounded-2xl px-4 py-3"
-                style={{
-                  background: "color-mix(in srgb, var(--primary) 8%, transparent)",
-                  border: "1px solid color-mix(in srgb, var(--primary) 25%, transparent)",
-                }}
-              >
-                <Waveform active bars={40} height={30} color="var(--primary)" />
-                <span className="shrink-0 text-sm font-medium" style={{ color: "var(--primary)" }}>
-                  Je vous écoute…
-                </span>
-              </div>
-            )}
-            {palette && paletteItems.length > 0 && (
+            {palette && paletteItems.length > 0 && !dictating && (
               <CommandPalette
                 items={paletteItems}
                 activeIndex={paletteIndex}
@@ -1264,15 +1374,60 @@ export default function ChatPage() {
                 onKeyDown={onKeyDown}
                 placeholder={
                   dictating
-                    ? "Je vous écoute…"
+                    ? "Parlez, la transcription s'écrit ici…"
                     : narrow
                       ? "Écrivez à Toumaï AI…"
                       : "Écrivez à Toumaï AI…  «/» commandes, «@» modèle"
                 }
                 rows={1}
                 disabled={!session}
-                className="chat-input w-full resize-none bg-transparent px-1.5 pb-1 pt-2 text-[15px] leading-relaxed outline-none placeholder:text-[var(--text-tertiary)]"
+                // Pendant la dictée, le texte s'affiche en italique atténué :
+                // c'est une transcription en cours, pas encore un message.
+                className={`chat-input w-full resize-none bg-transparent px-1.5 pb-1 pt-2 text-[15px] leading-relaxed outline-none placeholder:text-[var(--text-tertiary)] ${
+                  dictating ? "italic text-[var(--text-tertiary)]" : ""
+                }`}
               />
+
+              {/* DICTÉE — la barre d'outils cède la place à deux seules
+                  décisions : abandonner la transcription, ou la garder. */}
+              {dictating ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Importer un fichier"
+                    title="Importer un fichier"
+                    className="chat-iconbtn"
+                  >
+                    <PlusIcon />
+                  </button>
+                  <span className="flex items-center gap-2 pl-1">
+                    <Waveform active bars={12} height={20} color="var(--primary)" />
+                  </span>
+                  <div className="flex-1" />
+                  <div
+                    className="flex items-center overflow-hidden rounded-full border"
+                    style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                  >
+                    <button
+                      onClick={cancelDictation}
+                      aria-label="Abandonner la dictée"
+                      title="Abandonner la dictée"
+                      className="flex h-9 w-11 items-center justify-center text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                    >
+                      <CloseIcon />
+                    </button>
+                    <span aria-hidden="true" className="h-5 w-px" style={{ background: "var(--border)" }} />
+                    <button
+                      onClick={acceptDictation}
+                      aria-label="Garder la transcription"
+                      title="Garder la transcription"
+                      className="flex h-9 w-11 items-center justify-center text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                    >
+                      <CheckIcon />
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="flex items-center gap-1">
               <div className="relative">
                 <button
@@ -1361,48 +1516,48 @@ export default function ChatPage() {
               <ModelSelector value={model} onChange={setModel} />
               <button
                 onClick={toggleDictation}
-                aria-label={dictating ? "Arrêter la dictée" : "Dicter"}
-                title={dictating ? "Arrêter la dictée" : "Dicter"}
-                data-active={dictating}
+                aria-label="Dicter"
+                title="Dicter"
                 className="chat-iconbtn"
               >
-                {dictating ? <StopIcon /> : <MicIcon />}
+                <MicIcon />
               </button>
-              {/* Un seul bouton pour la voix : trois pastilles côte à côte
-                  donnaient une barre encombrée et illisible. L'avatar en
-                  direct, plus rare, vit dans le menu Outils. */}
-              <button
-                onClick={() => setVoiceModeOpen(true)}
-                aria-label="Parler à Toumaï AI"
-                title="Parler à Toumaï AI"
-                disabled={!session}
-                className="chat-ghost"
-              >
-                <VoiceModeIcon />
-                <span className="hidden sm:inline">Parler</span>
-              </button>
+              {/* UN SEUL bouton à droite. Champ vide, il ouvre le mode vocal ;
+                  dès qu'on écrit, il devient l'envoi et prend l'accent Sahel.
+                  Deux pastilles côte à côte pour « parler » et « envoyer »
+                  demandaient de choisir avant même d'avoir écrit. */}
               {sending ? (
                 <button
                   onClick={stopGenerating}
                   aria-label="Arrêter la génération"
                   title="Arrêter"
-                  className="chat-iconbtn text-white"
+                  className="chat-iconbtn"
                   style={{ background: "var(--text-secondary)", color: "var(--background)" }}
                 >
                   <StopIcon />
                 </button>
-              ) : (
+              ) : canSend ? (
                 <button
                   onClick={() => send()}
-                  disabled={!canSend}
                   aria-label="Envoyer le message"
                   title="Envoyer (Entrée)"
                   className="chat-iconbtn chat-send"
                 >
                   <SendIcon />
                 </button>
+              ) : (
+                <button
+                  onClick={() => setVoiceModeOpen(true)}
+                  aria-label="Parler à Toumaï AI"
+                  title="Parler à Toumaï AI"
+                  disabled={!session}
+                  className="chat-iconbtn chat-voice"
+                >
+                  <VoiceModeIcon />
+                </button>
               )}
               </div>
+              )}
             </div>
             <p className="px-2 text-center text-[11px] leading-relaxed text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
@@ -1456,50 +1611,6 @@ function HistorySkeleton() {
   );
 }
 
-/** Icône de famille des cartes de suggestion — trait fin, jamais d'emoji. */
-function SuggestionIcon({ kind }: { kind: SuggestionKind }) {
-  const common = {
-    width: 17,
-    height: 17,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.7,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-  if (kind === "code") {
-    return (
-      <svg {...common}>
-        <path d="M8 18l-5-6 5-6M16 6l5 6-5 6" />
-      </svg>
-    );
-  }
-  if (kind === "image") {
-    return (
-      <svg {...common}>
-        <rect x="3" y="4" width="18" height="16" rx="2.5" />
-        <circle cx="8.5" cy="9.5" r="1.5" />
-        <path d="M4 17l4.5-4.5a2 2 0 012.8 0L20 20" />
-      </svg>
-    );
-  }
-  if (kind === "connect") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M3.2 9h17.6M3.2 15h17.6M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <path d="M4 20h4L19 9a2.5 2.5 0 10-3.5-3.5L4.5 16.5 4 20z" />
-      <path d="M14.5 6.5L17.5 9.5" />
-    </svg>
-  );
-}
-
 /** Nouvelle conversation — crayon sur feuille, comme les consoles du marché. */
 function ComposeIcon() {
   return (
@@ -1509,6 +1620,27 @@ function ComposeIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+/** Icône « ouvrir le panneau des conversations » — remplace le logo au survol. */
+function PanelOpenIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M9.5 4v16M13 10l2.5 2-2.5 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Discussion éphémère — horloge barrée, le même signe que sur mobile. */
+function EphemeralIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3.05 11a9 9 0 106.2-8.5" strokeLinecap="round" />
+      <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 3l18 18" strokeLinecap="round" />
     </svg>
   );
 }
@@ -1612,6 +1744,15 @@ function AvatarLiveIcon() {
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="12" cy="9" r="4" />
       <path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Croix — abandon de la dictée. */
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
     </svg>
   );
 }

@@ -1486,45 +1486,41 @@ span.flatpickr-weekday,
   opacity: 1;
 }
 
-/* Bouton texte secondaire du composeur (« Parler ») — contour, jamais un
- * aplat de la couleur du texte : le libellé y devenait invisible. */
-.chat-ghost {
-  display: flex;
-  height: 2.25rem;
-  flex: none;
-  align-items: center;
-  gap: 0.375rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  padding: 0 0.75rem;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
-}
-.chat-ghost:hover:not(:disabled) {
-  background: var(--hover);
+/* Pastille de gauche du couple envoi/voix : au repos (champ vide), le bouton
+ * lance le mode vocal — il reste neutre, l'accent est reserve a l'envoi. */
+.chat-voice {
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
   color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
 }
-.chat-ghost:disabled {
-  opacity: 0.35;
+.chat-voice:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 15%, transparent);
+  color: var(--text-primary);
 }
 
-/* ── Cartes de suggestion de l'écran d'accueil ───────────────────────────── */
-.chat-suggest {
+/* Le logo qui ouvre le panneau des conversations cede la place a l'icone du
+ * panneau au survol : une marque seule n'annonce pas ce que le clic va faire. */
+.logo-swap {
   position: relative;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 55%, transparent);
-  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease,
-    box-shadow 180ms ease;
 }
-.chat-suggest:hover {
-  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
-  background: var(--card);
-  transform: translateY(-2px);
-  box-shadow: var(--chat-elev-1);
+.logo-swap-mark,
+.logo-swap-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 140ms ease;
+}
+.logo-swap-icon {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.logo-swap:hover .logo-swap-mark,
+.logo-swap:focus-visible .logo-swap-mark {
+  opacity: 0;
+}
+.logo-swap:hover .logo-swap-icon,
+.logo-swap:focus-visible .logo-swap-icon {
+  opacity: 1;
 }
 
 /* ── Rangées de la barre latérale ────────────────────────────────────────── */
@@ -1603,9 +1599,6 @@ span.flatpickr-weekday,
   .chat-thinking,
   .streaming-cursor {
     animation: none;
-  }
-  .chat-suggest:hover {
-    transform: none;
   }
   .chat-thinking {
     -webkit-text-fill-color: var(--text-secondary);

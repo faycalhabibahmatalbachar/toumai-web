@@ -55,6 +55,12 @@ export interface StreamEvent {
   error?: string;
 }
 
+/** Un tour passé, tel qu'il voyage dans la requête en discussion éphémère. */
+export interface HistoryTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ChatStreamParams {
   message: string;
   sessionId: string | null;
@@ -64,6 +70,18 @@ export interface ChatStreamParams {
   language?: string;
   webSearch?: boolean;
   documentId?: string;
+  /** DISCUSSION ÉPHÉMÈRE — le drapeau part à CHAQUE tour (il n'y a pas d'état
+   * de session côté serveur). Le backend saute alors la création de
+   * conversation, l'enregistrement des messages, le titre et l'extraction
+   * mémoire ; `session_id` revient vide. */
+  ephemeral?: boolean;
+  /** Contexte d'un fil éphémère : sans identifiant de conversation, le serveur
+   * n'a rien à relire et chaque message serait le premier. Borné à 20 tours
+   * côté serveur. Ignoré hors mode éphémère. */
+  history?: HistoryTurn[];
+  /** Dernière image produite dans le fil éphémère, pour « retouche-la » — elle
+   * n'est retrouvable nulle part côté serveur, justement. */
+  lastImageUrl?: string;
 }
 
 /**
@@ -92,6 +110,9 @@ export async function streamChat(
         model_preference: params.modelPreference,
         web_search: Boolean(params.webSearch),
         document_id: params.documentId || undefined,
+        ephemeral: Boolean(params.ephemeral),
+        history: params.ephemeral ? (params.history ?? []) : undefined,
+        last_image_url: params.ephemeral ? params.lastImageUrl : undefined,
       }),
     });
 
