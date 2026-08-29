@@ -3,5 +3,8 @@ Allow: /
 Disallow: /settings
 Disallow: /login
 Disallow: /register
+Disallow: /reset-password
+Disallow: /forgot
+Disallow: /delete-account
 
 Sitemap: https://toumaiai.com/sitemap.xml

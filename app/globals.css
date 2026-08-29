@@ -1486,6 +1486,105 @@ span.flatpickr-weekday,
   opacity: 1;
 }
 
+/* ── Icones du menu : chacune fait SON geste au survol ────────────────────────
+ *
+ * Une meme animation partout ne dirait rien de plus qu'un survol. Ici le stylo
+ * ecrit, la loupe fouille, le livre s'ouvre, la bulle parle, la prise se
+ * branche, le rouage tourne : le mouvement REPETE ce que l'entree fait, et il
+ * se lit avant le libelle.
+ *
+ * Tout est borne a une seule execution et a de petites amplitudes : une icone
+ * qui boucle indefiniment sous le curseur devient un tic. */
+.ico {
+  flex: none;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nav-anim:hover .ico-write,
+  .nav-anim:focus-visible .ico-write {
+    animation: ico-write 620ms ease-in-out;
+  }
+  .nav-anim:hover .ico-search,
+  .nav-anim:focus-visible .ico-search {
+    animation: ico-search 700ms ease-in-out;
+  }
+  .nav-anim:hover .ico-book,
+  .nav-anim:focus-visible .ico-book {
+    animation: ico-book 520ms ease-out;
+  }
+  .nav-anim:hover .ico-chat,
+  .nav-anim:focus-visible .ico-chat {
+    animation: ico-chat 620ms ease-in-out;
+  }
+  .nav-anim:hover .ico-plug,
+  .nav-anim:focus-visible .ico-plug {
+    animation: ico-plug 560ms ease-in-out;
+  }
+  .nav-anim:hover .ico-gear,
+  .nav-anim:focus-visible .ico-gear,
+  .ico-gear:hover {
+    animation: ico-gear 900ms ease-in-out;
+  }
+}
+
+/* Le stylo trace : il descend sur la ligne, la parcourt, se releve. */
+@keyframes ico-write {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-1.5px, 1px) rotate(-9deg); }
+  55% { transform: translate(1.5px, 0.5px) rotate(4deg); }
+  80% { transform: translate(-0.5px, 0) rotate(-3deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* La loupe fouille : elle balaie, puis se rapproche. */
+@keyframes ico-search {
+  0% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-2px, -1px) scale(1); }
+  60% { transform: translate(2px, 1px) scale(1); }
+  80% { transform: translate(0, 0) scale(1.14); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+/* Le livre s'ouvre : une bascule sur sa reliure. */
+@keyframes ico-book {
+  0% { transform: perspective(60px) rotateY(0deg); }
+  50% { transform: perspective(60px) rotateY(-32deg); }
+  100% { transform: perspective(60px) rotateY(0deg); }
+}
+
+/* La bulle parle : deux impulsions, comme une voix qui monte. */
+@keyframes ico-chat {
+  0% { transform: scale(1) translateY(0); }
+  25% { transform: scale(1.12) translateY(-1.5px); }
+  50% { transform: scale(1) translateY(0); }
+  75% { transform: scale(1.08) translateY(-1px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* La prise se branche : elle avance dans la fiche, et tient. */
+@keyframes ico-plug {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-2.5px); }
+  70% { transform: translateY(1.5px); }
+  100% { transform: translateY(0); }
+}
+
+/* Le rouage tourne d'un quart de tour, et s'arrete franchement. */
+@keyframes ico-gear {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(90deg); }
+}
+
+/* Le globe tourne pendant la recherche : l'attente a une duree, le mouvement
+ * le dit. Immobile, la ligne ressemblerait a un resultat deja arrive. */
+.activity-globe {
+  animation: activity-spin 2.4s linear infinite;
+}
+@keyframes activity-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Rangees de la carte des outils du composeur : une tuile d'icone, un libelle,
  * une ligne de precision. Un menu de texte nu ne disait pas ce que chaque
  * entree ajoute reellement au message. */

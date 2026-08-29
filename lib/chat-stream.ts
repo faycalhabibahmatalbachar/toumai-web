@@ -42,6 +42,10 @@ export interface StreamMetadata {
   /** Présent uniquement si le modèle demandé n'était pas disponible et que la
    * cascade a rétrogradé. On le dit à l'utilisateur au lieu de le masquer. */
   model_notice?: string;
+  /** Ce que Toumaï est en train de FAIRE avant de répondre — pour l'instant
+   * `"web_search"`. Émis AVANT l'action, parce qu'une recherche prend plusieurs
+   * secondes et qu'un écran muet pendant ce temps ressemble à une panne. */
+  activity?: string;
   [key: string]: unknown;
 }
 

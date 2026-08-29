@@ -56,6 +56,8 @@ export interface Message {
   reasoning?: string;
   /** Durée mesurée du raisonnement, en millisecondes. */
   reasoningMs?: number;
+  /** Action en cours côté serveur avant la réponse (`"web_search"`). */
+  activity?: string;
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -268,12 +270,42 @@ function domainFromUrl(url: string): string {
   }
 }
 
+/** Ce que Toumaï fait pendant qu'on attend.
+ *
+ * Une recherche web prend plusieurs secondes, et pendant ce temps l'écran ne
+ * montrait que trois points : impossible de distinguer « il cherche » de « il
+ * est bloqué ». Dire l'action, c'est rendre l'attente compréhensible. */
+function ActivityLine({ label }: { label: string }) {
+  return (
+    <p className="mb-2 flex items-center gap-2 text-[13px] text-[var(--text-tertiary)]">
+      <span className="activity-globe flex" aria-hidden="true">
+        <GlobeSmallIcon />
+      </span>
+      {label}
+    </p>
+  );
+}
+
+function GlobeSmallIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
+    </svg>
+  );
+}
+
 /** Liens des pages consultées pendant une recherche web — façon Perplexity. */
 function WebSourcesRow({ sources }: { sources: WebSource[] }) {
   const items = sources.filter((s) => s.url).slice(0, 5);
   if (items.length === 0) return null;
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-3">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[12px] text-[var(--text-tertiary)]">
+        <GlobeSmallIcon />
+        Web consulté — {items.length} source{items.length > 1 ? "s" : ""}
+      </p>
+      <div className="flex flex-wrap gap-2">
       {items.map((s, i) => (
         <a
           key={s.url + i}
@@ -286,6 +318,7 @@ function WebSourcesRow({ sources }: { sources: WebSource[] }) {
           <span className="truncate">{s.title || domainFromUrl(s.url)}</span>
         </a>
       ))}
+      </div>
     </div>
   );
 }

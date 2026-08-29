@@ -16,7 +16,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { Waveform } from "@/components/Waveform";
 import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
-import { LiveAvatarOverlay } from "@/components/LiveAvatarOverlay";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { DropZone } from "@/components/chat/media/DropZone";
@@ -126,7 +125,6 @@ export default function ChatPage() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
-  const [liveAvatarOpen, setLiveAvatarOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const online = useOnlineStatus();
   // Palette `/` (commandes) et `@` (modèles) ouverte sous le curseur.
@@ -535,6 +533,23 @@ export default function ChatPage() {
             setActiveSessionId(evt.session_id);
             setUrlConversation(evt.session_id);
           }
+          // Ce que Toumaï fait avant de répondre (recherche web) : affiché
+          // pendant l'attente, puis remplacé par les sources réellement
+          // consultées. Sans ça, trois points immobiles pendant six secondes.
+          if (evt.metadata?.activity) {
+            const act = evt.metadata.activity;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, activity: act } : m)),
+            );
+          }
+          if (evt.metadata?.sources && !evt.done) {
+            const srcs = evt.metadata.sources;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, sources: srcs, activity: undefined } : m,
+              ),
+            );
+          }
           // La confirmation peut arriver dans un événement metadata
           // intermédiaire OU dans l'événement final — on capte les deux.
           if (evt.metadata?.tool_confirmation && !evt.done) {
@@ -855,15 +870,6 @@ export default function ChatPage() {
       keywords: ["voix", "micro", "parler"],
       disabledReason: session ? undefined : "Connectez-vous pour utiliser la voix",
       run: () => setVoiceModeOpen(true),
-    },
-    {
-      id: "avatar",
-      trigger: "avatar",
-      label: "Avatar en direct",
-      hint: "Parler à Toumaï face à un visage animé",
-      keywords: ["visage", "video", "live"],
-      disabledReason: session ? undefined : "Connectez-vous pour utiliser l'avatar",
-      run: () => setLiveAvatarOpen(true),
     },
     {
       id: "nouveau",
@@ -1238,19 +1244,12 @@ export default function ChatPage() {
                 largeur (elle ne se coince plus entre les icônes), les
                 contrôles vivent sur leur propre ligne en dessous. */}
             <div className="chat-composer px-2.5 pb-2 pt-1.5">
-              {/* JETONS DANS LE CHAMP — l'option choisie devient un mot du
-                  message, pas une etiquette posee au-dessus. C'est la seule
-                  place ou elle se lit AVANT d'ecrire, et ou l'oublier devient
-                  impossible : on la voit a chaque frappe. */}
+              {/* Le fichier joint devient un jeton DANS le champ : il porte un
+                  nom qu'on ne lit nulle part ailleurs, et l'oublier ferait
+                  partir un message sans sa pièce jointe. La recherche web, elle,
+                  n'a pas besoin de mots : son icône allumée dans la barre suffit
+                  — un libellé pour un état déjà visible encombre le champ. */}
               <div className="flex flex-wrap items-center gap-1.5 px-1.5 pt-1">
-                {webSearch && (
-                  <ComposerChip
-                    icon={<GlobeIcon />}
-                    label="Recherche sur le web"
-                    tone="primary"
-                    onRemove={() => setWebSearch(false)}
-                  />
-                )}
                 {(attachedDoc || uploadingDoc) && (
                   <ComposerChip
                     icon={<FileIcon />}
@@ -1427,13 +1426,28 @@ export default function ChatPage() {
               {/* Recherche web : bascule visible dans la barre, pas seulement
                   enfouie dans le menu — c'est l'option qu'on active et coupe
                   le plus souvent d'un message à l'autre. */}
+              {/* L'ÉTAT ACTIF SE VOIT ICI, ET NULLE PART AILLEURS.
+                  C'est le seul signal que la recherche web est armée — le jeton
+                  qui le disait dans le champ a été retiré. La couleur est posée
+                  en ligne plutôt que par une classe : le style de la classe
+                  n'était pas appliqué (vérifié dans la construction de
+                  production, sélecteur correspondant mais couleur héritée du
+                  repos), et un indicateur d'état qui dépend d'un aléa de
+                  cascade n'est pas un indicateur. */}
               <button
                 onClick={() => setWebSearch((w) => !w)}
                 aria-label="Recherche web"
                 aria-pressed={webSearch}
                 title={webSearch ? "Recherche web activée" : "Chercher sur le web"}
-                data-active={webSearch}
                 className="chat-iconbtn"
+                style={
+                  webSearch
+                    ? {
+                        color: "var(--primary)",
+                        background: "color-mix(in srgb, var(--primary) 15%, transparent)",
+                      }
+                    : undefined
+                }
               >
                 <GlobeIcon />
               </button>
@@ -1493,9 +1507,6 @@ export default function ChatPage() {
       </div>
       {voiceModeOpen && (
         <VoiceModeOverlay onSend={voiceSend} onClose={() => setVoiceModeOpen(false)} />
-      )}
-      {liveAvatarOpen && (
-        <LiveAvatarOverlay onSend={voiceSend} onClose={() => setLiveAvatarOpen(false)} />
       )}
       {shareOpen && activeSessionId && (
         <ShareDialog sessionId={activeSessionId} onClose={() => setShareOpen(false)} />

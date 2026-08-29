@@ -242,12 +242,12 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               onClose();
             }}
             title="Nouvelle conversation"
-            className={`flex items-center gap-2.5 rounded-full border border-[var(--border)] text-sm font-medium text-[var(--text-primary)] transition hover:border-[color-mix(in_srgb,var(--primary)_45%,transparent)] ${
+            className={`nav-anim flex items-center gap-2.5 rounded-full border border-[var(--border)] text-sm font-medium text-[var(--text-primary)] transition hover:border-[color-mix(in_srgb,var(--primary)_45%,transparent)] ${
               collapsed ? "md:h-9 md:w-9 md:justify-center md:px-0 w-full px-2.5 py-2" : "w-full px-2.5 py-2"
             }`}
             style={{ background: "var(--card)" }}
           >
-            <PlusIcon />
+            <ComposeIcon />
             <span className={collapsed ? "md:hidden" : ""}>Nouvelle conversation</span>
           </button>
         </div>
@@ -261,13 +261,13 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
               }}
               title="Rechercher dans les conversations"
               aria-label="Rechercher dans les conversations"
-              className="hidden h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] md:flex"
+              className="nav-anim hidden h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] md:flex"
             >
               <SearchIcon />
             </button>
           ) : null}
           <label
-            className={`flex items-center gap-2.5 rounded-full border border-transparent px-2.5 py-2 text-[var(--text-secondary)] transition focus-within:border-[var(--border)] focus-within:bg-[var(--card)] hover:bg-[var(--hover)] ${
+            className={`nav-anim flex items-center gap-2.5 rounded-full border border-transparent px-2.5 py-2 text-[var(--text-secondary)] transition focus-within:border-[var(--border)] focus-within:bg-[var(--card)] hover:bg-[var(--hover)] ${
               collapsed ? "md:hidden" : ""
             }`}
           >
@@ -290,16 +290,13 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
             { href: "/whatsapp", label: "WhatsApp", icon: <WhatsAppNavIcon /> },
             { href: "/settings?tab=connectors", label: "Connecteurs", icon: <PlugIcon /> },
-            // L'automatisation est une PAGE, pas une action de composeur : sa
-            // place est ici, avec les autres destinations du produit.
-            { href: "/automations", label: "Automatisation IA", icon: <BoltNavIcon /> },
           ].map((item) => (
             <Link
               key={item.href}
               href={item.href}
               onClick={onClose}
               title={item.label}
-              className={`flex items-center gap-2.5 rounded-lg text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] ${
+              className={`nav-anim flex items-center gap-2.5 rounded-lg text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] ${
                 collapsed ? "md:h-9 md:w-9 md:justify-center md:rounded-full md:px-0 px-2.5 py-2" : "px-2.5 py-2"
               }`}
             >
@@ -512,17 +509,20 @@ function PanelCloseIcon() {
   );
 }
 
-function PlusIcon() {
+/** Un stylo, pas un « + ». Ouvrir une conversation n'est pas ajouter une ligne
+ * dans une liste : c'est se mettre à écrire. */
+function ComposeIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+    <svg className="ico ico-write" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M12 20h9" strokeLinecap="round" />
+      <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
 function SearchIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="ico ico-search" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
     </svg>
@@ -531,7 +531,7 @@ function SearchIcon() {
 
 function LibraryIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="ico ico-book" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path
         d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"
         strokeLinecap="round"
@@ -541,17 +541,9 @@ function LibraryIcon() {
   );
 }
 
-function BoltNavIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M13 2L4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function WhatsAppNavIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="ico ico-chat" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M21 12a9 9 0 01-13.5 7.8L3 21l1.2-4.5A9 9 0 1121 12z" strokeLinejoin="round" />
       <path d="M9 10h.01M12 10h.01M15 10h.01" strokeLinecap="round" />
     </svg>
@@ -560,7 +552,7 @@ function WhatsAppNavIcon() {
 
 function PlugIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="ico ico-plug" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path
         d="M9 2v4M15 2v4M7 7h10l-1 5a4 4 0 01-4 3.5v0A4 4 0 018 12l-1-5zM12 15.5V22"
         strokeLinecap="round"
@@ -572,14 +564,13 @@ function PlugIcon() {
 
 function SettingsIcon() {
   return (
-    <svg
+    <svg className="ico ico-gear"
       width="16"
       height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      className="shrink-0"
     >
       <circle cx="12" cy="12" r="3" />
       <path

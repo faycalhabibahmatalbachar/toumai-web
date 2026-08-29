@@ -98,26 +98,59 @@ export const metadata: Metadata = {
   },
 };
 
-// Données structurées Google (rich results) — identité de l'application et
-// de son créateur, servies sur toutes les pages.
+// Données structurées Google — TROIS entités, pas une.
+//
+// Un seul bloc `SoftwareApplication` décrit le produit, mais ne dit ni qui
+// l'édite, ni qu'un site existe autour. Google relie les trois : c'est ce
+// graphe qui permet un panneau de connaissance sur « Toumaï AI » et des liens
+// de site dans les résultats — pas une liste de mots-clés, ignorée depuis 2009.
 const JSON_LD = JSON.stringify({
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Toumaï AI",
-  alternateName: ["Toumai AI", "ToumaiAI"],
-  url: "https://toumaiai.com",
-  applicationCategory: "UtilitiesApplication",
-  operatingSystem: "Web, Android",
-  description:
-    "Assistant d'intelligence artificielle tchadien : chat en français et arabe tchadien, génération d'images, WhatsApp, e-mail, agenda et agent navigateur.",
-  offers: { "@type": "Offer", price: "0", priceCurrency: "XAF" },
-  author: {
-    "@type": "Person",
-    name: "Faycal Habib Ahmat",
-    jobTitle: "Ingénieur en intelligence artificielle",
-    nationality: "TD",
-  },
-  inLanguage: ["fr", "ar"],
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://toumaiai.com/#app",
+      name: "Toumaï AI",
+      alternateName: ["Toumai AI", "ToumaiAI", "IA tchadienne", "AI Tchad"],
+      url: "https://toumaiai.com",
+      applicationCategory: "UtilitiesApplication",
+      operatingSystem: "Web, Android",
+      description:
+        "Assistant d'intelligence artificielle tchadien : chat en français, arabe et arabe tchadien, génération d'images, WhatsApp, e-mail, agenda et agent navigateur.",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "XAF" },
+      inLanguage: ["fr", "ar"],
+      author: { "@id": "https://toumaiai.com/#createur" },
+      publisher: { "@id": "https://toumaiai.com/#organisation" },
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://toumaiai.com/#organisation",
+      name: "Toumaï AI",
+      url: "https://toumaiai.com",
+      logo: "https://toumaiai.com/logo.png",
+      // Le pays compte : c'est lui qui rattache la marque au Tchad dans les
+      // requêtes locales, bien plus sûrement qu'un mot-clé répété.
+      areaServed: { "@type": "Country", name: "Tchad" },
+      foundingLocation: { "@type": "Place", name: "N'Djamena, Tchad" },
+      founder: { "@id": "https://toumaiai.com/#createur" },
+    },
+    {
+      "@type": "Person",
+      "@id": "https://toumaiai.com/#createur",
+      name: "Faycal Habib Ahmat",
+      jobTitle: "Ingénieur en intelligence artificielle",
+      nationality: "TD",
+      url: "https://toumaiai.com",
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://toumaiai.com/#site",
+      url: "https://toumaiai.com",
+      name: "Toumaï AI",
+      inLanguage: "fr",
+      publisher: { "@id": "https://toumaiai.com/#organisation" },
+    },
+  ],
 });
 
 export default function RootLayout({

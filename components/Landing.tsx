@@ -547,6 +547,10 @@ export function Landing() {
             links={[
               { label: "Chat", href: "/chat" },
               { label: "Modèles", href: "/models" },
+              // Lien interne depuis la page la plus forte du site : c'est ainsi
+              // qu'une page de fond reçoit de l'autorité, pas en répétant des
+              // mots-clés.
+              { label: "L'IA au Tchad", href: "/intelligence-artificielle-tchad" },
               { label: "Bibliothèque", href: "/library" },
               { label: "Connecteurs", href: "/settings?tab=connectors" },
             ]}
