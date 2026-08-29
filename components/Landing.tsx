@@ -230,13 +230,18 @@ export function Landing() {
               <p className="mt-1.5 text-sm" style={{ color: "var(--landing-muted)" }}>
                 Décrivez ce que vous voulez, Toumaï AI le crée avec sa signature intégrée.
               </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/landing/showcase.png"
-                alt="Dunes de sable au crépuscule — image générée par Toumaï AI"
-                className="mt-5 w-full flex-1 rounded-xl object-cover"
-                loading="lazy"
-              />
+              <picture>
+                <source srcSet="/landing/showcase.avif" type="image/avif" />
+                <img
+                  src="/landing/showcase.webp"
+                  alt="Dunes de sable au crépuscule — image générée par Toumaï AI"
+                  width={760}
+                  height={570}
+                  className="mt-5 w-full flex-1 rounded-xl object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </picture>
             </Tile>
 
             {/* Agent Navigateur — tuile haute */}
@@ -735,15 +740,40 @@ function HeroVisuel() {
           filter: "blur(26px)",
         }}
       />
+      {/* DEUX TAILLES, ET L'AVIF D'ABORD.
+       *
+       * Le fichier servi faisait 1672 px de large pour une image affichée à
+       * 600 px : on payait quatre fois la surface utile. Et l'AVIF de secours
+       * pesait 256 Ko — sur une liaison tchadienne, c'est la seule chose qui
+       * décidait du temps d'affichage, bien avant le JavaScript.
+       *
+       * L'alpha est INDISPENSABLE : sans lui, l'image devient un rectangle noir
+       * en thème clair. ffmpeg le perd en AVIF ; les variantes sont donc
+       * produites avec Pillow (voir design-sources/README.md).
+       *
+       * Le WebP reste en secours pour les navigateurs sans AVIF — une seule
+       * taille pour lui : l'alpha y coûte cher, et ces navigateurs sont rares. */}
       <picture>
-        <source srcSet="/landing/hero-afrique.avif" type="image/avif" />
-        <source srcSet="/landing/hero-afrique.webp" type="image/webp" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <source
+          type="image/avif"
+          srcSet="/landing/hero-afrique-800.avif 800w, /landing/hero-afrique-1200.avif 1200w"
+          // Décrit la largeur RÉELLE d'affichage, pas la fenêtre : le visuel
+          // est plafonné à 600 px sur petit écran et n'excède guère 640 px sur
+          // grand. Un `sizes` trop large fait choisir la variante 1200 à des
+          // écrans qui n'en ont pas besoin.
+          sizes="(min-width: 1024px) 640px, (min-width: 640px) 600px, 92vw"
+        />
+        <source srcSet="/landing/hero-afrique-800.webp" type="image/webp" />
         <img
-          src="/landing/hero-afrique.webp"
+          src="/landing/hero-afrique-800.webp"
           alt="Visage de profil composé d'un réseau de points lumineux, épousant la carte de l'Afrique"
           width={1672}
           height={941}
+          // C'est l'élément le plus grand de l'écran d'accueil, donc celui que
+          // Google chronomètre (LCP). Le navigateur doit le savoir avant de
+          // découvrir tout le reste.
+          fetchPriority="high"
+          decoding="async"
           className="hero-derive w-full select-none"
           style={{
             // Aucun mode de fusion, aucun masque : la transparence est gravée

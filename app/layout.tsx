@@ -24,17 +24,27 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+// PAS DE PRÉCHARGEMENT POUR LA MONOSPACE.
+//
+// Elle ne sert qu'aux blocs de code, donc au chat. Préchargée depuis la
+// racine, elle était téléchargée sur la page d'accueil, sur les pages légales
+// et sur la version arabe — où pas un caractère ne l'utilise. `preload: false`
+// la garde disponible partout, mais ne la fait descendre que là où elle sert.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 // Serif éditoriale (titres landing, accueil du chat) — chargée à la racine
 // pour être disponible sur toutes les pages via .landing-serif.
+// Fraunces PORTE le titre de l'accueil : elle, on la précharge (défaut), et
+// on limite les graisses à celles réellement utilisées — chaque graisse est un
+// fichier de plus à télécharger.
 const fraunces = Fraunces({
   subsets: ["latin"],
   style: ["normal", "italic"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "600"],
   variable: "--font-display",
 });
 
