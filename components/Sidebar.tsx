@@ -290,6 +290,9 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
             { href: "/whatsapp", label: "WhatsApp", icon: <WhatsAppNavIcon /> },
             { href: "/settings?tab=connectors", label: "Connecteurs", icon: <PlugIcon /> },
+            // L'automatisation est une PAGE, pas une action de composeur : sa
+            // place est ici, avec les autres destinations du produit.
+            { href: "/automations", label: "Automatisation IA", icon: <BoltNavIcon /> },
           ].map((item) => (
             <Link
               key={item.href}
@@ -534,6 +537,14 @@ function LibraryIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function BoltNavIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M13 2L4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

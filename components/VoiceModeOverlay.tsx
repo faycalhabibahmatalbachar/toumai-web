@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { transcribeAudio, synthesizeSpeech } from "@/lib/voice-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { useMicLevels } from "./Waveform";
-import { Logo } from "./Logo";
+import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
@@ -100,6 +100,16 @@ export function VoiceModeOverlay({
   const [error, setError] = useState<string | null>(null);
   const [voice, setVoice] = useState<string | undefined>(undefined);
   const [slowHint, setSlowHint] = useState(false);
+  // MICRO COUPÉ ≠ CONVERSATION FERMÉE.
+  //
+  // Quelqu'un entre dans la pièce et il faut cesser d'émettre sans quitter
+  // l'écran. Le seul bouton micro de cet écran COUPE la prise de son : il ne
+  // sert pas à « passer en vocal », on y est déjà.
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+  // Écrire quand la voix ne suffit pas : un nom propre, une adresse, une
+  // référence exacte que la transcription écorchera toujours.
+  const [typed, setTyped] = useState("");
   // Vitesse de lecture (préférence utilisateur) — appliquée via playbackRate,
   // indépendante du moteur TTS.
   const speedRef = useRef(1.0);
@@ -121,7 +131,10 @@ export function VoiceModeOverlay({
   const calibrationSamplesRef = useRef<number[]>([]);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const listening = phase === "listening";
+  // Micro coupé : on n'analyse plus rien non plus. Laisser l'analyseur ouvert
+  // garderait le voyant d'enregistrement du navigateur allumé alors qu'on a
+  // demandé le silence.
+  const listening = phase === "listening" && !muted;
   const levels = useMicLevels(listening, 24);
   const avgLevel = levels.reduce((a, b) => a + b, 0) / levels.length;
 
@@ -207,6 +220,23 @@ export function VoiceModeOverlay({
     streamRef.current = null;
   }
 
+  function toggleMuted() {
+    setMuted((m) => {
+      const next = !m;
+      mutedRef.current = next;
+      if (next) {
+        // On relâche vraiment le micro : garder le flux ouvert allumerait le
+        // voyant d'enregistrement du navigateur alors qu'on a demandé le
+        // silence. « Coupé » doit être coupé.
+        stopRecorderTracks();
+        setPhase("listening");
+      } else if (!closedRef.current) {
+        void startListening();
+      }
+      return next;
+    });
+  }
+
   async function startListening() {
     setError(null);
     setCaption("");
@@ -222,6 +252,9 @@ export function VoiceModeOverlay({
     calibrationSamplesRef.current = [];
     startedAtRef.current = Date.now();
     setPhase("listening");
+    // Micro coupé : l'écran reste ouvert et l'orbe continue de respirer, mais
+    // aucun flux n'est demandé.
+    if (mutedRef.current) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -291,8 +324,32 @@ export function VoiceModeOverlay({
         if (!closedRef.current) startListening();
         return;
       }
-      setCaption(text);
+      await runTurn(text);
+    } catch (err) {
+      if (closedRef.current) return;
+      setError(err instanceof Error ? err.message : "Erreur pendant la conversation vocale.");
+      setPhase("error");
+    } finally {
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    }
+  }
 
+  /** Un tour de conversation, quelle qu'en soit l'entrée.
+   *
+   * La voix et le texte écrit aboutissent au MÊME chemin : même streaming,
+   * même synthèse phrase par phrase, même réouverture du micro à la fin. Deux
+   * chemins séparés auraient fini par diverger — et c'est toujours celui qu'on
+   * teste le moins qui casse. */
+  async function runTurn(text: string) {
+    if (closedRef.current) return;
+    stopListening();
+    setError(null);
+    setReplyCaption("");
+    setCaption(text);
+    setPhase("processing");
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
+    try {
       // Synthèse phrase par phrase : dès qu'une phrase complète arrive dans
       // le flux, on lance sa synthèse vocale immédiatement en arrière-plan,
       // sans attendre la fin de la réponse — c'est ce qui rend la conversation
@@ -349,102 +406,207 @@ export function VoiceModeOverlay({
 
   function close() {
     closedRef.current = true;
+    mutedRef.current = false;
     stopRecorderTracks();
     audioElRef.current?.pause();
     onClose();
   }
 
-  const phaseLabel: Record<Phase, string> = {
-    listening: "Je vous écoute…",
-    processing: slowHint ? "Ça prend un peu plus de temps que prévu…" : "Toumaï AI réfléchit…",
-    speaking: "Toumaï AI répond…",
-    error: "Erreur",
-  };
+
+  // Phases de l'orbe : les mêmes quatre que sur mobile. L'écran ne porte
+  // presque aucun texte — c'est le MOUVEMENT qui dit ce qui se passe, et il
+  // doit se reconnaître au premier coup d'œil, sans avoir été appris.
+  const orbPhase: VoiceOrbPhase =
+    phase === "listening"
+      ? "ecoute"
+      : phase === "processing"
+        ? "reflexion"
+        : phase === "speaking"
+          ? "parole"
+          : "repos";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--background)]">
-      <button
-        onClick={close}
-        aria-label="Fermer le mode vocal"
-        className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--hover)]"
-      >
-        <CloseIcon />
-      </button>
+    // Opaque, et sa propre palette : rien de la conversation ne doit
+    // transparaître. Le mode vocal n'est pas un écran de l'application parmi
+    // d'autres, c'est un espace où l'on entre — il ne suit donc pas le mode
+    // clair/sombre, comme sur mobile.
+    <div
+      className="fixed inset-0 z-50 select-none"
+      style={{
+        background: `radial-gradient(circle at 50% 38%, ${ORB.surface} 0%, #120E0B 45%, ${ORB.fond} 100%)`,
+        color: rgbaIvoire(1),
+      }}
+    >
+      {/* L'orbe occupe TOUT l'écran : l'onde doit pouvoir sortir de la sphère
+          et mourir dans le noir des bords. Bornée à une boîte, elle se
+          couperait net et ferait apparaître un cadre. */}
+      <VoiceOrb phase={orbPhase} level={avgLevel} className="absolute inset-0 h-full w-full" />
 
-      <VoiceOrb phase={phase} level={avgLevel} />
-
-      <p className="mb-2 mt-8 text-sm text-[var(--text-tertiary)]">{phaseLabel[phase]}</p>
-      {caption && phase !== "speaking" && (
-        <p className="max-w-md px-6 text-center text-sm text-[var(--text-secondary)]">
-          « {caption} »
-        </p>
-      )}
-      {phase === "speaking" && replyCaption && (
-        <p className="max-w-md px-6 text-center text-sm text-[var(--text-secondary)]">
-          {/* Affichage débarrassé de la syntaxe markdown (astérisques, dièses…) */}
-          {stripMarkdownForSpeech(replyCaption)}
-        </p>
-      )}
-      {error && (
-        <p className="mt-2 max-w-md px-6 text-center text-sm text-[var(--error)]">{error}</p>
-      )}
-
-      {phase === "error" && (
-        <button
-          onClick={startListening}
-          className="mt-6 rounded-full px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-          style={{ background: "var(--primary)" }}
+      {/* Deux boutons rigoureusement identiques, placés symétriquement : aucun
+          des deux n'est plus important que l'autre, et surtout aucun ne doit
+          disputer l'attention à l'orbe. */}
+      <div className="absolute inset-x-0 top-0 flex items-start justify-between px-4 pt-4 sm:px-5 sm:pt-5">
+        <VoiceRoundButton onClick={close} label="Fermer le mode vocal">
+          <CloseIcon />
+        </VoiceRoundButton>
+        <div className="flex min-w-0 flex-1 justify-center px-3 pt-3">
+          {/* AUCUN LIBELLÉ DE PHASE. « Je vous écoute », « Toumaï réfléchit » :
+              l'orbe le dit déjà par son mouvement, et le dire deux fois
+              transforme un espace en tableau de bord. Ne reste que ce que le
+              mouvement ne peut PAS dire — une attente anormalement longue. */}
+          {slowHint && phase === "processing" && (
+            <span className="truncate text-[13px]" style={{ color: rgbaIvoire(0.5) }}>
+              Ça prend un peu plus de temps que prévu…
+            </span>
+          )}
+        </div>
+        <VoiceRoundButton
+          onClick={toggleMuted}
+          label={muted ? "Réactiver le micro" : "Couper le micro"}
+          accent={muted}
         >
-          Réessayer
-        </button>
-      )}
+          {muted ? <MicOffIcon /> : <MicIcon />}
+        </VoiceRoundButton>
+      </div>
+
+      {/* Sous-titres — bas de l'écran, jamais au milieu : ils ne doivent pas se
+          poser sur la sphère. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-24 flex flex-col items-center gap-2 px-6 text-center sm:bottom-28">
+        {phase === "listening" && caption && (
+          <p className="max-w-lg text-[15px] leading-relaxed" style={{ color: rgbaIvoire(0.82) }}>
+            {caption}
+          </p>
+        )}
+        {phase === "speaking" && replyCaption && (
+          <p className="max-w-lg text-[15px] leading-relaxed" style={{ color: rgbaIvoire(0.82) }}>
+            {stripMarkdownForSpeech(replyCaption)}
+          </p>
+        )}
+        {muted && (
+          <p className="text-[13px]" style={{ color: rgbaAmbre(0.85) }}>
+            Micro coupé — la conversation continue.
+          </p>
+        )}
+        {error && (
+          <p className="max-w-lg text-[14px]" style={{ color: rgbaAmbre(0.95) }}>
+            {error}
+          </p>
+        )}
+        {phase === "error" && (
+          <button
+            onClick={startListening}
+            className="pointer-events-auto mt-2 rounded-full px-5 py-2 text-[14px] font-medium"
+            style={{
+              border: `1px solid ${rgbaAmbre(0.45)}`,
+              background: rgbaAmbre(0.12),
+              color: rgbaAmbre(1),
+            }}
+          >
+            Réessayer
+          </button>
+        )}
+      </div>
+
+      {/* Barre du bas : écrire quand la voix ne suffit pas — un nom propre, une
+          référence exacte, une adresse. Pas de bouton micro pour « passer en
+          vocal » : on y est déjà. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const t = typed.trim();
+          if (!t) return;
+          setTyped("");
+          void runTurn(t);
+        }}
+        className="absolute inset-x-0 bottom-0 px-4 pb-5 sm:px-6"
+      >
+        <div
+          className="mx-auto flex max-w-md items-center gap-2 rounded-full px-2 py-1.5"
+          style={{ border: `1px solid ${rgbaIvoire(0.14)}`, background: "rgba(0,0,0,0.34)" }}
+        >
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="Écrire plutôt que parler…"
+            className="min-w-0 flex-1 bg-transparent px-3 text-[14px] outline-none"
+            style={{ color: rgbaIvoire(0.92) }}
+          />
+          <button
+            type="submit"
+            disabled={!typed.trim()}
+            aria-label="Envoyer"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-30"
+            style={{ background: rgbaAmbre(0.9), color: ORB.fond }}
+          >
+            <SendIcon />
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
 
-/** Orbe centrale — anneau dégradé qui respire au rythme de l'amplitude vocale
- * en écoute, pulse doucement pendant la réflexion, et vibre pendant la
- * lecture de la réponse. Remplace les barres plates par une présence plus
- * organique, dans l'esprit de la maquette de la page d'accueil. */
-function VoiceOrb({ phase, level }: { phase: Phase; level: number }) {
-  const scale = phase === "listening" ? 1 + Math.min(level, 1) * 0.35 : 1;
-  const ringAnimation =
-    phase === "processing"
-      ? "voice-orb-breathe 1.6s ease-in-out infinite"
-      : phase === "speaking"
-        ? "voice-orb-speak 0.7s ease-in-out infinite"
-        : "none";
+const rgbaIvoire = (a: number) => `rgba(${ORB.ivoire.join(",")}, ${a})`;
+const rgbaAmbre = (a: number) => `rgba(${ORB.ambre.join(",")}, ${a})`;
 
+/** Bouton circulaire discret : fond presque noir, bordure infime, icône claire.
+ * Les deux boutons de l'écran sont identiques — toute différence de traitement
+ * créerait une hiérarchie qu'aucun des deux ne mérite. */
+function VoiceRoundButton({
+  onClick,
+  label,
+  accent,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  accent?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="relative flex h-40 w-40 items-center justify-center">
-      <div
-        className="absolute inset-0 rounded-full opacity-70 blur-xl transition-transform duration-100"
-        style={{
-          background:
-            "conic-gradient(from 0deg, var(--primary), var(--thinking), var(--primary))",
-          transform: `scale(${phase === "error" ? 0.9 : scale})`,
-          animation: ringAnimation,
-        }}
-        aria-hidden="true"
-      />
-      <div
-        className="absolute inset-3 rounded-full transition-transform duration-100"
-        style={{
-          background:
-            phase === "error"
-              ? "var(--card)"
-              : "conic-gradient(from 90deg, var(--primary), var(--thinking), var(--primary))",
-          transform: `scale(${phase === "error" ? 1 : 0.9 + Math.min(level, 1) * 0.08})`,
-        }}
-        aria-hidden="true"
-      />
-      <div
-        className="relative flex h-24 w-24 items-center justify-center rounded-full"
-        style={{ background: "var(--background)" }}
-      >
-        {phase === "error" ? <span className="text-3xl">⚠️</span> : <Logo size={40} />}
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:brightness-125"
+      style={{
+        background: "rgba(0,0,0,0.34)",
+        border: `0.9px solid ${accent ? rgbaAmbre(0.45) : rgbaIvoire(0.16)}`,
+        color: accent ? rgbaAmbre(1) : rgbaIvoire(0.88),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0014 0M12 18v3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** L'accent n'est pas décoratif : couper son micro est un état dans lequel on
+ * peut rester par mégarde et parler dans le vide. Il doit se voir d'un coup
+ * d'œil, sans lire. */
+function MicOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9 5a3 3 0 016 0v5" strokeLinecap="round" />
+      <path d="M5 11a7 7 0 0011.3 5.5M19 11a7 7 0 01-.4 2.3M12 18v3" strokeLinecap="round" />
+      <path d="M3 3l18 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

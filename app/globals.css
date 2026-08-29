@@ -1486,6 +1486,38 @@ span.flatpickr-weekday,
   opacity: 1;
 }
 
+/* Rangees de la carte des outils du composeur : une tuile d'icone, un libelle,
+ * une ligne de precision. Un menu de texte nu ne disait pas ce que chaque
+ * entree ajoute reellement au message. */
+.tools-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 0.85rem;
+  padding: 0.55rem 0.6rem;
+  text-align: left;
+  transition: background 120ms ease;
+}
+.tools-row:hover {
+  background: var(--hover);
+}
+.tools-row[data-active="true"] .tools-icon {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.tools-icon {
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  color: var(--text-secondary);
+}
+
 /* Pastille de gauche du couple envoi/voix : au repos (champ vide), le bouton
  * lance le mode vocal — il reste neutre, l'accent est reserve a l'envoi. */
 .chat-voice {

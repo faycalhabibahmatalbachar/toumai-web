@@ -843,39 +843,10 @@ export default function ChatPage() {
   // Chaque commande déclenche une action qui existe déjà dans cette page :
   // rien n'est listé ici qui ne soit réellement branché.
 
+  // « / » ne porte plus que des ACTIONS. Les modèles sont derrière « @ », le
+  // fichier et la recherche web dans la carte des outils : la même chose
+  // proposée à trois endroits n'aide personne à la trouver.
   const slashCommands: (PaletteItem & { run: () => void })[] = [
-    {
-      id: "web",
-      trigger: "web",
-      label: webSearch ? "Désactiver la recherche web" : "Rechercher sur le web",
-      hint: "Toumaï consulte des sources en ligne et les cite",
-      keywords: ["internet", "source", "actualité"],
-      run: () => setWebSearch((w) => !w),
-    },
-    {
-      id: "fichier",
-      trigger: "fichier",
-      label: "Joindre un fichier",
-      hint: "PDF, Word, Excel ou image",
-      keywords: ["document", "pdf", "importer", "pièce jointe"],
-      run: () => fileInputRef.current?.click(),
-    },
-    {
-      id: "reflexion",
-      trigger: "reflexion",
-      label: "Passer à Toumaï 5 (réflexion)",
-      hint: "Raisonnement profond, tâches complexes",
-      keywords: ["modèle", "toumai", "raisonnement"],
-      run: () => setModel("sayibi-reflexion"),
-    },
-    {
-      id: "rapide",
-      trigger: "rapide",
-      label: "Passer à Sao 4 (rapide)",
-      hint: "Code et aide au quotidien",
-      keywords: ["modèle", "sao"],
-      run: () => setModel("auto"),
-    },
     {
       id: "vocal",
       trigger: "vocal",
@@ -884,6 +855,15 @@ export default function ChatPage() {
       keywords: ["voix", "micro", "parler"],
       disabledReason: session ? undefined : "Connectez-vous pour utiliser la voix",
       run: () => setVoiceModeOpen(true),
+    },
+    {
+      id: "avatar",
+      trigger: "avatar",
+      label: "Avatar en direct",
+      hint: "Parler à Toumaï face à un visage animé",
+      keywords: ["visage", "video", "live"],
+      disabledReason: session ? undefined : "Connectez-vous pour utiliser l'avatar",
+      run: () => setLiveAvatarOpen(true),
     },
     {
       id: "nouveau",
@@ -1234,44 +1214,6 @@ export default function ChatPage() {
         <footer className="chat-dock relative px-4 pb-3 pt-1 sm:px-6">
           <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">
           <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-col gap-2">
-            {(webSearch || attachedDoc || uploadingDoc) && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {webSearch && (
-                  <button
-                    onClick={() => setWebSearch(false)}
-                    title="Désactiver la recherche web"
-                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition hover:opacity-80"
-                    style={{
-                      border: "1px solid color-mix(in srgb, var(--primary) 40%, transparent)",
-                      background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                      color: "var(--primary)",
-                    }}
-                  >
-                    <GlobeIcon /> Recherche web <span aria-hidden="true">✕</span>
-                  </button>
-                )}
-                {(attachedDoc || uploadingDoc) && (
-                  <div
-                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
-                    style={{ border: "1px solid var(--border)", background: "var(--card)" }}
-                  >
-                    <FileIcon />
-                    <span className="max-w-[16rem] truncate">
-                      {uploadingDoc ? "Import en cours…" : attachedDoc?.filename}
-                    </span>
-                    {attachedDoc && (
-                      <button
-                        onClick={() => setAttachedDoc(null)}
-                        aria-label="Retirer le fichier"
-                        className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -1296,6 +1238,27 @@ export default function ChatPage() {
                 largeur (elle ne se coince plus entre les icônes), les
                 contrôles vivent sur leur propre ligne en dessous. */}
             <div className="chat-composer px-2.5 pb-2 pt-1.5">
+              {/* JETONS DANS LE CHAMP — l'option choisie devient un mot du
+                  message, pas une etiquette posee au-dessus. C'est la seule
+                  place ou elle se lit AVANT d'ecrire, et ou l'oublier devient
+                  impossible : on la voit a chaque frappe. */}
+              <div className="flex flex-wrap items-center gap-1.5 px-1.5 pt-1">
+                {webSearch && (
+                  <ComposerChip
+                    icon={<GlobeIcon />}
+                    label="Recherche sur le web"
+                    tone="primary"
+                    onRemove={() => setWebSearch(false)}
+                  />
+                )}
+                {(attachedDoc || uploadingDoc) && (
+                  <ComposerChip
+                    icon={<FileIcon />}
+                    label={uploadingDoc ? "Import en cours…" : (attachedDoc?.filename ?? "")}
+                    tone="accent"
+                    onRemove={attachedDoc ? () => setAttachedDoc(null) : undefined}
+                  />
+                )}
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -1324,10 +1287,11 @@ export default function ChatPage() {
                 disabled={!session}
                 // Pendant la dictée, le texte s'affiche en italique atténué :
                 // c'est une transcription en cours, pas encore un message.
-                className={`chat-input w-full resize-none bg-transparent px-1.5 pb-1 pt-2 text-[15px] leading-relaxed outline-none placeholder:text-[var(--text-tertiary)] ${
+                className={`chat-input min-w-[12rem] flex-1 resize-none bg-transparent px-0 pb-1 pt-0.5 text-[15px] leading-relaxed outline-none placeholder:text-[var(--text-tertiary)] ${
                   dictating ? "italic text-[var(--text-tertiary)]" : ""
                 }`}
               />
+              </div>
 
               {/* DICTÉE — la barre d'outils cède la place à deux seules
                   décisions : abandonner la transcription, ou la garder. */}
@@ -1384,8 +1348,14 @@ export default function ChatPage() {
                 {toolsOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setToolsOpen(false)} />
+                    {/* CARTE DES OUTILS — ce qu'on AJOUTE au message, rien
+                        d'autre. L'avatar en direct et l'automatisation IA en
+                        sont partis : le premier est une action (il vit dans
+                        « / »), la seconde est une page (elle vit dans le menu).
+                        Une carte de composeur qui mène ailleurs dans le site
+                        n'est plus une carte de composeur. */}
                     <div
-                      className="absolute bottom-full left-0 z-20 mb-2 w-60 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] py-1.5"
+                      className="absolute bottom-full left-0 z-20 mb-2 w-[15.5rem] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-1.5"
                       style={{ boxShadow: "var(--chat-elev-2)" }}
                     >
                       <button
@@ -1393,48 +1363,62 @@ export default function ChatPage() {
                           setToolsOpen(false);
                           fileInputRef.current?.click();
                         }}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                        className="tools-row"
                       >
-                        <FileIcon />
-                        Importer des fichiers
+                        <span className="tools-icon">
+                          <FileIcon />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13.5px] font-medium text-[var(--text-primary)]">
+                            Ajouter un fichier
+                          </span>
+                          <span className="block text-[12px] text-[var(--text-tertiary)]">
+                            PDF, Word, Excel, image
+                          </span>
+                        </span>
                       </button>
-                      <div className="my-1 h-px bg-[var(--border)]" />
                       <button
                         onClick={() => {
                           setWebSearch((w) => !w);
                           setToolsOpen(false);
                         }}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                        aria-pressed={webSearch}
+                        className="tools-row"
+                        data-active={webSearch}
                       >
-                        <GlobeIcon />
-                        Recherche web
-                        {webSearch && <CheckIcon className="ml-auto" />}
+                        <span className="tools-icon">
+                          <GlobeIcon />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13.5px] font-medium text-[var(--text-primary)]">
+                            Recherche sur le web
+                          </span>
+                          <span className="block text-[12px] text-[var(--text-tertiary)]">
+                            Sources en ligne, citées
+                          </span>
+                        </span>
+                        {webSearch && (
+                          <span className="shrink-0 text-[var(--primary)]">
+                            <CheckIcon />
+                          </span>
+                        )}
                       </button>
-                      <button
-                        onClick={() => {
-                          setToolsOpen(false);
-                          setLiveAvatarOpen(true);
-                        }}
-                        disabled={!session}
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
-                      >
-                        <AvatarLiveIcon />
-                        Avatar en direct
-                      </button>
-                      <div className="my-1 h-px bg-[var(--border)]" />
                       <Link
                         href="/settings?tab=connectors"
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                        className="tools-row"
+                        onClick={() => setToolsOpen(false)}
                       >
-                        <PlugIcon />
-                        Connecteurs
-                      </Link>
-                      <Link
-                        href="/automations"
-                        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
-                      >
-                        <BoltIcon />
-                        Automatisation IA
+                        <span className="tools-icon">
+                          <PlugIcon />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13.5px] font-medium text-[var(--text-primary)]">
+                            Connecteurs
+                          </span>
+                          <span className="block text-[12px] text-[var(--text-tertiary)]">
+                            WhatsApp, mail, agenda
+                          </span>
+                        </span>
                       </Link>
                     </div>
                   </>
@@ -1553,6 +1537,56 @@ function HistorySkeleton() {
 }
 
 /** Nouvelle conversation — crayon sur feuille, comme les consoles du marché. */
+/** Jeton coloré posé DANS le champ de saisie.
+ *
+ * L'option active était affichée au-dessus du composeur, dans une bande à
+ * part : on l'oubliait, et un message partait en recherche web sans qu'on s'en
+ * souvienne. À l'intérieur du champ, elle fait partie de ce qu'on écrit. */
+function ComposerChip({
+  icon,
+  label,
+  tone,
+  onRemove,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tone: "primary" | "accent";
+  onRemove?: () => void;
+}) {
+  const color = tone === "primary" ? "var(--primary)" : "var(--accent)";
+  return (
+    <span
+      className="flex max-w-[18rem] shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] font-medium"
+      style={{
+        background: `color-mix(in srgb, ${color} 16%, transparent)`,
+        color,
+      }}
+    >
+      <span aria-hidden="true" className="shrink-0">
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          aria-label={`Retirer : ${label}`}
+          className="shrink-0 rounded transition hover:opacity-70"
+        >
+          <ChipCloseIcon />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function ChipCloseIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ComposeIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -1643,13 +1677,6 @@ function FileIcon() {
   );
 }
 
-function BoltIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function PlugIcon() {
   return (
@@ -1680,14 +1707,6 @@ function VoiceModeIcon() {
   );
 }
 
-function AvatarLiveIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="9" r="4" />
-      <path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 /** Croix — abandon de la dictée. */
 function CloseIcon() {
