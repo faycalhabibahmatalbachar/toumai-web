@@ -181,10 +181,18 @@ function Hub({ live }: { live: boolean }) {
         }}
       />
 
-      <svg viewBox="0 0 340 340" className="absolute inset-0 h-full w-full" role="presentation">
-        {/* Anneaux : l'un fixe, l'autre en rotation très lente. */}
-        <circle cx={center} cy={center} r={R} fill="none" stroke="var(--tm-line)" strokeWidth="1" />
-        <g className="tm-orbit-ring" style={{ transformOrigin: "170px 170px", "--dur": "60s" } as React.CSSProperties}>
+      {/* L'ANNEAU TOURNANT VIT DANS SON PROPRE CALQUE.
+        *
+        * Une rotation CSS posée sur un <g> à l'intérieur d'un SVG n'est pas
+        * accélérée matériellement dans plusieurs navigateurs : elle repasse par
+        * le processeur central, soixante fois par seconde, tant que la section
+        * est à l'écran. Sortie dans sa propre boîte, c'est le compositeur
+        * graphique qui s'en charge — même image, coût nul. */}
+      <div
+        className="tm-orbit-ring absolute inset-0"
+        style={{ "--dur": "60s" } as React.CSSProperties}
+      >
+        <svg viewBox="0 0 340 340" className="h-full w-full" role="presentation">
           <circle
             cx={center}
             cy={center}
@@ -194,7 +202,12 @@ function Hub({ live }: { live: boolean }) {
             strokeWidth="1.2"
             strokeDasharray="2 12"
           />
-        </g>
+        </svg>
+      </div>
+
+      <svg viewBox="0 0 340 340" className="absolute inset-0 h-full w-full" role="presentation">
+        {/* Les deux anneaux fixes. */}
+        <circle cx={center} cy={center} r={R} fill="none" stroke="var(--tm-line)" strokeWidth="1" />
         <circle cx={center} cy={center} r={R - 44} fill="none" stroke="var(--tm-line)" strokeWidth="1" opacity="0.5" />
 
         {/* Les trois liaisons, avec une impulsion qui va et vient. */}

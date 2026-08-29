@@ -27,7 +27,6 @@
 
 .tm {
   /* Fonds — charbon chaud, jamais de bleu-nuit froid */
-  --tm-void: #0c0a08;
   --tm-bg: #14110e;
   --tm-bg-2: #1a1613;
   --tm-bg-3: #211c17;
@@ -82,7 +81,6 @@
 
   --tm-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.8);
   --tm-shadow-2: 0 2px 6px rgba(0, 0, 0, 0.32), 0 34px 70px -34px rgba(0, 0, 0, 0.92);
-  --tm-shadow-glow: 0 30px 90px -40px rgba(226, 113, 74, 0.55);
 
   /* Rythme vertical fluide : un seul réglage pour toutes les sections.
    * Deux sections successives ajoutent leurs marges : à 9 rem, cela faisait
@@ -101,7 +99,6 @@
 }
 
 [data-theme="light"] .tm {
-  --tm-void: #f2ebe0;
   --tm-bg: #fbf8f2;
   --tm-bg-2: #ffffff;
   --tm-bg-3: #f5efe4;
@@ -137,7 +134,6 @@
 
   --tm-shadow-1: 0 1px 2px rgba(48, 34, 22, 0.06), 0 10px 30px -18px rgba(48, 34, 22, 0.3);
   --tm-shadow-2: 0 2px 6px rgba(48, 34, 22, 0.07), 0 34px 70px -34px rgba(48, 34, 22, 0.35);
-  --tm-shadow-glow: 0 30px 90px -40px rgba(184, 72, 31, 0.35);
 }
 
 /* Défilement doux pour les ancres du menu — et SEULEMENT sur les pages qui
@@ -287,14 +283,6 @@ html:has(.tm) {
   font-variant-ligatures: none;
 }
 
-/* Texte peint par le spectre — réservé à UN mot par page, sinon ça devient
- * un effet de gabarit. */
-.tm-spectrum-text {
-  background: var(--tm-spectrum);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
 
 /* ── Mise en page ────────────────────────────────────────────────────────── */
 
@@ -311,11 +299,6 @@ html:has(.tm) {
   width: 100%;
   max-width: 1200px;
 }
-.tm-wrap-narrow {
-  margin-inline: auto;
-  width: 100%;
-  max-width: 860px;
-}
 
 /* `min-width: 0` SUR CHAQUE ENFANT DE CONTENEUR.
  *
@@ -330,8 +313,7 @@ html:has(.tm) {
  *
  * Avec une largeur minimale nulle, la piste reprend la largeur disponible et
  * les boîtes qui défilent défilent enfin pour de bon. */
-.tm-wrap > *,
-.tm-wrap-narrow > * {
+.tm-wrap > * {
   min-width: 0;
 }
 
@@ -345,13 +327,6 @@ html:has(.tm) {
  * temps. On les arrête plutôt (voir `.tm-paused`).
  */
 
-/* Filet du spectre — sépare deux mouvements sans faire un trait de tableur. */
-.tm-rule {
-  height: 1px;
-  border: 0;
-  margin: 0;
-  background: linear-gradient(90deg, transparent, var(--tm-line-2) 18%, var(--tm-line-2) 82%, transparent);
-}
 
 /* ── Cartes et surfaces ──────────────────────────────────────────────────── */
 
@@ -681,21 +656,6 @@ html:has(.tm) {
   animation: tm-scan 1.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
-@keyframes tm-shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-}
-.tm-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--tm-surface-2) 25%,
-    var(--tm-surface-3) 50%,
-    var(--tm-surface-2) 75%
-  );
-  background-size: 200% 100%;
-  animation: tm-shimmer 1.5s linear infinite;
-}
-
 /* Respiration très lente d'un halo — 18 s, sous le seuil d'attention. */
 @keyframes tm-breathe {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.5; }
@@ -713,25 +673,12 @@ html:has(.tm) {
   animation: tm-float 13s ease-in-out infinite;
 }
 
-/* Impulsion le long d'un fil de connexion — le trajet de la donnée. */
-@keyframes tm-pulse-along {
-  0% { offset-distance: 0%; opacity: 0; }
-  12% { opacity: 1; }
-  88% { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
-}
-
 @keyframes tm-dash {
   to { stroke-dashoffset: -40; }
 }
 .tm-dash {
   stroke-dasharray: 3 7;
   animation: tm-dash 1.4s linear infinite;
-}
-
-/* Tracé qui se dessine (schéma de routage). */
-@keyframes tm-draw {
-  to { stroke-dashoffset: 0; }
 }
 
 @keyframes tm-marquee {
@@ -908,12 +855,10 @@ html:has(.tm) {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+/* Posée sur une <div> qui enveloppe le SVG, jamais sur un <g> : plusieurs
+ * navigateurs n'accélèrent pas les animations CSS des éléments SVG. */
 .tm-orbit-ring {
   animation: tm-orbit var(--dur, 44s) linear infinite;
-}
-/* Le nœud tourne dans l'autre sens à la même vitesse : il reste droit. */
-.tm-orbit-node {
-  animation: tm-orbit var(--dur, 44s) linear infinite reverse;
 }
 
 /* ── Barre de navigation ─────────────────────────────────────────────────── */
