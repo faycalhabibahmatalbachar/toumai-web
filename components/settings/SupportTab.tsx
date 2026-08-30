@@ -33,7 +33,7 @@ const SOCIALS = [
   { label: "Instagram", value: "@toumaiai", href: "https://www.instagram.com/toumaiai/", icon: <InstagramGlyph /> },
   { label: "TikTok", value: "@toumaiai", href: "https://www.tiktok.com/@toumaiai", icon: <TikTokGlyph /> },
   { label: "X (Twitter)", value: "@ToumaiAI", href: "https://x.com/ToumaiAI", icon: <XGlyph /> },
-  { label: "LinkedIn", value: "Toumaï AI", href: "https://www.linkedin.com/company/toumaiai", icon: <LinkedInGlyph /> },
+  { label: "LinkedIn", value: "Toumaï AI", href: "https://www.linkedin.com/company/toumai-ai", icon: <LinkedInGlyph /> },
   { label: "GitHub", value: "faycalhabibahmatalbachar", href: "https://github.com/faycalhabibahmatalbachar", icon: <GitHubGlyph /> },
 ];
 

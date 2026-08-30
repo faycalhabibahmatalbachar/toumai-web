@@ -195,7 +195,7 @@ const JSON_LD = JSON.stringify({
         "https://www.instagram.com/toumaiai/",
         "https://www.tiktok.com/@toumaiai",
         "https://www.facebook.com/profile.php?id=61591724459792",
-        "https://www.linkedin.com/company/toumaiai",
+        "https://www.linkedin.com/company/toumai-ai",
         "https://github.com/Toumai-AI",
       ],
     },

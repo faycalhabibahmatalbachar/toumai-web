@@ -32,7 +32,7 @@ import { Showcase } from "@/components/landing/Showcase";
 import { Everywhere } from "@/components/landing/Everywhere";
 import { Intelligence } from "@/components/landing/Intelligence";
 import { Connectors } from "@/components/landing/Connectors";
-import { Faq, FinalCta, Footer } from "@/components/landing/Closing";
+import { Faq, FinalCta, Footer, Partners } from "@/components/landing/Closing";
 import { RevealRoot } from "@/components/landing/primitives";
 import { LangProvider, useLang } from "@/lib/i18n/context";
 
@@ -73,6 +73,7 @@ function LandingContent() {
         <Intelligence />
         <Connectors />
         <Faq />
+        <Partners />
         <FinalCta />
       </main>
       <Footer />

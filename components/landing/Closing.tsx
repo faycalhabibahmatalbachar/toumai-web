@@ -62,6 +62,93 @@ export function Faq() {
   );
 }
 
+/* ── Partenaires, sponsors, collaborations ───────────────────────────────────
+ *
+ * PLACÉE AVANT L'APPEL À L'ACTION, PAS APRÈS.
+ *
+ * L'ordre n'est pas un détail de mise en page : une page qui demande de
+ * s'inscrire, puis demande de sponsoriser, dilue les deux demandes. Une page
+ * qui montre d'abord qu'on peut la soutenir, puis invite à l'essayer, garde une
+ * seule action finale. Le skill de conception le formule ainsi : la preuve
+ * sociale précède la conversion.
+ *
+ * PAS DE LOGOS DE PARTENAIRES TANT QU'IL N'Y EN A PAS.
+ *
+ * La tentation d'une rangée de logos gris « ils nous font confiance » est
+ * forte, et c'est exactement ce que la règle maison interdit : rien de simulé
+ * en production. La section appelle des partenaires ; elle n'en invente pas.
+ * Le jour où il y en aura, leurs logos viendront ici et cette note tombera.
+ *
+ * UN `mailto:` PLUTÔT QU'UN FORMULAIRE.
+ *
+ * Un formulaire suppose une route, un stockage, une modération, une réponse.
+ * Rien de tout cela n'existe pour ce besoin, et un formulaire qui n'aboutit
+ * nulle part est pire que pas de formulaire. Le lien pré-remplit l'objet, ce
+ * qui suffit à trier les demandes à l'arrivée.
+ */
+
+const PARTENAIRE_MAILTO =
+  "mailto:contact@toumaiai.com" +
+  "?subject=" +
+  encodeURIComponent("Partenariat / Sponsoring — Toumaï AI") +
+  "&body=" +
+  encodeURIComponent(
+    "Bonjour,\n\n" +
+      "Organisation : \n" +
+      "Type de collaboration envisagée (partenariat, sponsoring, intégration) : \n" +
+      "En quelques lignes : \n\n" +
+      "Merci,\n"
+  );
+
+export function Partners() {
+  const { t } = useLang();
+  return (
+    <section id="partenaires" className="tm-section scroll-mt-24">
+      <div className="tm-wrap">
+        <div
+          data-reveal="scale"
+          className="grid items-center gap-8 rounded-[var(--tm-radius-lg)] border px-6 py-10 sm:px-10 sm:py-12 lg:grid-cols-[1.7fr_1fr] lg:gap-12"
+          style={{ borderColor: "var(--tm-line-2)", background: "var(--tm-bg-2)" }}
+        >
+          <div>
+            <p className="tm-eyebrow">{t.partners.eyebrow}</p>
+            <h2 className="tm-display mt-4 max-w-[20ch] text-[clamp(1.6rem,3.6vw,2.5rem)]">
+              {t.partners.titleA} <em className="tm-em">{t.partners.titleEm}</em>
+            </h2>
+            <p className="tm-lead mt-4 max-w-[52ch] text-[15px]">{t.partners.lead}</p>
+
+            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[13px]" style={{ color: "var(--tm-ink-3)" }}>
+              {t.partners.kinds.map((k) => (
+                <li key={k} className="flex items-center gap-2">
+                  <span className="tm-dot" aria-hidden="true" />
+                  {k}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="lg:justify-self-end">
+            <a href={PARTENAIRE_MAILTO} className="tm-btn tm-btn-primary w-full sm:w-auto">
+              {t.partners.cta}
+              <span className="tm-arrow" aria-hidden="true">
+                <Icons.arrow size={17} />
+              </span>
+            </a>
+            {/* L'adresse est écrite en clair sous le bouton : un `mailto:` ne
+              * mène nulle part pour qui n'a pas de client de messagerie
+              * configuré — la majorité, sur un téléphone d'occasion. */}
+            <p className="mt-3 text-center text-[13px] lg:text-right" style={{ color: "var(--tm-ink-4)" }}>
+              <a href="mailto:contact@toumaiai.com" className="tm-link text-[13px]">
+                contact@toumaiai.com
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ── Appel à l'action ────────────────────────────────────────────────────── */
 
 export function FinalCta() {
@@ -176,7 +263,7 @@ const SOCIALS = [
   { label: "Instagram", href: "https://www.instagram.com/toumaiai/", icon: <InstagramIcon /> },
   { label: "TikTok", href: "https://www.tiktok.com/@toumaiai", icon: <TikTokIcon /> },
   { label: "X (Twitter)", href: "https://x.com/ToumaiAI", icon: <XIcon /> },
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/toumaiai", icon: <LinkedInIcon /> },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/toumai-ai", icon: <LinkedInIcon /> },
   { label: "GitHub", href: "https://github.com/Toumai-AI", icon: <GitHubIcon /> },
 ];
 

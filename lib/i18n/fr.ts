@@ -235,6 +235,8 @@ export const fr = {
   ],
 
   why: {
+    shotAlt:
+      "Toumaï AI sur téléphone : « J'ai 150 000 F CFA pour lancer un petit business à N'Djamena. Que me conseilles-tu ? » — la réponse détaille trois étapes, du choix du service à la répartition du budget.",
     eyebrow: "Pourquoi Toumaï AI",
     titleA: "Un assistant n'est utile que s'il vous",
     titleEm: "comprend vraiment.",
@@ -322,6 +324,8 @@ export const fr = {
   },
 
   intelligence: {
+    shotAlt:
+      "Le mode vocal de Toumaï AI : une sphère lumineuse qui pulse pendant l'échange, avec les commandes micro, appel et haut-parleur sous elle.",
     eyebrow: "L'intelligence derrière Toumaï",
     titleA: "Vous écrivez. Toumaï AI choisit",
     titleEm: "le bon moteur.",
@@ -421,6 +425,15 @@ export const fr = {
     ],
   },
 
+  partners: {
+    eyebrow: "Partenaires & sponsors",
+    titleA: "Construisons cette IA",
+    titleEm: "avec vous.",
+    lead:
+      "Toumaï AI est bâtie à N'Djamena, pour des usages d'ici. Entreprises, institutions, écoles, médias : écrivez-nous pour un partenariat, un sponsoring ou une intégration.",
+    kinds: ["Partenariat", "Sponsoring", "Intégration technique", "Recherche & données"],
+    cta: "Nous écrire",
+  },
   cta: {
     eyebrow: "Prêt en une phrase",
     titleA: "Dites-lui bonjour.",

@@ -99,20 +99,27 @@ export function Intelligence() {
           style={{ "--tm-delay": "120ms" } as React.CSSProperties}
           className="relative order-first lg:order-none"
         >
+          {/* Le prisme abstrait cède la place à l'écran vocal réel. Une image
+            * de synthèse ne prouve rien d'un produit ; une capture, si — et
+            * c'est la seule chose que cette colonne avait à faire. */}
           <picture>
             <source
               type="image/avif"
-              srcSet="/landing/prisme-800.avif 800w, /landing/prisme-1200.avif 1200w"
-              sizes="(min-width: 1024px) 440px, 92vw"
+              srcSet="/landing/voix-mobile-520.avif 520w, /landing/voix-mobile-760.avif 760w"
+              sizes="(min-width: 1024px) 320px, 66vw"
             />
             <img
-              src="/landing/prisme-800.avif"
-              alt=""
-              width={1672}
-              height={941}
+              src="/landing/voix-mobile-520.webp"
+              alt={t.intelligence.shotAlt}
+              width={1024}
+              height={1536}
               loading="lazy"
               decoding="async"
-              className="w-full select-none rounded-[var(--tm-radius-lg)]"
+              // Voir la note dans Why.tsx : les `max-w-[...]` arbitraires ne
+              // sont pas generes dans ce projet, le style en ligne est le seul
+              // qui prenne. La valeur suit celle de `sizes`.
+              className="mx-auto h-auto w-full select-none"
+              style={{ maxWidth: 320 }}
             />
           </picture>
         </div>

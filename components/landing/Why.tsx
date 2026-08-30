@@ -279,22 +279,53 @@ function Reason({
  * une description longue ici ne ferait que répéter à voix haute.
  */
 function LatticeArt() {
+  const { t } = useLang();
   return (
+    // UNE VRAIE CAPTURE, PAS UNE ILLUSTRATION.
+    //
+    // Ici se trouvait une image générée d'un marché. Elle décorait la promesse
+    // « il connaît le contexte d'ici » sans jamais la démontrer — et une
+    // illustration produite par une IA, placée sous une affirmation de terrain,
+    // se retourne contre elle dès qu'on la reconnaît comme telle.
+    //
+    // L'écran réel dit la même chose en la prouvant : la question porte sur
+    // 150 000 F CFA à N'Djamena, la réponse parle d'eau en sachet et de
+    // livraison à moto. Aucune illustration ne remplace ça.
+    //
+    // LA LARGEUR EST BORNÉE, PAS LA HAUTEUR.
+    //
+    // Première version : conteneur `flex` + `max-h`. Mesuré dans le navigateur,
+    // l'image sortait à 630×1119 au lieu de 520 de haut. `align-items: stretch`
+    // — le défaut de flex — étire l'image sur l'axe transversal, et `width:auto`
+    // suit le rapport d'aspect : la hauteur imposée était contredite avant
+    // d'être lue. Borner la LARGEUR ne se bat contre rien, et c'est aussi la
+    // valeur que `sizes` annonce au navigateur, donc les deux concordent.
     <div className="mt-5 overflow-hidden rounded-[var(--tm-radius)]">
       <picture>
         <source
           type="image/avif"
-          srcSet="/landing/marche-800.avif 800w, /landing/marche-1200.avif 1200w"
-          sizes="(min-width: 1024px) 620px, 92vw"
+          srcSet="/landing/chat-mobile-520.avif 520w, /landing/chat-mobile-760.avif 760w"
+          sizes="(min-width: 1024px) 300px, 62vw"
         />
         <img
-          src="/landing/marche-800.avif"
-          alt=""
-          width={1536}
-          height={1024}
+          src="/landing/chat-mobile-520.webp"
+          alt={t.why.shotAlt}
+          width={941}
+          height={1672}
           loading="lazy"
           decoding="async"
-          className="w-full select-none"
+          // LARGEUR EN STYLE EN LIGNE, ET CE N'EST PAS UNE FACILITE.
+          //
+          // Mesure dans la CSS construite : ce projet ne genere AUCUN
+          // utilitaire `max-w-[...]` arbitraire — zero occurrence — tandis que
+          // le Preflight de Tailwind pose bien `img,video{max-width:100%}`.
+          // La classe n'etait donc pas ecrasee : elle n'existait pas. Un
+          // `!important` sur une classe absente n'aurait rien change non plus.
+          //
+          // La valeur reprend celle annoncee dans `sizes` : les deux doivent
+          // concorder, sinon le navigateur telecharge la mauvaise variante.
+          className="mx-auto h-auto w-full select-none"
+          style={{ maxWidth: 300 }}
         />
       </picture>
     </div>

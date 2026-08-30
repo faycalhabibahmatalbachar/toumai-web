@@ -213,6 +213,8 @@ export const en: Dict = {
   ],
 
   why: {
+    shotAlt:
+      "Toumaï AI on a phone: “I have 150,000 CFA francs to start a small business in N'Djamena. What do you advise?” — the answer lays out three steps, from picking the service to splitting the budget.",
     eyebrow: "Why Toumaï AI",
     titleA: "An assistant is only useful if it truly",
     titleEm: "understands you.",
@@ -300,6 +302,8 @@ export const en: Dict = {
   },
 
   intelligence: {
+    shotAlt:
+      "Toumaï AI voice mode: a glowing orb pulsing through the exchange, with microphone, call and speaker controls beneath it.",
     eyebrow: "The intelligence behind Toumaï",
     titleA: "You type. Toumaï AI picks",
     titleEm: "the right engine.",
@@ -399,6 +403,15 @@ export const en: Dict = {
     ],
   },
 
+  partners: {
+    eyebrow: "Partners & sponsors",
+    titleA: "Let's build this AI",
+    titleEm: "with you.",
+    lead:
+      "Toumaï AI is built in N'Djamena, for uses from here. Companies, institutions, schools, media: write to us about a partnership, a sponsorship or an integration.",
+    kinds: ["Partnership", "Sponsorship", "Technical integration", "Research & data"],
+    cta: "Write to us",
+  },
   cta: {
     eyebrow: "One sentence away",
     titleA: "Say hello.",
