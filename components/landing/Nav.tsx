@@ -23,19 +23,24 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
+import { useLang } from "@/lib/i18n/context";
+import { LangSwitch } from "./LangSwitch";
 
 /* Les identifiants sont ceux de l'ancienne page : `#capacites`, `#modeles` et
  * `#contact` circulent déjà dans des liens externes. Une refonte ne casse pas
  * des ancres qui marchent. */
 const SECTIONS = [
-  { id: "capacites", label: "Capacités" },
-  { id: "pourquoi", label: "Pourquoi Toumaï" },
-  { id: "modeles", label: "Modèles" },
-  { id: "connecteurs", label: "Connecteurs" },
+  { id: "capacites", cle: "capacites" },
+  { id: "pourquoi", cle: "pourquoi" },
+  { id: "modeles", cle: "modeles" },
+  { id: "connecteurs", cle: "connecteurs" },
 ] as const;
+
+const SECTION_IDS: readonly string[] = SECTIONS.map((s) => s.id);
 
 export function Nav() {
   const { session, logout } = useAuth();
+  const { t } = useLang();
   const authed = Boolean(session && !session.is_guest);
 
   const [stuck, setStuck] = useState(false);
@@ -67,7 +72,7 @@ export function Nav() {
 
   /* Section courante — l'entrée la plus haute encore visible sous la barre. */
   useEffect(() => {
-    const els = SECTIONS.map((s) => document.getElementById(s.id)).filter(
+    const els = SECTION_IDS.map((id) => document.getElementById(id)).filter(
       (e): e is HTMLElement => Boolean(e),
     );
     if (els.length === 0 || typeof IntersectionObserver === "undefined") return;
@@ -104,7 +109,7 @@ export function Nav() {
     <header className="tm-nav" data-stuck={stuck}>
       <nav
         className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-4 px-[var(--tm-pad)] py-3.5"
-        aria-label="Navigation principale"
+        aria-label={t.nav.ariaMain}
       >
         <Link
           href="/"
@@ -124,7 +129,7 @@ export function Nav() {
               className="tm-navlink"
               data-active={active === s.id}
             >
-              {s.label}
+              {t.nav[s.cle]}
             </a>
           ))}
         </div>
@@ -134,6 +139,9 @@ export function Nav() {
            * contenait logo + thème + action + menu, et l'action débordait de
            * l'écran. Il reprend sa place dans le panneau mobile, où il a de la
            * largeur. */}
+          <span className="hidden sm:block">
+            <LangSwitch />
+          </span>
           <span className="hidden sm:block">
             <ThemeToggle />
           </span>
@@ -145,17 +153,17 @@ export function Nav() {
                 className="tm-navlink hidden sm:block"
                 style={{ background: "none", border: 0, cursor: "pointer" }}
               >
-                Déconnexion
+                {t.nav.logout}
               </button>
               <Link href="/chat" className="tm-btn tm-btn-primary tm-btn-sm">
-                <span className="sm:hidden">Ouvrir</span>
-                <span className="hidden sm:inline">Ouvrir Toumaï AI</span>
+                <span className="sm:hidden">{t.nav.openShort}</span>
+                <span className="hidden sm:inline">{t.nav.openApp}</span>
               </Link>
             </>
           ) : (
             <>
               <Link href="/login" className="tm-navlink hidden md:block">
-                Connexion
+                {t.nav.login}
               </Link>
               <Link
                 href="/chat"
@@ -164,8 +172,8 @@ export function Nav() {
               >
                 {/* Un seul lien, deux longueurs d'intitulé : sur un petit
                  * écran, « Essayer » suffit et laisse respirer le reste. */}
-                <span className="sm:hidden">Essayer</span>
-                <span className="hidden sm:inline">Essayer gratuitement</span>
+                <span className="sm:hidden">{t.nav.tryShort}</span>
+                <span className="hidden sm:inline">{t.nav.tryFree}</span>
               </Link>
             </>
           )}
@@ -177,10 +185,10 @@ export function Nav() {
             data-open={open}
             aria-expanded={open}
             aria-controls="tm-menu"
-            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-label={open ? t.nav.menuClose : t.nav.menuOpen}
             onClick={() => setOpen((v) => !v)}
           >
-            <span className="sr-only">Menu</span>
+            <span className="sr-only">{t.nav.menu}</span>
             <div aria-hidden="true">
               <span />
               <span />
@@ -210,7 +218,7 @@ export function Nav() {
               className="flex items-center justify-between border-b py-3.5 text-[15px]"
               style={{ borderColor: "var(--tm-line)", color: "var(--tm-ink-2)" }}
             >
-              {s.label}
+              {t.nav[s.cle]}
               <span aria-hidden="true" style={{ color: "var(--tm-ink-4)" }}>
                 →
               </span>
@@ -222,7 +230,7 @@ export function Nav() {
               onClick={() => setOpen(false)}
               className="tm-btn tm-btn-primary w-full"
             >
-              Essayer gratuitement
+              {t.nav.tryFree}
             </Link>
             {!authed && (
               <div className="flex gap-2.5">
@@ -231,14 +239,14 @@ export function Nav() {
                   onClick={() => setOpen(false)}
                   className="tm-btn tm-btn-ghost flex-1"
                 >
-                  Connexion
+                  {t.nav.login}
                 </Link>
                 <Link
                   href="/register"
                   onClick={() => setOpen(false)}
                   className="tm-btn tm-btn-ghost flex-1"
                 >
-                  Inscription
+                  {t.nav.register}
                 </Link>
               </div>
             )}
@@ -246,8 +254,15 @@ export function Nav() {
               className="mt-1 flex items-center justify-between border-t pt-4 text-[14px] sm:hidden"
               style={{ borderColor: "var(--tm-line)", color: "var(--tm-ink-3)" }}
             >
-              Apparence
+              {t.nav.appearance}
               <ThemeToggle />
+            </div>
+            <div
+              className="flex items-center justify-between border-t pt-4 text-[14px] sm:hidden"
+              style={{ borderColor: "var(--tm-line)", color: "var(--tm-ink-3)" }}
+            >
+              {t.nav.language}
+              <LangSwitch />
             </div>
           </div>
         </div>

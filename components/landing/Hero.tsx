@@ -23,10 +23,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { API_BASE } from "@/lib/config";
+import { useLang } from "@/lib/i18n/context";
 import { ConsoleDemo } from "./ConsoleDemo";
 import { Icons } from "./primitives";
 
 export function Hero() {
+  const { t } = useLang();
   return (
     <section className="relative isolate overflow-hidden px-[var(--tm-pad)] pb-16 pt-8 sm:pb-20 sm:pt-12 lg:pb-28 lg:pt-16">
       <HeroBackdrop />
@@ -37,7 +39,7 @@ export function Hero() {
           <div data-reveal className="flex justify-center lg:justify-start">
             <span className="tm-chip tm-chip-accent">
               <span className="tm-dot" aria-hidden="true" />
-              Conçu à N&apos;Djaména, pour le monde
+              {t.hero.badge}
             </span>
           </div>
 
@@ -46,8 +48,8 @@ export function Hero() {
             style={{ "--tm-delay": "60ms" } as React.CSSProperties}
             className="tm-display tm-h1 mx-auto mt-6 max-w-[13ch] lg:mx-0"
           >
-            Parlez comme{" "}
-            <em className="tm-em">chez vous.</em>
+            {t.hero.titleA}{" "}
+            <em className="tm-em">{t.hero.titleEm}</em>
           </h1>
 
           <p
@@ -55,9 +57,9 @@ export function Hero() {
             style={{ "--tm-delay": "140ms" } as React.CSSProperties}
             className="tm-lead mx-auto mt-6 max-w-[46ch] lg:mx-0"
           >
-            Toumaï AI comprend le français, l&apos;anglais et l&apos;arabe — y
-            compris <strong style={{ color: "var(--tm-ink)", fontWeight: 550 }}>l&apos;arabe tchadien</strong>,
-            celui qu&apos;on parle au marché, pas celui des manuels.
+            {t.hero.leadA}{" "}
+            <strong style={{ color: "var(--tm-ink)", fontWeight: 550 }}>{t.hero.leadStrong}</strong>
+            {t.hero.leadB}
           </p>
 
           <div
@@ -66,13 +68,13 @@ export function Hero() {
             className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start"
           >
             <Link href="/chat" className="tm-btn tm-btn-primary" data-cta="hero">
-              Commencer gratuitement
+              {t.hero.ctaPrimary}
               <span className="tm-arrow" aria-hidden="true">
                 <Icons.arrow size={17} />
               </span>
             </Link>
             <a href="#capacites" className="tm-btn tm-btn-ghost">
-              Voir Toumaï AI à l&apos;œuvre
+              {t.hero.ctaSecondary}
             </a>
           </div>
 
@@ -221,6 +223,7 @@ function fmtCompact(n: number): string {
  * dessous, la ligne de capacités suffit — elle, elle est toujours vraie.
  */
 function TrustLine() {
+  const { t } = useLang();
   const [stats, setStats] = useState<PublicStats | null>(null);
 
   useEffect(() => {
@@ -238,10 +241,10 @@ function TrustLine() {
 
   const counters: { value: string; label: string }[] = [];
   if (stats?.registered_users && stats.registered_users >= 100) {
-    counters.push({ value: `${fmtCompact(stats.registered_users)}+`, label: "inscrits" });
+    counters.push({ value: `${fmtCompact(stats.registered_users)}+`, label: t.hero.countRegistered });
   }
   if (stats?.conversations && stats.conversations >= 500) {
-    counters.push({ value: `${fmtCompact(stats.conversations)}+`, label: "conversations" });
+    counters.push({ value: `${fmtCompact(stats.conversations)}+`, label: t.hero.countConversations });
   }
 
   return (
@@ -266,20 +269,16 @@ function TrustLine() {
             </span>
           </span>
         ))}
-        {[
-          "Gratuit, sans carte bancaire",
-          "Web · WhatsApp · Android",
-          "Aucune revente de données",
-        ].map((t) => (
+        {t.hero.trust.map((ligne) => (
           <span
-            key={t}
+            key={ligne}
             className="flex items-center gap-1.5 text-[12.5px]"
             style={{ color: "var(--tm-ink-3)" }}
           >
             <span style={{ color: "var(--tm-terra-2)" }} aria-hidden="true">
               <Icons.check size={13} />
             </span>
-            {t}
+            {ligne}
           </span>
         ))}
       </div>

@@ -14,6 +14,7 @@
 
 import Link from "next/link";
 import { Icons, Waveform } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 /* ── Bandeau des langues ─────────────────────────────────────────────────── */
 
@@ -69,21 +70,20 @@ export function LangMarquee() {
 /* ── Pourquoi ────────────────────────────────────────────────────────────── */
 
 export function Why() {
+  const { t } = useLang();
   return (
     <section id="pourquoi" className="tm-section scroll-mt-24">
       <div className="tm-strata" aria-hidden="true" />
 
       <div className="tm-wrap">
         <header data-reveal className="max-w-3xl">
-          <p className="tm-eyebrow">Pourquoi Toumaï AI</p>
+          <p className="tm-eyebrow">{t.why.eyebrow}</p>
           <h2 className="tm-display tm-h2 mt-4">
-            Un assistant n&apos;est utile que s&apos;il vous{" "}
-            <em className="tm-em">comprend vraiment.</em>
+            {t.why.titleA}{" "}
+            <em className="tm-em">{t.why.titleEm}</em>
           </h2>
           <p className="tm-lead mt-4 max-w-[54ch]">
-            Les grands modèles parlent le monde entier. Peu d&apos;entre eux
-            savent ce qu&apos;on dit à Dembé un samedi matin, ni ce que veut
-            dire «&nbsp;il n&apos;y a pas de problème&nbsp;» quand ce n&apos;est pas vrai.
+            {t.why.lead}
           </p>
         </header>
 
@@ -92,8 +92,8 @@ export function Why() {
         <div className="mt-12 grid gap-4 lg:mt-16 lg:grid-cols-12 lg:gap-5">
           <Reason
             n="01"
-            title="Il connaît le contexte d'ici"
-            body="Les villes, les marchés, les administrations, les manières de dire. Une réponse juste ailleurs peut être inutile à N'Djaména — Toumaï AI est conçu à partir de ce contexte, pas malgré lui."
+            title={t.why.r1.title}
+            body={t.why.r1.body}
             className="lg:col-span-7"
             reveal="left"
           >
@@ -102,18 +102,13 @@ export function Why() {
 
           <Reason
             n="02"
-            title="Trois langues, dont la vôtre"
-            body="Français, anglais, arabe — et l'arabe tchadien, développé à partir d'un corpus collecté sur le terrain."
+            title={t.why.r2.title}
+            body={t.why.r2.body}
             className="lg:col-span-5"
             reveal="right"
           >
             <div className="mt-5 space-y-2.5">
-              {[
-                { w: "Bonjour", l: "Français" },
-                { w: "مرحبا", l: "العربية", rtl: true },
-                { w: "إنت كيف؟", l: "Arabe tchadien", rtl: true, hot: true },
-                { w: "Hello", l: "English" },
-              ].map((x) => (
+              {t.why.r2.rows.map((x) => (
                 <div key={x.l} className="flex items-baseline justify-between gap-3">
                   <span
                     dir={x.rtl ? "rtl" : undefined}
@@ -133,18 +128,20 @@ export function Why() {
 
           <Reason
             n="03"
-            title="Il voit, il lit, il écoute, il parle"
-            body="Une photo, un PDF, une note vocale, une question tapée à la volée : tout entre dans la même conversation."
+            title={t.why.r3.title}
+            body={t.why.r3.body}
             className="lg:col-span-5"
             reveal="left"
           >
             <div className="mt-5 flex items-end gap-3">
               {[
-                { icon: <Icons.image size={17} />, l: "Voir" },
-                { icon: <Icons.doc size={17} />, l: "Lire" },
-                { icon: <Icons.mic size={17} />, l: "Écouter" },
-                { icon: <Icons.chat size={17} />, l: "Parler" },
-              ].map((m, i) => (
+                <Icons.image key="i" size={17} />,
+                <Icons.doc key="d" size={17} />,
+                <Icons.mic key="m" size={17} />,
+                <Icons.chat key="c" size={17} />,
+              ]
+                .map((icon, idx) => ({ icon, l: t.why.r3.modes[idx] }))
+                .map((m, i) => (
                 <div key={m.l} className="flex-1 text-center">
                   <span
                     className="tm-float mx-auto grid h-11 w-full max-w-[54px] place-items-center rounded-xl"
@@ -172,15 +169,15 @@ export function Why() {
 
           <Reason
             n="04"
-            title="Il travaille là où vous travaillez déjà"
-            body="Sur le Web, dans WhatsApp, sur Android. Et il se branche à votre messagerie et à votre agenda — capacité par capacité, révocable à tout moment."
+            title={t.why.r4.title}
+            body={t.why.r4.body}
             className="lg:col-span-7"
             reveal="right"
           >
             <div className="mt-5 flex flex-wrap gap-2">
-              {["Web", "WhatsApp", "Android", "E-mail", "Google Agenda", "Agent Navigateur"].map((t) => (
-                <span key={t} className="tm-chip">
-                  {t}
+              {t.why.r4.chips.map((puce) => (
+                <span key={puce} className="tm-chip">
+                  {puce}
                 </span>
               ))}
             </div>
@@ -195,24 +192,21 @@ export function Why() {
         >
           <div>
             <p className="tm-display text-[clamp(1.6rem,3.2vw,2.3rem)]">
-              Gratuit. <em className="tm-em">Sans carte bancaire.</em>
+              {t.why.freeA} <em className="tm-em">{t.why.freeEm}</em>
             </p>
             <p className="mt-2.5 text-[13.5px] leading-relaxed" style={{ color: "var(--tm-ink-3)" }}>
-              Le chat, les images, la voix, les agents et les connecteurs :
-              tout est ouvert, sans abonnement ni période d&apos;essai.
+              {t.why.freeBody}
             </p>
           </div>
           <div>
             <p className="tm-display text-[clamp(1.6rem,3.2vw,2.3rem)]">
-              Vos conversations{" "}
-              <em className="tm-em">ne sont pas à vendre.</em>
+              {t.why.privacyA}{" "}
+              <em className="tm-em">{t.why.privacyEm}</em>
             </p>
             <p className="mt-2.5 text-[13.5px] leading-relaxed" style={{ color: "var(--tm-ink-3)" }}>
-              Aucune revente de données, aucune publicité ciblée à partir de ce
-              que vous écrivez. Vous supprimez vos conversations quand vous
-              voulez.{" "}
+              {t.why.privacyBody}{" "}
               <Link href="/privacy" className="tm-link text-[13.5px]">
-                Politique de confidentialité
+                {t.why.privacyLink}
               </Link>
             </p>
           </div>
@@ -223,13 +217,13 @@ export function Why() {
          * demandé de faire confiance avant d'avoir de quoi. */}
         <div data-reveal className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link href="/chat" className="tm-btn tm-btn-primary" data-cta="why">
-            Essayer maintenant
+            {t.why.ctaLabel}
             <span className="tm-arrow" aria-hidden="true">
               <Icons.arrow size={17} />
             </span>
           </Link>
           <span className="text-[13px]" style={{ color: "var(--tm-ink-4)" }}>
-            Aucun compte requis pour commencer.
+            {t.why.ctaNote}
           </span>
         </div>
       </div>

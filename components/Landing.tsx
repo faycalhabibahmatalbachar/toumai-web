@@ -34,16 +34,34 @@ import { Intelligence } from "@/components/landing/Intelligence";
 import { Connectors } from "@/components/landing/Connectors";
 import { Faq, FinalCta, Footer } from "@/components/landing/Closing";
 import { RevealRoot } from "@/components/landing/primitives";
+import { LangProvider, useLang } from "@/lib/i18n/context";
 
+/**
+ * Le fournisseur de langue enveloppe TOUTE la vitrine.
+ *
+ * Il porte aussi `dir` : en arabe, ce n'est pas une traduction posée sur une
+ * mise en page latine, c'est la page qui se retourne. Le poser ici plutôt que
+ * sur <html> laisse le reste du site — le chat, les pages légales — dans son
+ * sens de lecture, tant qu'il n'est pas traduit lui aussi.
+ */
 export function Landing() {
   return (
-    <div className="tm flex flex-1 flex-col">
+    <LangProvider>
+      <LandingContent />
+    </LangProvider>
+  );
+}
+
+function LandingContent() {
+  const { t, dir, lang } = useLang();
+  return (
+    <div className="tm flex flex-1 flex-col" dir={dir} lang={lang}>
       <RevealRoot />
       {/* Au clavier, c'est le tout premier arrêt : il saute la navigation et
        * dépose directement dans le contenu. Invisible tant qu'il n'a pas le
        * focus. */}
       <a href="#contenu" className="tm-skip tm-btn tm-btn-primary tm-btn-sm">
-        Aller au contenu
+        {t.nav.skip}
       </a>
       <Nav />
       <main id="contenu" tabIndex={-1}>

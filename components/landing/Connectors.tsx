@@ -20,6 +20,7 @@
 
 import Link from "next/link";
 import { Icons, useInView, useReducedMotion } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 const CONNECTORS = [
   {
@@ -49,6 +50,7 @@ const CONNECTORS = [
 ];
 
 export function Connectors() {
+  const { t } = useLang();
   // Les impulsions du moyeu sont des animations SVG déclaratives (SMIL). La
   // porte d'animation générale ne les atteint pas — `animation-play-state` ne
   // gouverne que le CSS. On les retire donc du DOM quand personne ne regarde.
@@ -59,15 +61,13 @@ export function Connectors() {
     <section id="connecteurs" className="tm-section scroll-mt-24" ref={ref}>
       <div className="tm-wrap">
         <header data-reveal className="max-w-2xl">
-          <p className="tm-eyebrow">Connecteurs</p>
+          <p className="tm-eyebrow">{t.connectors.eyebrow}</p>
           <h2 className="tm-display tm-h2 mt-4">
-            Il ne se contente pas de répondre.{" "}
-            <em className="tm-em">Il agit.</em>
+            {t.connectors.titleA}{" "}
+            <em className="tm-em">{t.connectors.titleEm}</em>
           </h2>
           <p className="tm-lead mt-4 max-w-[52ch]">
-            Branchez vos outils et demandez en une phrase ce qui vous prenait
-            cinq applications. Chaque capacité s&apos;active — et se coupe —
-            séparément.
+            {t.connectors.lead}
           </p>
         </header>
 
@@ -77,7 +77,7 @@ export function Connectors() {
           </div>
 
           <div data-reveal="right" className="order-1 space-y-3 lg:order-2">
-            {CONNECTORS.map((c) => (
+            {CONNECTORS.map((c, i) => (
               <article
                 key={c.name}
                 className="tm-card tm-card-hover tm-lit p-5 sm:p-6"
@@ -96,14 +96,14 @@ export function Connectors() {
                   <div className="min-w-0">
                     <h3 className="text-[15px] font-semibold">{c.name}</h3>
                     <p className="text-[11.5px]" style={{ color: "var(--tm-ink-4)" }}>
-                      Service de {c.owner}
+                      {t.connectors.serviceOf(c.owner)}
                     </p>
                   </div>
-                  <span className="tm-chip ml-auto shrink-0 text-[10.5px]">Disponible</span>
+                  <span className="tm-chip ml-auto shrink-0 text-[10.5px]">{t.connectors.available}</span>
                 </div>
 
                 <ul className="mt-4 grid gap-1.5 sm:grid-cols-3">
-                  {c.does.map((d) => (
+                  {(t.connectors.items[i]?.does ?? c.does).map((d) => (
                     <li
                       key={d}
                       className="flex items-start gap-2 text-[12.5px] leading-snug"
@@ -128,12 +128,9 @@ export function Connectors() {
                   <Icons.shield size={15} />
                 </span>
                 <span>
-                  Une action qui envoie, publie ou modifie quelque chose vous est
-                  toujours soumise avant d&apos;être faite. Vous pouvez restreindre
-                  l&apos;accès à des contacts précis, et retirer une autorisation à
-                  tout moment.{" "}
+                  {t.connectors.safety}{" "}
                   <Link href="/settings?tab=connectors" className="tm-link text-[13px]">
-                    Gérer mes connecteurs
+                    {t.connectors.manage}
                     <span className="tm-arrow" aria-hidden="true">
                       <Icons.arrow size={14} />
                     </span>
@@ -143,9 +140,7 @@ export function Connectors() {
             </div>
 
             <p className="text-[11.5px] leading-relaxed" style={{ color: "var(--tm-ink-4)" }}>
-              WhatsApp est une marque de Meta ; Gmail et Google Agenda, de Google.
-              Toumaï AI s&apos;y connecte avec votre autorisation, sans aucun lien
-              de partenariat avec ces entreprises.
+              {t.connectors.trademark}
             </p>
           </div>
         </div>
