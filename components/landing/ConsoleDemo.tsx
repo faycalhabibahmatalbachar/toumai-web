@@ -30,18 +30,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamed, Thinking, Waveform, useInView, useReducedMotion } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 type SceneId = "fr" | "shu" | "image" | "voice" | "agent";
 
-const SCENES: { id: SceneId; tab: string; ms: number }[] = [
-  { id: "fr", tab: "Conversation", ms: 7600 },
-  { id: "shu", tab: "Arabe tchadien", ms: 8600 },
-  { id: "image", tab: "Image", ms: 7800 },
-  { id: "voice", tab: "Voix", ms: 7200 },
-  { id: "agent", tab: "Agent Navigateur", ms: 9200 },
+const SCENES: { id: SceneId; ms: number }[] = [
+  { id: "fr", ms: 7600 },
+  { id: "shu", ms: 8600 },
+  { id: "image", ms: 7800 },
+  { id: "voice", ms: 7200 },
+  { id: "agent", ms: 9200 },
 ];
 
 export function ConsoleDemo() {
+  const { t } = useLang();
   const { ref, inView } = useInView<HTMLDivElement>("0px 0px -8% 0px");
   const reduced = useReducedMotion();
   const [i, setI] = useState(0);
@@ -102,7 +104,7 @@ export function ConsoleDemo() {
           onClick={() => setHeld((v) => !v)}
           className="ml-auto flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] transition-colors hover:text-[var(--tm-ink-2)]"
           style={{ color: "var(--tm-ink-4)" }}
-          aria-label={held ? "Reprendre la démonstration" : "Mettre la démonstration en pause"}
+          aria-label={held ? t.console.resume : t.console.pause}
         >
           <span aria-hidden="true">
             {held ? (
@@ -116,7 +118,7 @@ export function ConsoleDemo() {
               </svg>
             )}
           </span>
-          {held ? "En pause" : "En direct"}
+          {held ? t.console.paused : t.console.live}
         </button>
       </div>
 
@@ -145,14 +147,14 @@ export function ConsoleDemo() {
             role="tab"
             type="button"
             aria-selected={idx === i}
-            aria-label={`Scène ${idx + 1} sur ${SCENES.length} : ${s.tab}`}
+            aria-label={t.console.sceneAria(idx + 1, SCENES.length, t.console.tabs[s.id])}
             className="tm-tab px-2"
             onClick={() => {
               go(idx);
               setHeld(true);
             }}
           >
-            {s.tab}
+            {t.console.tabs[s.id]}
             {idx === i && !held && !reduced && inView && (
               <span
                 aria-hidden="true"
@@ -232,16 +234,16 @@ function At({
 }
 
 function SceneFr({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col gap-3.5">
       <UserBubble delay={120} still={still}>
-        Rédige un message pour annoncer l&apos;ouverture de ma boutique samedi à
-        N&apos;Djaména.
+        {t.console.fr.ask}
       </UserBubble>
 
       <At ms={900} still={still} className="flex items-center gap-2 text-[12px]">
         <Thinking />
-        <span style={{ color: "var(--tm-ink-4)" }}>Sao 4 rédige…</span>
+        <span style={{ color: "var(--tm-ink-4)" }}>{t.console.fr.thinking}</span>
       </At>
 
       <div className="text-[13.5px] leading-[1.65]" style={{ color: "var(--tm-ink-2)" }}>
@@ -249,12 +251,12 @@ function SceneFr({ still }: { still: boolean }) {
           delay={1700}
           still={still}
           speed={40}
-          text="Grande ouverture samedi ! Venez découvrir notre boutique au marché de Dembé dès 9 h — offres de lancement toute la journée."
+          text={t.console.fr.answer}
         />
       </div>
 
       <At ms={4600} still={still} className="mt-auto flex flex-wrap gap-1.5">
-        {["Plus court", "En arabe", "Version WhatsApp"].map((s) => (
+        {t.console.fr.chips.map((s) => (
           <span key={s} className="tm-chip text-[11.5px]">
             {s}
           </span>
@@ -265,15 +267,16 @@ function SceneFr({ still }: { still: boolean }) {
 }
 
 function SceneShu({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col gap-3">
       <UserBubble delay={120} still={still}>
-        Comment on dit «&nbsp;Comment vas-tu aujourd&apos;hui&nbsp;?&nbsp;» en arabe tchadien&nbsp;?
+        {t.console.shu.ask}
       </UserBubble>
 
       <At ms={900} still={still} className="flex items-center gap-2 text-[12px]">
         <Thinking />
-        <span style={{ color: "var(--tm-ink-4)" }}>Recherche dans le parler tchadien…</span>
+        <span style={{ color: "var(--tm-ink-4)" }}>{t.console.shu.thinking}</span>
       </At>
 
       {/* Bloc de réponse en écriture arabe : il s'aligne à droite, et la
@@ -298,7 +301,7 @@ function SceneShu({ still }: { still: boolean }) {
           delay={2600}
           still={still}
           speed={38}
-          text="C'est la formulation du quotidien. L'arabe littéraire dirait « كيف حالك اليوم؟ » — correct, mais personne ne parle comme ça au marché de N'Djaména."
+          text={t.console.shu.answer}
         />
       </div>
 
@@ -312,15 +315,16 @@ function SceneShu({ still }: { still: boolean }) {
 }
 
 function SceneImage({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col gap-3">
       <UserBubble delay={120} still={still}>
-        Dessine les dunes du Sahara au crépuscule, en très grand format.
+        {t.console.image.ask}
       </UserBubble>
 
       <At ms={900} still={still} className="flex items-center gap-2 text-[12px]">
         <Thinking />
-        <span style={{ color: "var(--tm-ink-4)" }}>Ennedi compose l&apos;image…</span>
+        <span style={{ color: "var(--tm-ink-4)" }}>{t.console.image.thinking}</span>
       </At>
 
       <At ms={1500} still={still} className="relative min-h-0 flex-1 overflow-hidden rounded-xl">
@@ -328,7 +332,7 @@ function SceneImage({ still }: { still: boolean }) {
           <source srcSet="/landing/showcase.avif" type="image/avif" />
           <img
             src="/landing/showcase.webp"
-            alt="Dunes du Sahara au crépuscule — image générée par Toumaï AI, signée en bas à droite"
+            alt={t.console.image.alt}
             width={760}
             height={570}
             loading="lazy"
@@ -350,14 +354,15 @@ function SceneImage({ still }: { still: boolean }) {
       </At>
 
       <At ms={4800} still={still} className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-        <span style={{ color: "var(--tm-ink-4)" }}>Image générée par Toumaï AI</span>
-        <span className="tm-chip text-[10.5px]">Signature intégrée</span>
+        <span style={{ color: "var(--tm-ink-4)" }}>{t.console.image.caption}</span>
+        <span className="tm-chip text-[10.5px]">{t.console.image.chip}</span>
       </At>
     </div>
   );
 }
 
 function SceneVoice({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
       <At ms={100} still={still} className="relative">
@@ -376,7 +381,7 @@ function SceneVoice({ still }: { still: boolean }) {
             delay={900}
             still={still}
             speed={52}
-            text="Rappelle-moi ce qu'on a décidé hier pour la livraison."
+            text={t.console.voice.ask}
           />
           &nbsp;»
         </p>
@@ -388,20 +393,23 @@ function SceneVoice({ still }: { still: boolean }) {
           style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)", color: "var(--tm-ink-2)" }}
         >
           <span className="tm-mono mb-1.5 block text-[10px]" style={{ color: "var(--tm-ink-4)" }}>
-            KANEM FLASH · RÉPOND À VOIX HAUTE
+            {t.console.voice.engine}
           </span>
           <Streamed
             delay={3500}
             still={still}
             speed={44}
-            text="Livraison le vendredi matin, paiement à la remise. Je vous le remets par écrit ?"
+            text={t.console.voice.answer}
           />
         </div>
       </At>
 
       <At ms={5400} still={still} className="flex flex-wrap items-center justify-center gap-2 text-[11px]">
-        <span className="tm-chip text-[10.5px]">Coupez-la quand vous voulez</span>
-        <span className="tm-chip text-[10.5px]">Mains libres</span>
+        {t.console.voice.chips.map((c) => (
+          <span key={c} className="tm-chip text-[10.5px]">
+            {c}
+          </span>
+        ))}
       </At>
     </div>
   );
@@ -415,10 +423,11 @@ const AGENT_STEPS = [
 ];
 
 function SceneAgent({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col gap-3">
       <UserBubble delay={120} still={still}>
-        Trouve les horaires du vol N&apos;Djaména → Abéché de vendredi.
+        {t.console.agent.ask}
       </UserBubble>
 
       <At ms={800} still={still}>
@@ -439,7 +448,7 @@ function SceneAgent({ still }: { still: boolean }) {
               className="tm-mono ml-1 flex-1 truncate rounded px-2 py-0.5 text-[10px]"
               style={{ background: "var(--tm-bg)", color: "var(--tm-ink-4)" }}
             >
-              recherche en cours…
+              {t.console.agent.searching}
             </span>
           </div>
         </div>
@@ -471,7 +480,7 @@ function SceneAgent({ still }: { still: boolean }) {
           className="rounded-xl border px-3.5 py-2.5 text-[12.5px]"
           style={{ borderColor: "var(--tm-accent-line)", background: "var(--tm-accent-soft)", color: "var(--tm-ink-2)" }}
         >
-          Toute action qui engage quelque chose vous est soumise avant d&apos;être faite.
+          {t.console.agent.note}
         </div>
       </At>
     </div>
