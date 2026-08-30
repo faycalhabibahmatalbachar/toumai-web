@@ -183,8 +183,10 @@ function Frame({
 }
 
 function WebDevice() {
+  const { t } = useLang();
+  const d = t.everywhere.devices;
   return (
-    <Frame label="Toumaï AI ouvert dans un navigateur : une question en français, une réponse qui commence en arabe tchadien">
+    <Frame label={d.web}>
       <div className="tm-console-bar">
         {[0, 1, 2].map((d) => (
           <span key={d} className="h-[7px] w-[7px] rounded-full" style={{ background: "var(--tm-line-2)" }} />
@@ -205,7 +207,7 @@ function WebDevice() {
             className="mb-2 rounded-md px-2 py-1.5 text-[9.5px]"
             style={{ background: "var(--tm-surface-3)", color: "var(--tm-ink-3)" }}
           >
-            + Nouvelle
+            {d.newChat}
           </div>
           {[92, 78, 86, 64].map((w, i) => (
             <div
@@ -216,7 +218,7 @@ function WebDevice() {
           ))}
         </div>
         <div className="flex min-w-0 flex-1 flex-col p-3.5">
-          <div className="tm-bubble text-[11.5px]">Traduis ça en arabe tchadien.</div>
+          <div className="tm-bubble text-[11.5px]">{d.translate}</div>
           <p dir="rtl" lang="ar" className="tm-display mt-3 text-[1.35rem]" style={{ color: "var(--tm-amber)" }}>
             إنت كيف اليوم؟
           </p>
@@ -229,9 +231,9 @@ function WebDevice() {
             className="mt-auto flex items-center gap-2 rounded-full border px-3 py-2 text-[10.5px]"
             style={{ borderColor: "var(--tm-line)", color: "var(--tm-ink-4)" }}
           >
-            Écrivez à Toumaï AI…
+            {d.composer}
             <span
-              className="ml-auto grid h-5 w-5 place-items-center rounded-full text-[10px]"
+              className="ms-auto grid h-5 w-5 place-items-center rounded-full text-[10px]"
               style={{ background: "var(--tm-solid)", color: "var(--tm-solid-ink)" }}
             >
               ↑
@@ -244,8 +246,10 @@ function WebDevice() {
 }
 
 function WhatsAppDevice() {
+  const { t } = useLang();
+  const d = t.everywhere.devices;
   return (
-    <Frame phone label="Un échange avec Toumaï AI dans une conversation WhatsApp, sur téléphone">
+    <Frame phone label={d.whatsapp}>
       <div
         className="flex items-center gap-2 px-3.5 py-3"
         style={{ borderBottom: "1px solid var(--tm-line)", background: "var(--tm-surface)" }}
@@ -260,31 +264,30 @@ function WhatsAppDevice() {
         <span className="min-w-0">
           <span className="block truncate text-[11.5px] font-medium">Toumaï AI</span>
           <span className="block text-[9.5px]" style={{ color: "var(--tm-ink-4)" }}>
-            en ligne
+            {d.online}
           </span>
         </span>
       </div>
       <div className="flex h-[300px] flex-col gap-2 p-3">
-        <span className="tm-bubble text-[11px]">Résume-moi le message vocal d&apos;Ahmat.</span>
+        <span className="tm-bubble text-[11px]">{d.waAsk}</span>
         <span
           className="w-fit max-w-[86%] rounded-[14px_14px_14px_4px] border px-3 py-2 text-[11px] leading-snug"
           style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface-2)", color: "var(--tm-ink-2)" }}
         >
-          Il confirme la livraison de vendredi et demande une facture au nom de
-          la coopérative.
+          {d.waAnswer}
         </span>
-        <span className="tm-bubble text-[11px]">Réponds-lui d&apos;accord.</span>
+        <span className="tm-bubble text-[11px]">{d.waAsk2}</span>
         <span
           className="w-fit max-w-[86%] rounded-[14px_14px_14px_4px] border px-3 py-2 text-[11px] leading-snug"
           style={{ borderColor: "var(--tm-accent-line)", background: "var(--tm-accent-soft)", color: "var(--tm-ink-2)" }}
         >
-          Message prêt. Je l&apos;envoie ?
+          {d.waAnswer2}
         </span>
         <span
           className="mt-auto rounded-full border px-3 py-2 text-[10px]"
           style={{ borderColor: "var(--tm-line)", color: "var(--tm-ink-4)" }}
         >
-          Message
+          {d.message}
         </span>
       </div>
     </Frame>
@@ -292,8 +295,10 @@ function WhatsAppDevice() {
 }
 
 function PhoneDevice() {
+  const { t } = useLang();
+  const d = t.everywhere.devices;
   return (
-    <Frame phone label="L'application Toumaï AI sur Android : accueil, suggestions et mode vocal">
+    <Frame phone label={d.mobile}>
       <div className="flex h-[352px] flex-col p-4">
         <div className="flex items-center justify-between">
           <span className="text-[12px] font-semibold">Toumaï AI</span>
@@ -301,14 +306,14 @@ function PhoneDevice() {
         </div>
 
         <div className="mt-7 text-center">
-          <p className="tm-display text-[1.5rem]">Bonsoir.</p>
+          <p className="tm-display text-[1.5rem]">{d.greeting}</p>
           <p className="mt-1 text-[10.5px]" style={{ color: "var(--tm-ink-4)" }}>
-            Par quoi commence-t-on ?
+            {d.greetingSub}
           </p>
         </div>
 
         <div className="mt-6 space-y-2">
-          {["Traduire en arabe tchadien", "Résumer un document", "Générer une image"].map((s) => (
+          {d.suggestions.map((s) => (
             <div
               key={s}
               className="rounded-xl border px-3 py-2.5 text-[10.5px]"
@@ -324,7 +329,7 @@ function PhoneDevice() {
             className="flex-1 rounded-full border px-3 py-2 text-[10px]"
             style={{ borderColor: "var(--tm-line)", color: "var(--tm-ink-4)" }}
           >
-            Message
+            {d.message}
           </span>
           <span
             className="grid h-8 w-8 shrink-0 place-items-center rounded-full"

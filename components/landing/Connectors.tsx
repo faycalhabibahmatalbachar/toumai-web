@@ -22,31 +22,14 @@ import Link from "next/link";
 import { Icons, useInView, useReducedMotion } from "./primitives";
 import { useLang } from "@/lib/i18n/context";
 
+/* Ce tableau ne porte plus que ce qui NE SE TRADUIT PAS : le propriétaire de
+ * la marque, le tracé du logo, sa couleur officielle, et l'angle du nœud sur
+ * le moyeu. Le nom affiché et les capacités viennent du dictionnaire — en
+ * arabe, « WhatsApp » s'écrit « واتساب ». */
 const CONNECTORS = [
-  {
-    name: "WhatsApp",
-    owner: "Meta",
-    icon: <WhatsAppMark />,
-    color: "#25D366",
-    does: ["Lire et résumer un fil", "Rédiger et envoyer un message", "Retrouver une information"],
-    angle: -118,
-  },
-  {
-    name: "E-mail",
-    owner: "Google",
-    icon: <GmailMark />,
-    color: "#EA4335",
-    does: ["Trier la boîte de réception", "Rédiger une réponse", "Retrouver une pièce jointe"],
-    angle: 0,
-  },
-  {
-    name: "Google Agenda",
-    owner: "Google",
-    icon: <CalendarMark />,
-    color: "#4285F4",
-    does: ["Consulter la journée", "Créer un rendez-vous", "Déplacer un créneau"],
-    angle: 118,
-  },
+  { owner: "Meta", icon: <WhatsAppMark />, color: "#25D366", angle: -118 },
+  { owner: "Google", icon: <GmailMark />, color: "#EA4335", angle: 0 },
+  { owner: "Google", icon: <CalendarMark />, color: "#4285F4", angle: 118 },
 ];
 
 export function Connectors() {
@@ -79,7 +62,7 @@ export function Connectors() {
           <div data-reveal="right" className="order-1 space-y-3 lg:order-2">
             {CONNECTORS.map((c, i) => (
               <article
-                key={c.name}
+                key={c.owner + i}
                 className="tm-card tm-card-hover tm-lit p-5 sm:p-6"
               >
                 <div className="flex items-center gap-3">
@@ -94,16 +77,16 @@ export function Connectors() {
                     {c.icon}
                   </span>
                   <div className="min-w-0">
-                    <h3 className="text-[15px] font-semibold">{c.name}</h3>
+                    <h3 className="text-[15px] font-semibold">{t.connectors.items[i].name}</h3>
                     <p className="text-[11.5px]" style={{ color: "var(--tm-ink-4)" }}>
                       {t.connectors.serviceOf(c.owner)}
                     </p>
                   </div>
-                  <span className="tm-chip ml-auto shrink-0 text-[10.5px]">{t.connectors.available}</span>
+                  <span className="tm-chip ms-auto shrink-0 text-[10.5px]">{t.connectors.available}</span>
                 </div>
 
                 <ul className="mt-4 grid gap-1.5 sm:grid-cols-3">
-                  {(t.connectors.items[i]?.does ?? c.does).map((d) => (
+                  {t.connectors.items[i].does.map((d) => (
                     <li
                       key={d}
                       className="flex items-start gap-2 text-[12.5px] leading-snug"
@@ -159,6 +142,7 @@ export function Connectors() {
  * marque.
  */
 function Hub({ live }: { live: boolean }) {
+  const { t } = useLang();
   const R = 128;
   const center = 170;
 
@@ -212,7 +196,7 @@ function Hub({ live }: { live: boolean }) {
           const y = center + Math.sin(rad) * R;
           const d = `M${center} ${center} L${x} ${y}`;
           return (
-            <g key={c.name}>
+            <g key={c.owner + i}>
               <path d={d} stroke="var(--tm-line-2)" strokeWidth="1" fill="none" />
               {live && (
                 <circle r="3" fill={c.color}>
@@ -251,13 +235,13 @@ function Hub({ live }: { live: boolean }) {
       </div>
 
       {/* Les trois nœuds */}
-      {CONNECTORS.map((c) => {
+      {CONNECTORS.map((c, i) => {
         const rad = (c.angle * Math.PI) / 180;
         const left = 50 + (Math.cos(rad) * R * 100) / 340;
         const top = 50 + (Math.sin(rad) * R * 100) / 340;
         return (
           <div
-            key={c.name}
+            key={c.owner + i}
             className="absolute -translate-x-1/2 -translate-y-1/2 text-center"
             style={{ left: `${left}%`, top: `${top}%` }}
           >
@@ -272,7 +256,7 @@ function Hub({ live }: { live: boolean }) {
               {c.icon}
             </span>
             <span className="mt-1.5 block whitespace-nowrap text-[10.5px]" style={{ color: "var(--tm-ink-4)" }}>
-              {c.name}
+              {t.connectors.items[i].name}
             </span>
           </div>
         );

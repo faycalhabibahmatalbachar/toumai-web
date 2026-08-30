@@ -62,7 +62,7 @@ export const fr = {
     ctaSecondary: "Voir Toumaï AI à l'œuvre",
     countRegistered: "inscrits",
     countConversations: "conversations",
-    trust: ["Gratuit, sans carte bancaire", "Web · WhatsApp · Android", "Aucune revente de données"],
+    trust: ["Gratuit, sans carte bancaire", "Web et WhatsApp, sans installation", "Aucune revente de données"],
     heroImgAlt: "",
   },
 
@@ -261,8 +261,8 @@ export const fr = {
     },
     r4: {
       title: "Il travaille là où vous travaillez déjà",
-      body: "Sur le Web, dans WhatsApp, sur Android. Et il se branche à votre messagerie et à votre agenda — capacité par capacité, révocable à tout moment.",
-      chips: ["Web", "WhatsApp", "Android", "E-mail", "Google Agenda", "Agent Navigateur"],
+      body: "Sur le Web, dans WhatsApp, et bientôt sur Android. Et il se branche à votre messagerie et à votre agenda — capacité par capacité, révocable à tout moment.",
+      chips: ["Web", "WhatsApp", "E-mail", "Google Agenda", "Agent Navigateur", "Android — bientôt"],
     },
     freeA: "Gratuit.",
     freeEm: "Sans carte bancaire.",
@@ -428,7 +428,7 @@ export const fr = {
     lead: "Gratuit, sans carte bancaire, sans installation. Ouvrez et posez votre première question.",
     primary: "Commencer gratuitement",
     secondary: "Créer un compte",
-    notes: ["Français · العربية · English", "Web · WhatsApp · Android", "Conversations supprimables"],
+    notes: ["Français · العربية · English", "Web et WhatsApp, sans installation", "Conversations supprimables"],
   },
 
   footer: {

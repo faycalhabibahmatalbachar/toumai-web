@@ -41,7 +41,7 @@ export const en: Dict = {
     ctaSecondary: "See Toumaï AI at work",
     countRegistered: "sign-ups",
     countConversations: "conversations",
-    trust: ["Free, no card required", "Web · WhatsApp · Android", "Your data is never sold"],
+    trust: ["Free, no card required", "Web and WhatsApp, nothing to install", "Your data is never sold"],
     heroImgAlt: "",
   },
 
@@ -239,8 +239,8 @@ export const en: Dict = {
     },
     r4: {
       title: "It works where you already work",
-      body: "On the web, inside WhatsApp, on Android. And it plugs into your inbox and your calendar — one capability at a time, revocable whenever you want.",
-      chips: ["Web", "WhatsApp", "Android", "Email", "Google Calendar", "Browser Agent"],
+      body: "On the web, inside WhatsApp, and soon on Android. And it plugs into your inbox and your calendar — one capability at a time, revocable whenever you want.",
+      chips: ["Web", "WhatsApp", "Email", "Google Calendar", "Browser Agent", "Android — soon"],
     },
     freeA: "Free.",
     freeEm: "No card required.",
@@ -406,7 +406,7 @@ export const en: Dict = {
     lead: "Free, no card, nothing to install. Open it and ask your first question.",
     primary: "Start for free",
     secondary: "Create an account",
-    notes: ["Français · العربية · English", "Web · WhatsApp · Android", "Conversations you can delete"],
+    notes: ["Français · العربية · English", "Web and WhatsApp, nothing to install", "Conversations you can delete"],
   },
 
   footer: {

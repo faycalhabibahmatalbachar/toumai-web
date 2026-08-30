@@ -74,7 +74,7 @@ export function ConsoleDemo() {
       // d'écran reçoivent le résumé ci-dessous, pas la chorégraphie.
       role="group"
       aria-roledescription="démonstration"
-      aria-label="Démonstration de Toumaï AI : conversation, arabe tchadien, génération d'image, mode vocal et Agent Navigateur"
+      aria-label={t.console.aria}
     >
       <div className="tm-console-bar">
         <span className="flex items-center gap-1.5" aria-hidden="true">
@@ -102,7 +102,7 @@ export function ConsoleDemo() {
         <button
           type="button"
           onClick={() => setHeld((v) => !v)}
-          className="ml-auto flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] transition-colors hover:text-[var(--tm-ink-2)]"
+          className="ms-auto flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] transition-colors hover:text-[var(--tm-ink-2)]"
           style={{ color: "var(--tm-ink-4)" }}
           aria-label={held ? t.console.resume : t.console.pause}
         >
@@ -139,7 +139,7 @@ export function ConsoleDemo() {
         className="tm-rail border-t px-3 py-1.5"
         style={{ borderColor: "var(--tm-line)" }}
         role="tablist"
-        aria-label="Scènes de la démonstration"
+        aria-label={t.console.scenesAria}
       >
         {SCENES.map((s, idx) => (
           <button
@@ -282,7 +282,7 @@ function SceneShu({ still }: { still: boolean }) {
       {/* Bloc de réponse en écriture arabe : il s'aligne à droite, et la
         * translittération latine suit la même arête. Deux alignements opposés
         * pour une même phrase, ce serait deux phrases. */}
-      <At ms={1700} still={still} className="text-right">
+      <At ms={1700} still={still} className="text-end">
         <p
           dir="rtl"
           lang="ar"
@@ -389,7 +389,7 @@ function SceneVoice({ still }: { still: boolean }) {
 
       <At ms={3200} still={still} className="w-full">
         <div
-          className="mx-auto max-w-[26rem] rounded-2xl border px-4 py-3 text-left text-[13px] leading-[1.6]"
+          className="mx-auto max-w-[26rem] rounded-2xl border px-4 py-3 text-start text-[13px] leading-[1.6]"
           style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)", color: "var(--tm-ink-2)" }}
         >
           <span className="tm-mono mb-1.5 block text-[10px]" style={{ color: "var(--tm-ink-4)" }}>
@@ -415,12 +415,9 @@ function SceneVoice({ still }: { still: boolean }) {
   );
 }
 
-const AGENT_STEPS = [
-  { t: 1400, label: "Ouvre le moteur de recherche", meta: "recherche" },
-  { t: 2700, label: "Compare trois pages de résultats", meta: "lecture" },
-  { t: 4000, label: "Extrait les horaires et l'adresse", meta: "extraction" },
-  { t: 5300, label: "Rend compte — sans rien valider seul", meta: "rapport" },
-];
+/* Seules les DATES restent ici : le texte des étapes vit dans le dictionnaire,
+ * la chronologie est de la mise en scène. */
+const AGENT_STEP_MS = [1400, 2700, 4000, 5300];
 
 function SceneAgent({ still }: { still: boolean }) {
   const { t } = useLang();
@@ -455,9 +452,9 @@ function SceneAgent({ still }: { still: boolean }) {
       </At>
 
       <ol className="flex flex-col gap-2">
-        {AGENT_STEPS.map((s, idx) => (
+        {t.console.agent.steps.map((s, idx) => (
           <li key={s.label}>
-            <At ms={s.t} still={still} className="flex items-center gap-2.5">
+            <At ms={AGENT_STEP_MS[idx]} still={still} className="flex items-center gap-2.5">
               <span
                 className="tm-mono flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
                 style={{ background: "var(--tm-accent-soft)", color: "var(--tm-terra-2)" }}

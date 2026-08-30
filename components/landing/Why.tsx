@@ -18,17 +18,6 @@ import { useLang } from "@/lib/i18n/context";
 
 /* ── Bandeau des langues ─────────────────────────────────────────────────── */
 
-const PHRASES = [
-  { t: "Bonjour", s: "français" },
-  { t: "مرحبا", s: "arabe", rtl: true },
-  { t: "Hello", s: "english" },
-  { t: "إنت كيف؟", s: "arabe tchadien", rtl: true, hot: true },
-  { t: "Comment ça va ?", s: "français" },
-  { t: "ما في مشكلة", s: "arabe tchadien", rtl: true, hot: true },
-  { t: "How can I help?", s: "english" },
-  { t: "كيف حالك؟", s: "arabe littéraire", rtl: true },
-];
-
 /**
  * Transition entre le hero et le récit. Le ruban défile très lentement et se
  * met en pause au survol — ce qui passe doit pouvoir être lu, pas seulement
@@ -36,7 +25,10 @@ const PHRASES = [
  * démontré dans la vitrine, en dessous.
  */
 export function LangMarquee() {
-  const track = [...PHRASES, ...PHRASES];
+  const { t } = useLang();
+  // Doublé : la piste doit être deux fois plus longue que l'écran pour que le
+  // retour à zéro (translation de -50 %) soit invisible.
+  const track = [...t.marquee, ...t.marquee];
   return (
     <div
       className="tm-marquee relative overflow-hidden border-y py-5"

@@ -150,7 +150,11 @@ const JSON_LD = JSON.stringify({
       alternateName: ["Toumai AI", "ToumaiAI", "IA tchadienne", "AI Tchad"],
       url: "https://toumaiai.com",
       applicationCategory: "UtilitiesApplication",
-      operatingSystem: "Web, Android",
+      // PAS D'ANDROID ICI TANT QUE L'APPLICATION N'EST PAS PUBLIÉE.
+      // Ces données structurées sont lues par Google : y déclarer un système
+      // sur lequel le produit ne s'installe pas encore, c'est une promesse
+      // fausse dans le seul endroit où elle est lue par une machine.
+      operatingSystem: "Web",
       description:
         "Assistant d'intelligence artificielle tchadien : chat en français, arabe et arabe tchadien, génération d'images, WhatsApp, e-mail, agenda et agent navigateur.",
       offers: { "@type": "Offer", price: "0", priceCurrency: "XAF" },

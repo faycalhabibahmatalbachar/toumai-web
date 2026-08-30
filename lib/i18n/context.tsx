@@ -28,11 +28,10 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { LANGS, LANG_META, fr, type Dict, type Lang } from "./fr";
@@ -47,8 +46,6 @@ const STORAGE_KEY = "toumai_lang";
 interface LangState {
   lang: Lang;
   dir: "ltr" | "rtl";
-  /** `true` tant que la langue enregistrée n'a pas été lue. */
-  ready: boolean;
   setLang: (l: Lang) => void;
   t: Dict;
 }
@@ -67,11 +64,12 @@ function detect(): Lang {
   } catch {
     /* mode privé, stockage refusé : on continue sans */
   }
-  const prefs = typeof navigator !== "undefined" ? navigator.languages ?? [navigator.language] : [];
+  const prefs =
+    typeof navigator !== "undefined" ? navigator.languages ?? [navigator.language] : [];
   for (const raw of prefs) {
     const tag = raw.toLowerCase();
     // `ar-td` d'abord : c'est le plus précis, et `ar` l'avalerait.
-    if (tag === "ar-td" || tag.startsWith("ar-td")) return "ar-td";
+    if (tag.startsWith("ar-td")) return "ar-td";
     if (tag.startsWith("ar")) return "ar";
     if (tag.startsWith("fr")) return "fr";
     if (tag.startsWith("en")) return "en";
@@ -79,15 +77,53 @@ function detect(): Lang {
   return "fr";
 }
 
-export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("fr");
-  const [ready, setReady] = useState(false);
+/* ── Le magasin ──────────────────────────────────────────────────────────────
+ *
+ * `useSyncExternalStore` PLUTÔT QU'UN `useEffect` QUI POSE L'ÉTAT.
+ *
+ * La langue vit hors de React : dans `localStorage` et dans les préférences du
+ * navigateur. La lire dans un effet pour la reposer avec `setState` enchaîne
+ * deux rendus et fait exactement ce que React déconseille. Ce crochet-ci est
+ * fait pour ça : il prend un instantané côté SERVEUR (toujours le français,
+ * donc identique au HTML figé à la construction) et un instantané côté
+ * NAVIGATEUR (la langue réelle). React fait la bascule lui-même, une fois,
+ * après l'hydratation — sans avertissement et sans rendu perdu.
+ */
+let current: Lang | null = null;
+const listeners = new Set<() => void>();
 
-  useEffect(() => {
-    const next = detect();
-    if (next !== "fr") setLangState(next);
-    setReady(true);
-  }, []);
+function getSnapshot(): Lang {
+  // Mis en cache : `getSnapshot` est appelé souvent et doit renvoyer la MÊME
+  // valeur tant que rien n'a changé, sinon React boucle.
+  if (current === null) current = detect();
+  return current;
+}
+
+/** Ce que le serveur a rendu. Toujours le français : c'est ce qui est écrit
+ *  dans le HTML exporté. */
+function getServerSnapshot(): Lang {
+  return "fr";
+}
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+function writeLang(l: Lang) {
+  current = l;
+  try {
+    localStorage.setItem(STORAGE_KEY, l);
+  } catch {
+    /* rien à faire : le choix vaudra pour cette visite seulement */
+  }
+  listeners.forEach((f) => f());
+}
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const lang = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   // `lang` et `dir` sur <html> : ce sont eux qui font basculer la mise en page
   // en droite-à-gauche, et qui disent au lecteur d'écran quelle voix prendre.
@@ -108,18 +144,9 @@ export function LangProvider({ children }: { children: ReactNode }) {
     };
   }, [lang]);
 
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l);
-    try {
-      localStorage.setItem(STORAGE_KEY, l);
-    } catch {
-      /* rien à faire : le choix vaudra pour cette visite seulement */
-    }
-  }, []);
-
   const value = useMemo<LangState>(
-    () => ({ lang, dir: LANG_META[lang].dir, ready, setLang, t: DICTS[lang] }),
-    [lang, ready, setLang],
+    () => ({ lang, dir: LANG_META[lang].dir, setLang: writeLang, t: DICTS[lang] }),
+    [lang],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -130,7 +157,7 @@ export function useLang(): LangState {
   if (!v) {
     // Un composant de la vitrine rendu hors du fournisseur ne doit pas faire
     // tomber la page : il reçoit le français.
-    return { lang: "fr", dir: "ltr", ready: true, setLang: () => {}, t: fr };
+    return { lang: "fr", dir: "ltr", setLang: () => {}, t: fr };
   }
   return v;
 }

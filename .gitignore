@@ -44,3 +44,7 @@ next-env.d.ts
 # chemins ABSOLUS, propres a la machine : elles casseraient pour tout le monde.
 # Le contenu reel vit dans .agents/skills/, lui versionne.
 /.claude/skills/
+
+# Caches Python des scripts de competences
+__pycache__/
+*.pyc

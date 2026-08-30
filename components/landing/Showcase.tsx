@@ -117,13 +117,10 @@ export function Showcase() {
           <div className="max-w-2xl">
             <p className="tm-eyebrow">{t.showcase.eyebrow}</p>
             <h2 className="tm-display tm-h2 mt-4">
-              {t.showcase.titleA} <em className="tm-em">{t.showcase.titleEm}</em>{t.showcase.titleB}
-              conversation.
+              {t.showcase.titleA} <em className="tm-em">{t.showcase.titleEm}</em>
+              {t.showcase.titleB}
             </h2>
-            <p className="tm-lead mt-4">
-              Pas de menus à apprendre. Vous écrivez, vous parlez, vous déposez un
-              fichier — Toumaï AI fait le reste.
-            </p>
+            <p className="tm-lead mt-4">{t.showcase.lead}</p>
           </div>
 
           {/* Le défilement automatique s'arrête au premier clic sur un onglet ;
@@ -370,7 +367,7 @@ function StageTchadien({ still }: { still: boolean }) {
                 {r.shu}
               </p>
             </div>
-            <div className="sm:text-right">
+            <div className="sm:text-end">
               <p className="tm-mono text-[11px]" style={{ color: "var(--tm-ink-3)" }}>
                 {r.tr}
               </p>
@@ -562,7 +559,7 @@ function StageCode({ still }: { still: boolean }) {
         <span className="tm-mono text-[11px]" style={{ color: "var(--tm-ink-3)" }}>
           {t.showcase.code.file}
         </span>
-        <span className="tm-chip ml-auto text-[10px]">Python</span>
+        <span className="tm-chip ms-auto text-[10px]">{t.showcase.code.lang}</span>
       </div>
 
       <pre
@@ -579,7 +576,7 @@ function StageCode({ still }: { still: boolean }) {
                 : { animation: `tm-word-in 320ms ease-out ${220 + i * 200}ms backwards` }
             }
           >
-            <span className="w-4 shrink-0 select-none text-right" style={{ color: "var(--tm-ink-4)", opacity: 0.55 }}>
+            <span className="w-4 shrink-0 select-none text-end" style={{ color: "var(--tm-ink-4)", opacity: 0.55 }}>
               {i + 1}
             </span>
             <span>
@@ -664,9 +661,9 @@ function StageWeb({ still }: { still: boolean }) {
         </div>
       </div>
 
-      <ol className="relative mt-5 flex-1 space-y-3.5 pl-6">
+      <ol className="relative mt-5 flex-1 space-y-3.5 ps-6">
         <span
-          className="absolute bottom-2 left-[9px] top-2 w-px"
+          className="absolute bottom-2 start-[9px] top-2 w-px"
           style={{ background: "var(--tm-line)" }}
           aria-hidden="true"
         />
@@ -734,7 +731,7 @@ function StageVoix({ still }: { still: boolean }) {
       </div>
 
       <div
-        className="w-full max-w-md rounded-2xl border p-4 text-left"
+        className="w-full max-w-md rounded-2xl border p-4 text-start"
         style={
           still
             ? { borderColor: "var(--tm-line)", background: "var(--tm-surface)" }

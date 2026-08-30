@@ -35,7 +35,7 @@ export function Hero() {
 
       <div className="tm-wrap grid items-center gap-10 lg:grid-cols-[1.04fr_1fr] lg:gap-14 xl:gap-20">
         {/* ── La promesse ── */}
-        <div className="text-center lg:text-left">
+        <div className="text-center lg:text-start">
           <div data-reveal className="flex justify-center lg:justify-start">
             <span className="tm-chip tm-chip-accent">
               <span className="tm-dot" aria-hidden="true" />
@@ -109,6 +109,8 @@ export function Hero() {
 /* ── Décor ───────────────────────────────────────────────────────────────── */
 
 function HeroBackdrop() {
+  const { dir } = useLang();
+  const rtl = dir === "rtl";
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
       {/* Visage-réseau : le motif du logo, en très grand et très en retrait.
@@ -131,13 +133,13 @@ function HeroBackdrop() {
           height={941}
           fetchPriority="high"
           decoding="async"
-          className="tm-float absolute right-[-24%] top-[-14%] w-[140%] max-w-none select-none opacity-[0.22] sm:right-[-14%] sm:w-[104%] lg:right-[-20%] lg:top-[-26%] lg:w-[84%] lg:opacity-[0.30]"
+          className="tm-float absolute end-[-24%] top-[-14%] w-[140%] max-w-none select-none opacity-[0.22] sm:end-[-14%] sm:w-[104%] lg:end-[-20%] lg:top-[-26%] lg:w-[84%] lg:opacity-[0.30]"
           style={{
             // Le masque éteint les bords AVANT qu'ils ne touchent le titre ou
             // la console : ce qui reste est une lueur, pas une photo posée sur
-            // la page.
-            maskImage: "radial-gradient(ellipse 54% 56% at 60% 40%, #000 24%, transparent 72%)",
-            WebkitMaskImage: "radial-gradient(ellipse 54% 56% at 60% 40%, #000 24%, transparent 72%)",
+            // la page. Son centre suit le sens de lecture, comme l'image.
+            maskImage: `radial-gradient(ellipse 54% 56% at ${rtl ? "40%" : "60%"} 40%, #000 24%, transparent 72%)`,
+            WebkitMaskImage: `radial-gradient(ellipse 54% 56% at ${rtl ? "40%" : "60%"} 40%, #000 24%, transparent 72%)`,
           }}
         />
       </picture>
@@ -150,7 +152,7 @@ function HeroBackdrop() {
       <span
         className="tm-glow tm-breathe"
         style={{
-          left: "-14%",
+          insetInlineStart: "-14%",
           top: "18%",
           width: "62vw",
           height: "62vw",
@@ -163,7 +165,7 @@ function HeroBackdrop() {
       <span
         className="tm-glow"
         style={{
-          right: "-10%",
+          insetInlineEnd: "-10%",
           top: "-16%",
           width: "50vw",
           height: "50vw",
@@ -258,12 +260,16 @@ function TrustLine() {
           <span key={c.label} className="flex items-baseline gap-1.5">
             {/* Chiffres à chasse fixe : quand le compteur passe de 700 à 800,
               * la ligne ne doit pas se décaler d'un demi-caractère. */}
-            <span
+            {/* `<bdi>` : sans lui, « 712+ » se réordonne en « +712 » dès que la
+              * page passe en droite-à-gauche — l'algorithme bidirectionnel
+              * considère le « + » comme neutre et le renvoie de l'autre côté.
+              * L'isolation garde le nombre tel qu'il est écrit. */}
+            <bdi
               className="tm-display text-[1.55rem]"
               style={{ color: "var(--tm-ink)", fontVariantNumeric: "tabular-nums" }}
             >
               {c.value}
-            </span>
+            </bdi>
             <span className="text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
               {c.label}
             </span>

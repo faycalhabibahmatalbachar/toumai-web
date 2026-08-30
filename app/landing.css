@@ -600,7 +600,7 @@ html:has(.tm) {
   width: 2px;
   height: 1em;
   vertical-align: -0.14em;
-  margin-left: 3px;
+  margin-inline-start: 3px;
   background: var(--tm-terra-2);
   animation: tm-caret 1.05s steps(1) infinite;
 }
@@ -736,21 +736,22 @@ html:has(.tm) {
 }
 
 /* Bulle utilisateur / réponse */
+/* La bulle de l'utilisateur se range du côté d'où l'on écrit : à droite en
+ * français, à gauche en arabe. `margin-inline-start: auto` le dit une fois
+ * pour les deux sens — et le coin coupé suit, grâce aux rayons logiques. */
 .tm-bubble {
-  border-radius: 16px 16px 4px 16px;
+  border-start-start-radius: 16px;
+  border-start-end-radius: 16px;
+  border-end-start-radius: 16px;
+  border-end-end-radius: 4px;
   background: var(--tm-surface-2);
   border: 1px solid var(--tm-line);
   padding: 0.62rem 0.9rem;
   font-size: 0.88rem;
   line-height: 1.5;
   max-width: 88%;
-  margin-left: auto;
+  margin-inline-start: auto;
   width: fit-content;
-}
-.tm-bubble[dir="rtl"] {
-  border-radius: 16px 16px 16px 4px;
-  margin-left: 0;
-  margin-right: auto;
 }
 
 /* Onglets de scène : le trait actif est un morceau du spectre. */
@@ -777,14 +778,14 @@ html:has(.tm) {
 .tm-tab::after {
   content: "";
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   bottom: -1px;
   height: 2px;
   width: 100%;
   border-radius: 2px;
   background: var(--tm-spectrum);
   transform: scaleX(0);
-  transform-origin: left;
+  transform-origin: center;
   transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .tm-tab[aria-selected="true"]::after {
@@ -808,8 +809,9 @@ html:has(.tm) {
    * on ne devinait pas qu'il y en avait huit. La pleine largeur est rétablie
    * à partir de 1024 px (`lg:w-full`), là où la liste redevient verticale. */
   width: auto;
-  text-align: left;
-  padding: 0.95rem 1rem 0.95rem 1.15rem;
+  text-align: start;
+  padding-block: 0.95rem;
+  padding-inline: 1.15rem 1rem;
   border-radius: 14px;
   border: 1px solid transparent;
   background: transparent;
@@ -819,7 +821,7 @@ html:has(.tm) {
 .tm-cap-item::before {
   content: "";
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: 14%;
   bottom: 14%;
   width: 2px;
@@ -884,10 +886,13 @@ html:has(.tm) {
 /* Jauge de lecture : un fil du spectre, épais d'un pixel, sous la barre. */
 .tm-nav-progress {
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   bottom: -1px;
   height: 2px;
   width: 100%;
+  /* En arabe, la lecture avance vers la gauche : la jauge doit se remplir
+   * depuis la droite. `transform-origin` n'a pas d'équivalent logique — on le
+   * bascule donc explicitement plus bas, sous `[dir="rtl"]`. */
   transform-origin: left;
   background: var(--tm-spectrum);
   transform: scaleX(var(--p, 0));
@@ -907,8 +912,7 @@ html:has(.tm) {
 .tm-navlink::after {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
+  inset-inline: 0;
   bottom: -2px;
   height: 1.5px;
   border-radius: 2px;
@@ -973,7 +977,8 @@ html:has(.tm) {
 .tm-faq-sign::after {
   content: "";
   position: absolute;
-  inset: 50% 0 auto 0;
+  inset-block-start: 50%;
+  inset-inline: 0;
   height: 1.6px;
   border-radius: 2px;
   background: var(--tm-terra-2);
@@ -1017,13 +1022,13 @@ html:has(.tm) {
  * texte, lui, reste à pleine lisibilité du haut en bas de la section. */
 @media (min-width: 1024px) {
   .tm-surface-panel {
-    padding-left: 1.75rem;
+    padding-inline-start: 1.75rem;
     position: relative;
   }
   .tm-surface-panel::before {
     content: "";
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
     top: 0.35rem;
     bottom: 0.35rem;
     width: 2px;
@@ -1059,6 +1064,72 @@ html:has(.tm) {
 .tm-rail > * {
   scroll-snap-align: start;
   flex: none;
+}
+
+/* ── Sens de lecture droite-à-gauche ────────────────────────────────────────
+ *
+ * Presque tout est déjà en propriétés logiques (`inset-inline-start`,
+ * `padding-inline`, `text-align: start`) : la page se retourne alors d'elle-même
+ * quand `dir="rtl"` arrive sur la vitrine. Ne restent ici que les trois choses
+ * que le CSS logique ne couvre pas encore.
+ */
+
+/* 0. Le filet de couleur en tête des cartes de modèle part du bord d'où l'on
+ *    lit. `linear-gradient` n'accepte pas de mot-clé logique : il faut deux
+ *    règles. */
+.tm-model-rule {
+  background: linear-gradient(90deg, var(--tm-model-accent), transparent 78%);
+}
+.tm[dir="rtl"] .tm-model-rule {
+  background: linear-gradient(270deg, var(--tm-model-accent), transparent 78%);
+}
+
+/* 1. La jauge de lecture se remplit depuis la droite. */
+.tm[dir="rtl"] .tm-nav-progress,
+[dir="rtl"] .tm .tm-nav-progress {
+  transform-origin: right;
+}
+
+/* 2. La flèche « suite » pointe vers l'avant, donc vers la GAUCHE en arabe.
+ *    Sans ça, toutes les flèches de la page désignent le début du texte. */
+.tm[dir="rtl"] .tm-arrow {
+  transform: scaleX(-1);
+}
+.tm[dir="rtl"] .tm-btn:hover .tm-arrow,
+.tm[dir="rtl"] .tm-link:hover .tm-arrow {
+  transform: scaleX(-1) translateX(4px);
+}
+
+/* 3. Le ruban des langues défile dans l'autre sens : en arabe, un texte qui
+ *    file vers la gauche entre par le mauvais bord. */
+.tm[dir="rtl"] .tm-marquee-track {
+  animation-direction: reverse;
+}
+
+/* La typographie arabe respire autrement : les hampes montent et descendent
+ * plus loin que dans l'alphabet latin, et un interligne réglé pour du Fraunces
+ * serré fait se toucher les lignes. On desserre, et on rend la serif éditoriale
+ * à une police qui sait dessiner l'arabe. */
+.tm[dir="rtl"] {
+  --tm-lh-bump: 1;
+}
+.tm[dir="rtl"] .tm-display {
+  font-family: var(--font-geist-sans), "Noto Naskh Arabic", "Segoe UI", serif;
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+.tm[dir="rtl"] .tm-lead,
+.tm[dir="rtl"] p,
+.tm[dir="rtl"] li {
+  line-height: 1.85;
+}
+/* L'italique n'existe pas en écriture arabe : une police latine penchée
+ * appliquée à de l'arabe produit un faux oblique, illisible et disgracieux.
+ * L'accent se fait par la couleur, qui, elle, marche dans toutes les
+ * écritures. */
+.tm[dir="rtl"] .tm-em {
+  font-style: normal;
 }
 
 /* ── Respect des préférences système ─────────────────────────────────────── */

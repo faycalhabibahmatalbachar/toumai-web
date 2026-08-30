@@ -24,27 +24,24 @@ import { Icons, useInView, useReducedMotion } from "./primitives";
 import { useLang } from "@/lib/i18n/context";
 
 /* Les sept moteurs, dans l'ordre où ils apparaissent sur le schéma. */
+/* Les NOMS ne se traduisent pas — Sao, Ennedi, Ouaddaï, Tibesti, Kanem, Chari
+ * sont des noms propres tchadiens : une civilisation, trois massifs, un
+ * royaume, un fleuve. Seul le RÔLE change de langue. */
 const ENGINES = [
-  { key: "sao", name: "Sao 4", role: "Code & aide quotidienne", color: "var(--tm-terra)" },
-  { key: "toumai", name: "Toumaï 5", role: "Raisonnement profond", color: "var(--tm-violet)" },
-  { key: "ennedi", name: "Ennedi", role: "Génération d'images", color: "#e0559b" },
-  { key: "ouaddai", name: "Ouaddaï Pro", role: "Analyse & données", color: "var(--tm-amber)" },
-  { key: "tibesti", name: "Tibesti Code", role: "Développement", color: "var(--tm-indigo)" },
-  { key: "kanem", name: "Kanem Flash", role: "Conversations vocales", color: "#e5941f" },
-  { key: "chari", name: "Chari", role: "Lettres & rapports", color: "#2f9e6b" },
+  { key: "sao", name: "Sao 4", color: "var(--tm-terra)" },
+  { key: "toumai", name: "Toumaï 5", color: "var(--tm-violet)" },
+  { key: "ennedi", name: "Ennedi", color: "#e0559b" },
+  { key: "ouaddai", name: "Ouaddaï Pro", color: "var(--tm-amber)" },
+  { key: "tibesti", name: "Tibesti Code", color: "var(--tm-indigo)" },
+  { key: "kanem", name: "Kanem Flash", color: "#e5941f" },
+  { key: "chari", name: "Chari", color: "#2f9e6b" },
 ] as const;
 
 type EngineKey = (typeof ENGINES)[number]["key"];
 
-const REQUESTS: { text: string; to: EngineKey; out: string }[] = [
-  { text: "Traduis ça en arabe tchadien.", to: "sao", out: "Réponse dans le parler d'ici" },
-  { text: "Dessine les dunes au crépuscule.", to: "ennedi", out: "Image générée, signée" },
-  { text: "Résume ce contrat de 40 pages.", to: "ouaddai", out: "Points clés extraits" },
-  { text: "Écris une fonction qui trie une liste.", to: "tibesti", out: "Code écrit puis exécuté" },
-  { text: "Combien de temps pour rembourser à 3 % ?", to: "toumai", out: "Raisonnement étape par étape" },
-  { text: "Lis-moi la réponse à voix haute.", to: "kanem", out: "Réponse parlée" },
-  { text: "Prépare-moi une lettre de motivation.", to: "chari", out: "Document mis en page" },
-];
+/* L'AIGUILLAGE est de la logique, pas du texte : quelle famille de demande
+ * part vers quel moteur. Il reste donc ici, dans l'ordre du dictionnaire. */
+const ROUTES: EngineKey[] = ["sao", "ennedi", "ouaddai", "tibesti", "toumai", "kanem", "chari"];
 
 const STEP_MS = 3400;
 
@@ -56,12 +53,12 @@ export function Intelligence() {
 
   useEffect(() => {
     if (!inView || reduced) return;
-    const t = window.setTimeout(() => setI((v) => (v + 1) % REQUESTS.length), STEP_MS);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setI((v) => (v + 1) % ROUTES.length), STEP_MS);
+    return () => window.clearTimeout(timer);
   }, [i, inView, reduced]);
 
-  const req = REQUESTS[i];
-  const target = ENGINES.findIndex((e) => e.key === req.to);
+  const req = t.intelligence.requests[i];
+  const target = ENGINES.findIndex((e) => e.key === ROUTES[i]);
 
   return (
     <section id="modeles" className="tm-section scroll-mt-24" ref={ref}>
@@ -204,11 +201,9 @@ export function Intelligence() {
           <RoutingDiagram target={target} still={reduced || !inView} />
 
           <p className="mt-5 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-            Sao 4 et Toumaï 5 se choisissent à la main dans le sélecteur de
-            modèle. Les moteurs dédiés sont appelés automatiquement selon la
-            demande.{" "}
+            {t.intelligence.foot}{" "}
             <Link href="/models" className="tm-link text-[12px]">
-              Tout savoir sur les modèles
+              {t.intelligence.footLink}
             </Link>
           </p>
         </div>
@@ -236,6 +231,7 @@ function FlagshipCard({
   accent: string;
   defaultOne?: boolean;
 }) {
+  const { t } = useLang();
   return (
     <article
       className="tm-card tm-card-hover tm-lit relative overflow-hidden p-6 sm:p-8"
@@ -243,8 +239,8 @@ function FlagshipCard({
     >
       {/* Filet de couleur en tête de carte : chaque modèle a sa signature. */}
       <span
-        className="absolute inset-x-0 top-0 h-[2px]"
-        style={{ background: `linear-gradient(90deg, ${accent}, transparent 78%)` }}
+        className="tm-model-rule absolute inset-x-0 top-0 h-[2px]"
+        style={{ "--tm-model-accent": accent } as React.CSSProperties}
         aria-hidden="true"
       />
       <div className="flex items-center gap-3">
@@ -262,7 +258,7 @@ function FlagshipCard({
           </p>
         </div>
         {defaultOne && (
-          <span className="tm-chip ml-auto shrink-0 text-[10px]">Par défaut</span>
+          <span className="tm-chip ms-auto shrink-0 text-[10px]">{t.intelligence.defaultBadge}</span>
         )}
       </div>
 
@@ -295,10 +291,23 @@ function FlagshipCard({
  * leur a déjà dit.
  */
 function RoutingDiagram({ target, still }: { target: number; still: boolean }) {
+  const { t, dir } = useLang();
   const H = 300;
+  const W = 1000;
   const rows = ENGINES.length;
   const gap = H / rows;
   const y = (i: number) => gap / 2 + i * gap;
+
+  /* LE SCHÉMA SE RETOURNE AVEC LA LANGUE.
+   *
+   * En arabe, un flux qui part de la gauche se lit à contresens : le moyeu
+   * doit être à DROITE et les moteurs à gauche, sinon la flèche remonte le
+   * texte. On ne miroite pas l'image (les libellés arabes se retrouveraient à
+   * l'envers) : on miroite les COORDONNÉES, et les textes s'ancrent de l'autre
+   * côté. Le dessin change de sens, l'écriture reste lisible. */
+  const rtl = dir === "rtl";
+  const X = (v: number) => (rtl ? W - v : v);
+  const anchor = rtl ? "end" : "start";
 
   /* AFFICHÉ SEULEMENT À PARTIR DE 1024 px.
    *
@@ -308,7 +317,7 @@ function RoutingDiagram({ target, still }: { target: number; still: boolean }) {
    * au-dessus dit déjà tout ; le schéma n'ajouterait qu'une image illisible. */
   return (
     <div className="mt-8 hidden lg:block" aria-hidden="true">
-      <svg viewBox="0 0 1000 300" className="h-[300px] w-full" role="presentation">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-[300px] w-full" role="presentation">
         <defs>
           <linearGradient id="tm-hub-grad" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="var(--tm-indigo)" />
@@ -320,7 +329,7 @@ function RoutingDiagram({ target, still }: { target: number; still: boolean }) {
         {/* Les sept branches */}
         {ENGINES.map((e, i) => {
           const on = i === target;
-          const d = `M166 150 C 380 150, 430 ${y(i)}, 618 ${y(i)}`;
+          const d = `M${X(166)} 150 C ${X(380)} 150, ${X(430)} ${y(i)}, ${X(618)} ${y(i)}`;
           return (
             <g key={e.key}>
               <path
@@ -341,25 +350,25 @@ function RoutingDiagram({ target, still }: { target: number; still: boolean }) {
         })}
 
         {/* Le moyeu */}
-        <circle cx="120" cy="150" r="40" fill="var(--tm-bg-2)" stroke="url(#tm-hub-grad)" strokeWidth="1.8" />
-        <circle cx="120" cy="150" r="54" fill="none" stroke="var(--tm-line)" strokeWidth="1" opacity="0.6" />
+        <circle cx={X(120)} cy="150" r="40" fill="var(--tm-bg-2)" stroke="url(#tm-hub-grad)" strokeWidth="1.8" />
+        <circle cx={X(120)} cy="150" r="54" fill="none" stroke="var(--tm-line)" strokeWidth="1" opacity="0.6" />
         <text
-          x="120"
+          x={X(120)}
           y="147"
           textAnchor="middle"
           fill="var(--tm-ink)"
           style={{ font: "600 12.5px var(--font-geist-sans), sans-serif" }}
         >
-          Toumaï
+          {t.intelligence.hubLabel}
         </text>
         <text
-          x="120"
+          x={X(120)}
           y="162"
           textAnchor="middle"
           fill="var(--tm-ink-4)"
           style={{ font: "500 8px var(--font-geist-mono), monospace", letterSpacing: "0.1em" }}
         >
-          ROUTEUR
+          {t.intelligence.hubSub}
         </text>
 
         {/* Les moteurs */}
@@ -368,27 +377,29 @@ function RoutingDiagram({ target, still }: { target: number; still: boolean }) {
           return (
             <g key={`n-${e.key}`} style={{ transition: "opacity 500ms ease" }} opacity={on ? 1 : 0.5}>
               <circle
-                cx="626"
+                cx={X(626)}
                 cy={y(i)}
                 r={on ? 5 : 3.4}
                 fill={on ? e.color : "var(--tm-line-2)"}
                 style={{ transition: "r 400ms ease, fill 500ms ease" }}
               />
               <text
-                x="646"
+                x={X(646)}
                 y={y(i) - 1}
+                textAnchor={anchor}
                 fill={on ? "var(--tm-ink)" : "var(--tm-ink-3)"}
                 style={{ font: "550 11.5px var(--font-geist-sans), sans-serif", transition: "fill 500ms ease" }}
               >
                 {e.name}
               </text>
               <text
-                x="646"
+                x={X(646)}
                 y={y(i) + 11}
+                textAnchor={anchor}
                 fill="var(--tm-ink-4)"
                 style={{ font: "400 9.5px var(--font-geist-sans), sans-serif" }}
               >
-                {e.role}
+                {t.intelligence.engines[e.key]}
               </text>
             </g>
           );
