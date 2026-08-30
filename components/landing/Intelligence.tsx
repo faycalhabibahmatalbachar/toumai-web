@@ -21,6 +21,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icons, useInView, useReducedMotion } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 /* Les sept moteurs, dans l'ordre où ils apparaissent sur le schéma. */
 const ENGINES = [
@@ -48,6 +49,7 @@ const REQUESTS: { text: string; to: EngineKey; out: string }[] = [
 const STEP_MS = 3400;
 
 export function Intelligence() {
+  const { t } = useLang();
   const { ref, inView } = useInView<HTMLDivElement>("0px 0px -25% 0px");
   const reduced = useReducedMotion();
   const [i, setI] = useState(0);
@@ -79,17 +81,45 @@ export function Intelligence() {
       />
 
       <div className="tm-wrap">
+        <div className="grid items-center gap-8 lg:grid-cols-[1fr_minmax(0,440px)] lg:gap-12">
         <header data-reveal className="max-w-2xl">
-          <p className="tm-eyebrow">L&apos;intelligence derrière Toumaï</p>
+          <p className="tm-eyebrow">{t.intelligence.eyebrow}</p>
           <h2 className="tm-display tm-h2 mt-4">
-            Vous écrivez. Toumaï AI choisit{" "}
-            <em className="tm-em">le bon moteur.</em>
+            {t.intelligence.titleA}{" "}
+            <em className="tm-em">{t.intelligence.titleEm}</em>
           </h2>
           <p className="tm-lead mt-4 max-w-[52ch]">
-            Une famille de modèles, un aiguillage automatique. Aucun réglage, aucun
-            menu — et vous pouvez toujours reprendre la main dans le sélecteur.
+            {t.intelligence.lead}
           </p>
         </header>
+
+        {/* Une lumière entre, plusieurs sortent : l'aiguillage se comprend d'un
+         * regard, avant même la phrase qui l'explique. Décoratif — le sens
+         * réel est porté par le texte et par la chaîne animée en dessous, qui
+         * eux se traduisent. */}
+        <div
+          data-reveal="scale"
+          style={{ "--tm-delay": "120ms" } as React.CSSProperties}
+          className="relative order-first lg:order-none"
+        >
+          <picture>
+            <source
+              type="image/avif"
+              srcSet="/landing/prisme-800.avif 800w, /landing/prisme-1200.avif 1200w"
+              sizes="(min-width: 1024px) 440px, 92vw"
+            />
+            <img
+              src="/landing/prisme-800.avif"
+              alt=""
+              width={1672}
+              height={941}
+              loading="lazy"
+              decoding="async"
+              className="w-full select-none rounded-[var(--tm-radius-lg)]"
+            />
+          </picture>
+        </div>
+        </div>
 
         {/* ── Les deux modèles de tête ── */}
         <div
@@ -100,18 +130,18 @@ export function Intelligence() {
           <FlagshipCard
             badge="S4"
             name="Sao 4"
-            tag="Le modèle du quotidien"
-            desc="Conversation, rédaction, traduction, code, résumés. Rapide, et par défaut."
-            points={["Réponses en flux continu", "À l'aise en français et en arabe", "Comprend le parler tchadien"]}
+            tag={t.intelligence.sao.tag}
+            desc={t.intelligence.sao.desc}
+            points={t.intelligence.sao.points}
             accent="var(--tm-terra)"
             defaultOne
           />
           <FlagshipCard
             badge="T5"
             name="Toumaï 5"
-            tag="Réflexion — raisonnement profond"
-            desc="Pour ce qui demande de la rigueur : mathématiques, planification, analyse, décisions."
-            points={["Raisonnement étape par étape", "Pensé pour les tâches complexes", "Sélectionnable dans le chat"]}
+            tag={t.intelligence.toumai.tag}
+            desc={t.intelligence.toumai.desc}
+            points={t.intelligence.toumai.points}
             accent="var(--tm-violet)"
           />
         </div>
@@ -123,9 +153,9 @@ export function Intelligence() {
           className="tm-card tm-lit mt-4 overflow-hidden p-6 sm:p-8 lg:mt-5"
         >
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h3 className="text-[15px] font-semibold">L&apos;aiguillage, en direct</h3>
+            <h3 className="text-[15px] font-semibold">{t.intelligence.routerTitle}</h3>
             <span className="tm-mono text-[10px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-              demande → compréhension → moteur → résultat
+              {t.intelligence.routerFlow}
             </span>
           </div>
 
@@ -138,10 +168,10 @@ export function Intelligence() {
               style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface-2)" }}
             >
               <span className="tm-mono block text-[9.5px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-                Votre demande
+                {t.intelligence.yourRequest}
               </span>
               <span className="mt-1 block text-[14px]" style={{ color: "var(--tm-ink)" }}>
-                {req.text}
+                {t.intelligence.requests[i]?.text ?? req.text}
               </span>
             </div>
 
@@ -166,7 +196,7 @@ export function Intelligence() {
                 <span className="text-[14px] font-medium">{ENGINES[target].name}</span>
               </span>
               <span className="mt-1 block text-[12.5px]" style={{ color: "var(--tm-ink-3)" }}>
-                {req.out}
+                {t.intelligence.requests[i]?.out ?? req.out}
               </span>
             </div>
           </div>

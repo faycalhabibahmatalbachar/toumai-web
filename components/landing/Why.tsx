@@ -275,44 +275,36 @@ function Reason({
  * d'écran : rien n'est répété jusqu'aux bords, la trame s'éteint en s'éloignant
  * du centre.
  */
+/**
+ * Le marché — ce que « le contexte d'ici » veut dire, montré plutôt qu'écrit.
+ *
+ * Toits plats en banco, auvents de nattes, jarres de terre, paniers plats :
+ * une architecture sahélienne, pas un bazar orientalisant. Sur une section qui
+ * promet « il connaît le contexte d'ici », c'est le seul endroit où se tromper
+ * de continent se paierait comptant.
+ *
+ * Purement décoratif — `alt` vide : la phrase à côté porte déjà le sens, et
+ * une description longue ici ne ferait que répéter à voix haute.
+ */
 function LatticeArt() {
-  const cells: React.ReactElement[] = [];
-  const cols = 9;
-  const rows = 3;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const x = 20 + c * 34;
-      const y = 24 + r * 34;
-      const i = r * cols + c;
-      cells.push(
-        <g key={`${r}-${c}`} style={{ opacity: 0.9 - Math.abs(c - 4) * 0.12 }}>
-          <path
-            d={`M${x} ${y - 15} L${x + 15} ${y} L${x} ${y + 15} L${x - 15} ${y} Z`}
-            fill="none"
-            stroke="var(--tm-line-2)"
-            strokeWidth="1"
-          />
-          {(i * 7) % 5 === 0 && <circle cx={x} cy={y} r="2.4" fill="var(--tm-terra)" opacity="0.55" />}
-        </g>,
-      );
-    }
-  }
   return (
-    <div className="mt-6 overflow-hidden rounded-xl" aria-hidden="true">
-      <svg viewBox="0 0 320 128" className="h-[110px] w-full" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <linearGradient id="tm-lattice-fade" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#000" stopOpacity="0" />
-            <stop offset="0.3" stopColor="#000" stopOpacity="1" />
-            <stop offset="0.75" stopColor="#000" stopOpacity="1" />
-            <stop offset="1" stopColor="#000" stopOpacity="0" />
-          </linearGradient>
-          <mask id="tm-lattice-mask">
-            <rect width="320" height="128" fill="url(#tm-lattice-fade)" />
-          </mask>
-        </defs>
-        <g mask="url(#tm-lattice-mask)">{cells}</g>
-      </svg>
+    <div className="mt-5 overflow-hidden rounded-[var(--tm-radius)]">
+      <picture>
+        <source
+          type="image/avif"
+          srcSet="/landing/marche-800.avif 800w, /landing/marche-1200.avif 1200w"
+          sizes="(min-width: 1024px) 620px, 92vw"
+        />
+        <img
+          src="/landing/marche-800.avif"
+          alt=""
+          width={1536}
+          height={1024}
+          loading="lazy"
+          decoding="async"
+          className="w-full select-none"
+        />
+      </picture>
     </div>
   );
 }
