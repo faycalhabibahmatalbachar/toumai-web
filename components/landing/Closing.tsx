@@ -173,8 +173,9 @@ const COLUMNS: { col: "product" | "models" | "connectors" | "legal"; links: { k:
 
 const SOCIALS = [
   { label: "Facebook", href: "https://www.facebook.com/profile.php?id=61591724459792", icon: <FacebookIcon /> },
+  { label: "Instagram", href: "https://www.instagram.com/toumaiai/", icon: <InstagramIcon /> },
   { label: "TikTok", href: "https://www.tiktok.com/@toumaiai", icon: <TikTokIcon /> },
-  { label: "X (Twitter)", href: "https://x.com/toumaiai", icon: <XIcon /> },
+  { label: "X (Twitter)", href: "https://x.com/ToumaiAI", icon: <XIcon /> },
   { label: "LinkedIn", href: "https://www.linkedin.com/company/toumaiai", icon: <LinkedInIcon /> },
   { label: "GitHub", href: "https://github.com/Toumai-AI", icon: <GitHubIcon /> },
 ];
@@ -302,6 +303,29 @@ function FacebookIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M22 12a10 10 0 10-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0022 12z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  // Tracé au trait, comme les voisines : l'appareil photo arrondi, l'objectif,
+  // le témoin. Une seule couleur héritée — un dégradé Instagram jurerait au
+  // milieu d'une rangée monochrome.
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none" />
     </svg>
   );
 }

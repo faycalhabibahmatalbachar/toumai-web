@@ -30,8 +30,9 @@ const CONTACTS = [
 
 const SOCIALS = [
   { label: "Facebook", value: "Toumaï AI", href: "https://www.facebook.com/profile.php?id=61591724459792", icon: <FacebookGlyph /> },
+  { label: "Instagram", value: "@toumaiai", href: "https://www.instagram.com/toumaiai/", icon: <InstagramGlyph /> },
   { label: "TikTok", value: "@toumaiai", href: "https://www.tiktok.com/@toumaiai", icon: <TikTokGlyph /> },
-  { label: "X (Twitter)", value: "@toumaiai", href: "https://x.com/toumaiai", icon: <XGlyph /> },
+  { label: "X (Twitter)", value: "@ToumaiAI", href: "https://x.com/ToumaiAI", icon: <XGlyph /> },
   { label: "LinkedIn", value: "Toumaï AI", href: "https://www.linkedin.com/company/toumaiai", icon: <LinkedInGlyph /> },
   { label: "GitHub", value: "faycalhabibahmatalbachar", href: "https://github.com/faycalhabibahmatalbachar", icon: <GitHubGlyph /> },
 ];
@@ -196,6 +197,36 @@ function FacebookGlyph() {
         d="M30.7 30.2l.9-5.8h-5.6v-3.7c0-1.6.8-3.1 3.3-3.1h2.5v-4.9s-2.3-.4-4.5-.4c-4.6 0-7.6 2.8-7.6 7.8v4.4h-5.1v5.8h5.1V44a20.3 20.3 0 006.3 0V30.2h4.7z"
         fill="#fff"
       />
+    </svg>
+  );
+}
+
+function InstagramGlyph() {
+  // Les voisines de cet écran sont en couleurs de marque, contrairement au pied
+  // de page qui est monochrome : ici le dégradé est à sa place.
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <linearGradient id="tm-ig" x1="0" y1="48" x2="48" y2="0">
+          <stop offset="0" stopColor="#FFD521" />
+          <stop offset=".35" stopColor="#F50000" />
+          <stop offset=".7" stopColor="#B900B4" />
+          <stop offset="1" stopColor="#4300B6" />
+        </linearGradient>
+      </defs>
+      <rect x="5" y="5" width="38" height="38" rx="11" fill="url(#tm-ig)" />
+      <rect
+        x="12"
+        y="12"
+        width="24"
+        height="24"
+        rx="7"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2.6"
+      />
+      <circle cx="24" cy="24" r="5.6" fill="none" stroke="#fff" strokeWidth="2.6" />
+      <circle cx="31.4" cy="16.6" r="1.7" fill="#fff" />
     </svg>
   );
 }

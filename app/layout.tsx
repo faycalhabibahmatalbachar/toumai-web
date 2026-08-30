@@ -100,6 +100,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    // Sans `site`, la carte partagée sur X n'affiche aucune attribution : le
+    // trafic part, la marque ne suit pas. C'est la seule ligne qui relie un
+    // partage au compte.
+    site: "@ToumaiAI",
+    creator: "@ToumaiAI",
     title: "Toumaï AI — L'assistant IA tchadien",
     description: "Chat IA gratuit, images, WhatsApp, agenda — français et arabe tchadien.",
     images: ["/og-image.png"],
@@ -173,6 +178,26 @@ const JSON_LD = JSON.stringify({
       areaServed: { "@type": "Country", name: "Tchad" },
       foundingLocation: { "@type": "Place", name: "N'Djamena, Tchad" },
       founder: { "@id": "https://toumaiai.com/#createur" },
+      // LES PROFILS SOCIAUX SONT UNE PREUVE D'IDENTITÉ, PAS UNE DÉCORATION.
+      //
+      // Les liens existaient déjà dans le pied de page — mais un lien sortant
+      // dit « voici un compte », alors que `sameAs` dit « ce compte EST cette
+      // organisation ». C'est cette affirmation-là que Google recoupe pour
+      // rattacher une marque à une entité et lui ouvrir un panneau de
+      // connaissance ; sans elle, cinq comptes actifs restent cinq pages sans
+      // rapport déclaré avec le site.
+      //
+      // Chaque URL doit être la page canonique du profil — pas une redirection,
+      // pas un lien de partage — et le profil doit renvoyer vers toumaiai.com
+      // pour que le recoupement se fasse dans les deux sens.
+      sameAs: [
+        "https://x.com/ToumaiAI",
+        "https://www.instagram.com/toumaiai/",
+        "https://www.tiktok.com/@toumaiai",
+        "https://www.facebook.com/profile.php?id=61591724459792",
+        "https://www.linkedin.com/company/toumaiai",
+        "https://github.com/Toumai-AI",
+      ],
     },
     {
       "@type": "Person",
