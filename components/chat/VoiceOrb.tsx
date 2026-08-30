@@ -106,9 +106,15 @@ export function VoiceOrb({
   // variation de niveau ferait sauter le mouvement soixante fois par seconde.
   const phaseRef = useRef(phase);
   const levelRef = useRef(level);
+  /** Redessin ponctuel — le seul chemin quand le mouvement est réduit, et le
+   * rattrapage au retour sur l'onglet. Posé par l'effet de montage. */
+  const redessinerRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     phaseRef.current = phase;
     levelRef.current = level;
+    // Sans boucle d'animation, c'est ce redessin qui porte le changement d'état.
+    redessinerRef.current?.();
   }, [phase, level]);
 
   useEffect(() => {
@@ -130,6 +136,17 @@ export function VoiceOrb({
     let hauteur = 0;
     const debut = performance.now();
 
+    // MOUVEMENT RÉDUIT : une seule image, pas une boucle.
+    //
+    // Un visualiseur plein écran qui tourne à soixante images par seconde est
+    // exactement ce que ce réglage système demande d'éviter — il est fait pour
+    // les personnes que le mouvement continu rend malades. On dessine alors la
+    // sphère UNE fois, à énergie fixe : l'écran garde son sujet et sa
+    // profondeur, il cesse simplement de bouger.
+    const mouvementReduit =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     const redimensionner = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const r = canvas.getBoundingClientRect();
@@ -144,20 +161,29 @@ export function VoiceOrb({
     observer.observe(canvas);
 
     const dessiner = (maintenant: number) => {
-      raf = requestAnimationFrame(dessiner);
+      // Onglet caché : on ne demande plus d'image. `requestAnimationFrame` est
+      // déjà ralenti par le navigateur, mais pas partout ni toujours — et sur
+      // un téléphone d'entrée de gamme, mille points redessinés dans le vide se
+      // paient en batterie pendant que l'assistant parle, écran éteint.
+      if (!mouvementReduit && document.visibilityState === "visible") {
+        raf = requestAnimationFrame(dessiner);
+      }
       if (largeur === 0 || hauteur === 0) return;
 
       // Une seule horloge, très longue, dont tout dérive par multiplication :
       // plusieurs périodes indépendantes finiraient par se resynchroniser à
       // intervalles réguliers, et le mouvement se mettrait à battre la mesure.
-      const t = ((maintenant - debut) / 60000) % 1;
+      // Horloge figée en mouvement réduit : la même image à chaque appel.
+      const t = mouvementReduit ? 0.12 : ((maintenant - debut) / 60000) % 1;
       const ph = phaseRef.current;
 
       // L'énergie suit le niveau, mais avec de l'inertie : branchée en direct,
       // la sphère tressaute à chaque syllabe au lieu de respirer.
       const cible =
         ph === "reflexion" ? 0.32 : ph === "repos" ? 0.06 : Math.min(1, levelRef.current);
-      energie += (cible - energie) * 0.12;
+      // En mouvement réduit, l'énergie se pose d'un coup : il n'y a pas d'image
+      // suivante pour finir l'interpolation.
+      energie = mouvementReduit ? cible : energie + (cible - energie) * 0.12;
 
       ctx.clearRect(0, 0, largeur, hauteur);
 
@@ -177,10 +203,24 @@ export function VoiceOrb({
       peindreReflet(ctx, hauteur, cx, cy, rayon, energie);
     };
     raf = requestAnimationFrame(dessiner);
+    redessinerRef.current = () => dessiner(performance.now());
+
+    // Retour sur l'onglet : la boucle avait été coupée, on la relance. Et en
+    // mouvement réduit, un changement de phase doit tout de même redessiner —
+    // c'est la seule chose qui distingue « il écoute » de « il parle » quand
+    // rien ne bouge.
+    const auRetour = () => {
+      if (document.visibilityState !== "visible") return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(dessiner);
+    };
+    document.addEventListener("visibilitychange", auRetour);
 
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      redessinerRef.current = null;
+      document.removeEventListener("visibilitychange", auRetour);
     };
   }, []);
 

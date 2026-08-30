@@ -606,6 +606,22 @@ export function VoiceModeOverlay({
   }
 
 
+  // Ce que l'écran dit de lui-même, en une phrase, à chaque changement d'état.
+  // Le texte n'est pas décoratif : c'est la seule information disponible quand
+  // on n'a pas les yeux sur l'appareil.
+  const annonce =
+    error
+      ? error
+      : muted
+        ? "Micro coupé. La conversation continue."
+        : phase === "listening"
+          ? "Micro ouvert, je vous écoute."
+          : phase === "processing"
+            ? "Toumaï AI réfléchit."
+            : phase === "speaking"
+              ? "Toumaï AI répond. Parlez pour l'interrompre."
+              : "";
+
   // Phases de l'orbe : les mêmes quatre que sur mobile. L'écran ne porte
   // presque aucun texte — c'est le MOUVEMENT qui dit ce qui se passe, et il
   // doit se reconnaître au premier coup d'œil, sans avoir été appris.
@@ -682,11 +698,22 @@ export function VoiceModeOverlay({
         </VoiceRoundButton>
       </div>
 
+      {/* Une seule région vivante pour tout l'écran, annoncée d'un bloc.
+          `aria-atomic` évite que le lecteur ne lise que le mot qui a changé, et
+          `polite` laisse la personne finir sa phrase avant d'être interrompue. */}
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {annonce}
+      </p>
+
       {/* Sous-titres — bas de l'écran, jamais au milieu : ils ne doivent pas se
           poser sur la sphère. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-24 flex flex-col items-center gap-2 px-6 text-center sm:bottom-28">
         {phase === "listening" && caption && (
-          <p className="max-w-lg text-[15px] leading-relaxed" style={{ color: rgbaIvoire(0.82) }}>
+          <p
+            aria-label={`Ce que vous avez dit : ${caption}`}
+            className="max-w-lg text-[15px] leading-relaxed"
+            style={{ color: rgbaIvoire(0.82) }}
+          >
             {caption}
           </p>
         )}
