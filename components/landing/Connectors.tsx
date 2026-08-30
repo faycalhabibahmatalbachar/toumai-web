@@ -20,6 +20,7 @@
 
 import Link from "next/link";
 import { Icons, useInView, useReducedMotion } from "./primitives";
+import { useDrawLiaisons } from "./useDrawLiaisons";
 import { useLang } from "@/lib/i18n/context";
 
 /* Ce tableau ne porte plus que ce qui NE SE TRADUIT PAS : le propriétaire de
@@ -142,6 +143,9 @@ export function Connectors() {
  * marque.
  */
 function Hub({ live }: { live: boolean }) {
+  // `live` vaut deja « visible ET mouvement non reduit » : c'est exactement la
+  // condition de declenchement du trace, inutile d'en recalculer une seconde.
+  const svgLiaisons = useDrawLiaisons(live);
   const { t } = useLang();
   const R = 128;
   const center = 170;
@@ -184,7 +188,12 @@ function Hub({ live }: { live: boolean }) {
         </svg>
       </div>
 
-      <svg viewBox="0 0 340 340" className="absolute inset-0 h-full w-full" role="presentation">
+      <svg
+        ref={svgLiaisons}
+        viewBox="0 0 340 340"
+        className="absolute inset-0 h-full w-full"
+        role="presentation"
+      >
         {/* Les deux anneaux fixes. */}
         <circle cx={center} cy={center} r={R} fill="none" stroke="var(--tm-line)" strokeWidth="1" />
         <circle cx={center} cy={center} r={R - 44} fill="none" stroke="var(--tm-line)" strokeWidth="1" opacity="0.5" />
@@ -197,7 +206,10 @@ function Hub({ live }: { live: boolean }) {
           const d = `M${center} ${center} L${x} ${y}`;
           return (
             <g key={c.owner + i}>
-              <path d={d} stroke="var(--tm-line-2)" strokeWidth="1" fill="none" />
+              {/* `data-tm-draw` est le seul point d'accroche du trace : le
+                * hook ne cible QUE ces chemins, jamais les anneaux — sans quoi
+                * les cercles fixes se dessineraient eux aussi. */}
+              <path data-tm-draw d={d} stroke="var(--tm-line-2)" strokeWidth="1" fill="none" />
               {live && (
                 <circle r="3" fill={c.color}>
                   <animateMotion
