@@ -289,22 +289,18 @@ function StageHead({ title, note }: { title: string; note?: string }) {
  * Trois salutations en grand, chacune dans son écriture, avec la réponse
  * correspondante. La scène est TYPOGRAPHIQUE : c'est la langue elle-même qui
  * fait l'image, pas un cadre autour. */
-const GREETINGS = [
-  { hello: "Bonjour", lang: "Français", dir: "ltr" as const, code: "fr", reply: "Comment puis-je vous aider aujourd'hui ?" },
-  { hello: "مرحبا", lang: "العربية", dir: "rtl" as const, code: "ar", reply: "كيف يمكنني مساعدتك اليوم؟" },
-  { hello: "Hello", lang: "English", dir: "ltr" as const, code: "en", reply: "How can I help you today?" },
-];
 
 function StageLangues({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title="Une conversation, plusieurs langues" note="fr · ar · en" />
+      <StageHead title={t.showcase.langues.title} note={t.showcase.langues.note} />
       <div className="grid flex-1 content-center gap-5 sm:gap-7">
-        {GREETINGS.map((g, i) => (
+        {t.showcase.langues.rows.map((g, i) => (
           <div
-            key={g.code}
-            dir={g.dir}
-            lang={g.code}
+            key={g.lang}
+            dir={i === 1 ? "rtl" : "ltr"}
+            lang={["fr", "ar", "en"][i]}
             className="border-b pb-4 last:border-0 last:pb-0"
             style={
               still
@@ -330,7 +326,7 @@ function StageLangues({ still }: { still: boolean }) {
         ))}
       </div>
       <p className="mt-5 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-        Changez de langue en cours de route : le fil ne se coupe pas.
+        {t.showcase.langues.foot}
       </p>
     </div>
   );
@@ -340,19 +336,15 @@ function StageLangues({ still }: { still: boolean }) {
  * Forme de fiche de terrain : l'expression en grand, sa translittération en
  * monospace sous elle, puis la comparaison avec l'arabe littéraire. C'est la
  * seule scène qui a le droit d'être un peu savante — c'est le cœur du sujet. */
-const SHU_ROWS = [
-  { fr: "Comment vas-tu ?", shu: "إنت كيف؟", tr: "inta kēf ?", msa: "كيف حالك؟" },
-  { fr: "Je viens du marché", shu: "أنا جاي من السوق", tr: "ana jāy min as-sūg", msa: "أنا قادم من السوق" },
-  { fr: "Il n'y a pas de problème", shu: "ما في مشكلة", tr: "mā fī mushkila", msa: "لا توجد مشكلة" },
-];
 
 function StageTchadien({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title="L'arabe tel qu'on le parle ici" note="tchadien · shuwa" />
+      <StageHead title={t.showcase.tchadien.title} note={t.showcase.tchadien.note} />
 
       <div className="flex-1">
-        {SHU_ROWS.map((r, i) => (
+        {t.showcase.tchadien.rows.map((r, i) => (
           <div
             key={r.fr}
             className="grid gap-1.5 border-b py-3.5 first:pt-0 last:border-0 sm:grid-cols-[1fr_auto] sm:items-baseline sm:gap-4"
@@ -384,7 +376,7 @@ function StageTchadien({ still }: { still: boolean }) {
               </p>
               <p dir="rtl" lang="ar" className="mt-0.5 text-[12.5px]" style={{ color: "var(--tm-ink-4)" }}>
                 {r.msa}{" "}
-                <span className="tm-mono text-[9.5px] uppercase tracking-wide">littéraire</span>
+                <span className="tm-mono text-[9.5px] uppercase tracking-wide">{t.showcase.tchadien.msaLabel}</span>
               </p>
             </div>
           </div>
@@ -397,9 +389,7 @@ function StageTchadien({ still }: { still: boolean }) {
         className="mt-4 rounded-xl border px-4 py-3 text-[12.5px] leading-relaxed"
         style={{ borderColor: "var(--tm-accent-line)", background: "var(--tm-accent-soft)", color: "var(--tm-ink-2)" }}
       >
-        Toumaï AI est développé à partir d&apos;un corpus d&apos;arabe tchadien
-        collecté sur le terrain — pas d&apos;une simple traduction depuis
-        l&apos;arabe littéraire.
+        {t.showcase.tchadien.note2}
       </div>
     </div>
   );
@@ -409,6 +399,7 @@ function StageTchadien({ still }: { still: boolean }) {
  * L'image occupe la scène. Le reste — le prompt, la signature — se range
  * autour d'elle. */
 function StageImage({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col">
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -416,7 +407,7 @@ function StageImage({ still }: { still: boolean }) {
           <source srcSet="/landing/showcase.avif" type="image/avif" />
           <img
             src="/landing/showcase.webp"
-            alt="Dunes du Sahara au crépuscule, ciel indigo et sable ambré — image générée par Toumaï AI"
+            alt={t.showcase.image.alt}
             width={760}
             height={570}
             loading="lazy"
@@ -432,14 +423,14 @@ function StageImage({ still }: { still: boolean }) {
         />
         <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
           <p className="text-[12px]" style={{ color: "rgba(255,246,232,.62)" }}>
-            Votre demande
+            {t.showcase.image.promptLabel}
           </p>
           <p className="mt-1 text-[14px] leading-snug" style={{ color: "#f6f0e5" }}>
             <Streamed
               still={still}
               delay={260}
               speed={46}
-              text="« Les dunes du Sahara au crépuscule, ciel indigo, lumière rasante, très grand format. »"
+              text={t.showcase.image.prompt}
             />
           </p>
         </div>
@@ -449,9 +440,11 @@ function StageImage({ still }: { still: boolean }) {
         className="flex flex-wrap items-center gap-2 border-t p-4 sm:px-5"
         style={{ borderColor: "var(--tm-line)" }}
       >
-        <span className="tm-chip tm-chip-accent text-[11px]">Signature Toumaï AI intégrée</span>
-        <span className="tm-chip text-[11px]">Modèle Ennedi</span>
-        <span className="tm-chip text-[11px]">Téléchargeable</span>
+        {t.showcase.image.chips.map((c, i) => (
+          <span key={c} className={i === 0 ? "tm-chip tm-chip-accent text-[11px]" : "tm-chip text-[11px]"}>
+            {c}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -461,9 +454,10 @@ function StageImage({ still }: { still: boolean }) {
  * Deux moitiés : la page qui entre, ce qui en sort. La flèche entre les deux
  * est le sujet de la scène. */
 function StageDocument({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title="Un document entre, l'essentiel en sort" note="pdf · docx · image" />
+      <StageHead title={t.showcase.document.title} note={t.showcase.document.note} />
 
       <div className="grid flex-1 items-center gap-4 sm:grid-cols-[minmax(0,150px)_auto_1fr] sm:gap-5">
         {/* La page */}
@@ -492,7 +486,7 @@ function StageDocument({ still }: { still: boolean }) {
             className="tm-mono absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[9px] uppercase tracking-wider"
             style={{ background: "var(--tm-bg-3)", border: "1px solid var(--tm-line)", color: "var(--tm-ink-4)" }}
           >
-            contrat.pdf
+            {t.showcase.document.file}
           </span>
         </div>
 
@@ -506,14 +500,9 @@ function StageDocument({ still }: { still: boolean }) {
 
         {/* Ce qui en sort */}
         <ul className="space-y-2.5">
-          {[
-            "Durée : 12 mois, reconduction tacite",
-            "Préavis de résiliation : 60 jours",
-            "Pénalité de retard : 3 % par mois",
-            "Point de vigilance : clause 7.2, exclusivité",
-          ].map((t, i) => (
+          {t.showcase.document.points.map((point, i) => (
             <li
-              key={t}
+              key={point}
               className="flex items-start gap-2.5 text-[13px] leading-snug"
               style={
                 still
@@ -527,15 +516,14 @@ function StageDocument({ still }: { still: boolean }) {
               <span className="mt-[3px] shrink-0" style={{ color: i === 3 ? "var(--tm-amber)" : "var(--tm-terra-2)" }}>
                 <Icons.check size={14} />
               </span>
-              {t}
+              {point}
             </li>
           ))}
         </ul>
       </div>
 
       <p className="mt-5 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-        Posez ensuite vos questions sur le document : les réponses restent
-        rattachées à son contenu.
+        {t.showcase.document.foot}
       </p>
     </div>
   );
@@ -561,6 +549,7 @@ const TOKEN_COLOR: Record<string, string> = {
 };
 
 function StageCode({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col">
       <div
@@ -571,14 +560,14 @@ function StageCode({ still }: { still: boolean }) {
           <Icons.code size={15} />
         </span>
         <span className="tm-mono text-[11px]" style={{ color: "var(--tm-ink-3)" }}>
-          moyenne.py
+          {t.showcase.code.file}
         </span>
         <span className="tm-chip ml-auto text-[10px]">Python</span>
       </div>
 
       <pre
         className="tm-mono flex-1 overflow-x-auto p-4 text-[12.5px] leading-[1.9] sm:p-5"
-        aria-label="Fonction Python qui calcule la moyenne d'une liste de notes, puis son résultat d'exécution"
+        aria-label={t.showcase.code.aria}
       >
         {CODE_LINES.map((line, i) => (
           <div
@@ -614,7 +603,7 @@ function StageCode({ still }: { still: boolean }) {
         style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)" }}
       >
         <p className="tm-mono mb-1.5 text-[9.5px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-          Exécuté dans le navigateur
+          {t.showcase.code.outputLabel}
         </p>
         <p
           className="tm-mono text-[13px]"
@@ -634,17 +623,12 @@ function StageCode({ still }: { still: boolean }) {
 /* 6 ── Agent Navigateur ─────────────────────────────────────────────────────
  * Un vrai navigateur en haut, la progression en bas. Le fil vertical qui relie
  * les étapes se remplit : c'est lui qui dit « ça avance ». */
-const WEB_STEPS = [
-  { label: "Formule la recherche", detail: "vol N'Djaména → Abéché vendredi" },
-  { label: "Ouvre les résultats", detail: "3 sources comparées" },
-  { label: "Extrait l'information", detail: "horaires, escales, tarif affiché" },
-  { label: "Rend compte", detail: "avec les liens d'origine" },
-];
 
 function StageWeb({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title="Une tâche confiée au Web" note="agent navigateur" />
+      <StageHead title={t.showcase.web.title} note={t.showcase.web.note} />
 
       <div
         className="overflow-hidden rounded-xl border"
@@ -658,7 +642,7 @@ function StageWeb({ still }: { still: boolean }) {
             className="tm-mono ml-2 flex-1 truncate rounded px-2 py-0.5 text-[10px]"
             style={{ background: "var(--tm-bg)", color: "var(--tm-ink-4)" }}
           >
-            recherche en cours
+            {t.showcase.web.searching}
           </span>
           {!still && (
             <svg width="26" height="8" viewBox="0 0 26 8" aria-hidden="true">
@@ -686,7 +670,7 @@ function StageWeb({ still }: { still: boolean }) {
           style={{ background: "var(--tm-line)" }}
           aria-hidden="true"
         />
-        {WEB_STEPS.map((s, i) => (
+        {t.showcase.web.steps.map((s, i) => (
           <li
             key={s.label}
             className="relative"
@@ -713,8 +697,7 @@ function StageWeb({ still }: { still: boolean }) {
       </ol>
 
       <p className="mt-4 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-        L&apos;agent vous demande confirmation avant toute action qui engage
-        quelque chose.
+        {t.showcase.web.foot}
       </p>
     </div>
   );
@@ -723,6 +706,7 @@ function StageWeb({ still }: { still: boolean }) {
 /* 7 ── Mode vocal ───────────────────────────────────────────────────────────
  * Centré, radial, presque sans texte : la voix n'a pas de mise en page. */
 function StageVoix({ still }: { still: boolean }) {
+  const { t } = useLang();
   return (
     <div className="relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden p-5 text-center sm:p-7">
       <span
@@ -742,10 +726,10 @@ function StageVoix({ still }: { still: boolean }) {
 
       <div>
         <p className="tm-display text-[clamp(1.3rem,3vw,1.75rem)]">
-          <Streamed still={still} delay={200} speed={60} text="« Résume-moi la réunion d'hier. »" />
+          <Streamed still={still} delay={200} speed={60} text={t.showcase.voix.ask} />
         </p>
         <p className="tm-mono mt-2 text-[10.5px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-          Détection de fin de phrase · réponse à voix haute
+          {t.showcase.voix.note}
         </p>
       </div>
 
@@ -766,15 +750,17 @@ function StageVoix({ still }: { still: boolean }) {
             still={still}
             delay={1500}
             speed={40}
-            text="Trois décisions : livraison le vendredi, paiement à la remise, et un point d'étape lundi prochain."
+            text={t.showcase.voix.answer}
           />
         </p>
       </div>
 
       <div className="flex flex-wrap justify-center gap-2">
-        <span className="tm-chip text-[11px]">Dictée</span>
-        <span className="tm-chip text-[11px]">Lecture à voix haute</span>
-        <span className="tm-chip text-[11px]">Interruption à tout moment</span>
+        {t.showcase.voix.chips.map((c) => (
+          <span key={c} className="tm-chip text-[11px]">
+            {c}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -785,15 +771,14 @@ function StageVoix({ still }: { still: boolean }) {
  * capacité par capacité. D'où une liste d'interrupteurs, et non un logo
  * accompagné d'une promesse. */
 function StageConnecteurs() {
+  const { t } = useLang();
   return (
     <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title="Vos outils, dans la conversation" note="révocable" />
+      <StageHead title={t.showcase.connecteurs.title} note={t.showcase.connecteurs.note} />
 
       <div className="space-y-2.5">
         {[
-          { name: "WhatsApp", detail: "Lire, résumer, répondre — contact par contact." },
-          { name: "E-mail", detail: "Trier, rédiger, retrouver un fil." },
-          { name: "Google Agenda", detail: "Consulter, créer, déplacer un rendez-vous." },
+          ...t.showcase.connecteurs.items,
         ].map((c) => (
           <div
             key={c.name}
@@ -813,7 +798,7 @@ function StageConnecteurs() {
                 {c.detail}
               </span>
             </span>
-            <span className="tm-chip shrink-0 text-[10.5px]">Disponible</span>
+            <span className="tm-chip shrink-0 text-[10.5px]">{t.showcase.connecteurs.available}</span>
           </div>
         ))}
       </div>
@@ -823,15 +808,12 @@ function StageConnecteurs() {
         style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)" }}
       >
         <p className="tm-mono mb-3 text-[10px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-          Permissions — chacune se coupe séparément
+          {t.showcase.connecteurs.permsLabel}
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
-          {[
-            ["Lire les messages", true],
-            ["Envoyer un message", true],
-            ["Résumer une conversation", true],
-            ["Publier un statut", false],
-          ].map(([label, on]) => (
+          {t.showcase.connecteurs.perms
+            .map((label, i) => [label, i < 3] as const)
+            .map(([label, on]) => (
             <span key={String(label)} className="flex items-center justify-between gap-2 text-[12.5px]" style={{ color: "var(--tm-ink-2)" }}>
               {label}
               <span
@@ -850,9 +832,9 @@ function StageConnecteurs() {
       </div>
 
       <p className="mt-4 text-[11.5px] leading-relaxed" style={{ color: "var(--tm-ink-4)" }}>
-        Une action sensible demande toujours votre confirmation.{" "}
+        {t.showcase.connecteurs.foot}{" "}
         <Link href="/settings?tab=connectors" className="tm-link text-[11.5px]">
-          Gérer les connecteurs
+          {t.showcase.connecteurs.manage}
         </Link>
       </p>
     </div>
