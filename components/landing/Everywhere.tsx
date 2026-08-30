@@ -16,43 +16,18 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icons } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 type SurfaceId = "web" | "whatsapp" | "mobile";
 
-const SURFACES: {
-  id: SurfaceId;
-  kicker: string;
-  title: string;
-  body: string;
-  points: string[];
-  cta?: { label: string; href: string };
-}[] = [
-  {
-    id: "web",
-    kicker: "Sur le Web",
-    title: "Ouvrez, écrivez. C'est tout.",
-    body: "Rien à installer, rien à configurer. Vous pouvez essayer avant même de créer un compte.",
-    points: ["Aucune installation", "Essai sans compte", "Historique synchronisé une fois connecté"],
-    cta: { label: "Ouvrir Toumaï AI", href: "/chat" },
-  },
-  {
-    id: "whatsapp",
-    kicker: "Dans WhatsApp",
-    title: "Un contact de plus, rien d'autre à apprendre.",
-    body: "Vous lui écrivez comme à n'importe qui — questions, notes vocales, photos. Il répond dans le fil.",
-    points: ["Aucune application supplémentaire", "Notes vocales comprises", "Chaque capacité se coupe séparément"],
-    cta: { label: "Voir les connecteurs", href: "#connecteurs" },
-  },
-  {
-    id: "mobile",
-    kicker: "Sur Android",
-    title: "Dans la poche, avec vos conversations.",
-    body: "L'application reprend votre historique. La lecture des échanges passés fonctionne même sans réseau.",
-    points: ["Historique repris", "Lecture hors ligne", "Mode vocal mains libres"],
-  },
+const SURFACES: { id: SurfaceId; href?: string }[] = [
+  { id: "web", href: "/chat" },
+  { id: "whatsapp", href: "#connecteurs" },
+  { id: "mobile" },
 ];
 
 export function Everywhere() {
+  const { t } = useLang();
   const [active, setActive] = useState<SurfaceId>("web");
   const panels = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -79,9 +54,9 @@ export function Everywhere() {
     <section className="tm-section">
       <div className="tm-wrap">
         <header data-reveal className="max-w-2xl">
-          <p className="tm-eyebrow">Partout où vous êtes</p>
+          <p className="tm-eyebrow">{t.everywhere.eyebrow}</p>
           <h2 className="tm-display tm-h2 mt-4">
-            Il vient à vous. <em className="tm-em">Pas l&apos;inverse.</em>
+            {t.everywhere.titleA} <em className="tm-em">{t.everywhere.titleEm}</em>
           </h2>
         </header>
 
@@ -104,11 +79,11 @@ export function Everywhere() {
                    * un paragraphe à demi éteint n'est plus lisible, et c'est
                    * précisément celui qu'on est en train de lire. */}
                   <div className="tm-surface-panel" data-current={active === s.id}>
-                    <span className="tm-eyebrow">{s.kicker}</span>
-                    <h3 className="tm-display tm-h3 mt-3 max-w-[18ch]">{s.title}</h3>
-                    <p className="tm-lead mt-3 max-w-[46ch] text-[15px]">{s.body}</p>
+                    <span className="tm-eyebrow">{t.everywhere[s.id].kicker}</span>
+                    <h3 className="tm-display tm-h3 mt-3 max-w-[18ch]">{t.everywhere[s.id].title}</h3>
+                    <p className="tm-lead mt-3 max-w-[46ch] text-[15px]">{t.everywhere[s.id].body}</p>
                     <ul className="mt-5 space-y-2">
-                      {s.points.map((p) => (
+                      {t.everywhere[s.id].points.map((p) => (
                         <li key={p} className="flex items-start gap-2.5 text-[13.5px]" style={{ color: "var(--tm-ink-3)" }}>
                           <span className="mt-[3px] shrink-0" style={{ color: "var(--tm-terra-2)" }} aria-hidden="true">
                             <Icons.check size={14} />
@@ -117,9 +92,9 @@ export function Everywhere() {
                         </li>
                       ))}
                     </ul>
-                    {s.cta && (
-                      <Link href={s.cta.href} className="tm-link mt-5 inline-flex text-[14px]">
-                        {s.cta.label}
+                    {s.href && (
+                      <Link href={s.href} className="tm-link mt-5 inline-flex text-[14px]">
+                        {t.everywhere[s.id].cta}
                         <span className="tm-arrow" aria-hidden="true">
                           <Icons.arrow size={15} />
                         </span>

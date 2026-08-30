@@ -15,49 +15,25 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Icons } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 /* ── FAQ ─────────────────────────────────────────────────────────────────── */
 
-const FAQ = [
-  {
-    q: "Est-ce vraiment gratuit ?",
-    a: "Oui, entièrement. Discuter, générer des images, utiliser le mode vocal, les agents et les connecteurs — tout est gratuit, sans abonnement ni carte bancaire.",
-  },
-  {
-    q: "Comprend-il l'arabe tchadien, ou seulement l'arabe standard ?",
-    a: "Les deux. L'arabe tchadien est l'un des objectifs premiers du projet : Toumaï AI est développé à partir d'un corpus collecté sur le terrain, pour comprendre et répondre dans le parler du quotidien, en plus du français et de l'anglais.",
-  },
-  {
-    q: "Mes données sont-elles vendues ou utilisées pour de la publicité ?",
-    a: "Non. Toumaï AI ne vend aucune donnée et ne fait pas de publicité ciblée à partir de vos conversations. Le détail figure dans la politique de confidentialité.",
-  },
-  {
-    q: "Le connecteur WhatsApp lit-il tous mes messages en permanence ?",
-    a: "Non. Chaque capacité (lecture, envoi, résumé…) se désactive séparément, une action sensible demande toujours votre confirmation, et vous pouvez restreindre l'accès à des contacts ou groupes précis.",
-  },
-  {
-    q: "Faut-il créer un compte pour essayer ?",
-    a: "Non. Vous pouvez ouvrir Toumaï AI et discuter tout de suite. Le compte sert à retrouver votre historique sur vos autres appareils et à brancher les connecteurs.",
-  },
-  {
-    q: "Puis-je supprimer mes conversations ?",
-    a: "À tout moment, directement depuis l'interface — suppression immédiate, sans passer par le support.",
-  },
-];
 
 export function Faq() {
+  const { t } = useLang();
   return (
     <section className="tm-section">
       <div className="tm-wrap grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-16">
         <header data-reveal="left" className="lg:sticky lg:top-28 lg:self-start">
-          <p className="tm-eyebrow">Questions fréquentes</p>
+          <p className="tm-eyebrow">{t.faq.eyebrow}</p>
           <h2 className="tm-display tm-h2 mt-4">
-            Ce qu&apos;on nous demande <em className="tm-em">le plus souvent.</em>
+            {t.faq.titleA} <em className="tm-em">{t.faq.titleEm}</em>
           </h2>
           <p className="tm-lead mt-4 text-[15px]">
-            Une autre question&nbsp;?{" "}
+            {t.faq.contactA}{" "}
             <a href="mailto:contact@toumaiai.com" className="tm-link text-[15px]">
-              Écrivez-nous
+              {t.faq.contactLink}
               <span className="tm-arrow" aria-hidden="true">
                 <Icons.arrow size={15} />
               </span>
@@ -66,7 +42,7 @@ export function Faq() {
         </header>
 
         <div className="tm-faq" data-reveal="right">
-          {FAQ.map((item) => (
+          {t.faq.items.map((item) => (
             <details key={item.q} className="group border-b" style={{ borderColor: "var(--tm-line)" }}>
               <summary className="flex cursor-pointer items-center justify-between gap-5 py-5 text-[15.5px] font-medium transition-colors hover:opacity-80">
                 {item.q}
@@ -89,6 +65,7 @@ export function Faq() {
 /* ── Appel à l'action ────────────────────────────────────────────────────── */
 
 export function FinalCta() {
+  const { t } = useLang();
   return (
     <section className="tm-section">
       <div className="tm-wrap">
@@ -117,32 +94,31 @@ export function FinalCta() {
           />
           <div className="tm-lattice opacity-30" aria-hidden="true" />
 
-          <p className="tm-eyebrow justify-center">Prêt en une phrase</p>
+          <p className="tm-eyebrow justify-center">{t.cta.eyebrow}</p>
           <h2 className="tm-display mx-auto mt-5 max-w-[16ch] text-[clamp(2.2rem,6vw,4.2rem)]">
-            Dites-lui bonjour. <em className="tm-em">Dans votre langue.</em>
+            {t.cta.titleA} <em className="tm-em">{t.cta.titleEm}</em>
           </h2>
           <p className="tm-lead mx-auto mt-5 max-w-[44ch]">
-            Gratuit, sans carte bancaire, sans installation. Ouvrez et posez
-            votre première question.
+            {t.cta.lead}
           </p>
 
           <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link href="/chat" className="tm-btn tm-btn-primary" data-cta="final">
-              Commencer gratuitement
+              {t.cta.primary}
               <span className="tm-arrow" aria-hidden="true">
                 <Icons.arrow size={17} />
               </span>
             </Link>
             <Link href="/register" className="tm-btn tm-btn-ghost">
-              Créer un compte
+              {t.cta.secondary}
             </Link>
           </div>
 
           <p className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12.5px]" style={{ color: "var(--tm-ink-4)" }}>
-            {["Français · العربية · English", "Web · WhatsApp · Android", "Conversations supprimables"].map((t) => (
-              <span key={t} className="flex items-center gap-1.5">
+            {t.cta.notes.map((note) => (
+              <span key={note} className="flex items-center gap-1.5">
                 <span className="tm-dot" aria-hidden="true" />
-                {t}
+                {note}
               </span>
             ))}
           </p>
@@ -154,43 +130,43 @@ export function FinalCta() {
 
 /* ── Pied de page ────────────────────────────────────────────────────────── */
 
-const COLUMNS: { title: string; links: { label: string; href: string; external?: boolean }[] }[] = [
+const COLUMNS: { col: "product" | "models" | "connectors" | "legal"; links: { k: keyof typeof import("@/lib/i18n/fr").fr.footer.links; href: string }[] }[] = [
   {
-    title: "Produit",
+    col: "product",
     links: [
-      { label: "Chat", href: "/chat" },
-      { label: "Capacités", href: "/#capacites" },
-      { label: "Bibliothèque", href: "/library" },
-      { label: "Agent Navigateur", href: "/agent" },
-      { label: "Tableau de bord WhatsApp", href: "/whatsapp" },
+      { k: "chat", href: "/chat" },
+      { k: "capabilities", href: "/#capacites" },
+      { k: "library", href: "/library" },
+      { k: "agent", href: "/agent" },
+      { k: "whatsapp", href: "/whatsapp" },
     ],
   },
   {
-    title: "Modèles",
+    col: "models",
     links: [
-      { label: "Sao 4 & Toumaï 5", href: "/models" },
-      { label: "L'aiguillage", href: "/#modeles" },
-      { label: "L'IA au Tchad", href: "/intelligence-artificielle-tchad" },
-      { label: "النسخة العربية", href: "/ar" },
+      { k: "modelsPage", href: "/models" },
+      { k: "routing", href: "/#modeles" },
+      { k: "aiChad", href: "/intelligence-artificielle-tchad" },
+      { k: "arabic", href: "/ar" },
     ],
   },
   {
-    title: "Connecteurs",
+    col: "connectors",
     links: [
-      { label: "Vue d'ensemble", href: "/#connecteurs" },
-      { label: "Gérer mes connecteurs", href: "/settings?tab=connectors" },
-      { label: "Paramètres", href: "/settings" },
+      { k: "overview", href: "/#connecteurs" },
+      { k: "manage", href: "/settings?tab=connectors" },
+      { k: "settings", href: "/settings" },
     ],
   },
   {
-    title: "Compte & légal",
+    col: "legal",
     links: [
-      { label: "Créer un compte", href: "/register" },
-      { label: "Se connecter", href: "/login" },
-      { label: "Conditions & politiques", href: "/terms" },
-      { label: "Politique de confidentialité", href: "/privacy" },
-      { label: "Choix de confidentialité", href: "/privacy-choices" },
-      { label: "Supprimer mon compte", href: "/delete-account" },
+      { k: "register", href: "/register" },
+      { k: "login", href: "/login" },
+      { k: "terms", href: "/terms" },
+      { k: "privacy", href: "/privacy" },
+      { k: "choices", href: "/privacy-choices" },
+      { k: "deleteAccount", href: "/delete-account" },
     ],
   },
 ];
@@ -204,6 +180,7 @@ const SOCIALS = [
 ];
 
 export function Footer() {
+  const { t } = useLang();
   return (
     <footer
       id="contact"
@@ -219,8 +196,7 @@ export function Footer() {
               Toumaï&nbsp;AI
             </div>
             <p className="mt-4 max-w-[34ch] text-[13.5px] leading-relaxed" style={{ color: "var(--tm-ink-3)" }}>
-              Nommé d&apos;après le plus ancien hominidé connu, découvert au
-              Tchad. L&apos;intelligence, depuis toujours.
+              {t.footer.blurb}
             </p>
 
             {/* Le spectre du logo, en toutes lettres : c'est la signature de
@@ -260,24 +236,24 @@ export function Footer() {
           </div>
 
           {/* Colonnes */}
-          <nav aria-label="Pied de page" className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <nav aria-label={t.footer.nav} className="grid grid-cols-2 gap-8 sm:grid-cols-4">
             {COLUMNS.map((col) => (
-              <div key={col.title}>
+              <div key={t.footer.cols[col.col]}>
                 <h3
                   className="tm-mono mb-4 text-[10px] uppercase tracking-[0.14em]"
                   style={{ color: "var(--tm-ink-4)" }}
                 >
-                  {col.title}
+                  {t.footer.cols[col.col]}
                 </h3>
                 <ul className="space-y-2.5">
                   {col.links.map((l) => (
-                    <li key={l.label}>
+                    <li key={l.k}>
                       <Link
                         href={l.href}
                         className="text-[13.5px] transition-colors hover:opacity-100"
                         style={{ color: "var(--tm-ink-3)" }}
                       >
-                        {l.label}
+                        {t.footer.links[l.k]}
                       </Link>
                     </li>
                   ))}
@@ -292,8 +268,7 @@ export function Footer() {
           style={{ borderColor: "var(--tm-line)" }}
         >
           <p className="text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-            © {new Date().getFullYear()} Toumaï AI. Conçu et développé à
-            N&apos;Djaména, Tchad.
+            {t.footer.rights(new Date().getFullYear())}
           </p>
           <div className="flex items-center gap-1.5">
             {SOCIALS.map((s) => (

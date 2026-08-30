@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icons, Streamed, Waveform, useInView, useReducedMotion } from "./primitives";
+import { useLang } from "@/lib/i18n/context";
 
 type CapId =
   | "multilingue"
@@ -40,29 +41,24 @@ type CapId =
 
 interface Cap {
   id: CapId;
-  label: string;
-  /** Intitulé du rail sur petit écran. « Conversation multilingue » y occupait
-   *  toute la largeur de l'écran : on ne voyait qu'un onglet à la fois, donc on
-   *  ne devinait pas qu'il y en avait huit. */
-  short: string;
-  line: string;
   icon: React.ReactNode;
 }
 
 const CAPS: Cap[] = [
-  { id: "multilingue", label: "Conversation multilingue", short: "Multilingue", line: "Français, anglais, arabe — dans la même conversation.", icon: <Icons.globe /> },
-  { id: "tchadien", label: "Arabe tchadien", short: "Arabe tchadien", line: "Le parler du quotidien, pas celui des manuels.", icon: <Icons.chat /> },
-  { id: "image", label: "Génération d'images", short: "Images", line: "Décrivez la scène, Toumaï AI la compose.", icon: <Icons.image /> },
-  { id: "document", label: "Analyse de documents", short: "Documents", line: "Un PDF entre, l'essentiel en sort.", icon: <Icons.doc /> },
-  { id: "code", label: "Programmation", short: "Code", line: "Écrire, expliquer, corriger, exécuter.", icon: <Icons.code /> },
-  { id: "web", label: "Agent Navigateur", short: "Agent", line: "Une tâche confiée, menée étape par étape.", icon: <Icons.agent /> },
-  { id: "voix", label: "Mode vocal", short: "Voix", line: "Parlez, il répond à voix haute.", icon: <Icons.mic /> },
-  { id: "connecteurs", label: "Connecteurs", short: "Connecteurs", line: "WhatsApp, e-mail, agenda — sous votre contrôle.", icon: <Icons.plug /> },
+  { id: "multilingue", icon: <Icons.globe /> },
+  { id: "tchadien", icon: <Icons.chat /> },
+  { id: "image", icon: <Icons.image /> },
+  { id: "document", icon: <Icons.doc /> },
+  { id: "code", icon: <Icons.code /> },
+  { id: "web", icon: <Icons.agent /> },
+  { id: "voix", icon: <Icons.mic /> },
+  { id: "connecteurs", icon: <Icons.plug /> },
 ];
 
 const ROTATE_MS = 7200;
 
 export function Showcase() {
+  const { t } = useLang();
   const { ref, inView } = useInView<HTMLDivElement>("0px 0px -20% 0px");
   const reduced = useReducedMotion();
   const [active, setActive] = useState(0);
@@ -119,9 +115,9 @@ export function Showcase() {
       <div className="tm-wrap">
         <header data-reveal className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">
-            <p className="tm-eyebrow">Toumaï AI à l&apos;œuvre</p>
+            <p className="tm-eyebrow">{t.showcase.eyebrow}</p>
             <h2 className="tm-display tm-h2 mt-4">
-              Huit façons de <em className="tm-em">s&apos;en servir</em>, une seule
+              {t.showcase.titleA} <em className="tm-em">{t.showcase.titleEm}</em>{t.showcase.titleB}
               conversation.
             </h2>
             <p className="tm-lead mt-4">
@@ -137,7 +133,7 @@ export function Showcase() {
             type="button"
             onClick={() => setPinned((v) => !v)}
             className="tm-chip"
-            aria-label={pinned ? "Reprendre le défilement des capacités" : "Arrêter le défilement des capacités"}
+            aria-label={pinned ? t.showcase.resume : t.showcase.pause}
           >
             <span aria-hidden="true" style={{ color: "var(--tm-terra-2)" }}>
               {pinned ? (
@@ -151,7 +147,7 @@ export function Showcase() {
                 </svg>
               )}
             </span>
-            {pinned ? "Reprendre" : "Pause"}
+            {pinned ? t.showcase.resumeLabel : t.showcase.pauseLabel}
           </button>
         </header>
 
@@ -167,7 +163,7 @@ export function Showcase() {
           <div
             role="tablist"
             aria-orientation="vertical"
-            aria-label="Capacités de Toumaï AI"
+            aria-label={t.showcase.listAria}
             onKeyDown={onKey}
             className="tm-rail -mx-[var(--tm-pad)] px-[var(--tm-pad)] pb-2 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
           >
@@ -184,7 +180,7 @@ export function Showcase() {
                   id={`tm-tab-${c.id}`}
                   aria-selected={on}
                   aria-controls={`tm-panel-${c.id}`}
-                  aria-label={c.label}
+                  aria-label={t.showcase.caps[c.id].label}
                   tabIndex={on ? 0 : -1}
                   onClick={() => pick(i)}
                   className="tm-cap-item !px-3 py-2.5 lg:!px-4 lg:w-full lg:py-3.5"
@@ -205,8 +201,8 @@ export function Showcase() {
                       style={{ color: on ? "var(--tm-ink)" : "var(--tm-ink-2)" }}
                       aria-hidden="true"
                     >
-                      <span className="lg:hidden">{c.short}</span>
-                      <span className="hidden lg:inline">{c.label}</span>
+                      <span className="lg:hidden">{t.showcase.caps[c.id].short}</span>
+                      <span className="hidden lg:inline">{t.showcase.caps[c.id].label}</span>
                     </span>
                   </span>
                   {/* La ligne d'explication n'apparaît que sur grand écran :
@@ -216,7 +212,7 @@ export function Showcase() {
                     className="mt-1 hidden pl-[42px] text-[12.5px] leading-snug lg:block"
                     style={{ color: on ? "var(--tm-ink-3)" : "var(--tm-ink-4)" }}
                   >
-                    {c.line}
+                    {t.showcase.caps[c.id].line}
                   </span>
                   {on && !pinned && !reduced && inView && (
                     <span
