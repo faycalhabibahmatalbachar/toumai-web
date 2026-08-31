@@ -146,6 +146,8 @@ export const fr = {
       connecteurs: { label: "Connecteurs", short: "Connecteurs", line: "WhatsApp, e-mail, agenda — sous votre contrôle." },
     },
     langues: {
+      shotAlt:
+        "Toumaï AI sur téléphone : « Comment on dit “Je n'ai pas d'argent” en français, anglais, arabe et arabe tchadien ? » La réponse donne les quatre versions, chacune avec son drapeau, puis conclut en plaisantant que le budget est maintenant multilingue.",
       title: "Une conversation, plusieurs langues",
       note: "fr · ar · en",
       rows: [
@@ -174,6 +176,8 @@ export const fr = {
       chips: ["Signature Toumaï AI intégrée", "Modèle Ennedi", "Téléchargeable"],
     },
     document: {
+      shotAlt:
+        "Toumaï AI sur téléphone : un PDF « Rapport_financier_2024 » de 2,8 Mo et 24 pages est joint à la demande d'analyse. Le résumé rendu tient en trois parties numérotées — résultats généraux, dépenses principales, projections 2025 — avec les chiffres en FCFA.",
       title: "Un document entre, l'essentiel en sort",
       note: "pdf · docx · image",
       file: "contrat.pdf",
@@ -186,12 +190,16 @@ export const fr = {
       foot: "Posez ensuite vos questions sur le document : les réponses restent rattachées à son contenu.",
     },
     code: {
+      shotAlt:
+        "Toumaï AI sur téléphone : « Écris-moi une fonction Python qui vérifie si une adresse e-mail est valide. » La réponse affiche le code coloré — un import de `re` et une fonction `email_valide` — suivi d'une phrase expliquant qu'elle rend True ou False. Modèle Toumaï 5.",
       file: "moyenne.py",
       lang: "Python",
       aria: "Fonction Python qui calcule la moyenne d'une liste de notes, puis son résultat d'exécution",
       outputLabel: "Exécuté dans le navigateur",
     },
     web: {
+      shotAlt:
+        "Toumaï AI sur téléphone : « Recherche sur le web les actualités technologiques les plus importantes en Afrique cette semaine. » La réponse liste cinq sujets — satellite Internet, croissance des startups, centres de données, IA et éducation, le numérique au Tchad — chacun avec un court résumé.",
       title: "Une tâche confiée au Web",
       note: "agent navigateur",
       searching: "recherche en cours",
@@ -204,6 +212,8 @@ export const fr = {
       foot: "L'agent vous demande confirmation avant toute action qui engage quelque chose.",
     },
     voix: {
+      shotAlt:
+        "Le mode vocal de Toumaï AI sur téléphone : une sphère lumineuse qui pulse pendant l'échange, avec les commandes micro, appel et haut-parleur sous elle, et un champ de saisie pour basculer à l'écrit.",
       ask: "« Résume-moi la réunion d'hier. »",
       note: "Détection de fin de phrase · réponse à voix haute",
       answer: "Trois décisions : livraison le vendredi, paiement à la remise, et un point d'étape lundi prochain.",

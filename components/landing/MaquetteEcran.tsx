@@ -36,19 +36,33 @@ type Props = {
   /** Largeur maximale affichée. En style en ligne : ce projet ne génère aucun
    *  utilitaire `max-w-[...]` arbitraire — vérifié dans la CSS construite. */
   maxLargeur?: number;
+  /** Les deux largeurs générées pour ce fichier. Toutes les captures ne
+   *  partagent pas le même couple : celle du mode vocal a été convertie plus
+   *  tôt, en 520/760. Coder 460/720 en dur ferait pointer son `srcSet` vers
+   *  des fichiers absents — et un `srcSet` cassé échoue en silence, le
+   *  navigateur se rabattant sur le `src` sans rien signaler. */
+  largeurs?: [number, number];
 };
 
-export function MaquetteEcran({ base, alt, largeur, hauteur, maxLargeur = 300 }: Props) {
+export function MaquetteEcran({
+  base,
+  alt,
+  largeur,
+  hauteur,
+  maxLargeur = 300,
+  largeurs = [460, 720],
+}: Props) {
+  const [petite, grande] = largeurs;
   return (
     <div className="flex h-full min-h-0 items-center justify-center p-2">
       <picture>
         <source
           type="image/avif"
-          srcSet={`/landing/${base}-460.avif 460w, /landing/${base}-720.avif 720w`}
+          srcSet={`/landing/${base}-${petite}.avif ${petite}w, /landing/${base}-${grande}.avif ${grande}w`}
           sizes={`(min-width: 640px) ${maxLargeur}px, 62vw`}
         />
         <img
-          src={`/landing/${base}-460.webp`}
+          src={`/landing/${base}-${petite}.webp`}
           alt={alt}
           width={largeur}
           height={hauteur}

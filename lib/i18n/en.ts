@@ -124,6 +124,8 @@ export const en: Dict = {
       connecteurs: { label: "Connectors", short: "Connectors", line: "WhatsApp, email, calendar — under your control." },
     },
     langues: {
+      shotAlt:
+        "Toumaï AI on a phone: “How do you say ‘I have no money’ in French, English, Arabic and Chadian Arabic?” The answer gives all four versions, each with its flag, then jokes that the budget is now multilingual.",
       title: "One conversation, several languages",
       note: "fr · ar · en",
       rows: [
@@ -152,6 +154,8 @@ export const en: Dict = {
       chips: ["Toumaï AI signature included", "Ennedi model", "Downloadable"],
     },
     document: {
+      shotAlt:
+        "Toumaï AI on a phone: a 2.8 MB, 24-page PDF “Rapport_financier_2024” is attached to an analysis request. The summary comes back in three numbered parts — overall results, main expenses, 2025 projections — with figures in CFA francs.",
       title: "A document goes in, the essentials come out",
       note: "pdf · docx · image",
       file: "contract.pdf",
@@ -164,12 +168,16 @@ export const en: Dict = {
       foot: "Then ask your questions about it: the answers stay tied to what the document actually says.",
     },
     code: {
+      shotAlt:
+        "Toumaï AI on a phone: “Write me a Python function that checks whether an email address is valid.” The answer shows syntax-highlighted code — an `re` import and an `email_valide` function — followed by a line explaining it returns True or False. Toumaï 5 model.",
       file: "average.py",
       lang: "Python",
       aria: "A Python function that averages a list of marks, followed by its output",
       outputLabel: "Run in the browser",
     },
     web: {
+      shotAlt:
+        "Toumaï AI on a phone: “Search the web for the most important tech news in Africa this week.” The answer lists five topics — internet satellite, startup growth, regional data centres, AI in education, Chad's digital push — each with a short summary.",
       title: "A task handed over to the web",
       note: "browser agent",
       searching: "searching",
@@ -182,6 +190,8 @@ export const en: Dict = {
       foot: "The agent asks you first before anything that commits you.",
     },
     voix: {
+      shotAlt:
+        "Toumaï AI voice mode on a phone: a glowing orb pulsing through the exchange, with microphone, call and speaker controls beneath it, and a text field to switch back to typing.",
       ask: "“Sum up yesterday's meeting for me.”",
       note: "End-of-sentence detection · spoken reply",
       answer: "Three decisions: delivery on Friday, payment on handover, and a check-in next Monday.",

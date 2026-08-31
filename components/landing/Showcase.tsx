@@ -25,7 +25,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Icons, Streamed, Waveform, useInView, useReducedMotion } from "./primitives";
+import { Icons, Streamed, useInView, useReducedMotion } from "./primitives";
 import { useLang } from "@/lib/i18n/context";
 import { MaquetteEcran } from "./MaquetteEcran";
 
@@ -251,19 +251,19 @@ export function Showcase() {
 function Stage({ id, still }: { id: CapId; still: boolean }) {
   switch (id) {
     case "multilingue":
-      return <StageLangues still={still} />;
+      return <StageLangues />;
     case "tchadien":
       return <StageTchadien still={still} />;
     case "image":
       return <StageImage still={still} />;
     case "document":
-      return <StageDocument still={still} />;
+      return <StageDocument />;
     case "code":
-      return <StageCode still={still} />;
+      return <StageCode />;
     case "web":
-      return <StageWeb still={still} />;
+      return <StageWeb />;
     case "voix":
-      return <StageVoix still={still} />;
+      return <StageVoix />;
     case "connecteurs":
       return <StageConnecteurs />;
   }
@@ -287,45 +287,17 @@ function StageHead({ title, note }: { title: string; note?: string }) {
  * correspondante. La scène est TYPOGRAPHIQUE : c'est la langue elle-même qui
  * fait l'image, pas un cadre autour. */
 
-function StageLangues({ still }: { still: boolean }) {
+function StageLangues() {
   const { t } = useLang();
   return (
-    <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title={t.showcase.langues.title} note={t.showcase.langues.note} />
-      <div className="grid flex-1 content-center gap-5 sm:gap-7">
-        {t.showcase.langues.rows.map((g, i) => (
-          <div
-            key={g.lang}
-            dir={i === 1 ? "rtl" : "ltr"}
-            lang={["fr", "ar", "en"][i]}
-            className="border-b pb-4 last:border-0 last:pb-0"
-            style={
-              still
-                ? { borderColor: "var(--tm-line)" }
-                : {
-                    borderColor: "var(--tm-line)",
-                    animation: `tm-word-in 520ms cubic-bezier(.22,1,.36,1) ${180 + i * 260}ms backwards`,
-                  }
-            }
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="tm-display text-[clamp(1.5rem,3.4vw,2.1rem)]" style={{ color: "var(--tm-ink)" }}>
-                {g.hello}
-              </p>
-              <span className="tm-mono shrink-0 text-[10px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-                {g.lang}
-              </span>
-            </div>
-            <p className="mt-1.5 text-[13px]" style={{ color: "var(--tm-ink-3)" }}>
-              {g.reply}
-            </p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-5 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-        {t.showcase.langues.foot}
-      </p>
-    </div>
+    <MaquetteEcran
+      base="ecran-multilingue"
+      alt={t.showcase.langues.shotAlt}
+      largeur={1024}
+      hauteur={1536}
+      maxLargeur={280}
+      largeurs={[460, 720]}
+    />
   );
 }
 
@@ -462,79 +434,17 @@ function StageImage({ still }: { still: boolean }) {
 /* 4 ── Analyse de documents ─────────────────────────────────────────────────
  * Deux moitiés : la page qui entre, ce qui en sort. La flèche entre les deux
  * est le sujet de la scène. */
-function StageDocument({ still }: { still: boolean }) {
+function StageDocument() {
   const { t } = useLang();
   return (
-    <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title={t.showcase.document.title} note={t.showcase.document.note} />
-
-      <div className="grid flex-1 items-center gap-4 sm:grid-cols-[minmax(0,150px)_auto_1fr] sm:gap-5">
-        {/* La page */}
-        <div
-          className="relative mx-auto w-full max-w-[150px] rounded-lg border p-3"
-          style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface-2)", aspectRatio: "3 / 4" }}
-        >
-          <div className="h-2 w-2/3 rounded" style={{ background: "var(--tm-line-2)" }} />
-          <div className="mt-3 space-y-[5px]">
-            {[100, 92, 96, 70, 100, 88, 94, 62].map((w, i) => (
-              <div
-                key={i}
-                className="h-[3.5px] rounded"
-                style={{
-                  width: `${w}%`,
-                  background: i === 3 || i === 6 ? "var(--tm-accent-line)" : "var(--tm-line)",
-                }}
-              />
-            ))}
-          </div>
-          <div
-            className="mt-3 h-9 rounded"
-            style={{ background: "var(--tm-line)", opacity: 0.6 }}
-          />
-          <span
-            className="tm-mono absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-[9px] uppercase tracking-wider"
-            style={{ background: "var(--tm-bg-3)", border: "1px solid var(--tm-line)", color: "var(--tm-ink-4)" }}
-          >
-            {t.showcase.document.file}
-          </span>
-        </div>
-
-        <span
-          className="mx-auto hidden sm:block"
-          style={{ color: "var(--tm-terra-2)" }}
-          aria-hidden="true"
-        >
-          <Icons.arrow size={20} />
-        </span>
-
-        {/* Ce qui en sort */}
-        <ul className="space-y-2.5">
-          {t.showcase.document.points.map((point, i) => (
-            <li
-              key={point}
-              className="flex items-start gap-2.5 text-[13px] leading-snug"
-              style={
-                still
-                  ? { color: "var(--tm-ink-2)" }
-                  : {
-                      color: "var(--tm-ink-2)",
-                      animation: `tm-word-in 420ms cubic-bezier(.22,1,.36,1) ${400 + i * 220}ms backwards`,
-                    }
-              }
-            >
-              <span className="mt-[3px] shrink-0" style={{ color: i === 3 ? "var(--tm-amber)" : "var(--tm-terra-2)" }}>
-                <Icons.check size={14} />
-              </span>
-              {point}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <p className="mt-5 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-        {t.showcase.document.foot}
-      </p>
-    </div>
+    <MaquetteEcran
+      base="ecran-document"
+      alt={t.showcase.document.shotAlt}
+      largeur={1024}
+      hauteur={1536}
+      maxLargeur={280}
+      largeurs={[460, 720]}
+    />
   );
 }
 
@@ -542,90 +452,19 @@ function StageDocument({ still }: { still: boolean }) {
  * Un éditeur. Les lignes se posent l'une après l'autre, puis le résultat de
  * l'exécution apparaît sous elles — parce que Toumaï AI exécute vraiment le
  * code, il ne fait pas que l'écrire. */
-const CODE_LINES: [string, string][][] = [
-  [["def ", "kw"], ["moyenne", "fn"], ["(notes):", "pl"]],
-  [["    ", "pl"], ["if", "kw"], [" not notes:", "pl"], [" return ", "kw"], ["0", "num"]],
-  [["    ", "pl"], ["return", "kw"], [" sum(notes) / len(notes)", "pl"]],
-  [],
-  [["print", "fn"], ["(moyenne([", "pl"], ["12", "num"], [", ", "pl"], ["15", "num"], [", ", "pl"], ["9", "num"], ["]))", "pl"]],
-];
 
-const TOKEN_COLOR: Record<string, string> = {
-  kw: "var(--tm-terra-2)",
-  fn: "var(--tm-indigo)",
-  num: "var(--tm-amber)",
-  pl: "var(--tm-ink-2)",
-};
 
-function StageCode({ still }: { still: boolean }) {
+function StageCode() {
   const { t } = useLang();
   return (
-    <div className="flex h-full flex-col">
-      <div
-        className="flex items-center gap-2 border-b px-4 py-2.5 sm:px-5"
-        style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)" }}
-      >
-        <span style={{ color: "var(--tm-ink-4)" }} aria-hidden="true">
-          <Icons.code size={15} />
-        </span>
-        <span className="tm-mono text-[11px]" style={{ color: "var(--tm-ink-3)" }}>
-          {t.showcase.code.file}
-        </span>
-        <span className="tm-chip ms-auto text-[10px]">{t.showcase.code.lang}</span>
-      </div>
-
-      <pre
-        className="tm-mono flex-1 overflow-x-auto p-4 text-[12.5px] leading-[1.9] sm:p-5"
-        aria-label={t.showcase.code.aria}
-      >
-        {CODE_LINES.map((line, i) => (
-          <div
-            key={i}
-            className="flex gap-4"
-            style={
-              still
-                ? undefined
-                : { animation: `tm-word-in 320ms ease-out ${220 + i * 200}ms backwards` }
-            }
-          >
-            <span className="w-4 shrink-0 select-none text-end" style={{ color: "var(--tm-ink-4)", opacity: 0.55 }}>
-              {i + 1}
-            </span>
-            <span>
-              {line.length === 0
-                ? " "
-                : line.map(([txt, kind], j) => (
-                    <span key={j} style={{ color: TOKEN_COLOR[kind] }}>
-                      {txt}
-                    </span>
-                  ))}
-            </span>
-          </div>
-        ))}
-      </pre>
-
-      <div
-        className="border-t px-4 py-3.5 sm:px-5"
-        // Le résultat d'exécution n'est pas une décoration : il change la
-        // nature de ce qui est montré — Toumaï AI exécute le code, il ne fait
-        // pas que l'écrire.
-        style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)" }}
-      >
-        <p className="tm-mono mb-1.5 text-[9.5px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-          {t.showcase.code.outputLabel}
-        </p>
-        <p
-          className="tm-mono text-[13px]"
-          style={
-            still
-              ? { color: "var(--tm-ink)" }
-              : { color: "var(--tm-ink)", animation: "tm-word-in 380ms ease-out 1500ms backwards" }
-          }
-        >
-          <span style={{ color: "var(--tm-ink-4)" }}>&gt;&gt;&gt; </span>12.0
-        </p>
-      </div>
-    </div>
+    <MaquetteEcran
+      base="ecran-code"
+      alt={t.showcase.code.shotAlt}
+      largeur={1024}
+      hauteur={1536}
+      maxLargeur={280}
+      largeurs={[460, 720]}
+    />
   );
 }
 
@@ -633,145 +472,33 @@ function StageCode({ still }: { still: boolean }) {
  * Un vrai navigateur en haut, la progression en bas. Le fil vertical qui relie
  * les étapes se remplit : c'est lui qui dit « ça avance ». */
 
-function StageWeb({ still }: { still: boolean }) {
+function StageWeb() {
   const { t } = useLang();
   return (
-    <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title={t.showcase.web.title} note={t.showcase.web.note} />
-
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface-2)" }}
-      >
-        <div className="flex items-center gap-1.5 border-b px-3 py-2" style={{ borderColor: "var(--tm-line)" }}>
-          {[0, 1, 2].map((d) => (
-            <span key={d} className="h-[6px] w-[6px] rounded-full" style={{ background: "var(--tm-line-2)" }} aria-hidden="true" />
-          ))}
-          <span
-            className="tm-mono ml-2 flex-1 truncate rounded px-2 py-0.5 text-[10px]"
-            style={{ background: "var(--tm-bg)", color: "var(--tm-ink-4)" }}
-          >
-            {t.showcase.web.searching}
-          </span>
-          {!still && (
-            <svg width="26" height="8" viewBox="0 0 26 8" aria-hidden="true">
-              <line x1="0" y1="4" x2="26" y2="4" stroke="var(--tm-terra-2)" strokeWidth="2" className="tm-dash" />
-            </svg>
-          )}
-        </div>
-        <div className="space-y-2 p-3.5">
-          {["86%", "97%", "64%"].map((w, i) => (
-            <div
-              key={w}
-              className="h-2 rounded"
-              style={{
-                width: w,
-                background: i === 1 ? "var(--tm-accent-line)" : "var(--tm-line)",
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <ol className="relative mt-5 flex-1 space-y-3.5 ps-6">
-        <span
-          className="absolute bottom-2 start-[9px] top-2 w-px"
-          style={{ background: "var(--tm-line)" }}
-          aria-hidden="true"
-        />
-        {t.showcase.web.steps.map((s, i) => (
-          <li
-            key={s.label}
-            className="relative"
-            style={
-              still
-                ? undefined
-                : { animation: `tm-word-in 420ms cubic-bezier(.22,1,.36,1) ${260 + i * 320}ms backwards` }
-            }
-          >
-            <span
-              className="absolute -left-6 top-[3px] grid h-[19px] w-[19px] place-items-center rounded-full text-[9.5px] font-semibold"
-              style={{ background: "var(--tm-accent-soft)", color: "var(--tm-terra-2)", border: "1px solid var(--tm-accent-line)" }}
-            >
-              {i + 1}
-            </span>
-            <p className="text-[13.5px]" style={{ color: "var(--tm-ink)" }}>
-              {s.label}
-            </p>
-            <p className="text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-              {s.detail}
-            </p>
-          </li>
-        ))}
-      </ol>
-
-      <p className="mt-4 text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-        {t.showcase.web.foot}
-      </p>
-    </div>
+    <MaquetteEcran
+      base="ecran-web"
+      alt={t.showcase.web.shotAlt}
+      largeur={1024}
+      hauteur={1536}
+      maxLargeur={280}
+      largeurs={[460, 720]}
+    />
   );
 }
 
 /* 7 ── Mode vocal ───────────────────────────────────────────────────────────
  * Centré, radial, presque sans texte : la voix n'a pas de mise en page. */
-function StageVoix({ still }: { still: boolean }) {
+function StageVoix() {
   const { t } = useLang();
   return (
-    <div className="relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden p-5 text-center sm:p-7">
-      <span
-        className="tm-glow tm-breathe"
-        aria-hidden="true"
-        style={{
-          left: "50%",
-          top: "38%",
-          width: 320,
-          height: 320,
-          transform: "translate(-50%,-50%)",
-          background: "radial-gradient(circle, color-mix(in srgb, var(--tm-terra) 42%, transparent), transparent 66%)",
-        }}
-      />
-
-      <Waveform bars={26} height={64} />
-
-      <div>
-        <p className="tm-display text-[clamp(1.3rem,3vw,1.75rem)]">
-          <Streamed still={still} delay={200} speed={60} text={t.showcase.voix.ask} />
-        </p>
-        <p className="tm-mono mt-2 text-[10.5px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-          {t.showcase.voix.note}
-        </p>
-      </div>
-
-      <div
-        className="w-full max-w-md rounded-2xl border p-4 text-start"
-        style={
-          still
-            ? { borderColor: "var(--tm-line)", background: "var(--tm-surface)" }
-            : {
-                borderColor: "var(--tm-line)",
-                background: "var(--tm-surface)",
-                animation: "tm-word-in 460ms cubic-bezier(.22,1,.36,1) 1300ms backwards",
-              }
-        }
-      >
-        <p className="text-[13px] leading-relaxed" style={{ color: "var(--tm-ink-2)" }}>
-          <Streamed
-            still={still}
-            delay={1500}
-            speed={40}
-            text={t.showcase.voix.answer}
-          />
-        </p>
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-2">
-        {t.showcase.voix.chips.map((c) => (
-          <span key={c} className="tm-chip text-[11px]">
-            {c}
-          </span>
-        ))}
-      </div>
-    </div>
+    <MaquetteEcran
+      base="voix-mobile"
+      alt={t.showcase.voix.shotAlt}
+      largeur={1024}
+      hauteur={1536}
+      maxLargeur={280}
+      largeurs={[520, 760]}
+    />
   );
 }
 
