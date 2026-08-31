@@ -97,11 +97,11 @@ export const fr = {
       chips: ["Arabe tchadien", "Arabe littéraire", "Français"],
     },
     image: {
-      ask: "Dessine les dunes du Sahara au crépuscule, en très grand format.",
+      ask: "Génère une image d'un entrepreneur africain moderne dans un bureau élégant.",
       thinking: "Ennedi compose l'image…",
       caption: "Image générée par Toumaï AI",
       chip: "Signature intégrée",
-      alt: "Dunes du Sahara au crépuscule — image générée par Toumaï AI, signée en bas à droite",
+      alt: "Toumaï AI sur téléphone : la demande d'une image d'entrepreneur africain, et l'image rendue juste en dessous, signée Toumaï AI",
     },
     voice: {
       ask: "Rappelle-moi ce qu'on a décidé hier pour la livraison.",
@@ -166,9 +166,9 @@ export const fr = {
         "Toumaï AI est développé à partir d'un corpus d'arabe tchadien collecté sur le terrain — pas d'une simple traduction depuis l'arabe littéraire.",
     },
     image: {
-      prompt: "« Les dunes du Sahara au crépuscule, ciel indigo, lumière rasante, très grand format. »",
+      prompt: "« Génère une image d'un entrepreneur africain moderne dans un bureau élégant. »",
       promptLabel: "Votre demande",
-      alt: "Dunes du Sahara au crépuscule, ciel indigo et sable ambré — image générée par Toumaï AI",
+      alt: "Toumaï AI sur téléphone : la demande d'une image d'entrepreneur africain, et l'image rendue juste en dessous",
       chips: ["Signature Toumaï AI intégrée", "Modèle Ennedi", "Téléchargeable"],
     },
     document: {
