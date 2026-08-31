@@ -83,6 +83,8 @@ export const fr = {
       agent: "Agent Navigateur",
     },
     fr: {
+      shotAlt:
+        "Toumaï AI sur téléphone : « Rédige un message pour annoncer l'ouverture de ma boutique samedi à N'Djaména. » La réponse propose une annonce complète — Grande ouverture samedi, marché de Dembé dès 8 h, vêtements, accessoires et tissus, prix de lancement toute la journée.",
       ask: "Rédige un message pour annoncer l'ouverture de ma boutique samedi à N'Djaména.",
       thinking: "Sao 4 rédige…",
       answer:
@@ -208,6 +210,8 @@ export const fr = {
       chips: ["Dictée", "Lecture à voix haute", "Interruption à tout moment"],
     },
     connecteurs: {
+      shotAlt:
+        "Toumaï AI sur téléphone : « Résume-moi le message vocal d'Ahmat. » La réponse — il confirme la livraison de vendredi et demande une facture au nom de la coopérative. Puis « Réponds-lui d'accord », et Toumaï AI demande confirmation avant d'envoyer, avec deux boutons : Envoyer et Modifier.",
       title: "Vos outils, dans la conversation",
       note: "révocable",
       available: "Disponible",

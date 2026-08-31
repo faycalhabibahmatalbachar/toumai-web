@@ -31,6 +31,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamed, Thinking, Waveform, useInView, useReducedMotion } from "./primitives";
 import { useLang } from "@/lib/i18n/context";
+import { MaquetteEcran } from "./MaquetteEcran";
 
 type SceneId = "fr" | "shu" | "image" | "voice" | "agent";
 
@@ -126,7 +127,7 @@ export function ConsoleDemo() {
        * faire remonter le bas de page. */}
       <div className="relative h-[336px] overflow-hidden px-4 py-4 sm:h-[352px] sm:px-5 sm:py-5">
         <div key={scene.id} className="tm-stage-in h-full">
-          {scene.id === "fr" && <SceneFr still={still} />}
+          {scene.id === "fr" && <SceneFr />}
           {scene.id === "shu" && <SceneShu still={still} />}
           {scene.id === "image" && <SceneImage still={still} />}
           {scene.id === "voice" && <SceneVoice still={still} />}
@@ -233,36 +234,18 @@ function At({
   );
 }
 
-function SceneFr({ still }: { still: boolean }) {
+function SceneFr() {
   const { t } = useLang();
+  // La reproduction faite main a laisse la place a la capture reelle : meme
+  // demande, meme reponse, mais l'ecran est celui de l'application.
   return (
-    <div className="flex h-full flex-col gap-3.5">
-      <UserBubble delay={120} still={still}>
-        {t.console.fr.ask}
-      </UserBubble>
-
-      <At ms={900} still={still} className="flex items-center gap-2 text-[12px]">
-        <Thinking />
-        <span style={{ color: "var(--tm-ink-4)" }}>{t.console.fr.thinking}</span>
-      </At>
-
-      <div className="text-[13.5px] leading-[1.65]" style={{ color: "var(--tm-ink-2)" }}>
-        <Streamed
-          delay={1700}
-          still={still}
-          speed={40}
-          text={t.console.fr.answer}
-        />
-      </div>
-
-      <At ms={4600} still={still} className="mt-auto flex flex-wrap gap-1.5">
-        {t.console.fr.chips.map((s) => (
-          <span key={s} className="tm-chip text-[11.5px]">
-            {s}
-          </span>
-        ))}
-      </At>
-    </div>
+    <MaquetteEcran
+      base="ecran-boutique"
+      alt={t.console.fr.shotAlt}
+      largeur={941}
+      hauteur={1672}
+      maxLargeur={280}
+    />
   );
 }
 

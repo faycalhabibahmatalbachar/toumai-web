@@ -61,6 +61,8 @@ export const en: Dict = {
       agent: "Browser Agent",
     },
     fr: {
+      shotAlt:
+        "Toumaï AI on a phone: “Write a message announcing my shop opening on Saturday in N'Djaména.” The answer drafts a full announcement — grand opening Saturday, Dembé market from 8 a.m., clothing, accessories and fabrics, launch prices all day.",
       ask: "Write a message announcing my shop opening this Saturday in N'Djamena.",
       thinking: "Sao 4 is writing…",
       answer:
@@ -186,6 +188,8 @@ export const en: Dict = {
       chips: ["Dictation", "Read aloud", "Interrupt any time"],
     },
     connecteurs: {
+      shotAlt:
+        "Toumaï AI on a phone: “Summarise Ahmat's voice message.” The answer — he confirms Friday's delivery and asks for an invoice in the co-op's name. Then “Reply that I agree”, and Toumaï AI asks for confirmation before sending, with two buttons: Send and Edit.",
       title: "Your tools, inside the conversation",
       note: "revocable",
       available: "Available",

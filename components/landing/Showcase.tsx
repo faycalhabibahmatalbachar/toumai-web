@@ -25,9 +25,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Icons, Streamed, Waveform, useInView, useReducedMotion } from "./primitives";
 import { useLang } from "@/lib/i18n/context";
+import { MaquetteEcran } from "./MaquetteEcran";
 
 type CapId =
   | "multilingue"
@@ -781,71 +781,17 @@ function StageVoix({ still }: { still: boolean }) {
  * accompagné d'une promesse. */
 function StageConnecteurs() {
   const { t } = useLang();
+  // Capture reelle du fil ou une note vocale est resumee puis une reponse
+  // preparee, avec la demande de confirmation avant envoi. C'est exactement ce
+  // que la section promet, montre par l'application elle-meme.
   return (
-    <div className="flex h-full flex-col p-5 sm:p-7">
-      <StageHead title={t.showcase.connecteurs.title} note={t.showcase.connecteurs.note} />
-
-      <div className="space-y-2.5">
-        {[
-          ...t.showcase.connecteurs.items,
-        ].map((c) => (
-          <div
-            key={c.name}
-            className="flex items-center gap-3 rounded-xl border p-3.5"
-            style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface-2)" }}
-          >
-            <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-              style={{ background: "var(--tm-surface-3)", color: "var(--tm-ink-3)" }}
-              aria-hidden="true"
-            >
-              <Icons.plug size={16} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13.5px] font-medium">{c.name}</span>
-              <span className="block truncate text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
-                {c.detail}
-              </span>
-            </span>
-            <span className="tm-chip shrink-0 text-[10.5px]">{t.showcase.connecteurs.available}</span>
-          </div>
-        ))}
-      </div>
-
-      <div
-        className="mt-4 flex-1 rounded-xl border p-4"
-        style={{ borderColor: "var(--tm-line)", background: "var(--tm-surface)" }}
-      >
-        <p className="tm-mono mb-3 text-[10px] uppercase tracking-wider" style={{ color: "var(--tm-ink-4)" }}>
-          {t.showcase.connecteurs.permsLabel}
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {t.showcase.connecteurs.perms
-            .map((label, i) => [label, i < 3] as const)
-            .map(([label, on]) => (
-            <span key={String(label)} className="flex items-center justify-between gap-2 text-[12.5px]" style={{ color: "var(--tm-ink-2)" }}>
-              {label}
-              <span
-                className="relative h-[18px] w-[32px] shrink-0 rounded-full transition-colors"
-                style={{ background: on ? "var(--tm-accent)" : "var(--tm-surface-3)" }}
-                aria-hidden="true"
-              >
-                <span
-                  className="absolute top-[3px] h-3 w-3 rounded-full"
-                  style={{ left: on ? 17 : 3, background: on ? "var(--tm-accent-ink)" : "var(--tm-ink-4)" }}
-                />
-              </span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <p className="mt-4 text-[11.5px] leading-relaxed" style={{ color: "var(--tm-ink-4)" }}>
-        {t.showcase.connecteurs.foot}{" "}
-        <Link href="/settings?tab=connectors" className="tm-link text-[11.5px]">
-          {t.showcase.connecteurs.manage}
-        </Link>
-      </p>
-    </div>
+    <MaquetteEcran
+      base="ecran-vocal-resume"
+      alt={t.showcase.connecteurs.shotAlt}
+      largeur={941}
+      hauteur={1672}
+      maxLargeur={280}
+    />
   );
 }
+
