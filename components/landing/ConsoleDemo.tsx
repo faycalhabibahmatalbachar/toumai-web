@@ -328,16 +328,23 @@ function SceneImage({ still }: { still: boolean }) {
       </At>
 
       <At ms={1500} still={still} className="relative min-h-0 flex-1 overflow-hidden rounded-xl">
+        {/* Meme maquette produit que dans la vitrine : l'image seule, sortie
+          * de son ecran, ne montrait qu'un resultat sans son contexte. */}
         <picture>
-          <source srcSet="/landing/showcase.avif" type="image/avif" />
+          <source
+            type="image/avif"
+            srcSet="/landing/image-mobile-420.avif 420w, /landing/image-mobile-640.avif 640w"
+            sizes="(min-width: 640px) 200px, 46vw"
+          />
           <img
-            src="/landing/showcase.webp"
+            src="/landing/image-mobile-420.webp"
             alt={t.console.image.alt}
-            width={760}
-            height={570}
+            width={945}
+            height={1665}
             loading="lazy"
             decoding="async"
-            className="h-full w-full rounded-xl object-cover"
+            className="mx-auto h-full w-auto select-none rounded-xl object-contain"
+            style={{ maxWidth: 200 }}
           />
         </picture>
         {/* Le balayage « développe » l'image, puis disparaît : ce qui reste à

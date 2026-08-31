@@ -399,38 +399,50 @@ function StageImage({ still }: { still: boolean }) {
   const { t } = useLang();
   return (
     <div className="flex h-full flex-col">
-      <div className="relative min-h-0 flex-1 overflow-hidden">
+      {/* LA MAQUETTE PRODUIT REMPLACE L'IMAGE SEULE.
+        *
+        * Ici ne s'affichait que l'image produite, sortie de son contexte. On y
+        * voyait un résultat sans voir d'où il venait — la demande, l'écran, le
+        * moment. La capture réelle montre les trois d'un coup : la question
+        * tapée, l'image rendue en dessous, et l'application autour.
+        *
+        * L'image est laissée ENTIÈRE. Recadrer un téléphone en portrait pour
+        * remplir un panneau en paysage le couperait en deux ; on le centre et
+        * on borne sa largeur, ce qui coûte de l'espace vide mais ne ment sur
+        * rien. */}
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4">
         <picture>
-          <source srcSet="/landing/showcase.avif" type="image/avif" />
+          <source
+            type="image/avif"
+            srcSet="/landing/image-mobile-420.avif 420w, /landing/image-mobile-640.avif 640w"
+            sizes="(min-width: 640px) 240px, 52vw"
+          />
           <img
-            src="/landing/showcase.webp"
+            src="/landing/image-mobile-420.webp"
             alt={t.showcase.image.alt}
-            width={760}
-            height={570}
+            width={945}
+            height={1665}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover"
+            className="h-full w-auto select-none object-contain"
+            // Voir la note dans Why.tsx : les `max-w-[...]` arbitraires ne sont
+            // pas générés dans ce projet — style en ligne obligatoire.
+            style={{ maxWidth: 240 }}
           />
         </picture>
         {!still && <span className="tm-scan pointer-events-none" aria-hidden="true" />}
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-28"
-          style={{ background: "linear-gradient(to top, rgba(10,8,6,.88), transparent)" }}
-          aria-hidden="true"
-        />
-        <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
-          <p className="text-[12px]" style={{ color: "rgba(255,246,232,.62)" }}>
-            {t.showcase.image.promptLabel}
-          </p>
-          <p className="mt-1 text-[14px] leading-snug" style={{ color: "#f6f0e5" }}>
-            <Streamed
-              still={still}
-              delay={260}
-              speed={46}
-              text={t.showcase.image.prompt}
-            />
-          </p>
-        </div>
+      </div>
+
+      <div className="px-4 pb-1 sm:px-5">
+        <p className="text-[12px]" style={{ color: "var(--tm-ink-4)" }}>
+          {t.showcase.image.promptLabel}
+        </p>
+        <p className="mt-1 text-[14px] leading-snug" style={{ color: "var(--tm-ink)" }}>
+          {/* L'écriture en direct reste : c'est elle qui montre le produit en
+            * train de travailler. Elle sort simplement du cadre de l'image,
+            * qui n'a plus de zone sombre où la poser. */}
+          <Streamed still={still} delay={260} speed={46} text={t.showcase.image.prompt} />
+        </p>
       </div>
 
       <div
