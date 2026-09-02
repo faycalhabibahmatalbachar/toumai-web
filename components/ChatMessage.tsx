@@ -40,6 +40,13 @@ export interface Message {
   /** Présent une fois le message persisté côté backend — nécessaire pour le feedback. */
   serverId?: string;
   imageUrls?: string[];
+  /** La pièce jointe envoyée AVEC ce message.
+   *
+   * Elle n'y figurait pas : on joignait une image, on envoyait, et le fil
+   * n'en gardait aucune trace — impossible de savoir, en relisant, sur quoi
+   * portait la question. `apercu` est une adresse locale (`blob:`) valable
+   * le temps de l'onglet ; le nom reste comme repli après rechargement. */
+  piece?: { nom: string; apercu?: string };
   /** Action sensible en attente (WhatsApp, mail…) — affiche la carte
    * Confirmer/Annuler qui déclenche la VRAIE exécution côté backend. */
   toolConfirmation?: ToolConfirmation;
@@ -591,6 +598,27 @@ export function ChatMessage({
           <span className="streaming-cursor ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 bg-current align-middle" />
         )}
       </div>
+      {/* LA PIÈCE JOINTE RESTE DANS LE FIL.
+          Sans elle, on relisait « analyse ça » sans savoir quoi — la question
+          perdait son sujet dès qu'on remontait la conversation. */}
+      {message.piece && (
+        <div className="mt-2 flex items-center gap-2">
+          {message.piece.apercu ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={message.piece.apercu}
+              alt={message.piece.nom}
+              className="h-24 w-24 rounded-xl border border-[var(--border)] object-cover"
+            />
+          ) : (
+            /* Après un rechargement, l'adresse locale n'existe plus : il
+               reste le nom, qui vaut mieux qu'un cadre vide. */
+            <span className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
+              {message.piece.nom}
+            </span>
+          )}
+        </div>
+      )}
       {!message.streaming && message.toolConfirmation && (
         <ToolConfirmCard confirmation={message.toolConfirmation} />
       )}

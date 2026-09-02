@@ -1043,18 +1043,46 @@ svg {
 /* Rangees de la carte des outils du composeur : une tuile d'icone, un libelle,
  * une ligne de precision. Un menu de texte nu ne disait pas ce que chaque
  * entree ajoute reellement au message. */
+/* ── La carte « + » du composeur ────────────────────────────────────────────
+ *
+ * Trois choix qui la distinguent d'une simple liste :
+ *
+ * 1. La rangée respire (0,7 rem de haut) — c'est une carte qu'on ouvre à la
+ *    souris ET au doigt, et 44 px est la cible minimale confortable.
+ * 2. L'icône a sa propre pastille, qui s'anime au survol. Sans elle, les trois
+ *    entrées se lisent comme un bloc de texte gris.
+ * 3. Le survol déplace la rangée d'un pixel vers la droite. Rien de plus : un
+ *    menu de composeur s'ouvre et se referme en une seconde, et une animation
+ *    qu'on remarque est une animation de trop.
+ */
 .tools-row {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 0.7rem;
-  border-radius: 0.85rem;
-  padding: 0.55rem 0.6rem;
+  gap: 0.75rem;
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.65rem;
   text-align: left;
-  transition: background 120ms ease;
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
 }
 .tools-row:hover {
   background: var(--hover);
+  transform: translateX(1px);
+}
+.tools-row:active {
+  transform: translateX(1px) scale(0.99);
+}
+/* Le clavier voit ce que la souris voit. */
+.tools-row:focus-visible {
+  background: var(--hover);
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: -2px;
+}
+.tools-row:hover .tools-icon {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  color: var(--text-primary);
 }
 .tools-row[data-active="true"] .tools-icon {
   background: color-mix(in srgb, var(--primary) 16%, transparent);
@@ -1062,14 +1090,28 @@ svg {
 }
 .tools-icon {
   display: flex;
-  height: 2rem;
-  width: 2rem;
+  height: 2.15rem;
+  width: 2.15rem;
   flex: none;
   align-items: center;
   justify-content: center;
-  border-radius: 0.6rem;
+  border-radius: 0.7rem;
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);
   color: var(--text-secondary);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tools-row,
+  .tools-icon {
+    transition: none;
+  }
+  .tools-row:hover,
+  .tools-row:active {
+    transform: none;
+  }
 }
 
 /* Pastille de gauche du couple envoi/voix : au repos (champ vide), le bouton

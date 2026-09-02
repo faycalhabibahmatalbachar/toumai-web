@@ -9,6 +9,8 @@ export interface ChatSession {
   created_at: string;
   model_used?: string;
   pinned?: boolean;
+  /** Date d'archivage. Absente ou nulle = conversation active. */
+  archived_at?: string | null;
 }
 
 export interface HistoryMessage {
@@ -37,8 +39,15 @@ async function get<T>(path: string): Promise<T> {
   return body.data as T;
 }
 
-export async function listSessions(): Promise<ChatSession[]> {
-  return get<ChatSession[]>("/chat/sessions");
+/**
+ * Les conversations. Les archivées sont EXCLUES par défaut.
+ *
+ * Une archive dont on ne peut pas sortir ne vaut pas mieux qu'une
+ * suppression : `archivees: true` les rend, et c'est ce qui rend le geste
+ * réversible.
+ */
+export async function listSessions(archivees = false): Promise<ChatSession[]> {
+  return get<ChatSession[]>(`/chat/sessions${archivees ? "?archived=true" : ""}`);
 }
 
 export async function getHistory(sessionId: string): Promise<HistoryMessage[]> {
@@ -55,7 +64,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 async function updateSession(
   sessionId: string,
-  patch: { title?: string; pinned?: boolean },
+  patch: { title?: string; pinned?: boolean; archived?: boolean },
 ): Promise<void> {
   const res = await authFetch(`/chat/session/${sessionId}`, {
     method: "PUT",
@@ -74,6 +83,16 @@ export function renameSession(sessionId: string, title: string): Promise<void> {
 
 export function setSessionPinned(sessionId: string, pinned: boolean): Promise<void> {
   return updateSession(sessionId, { pinned });
+}
+
+/**
+ * Range une conversation sans la détruire — ou la ressort.
+ *
+ * Le serveur détache au passage : épinglée en haut de liste ET rangée est une
+ * contradiction. Au retour, elle réapparaît là où sa date la place.
+ */
+export function setSessionArchived(sessionId: string, archived: boolean): Promise<void> {
+  return updateSession(sessionId, { archived });
 }
 
 /** Supprime un message et tout ce qui le suit dans sa session — utilisé

@@ -8,6 +8,7 @@ import {
   groupSessionsByDate,
   listSessions,
   renameSession,
+  setSessionArchived,
   setSessionPinned,
   type ChatSession,
 } from "@/lib/chat-api";
@@ -19,6 +20,9 @@ interface SidebarProps {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNewChat: () => void;
+  /** Ouvre le partage d'une conversation. Absent = l'entrée reste inerte,
+      donc on ne l'affiche pas : un bouton qui ne fait rien est un défaut. */
+  onShare?: (sessionId: string) => void;
   refreshKey: number;
   open: boolean;
   onClose: () => void;
@@ -26,7 +30,7 @@ interface SidebarProps {
 
 const COLLAPSE_KEY = "toumai_sidebar_collapsed";
 
-export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClose }: SidebarProps) {
+export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, open, onClose }: SidebarProps) {
   const { session } = useAuth();
   // Cache persistant : l'historique s'affiche instantanément au retour sur la
   // page (seed hydration-safe avant peinture), puis se revalide en arrière-plan.
@@ -56,6 +60,11 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
   }
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  /** La conversation dont on demande confirmation avant de la détruire.
+      `null` = aucune boîte ouverte. On garde l'objet, pas l'identifiant :
+      la boîte affiche le titre, et demander « supprimer cette
+      conversation ? » sans dire laquelle n'aide personne. */
+  const [toConfirm, setToConfirm] = useState<ChatSession | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   // Profil seedé depuis le cache (hydration-safe) : nom + avatar affichés
@@ -125,7 +134,35 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, refreshKey]);
 
+  /** Range une conversation sans la détruire. */
+  async function handleArchive(s: ChatSession) {
+    setMenuId(null);
+    // Optimiste : elle disparaît tout de suite. Attendre le réseau ferait
+    // douter d'un clic qui a pourtant été pris.
+    setSessions((prev) => {
+      const next = prev.filter((x) => x.id !== s.id);
+      cacheWrite("chat:sessions", next);
+      return next;
+    });
+    try {
+      await setSessionArchived(s.id, true);
+      if (activeId === s.id) onNewChat();
+    } catch {
+      // L'ARCHIVAGE A ÉCHOUÉ : on la remet. Une conversation disparue de
+      // l'écran mais toujours en base est pire qu'un clic sans effet — on
+      // croirait l'avoir rangée, et elle reviendrait au prochain chargement.
+      setSessions((prev) => {
+        const next = [...prev, s].sort((a, b) =>
+          (b.created_at || "").localeCompare(a.created_at || ""),
+        );
+        cacheWrite("chat:sessions", next);
+        return next;
+      });
+    }
+  }
+
   async function handleDelete(id: string) {
+    setToConfirm(null);
     setMenuId(null);
     setDeletingId(id);
     try {
@@ -219,10 +256,25 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
             /* Le nom seul, sans la marque : le logo est déjà partout ailleurs
                (onglet, réponses, écran d'accueil) et il n'apportait rien ici
                qu'une répétition. */
-            <div className="flex select-none items-center gap-2.5 px-2">
-              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight">
+            <div className="flex items-center gap-2.5 px-2">
+              {/* CLIQUABLE, ET C'EST ATTENDU : le nom d'un produit en haut à
+                  gauche ramène à son accueil dans à peu près toutes les
+                  interfaces. Ici il n'était qu'un décor.
+
+                  `landing-serif` : la police de la marque, déjà utilisée sur
+                  l'écran d'accueil. Le nom du produit méritait autre chose
+                  que la police du corps de texte. */}
+              <button
+                onClick={() => {
+                  onClose();
+                  onNewChat();
+                }}
+                title="Nouvelle conversation"
+                aria-label="Toumaï AI — nouvelle conversation"
+                className="landing-serif min-w-0 flex-1 truncate rounded-lg px-1 py-0.5 text-left text-[20px] font-semibold tracking-tight transition hover:opacity-70"
+              >
                 Toumaï AI
-              </span>
+              </button>
               <button
                 onClick={toggleCollapsed}
                 aria-label="Fermer la barre latérale"
@@ -375,25 +427,58 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
                         ref={menuRef}
                         className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1 shadow-lg"
                       >
+                        {/* PARTAGER ET RENOMMER : ce qu'on fait le plus
+                            souvent, donc en haut et sous le pouce. */}
                         <button
-                          onClick={() => togglePin(s)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
+                          onClick={() => {
+                            setMenuId(null);
+                            onShare?.(s.id);
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
                         >
-                          <PinIcon />
-                          {s.pinned ? "Détacher" : "Épingler"}
+                          <ShareIcon />
+                          Partager
                         </button>
                         <button
                           onClick={() => startRename(s)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
                         >
                           <EditIcon />
                           Renommer
                         </button>
+
+                        <div className="my-1 h-px bg-[var(--border)]" />
+
+                        {/* RANGER : les deux gestes qui changent où vit la
+                            conversation, sans toucher à son contenu. */}
                         <button
-                          onClick={() => handleDelete(s.id)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--error)] transition hover:bg-[var(--hover)]"
+                          onClick={() => togglePin(s)}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
                         >
-                          <CloseIcon />
+                          <PinIcon />
+                          {s.pinned ? "Détacher le chat" : "Épingler le chat"}
+                        </button>
+                        <button
+                          onClick={() => handleArchive(s)}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition hover:bg-[var(--hover)]"
+                        >
+                          <ArchiveIcon />
+                          Archiver
+                        </button>
+
+                        <div className="my-1 h-px bg-[var(--border)]" />
+
+                        {/* SUPPRIMER, seul et en dernier : le seul geste
+                            irréversible du menu ne doit pas voisiner avec
+                            ceux qu'on fait sans réfléchir. */}
+                        <button
+                          onClick={() => {
+                            setMenuId(null);
+                            setToConfirm(s);
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-[var(--error)] transition hover:bg-[var(--hover)]"
+                        >
+                          <TrashIcon />
                           Supprimer
                         </button>
                       </div>
@@ -486,6 +571,56 @@ export function Sidebar({ activeId, onSelect, onNewChat, refreshKey, open, onClo
           </div>
         )}
       </aside>
+
+      {/* ── LA CONFIRMATION DE SUPPRESSION ──────────────────────────────────
+          Elle manquait : un clic dans un menu détruisait une conversation
+          sans un mot, et il n'existe aucun moyen de la retrouver. C'est le
+          seul geste irréversible de toute l'interface.
+
+          Elle NOMME la conversation. « Supprimer cette conversation ? » sans
+          dire laquelle n'aide personne — surtout après un clic dans un menu
+          qu'on vient de fermer. */}
+      {toConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titre-suppression"
+          onClick={() => setToConfirm(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="titre-suppression"
+              className="text-base font-semibold text-[var(--text-primary)]"
+            >
+              Supprimer cette conversation ?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+              «&nbsp;{toConfirm.title || "Nouvelle conversation"}&nbsp;» et tous ses
+              messages seront définitivement perdus. Pour la retirer de la liste
+              sans la perdre, utilisez plutôt <strong>Archiver</strong>.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setToConfirm(null)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
+              >
+                Annuler
+              </button>
+              <button
+                autoFocus
+                onClick={() => handleDelete(toConfirm.id)}
+                className="rounded-lg bg-[var(--error)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -582,13 +717,6 @@ function SettingsIcon() {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-      <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function DotsIcon() {
   return (
@@ -613,6 +741,42 @@ function PinIcon({ className }: { className?: string }) {
     >
       <path
         d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3-1-6z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M12 3v13M12 3L8 7M12 3l4 4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M3 7h18v3H3zM5 10v9a1 1 0 001 1h12a1 1 0 001-1v-9M10 14h4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path
+        d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M6 7v13a1 1 0 001 1h10a1 1 0 001-1V7M10 11v6M14 11v6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

@@ -100,11 +100,28 @@ function playDictationChime() {
   }
 }
 
+/**
+ * La salutation du moment.
+ *
+ * POURQUOI PLUS DE DEUX
+ * ---------------------
+ * « Bonjour » couvrait treize heures d'affilée et « Bonsoir » tout le reste :
+ * on lisait le même mot du matin au crépuscule, puis le même autre jusqu'à
+ * l'aube. Un assistant qui dit « Bonsoir » à quatorze heures ne se trompe pas
+ * seulement de mot — il montre qu'il ne regarde pas l'heure.
+ *
+ * Les bornes suivent l'usage français, pas une division en parts égales :
+ * « bonne nuit » se dit quand on devrait dormir, « bon après-midi » commence
+ * après le déjeuner, et le soir tombe plus tard qu'on ne le découpe.
+ */
 function timeGreeting(): string {
   const h = new Date().getHours();
   if (h < 5) return "Bonne nuit";
-  if (h < 18) return "Bonjour";
-  return "Bonsoir";
+  if (h < 12) return "Bonjour";
+  if (h < 14) return "Bon appétit";
+  if (h < 18) return "Bon après-midi";
+  if (h < 23) return "Bonsoir";
+  return "Bonne nuit";
 }
 
 export default function ChatPage() {
@@ -125,7 +142,11 @@ export default function ChatPage() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  /** La conversation à partager. `null` = boîte fermée.
+      On garde l'identifiant plutôt qu'un booléen : le partage se déclenche
+      aussi depuis la liste latérale, sur une conversation qui n'est pas
+      forcément celle qu'on lit. */
+  const [shareId, setShareId] = useState<string | null>(null);
   const online = useOnlineStatus();
   // Palette `/` (commandes) et `@` (modèles) ouverte sous le curseur.
   const [palette, setPalette] = useState<{
@@ -143,6 +164,18 @@ export default function ChatPage() {
   // langue choisie, pas dans celle détectée du message.
   const preferredLangRef = useRef<string>("auto");
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  /** L'aperçu de l'image jointe, fabriqué depuis le fichier LOCAL.
+   *
+   * POURQUOI PAS UNE URL DU SERVEUR
+   * -------------------------------
+   * Le serveur ne rend qu'un identifiant, un nom et un type — pas d'adresse
+   * consultable. Attendre qu'il en fournisse une reporterait l'aperçu à
+   * plus tard ; le fichier est déjà dans le navigateur, il n'y a rien à
+   * attendre.
+   *
+   * Conséquence utile : l'aperçu s'affiche DÈS le choix du fichier, avant même
+   * la fin de l'import. On voit ce qu'on envoie pendant que ça part. */
+  const [apercuJoint, setApercuJoint] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const whisperRecRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,6 +186,8 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /** Le brouillon non envoyé, relu au retour. Voir l'effet plus bas. */
+  const BROUILLON = "toumai:brouillon";
   const guestAttempted = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastUserMessageRef = useRef<string>("");
@@ -180,7 +215,110 @@ export default function ChatPage() {
   // écart d'hydratation lié au fuseau horaire du visiteur.
   useEffect(() => {
     setGreeting(timeGreeting());
+    // ELLE DOIT SUIVRE L'HEURE, PAS CELLE DU CHARGEMENT.
+    //
+    // Un onglet reste ouvert des heures. Sans cette horloge, quelqu'un qui
+    // ouvre l'application à 11 h 55 lit encore « Bonjour » à 20 h — et le
+    // défaut se voit précisément chez les gens qui utilisent le produit le
+    // plus longtemps.
+    const horloge = setInterval(() => setGreeting(timeGreeting()), 60_000);
+    return () => clearInterval(horloge);
   }, []);
+
+  // ── LE BROUILLON QUI SURVIT ─────────────────────────────────────────────
+  //
+  // On tape trois phrases, on va vérifier quelque chose ailleurs, on revient :
+  // tout avait disparu. Ce n'est pas une commodité, c'est du travail perdu —
+  // et c'est le genre de perte qu'on n'ose plus risquer, donc on cesse
+  // d'écrire de longs messages.
+  //
+  // `sessionStorage` et non `localStorage` : un brouillon appartient à
+  // l'onglet où on l'écrit. Le partager entre onglets ferait apparaître dans
+  // l'un ce qu'on tape dans l'autre.
+  useEffect(() => {
+    try {
+      const garde = window.sessionStorage.getItem(BROUILLON);
+      if (garde) setInput(garde);
+    } catch {
+      // Navigation privée, stockage refusé : on s'en passe. Perdre un
+      // brouillon est regrettable ; empêcher d'écrire le serait davantage.
+    }
+  }, []);
+
+  // ── LE CURSEUR DANS LE CHAMP, DÈS L'OUVERTURE ──────────────────────────
+  //
+  // Sur un écran dont le champ de saisie est le seul point d'entrée, faire
+  // cliquer avant de pouvoir écrire est un geste de trop, répété à chaque
+  // visite.
+  //
+  // DÉPENDANT DE `loading`, ET PAS AU SEUL MONTAGE. Le champ n'existe pas
+  // encore tant que l'authentification n'a pas répondu : un focus posé au
+  // montage tombait sur un élément absent, et ne faisait rien du tout. C'est
+  // exactement ce qui se passait — vérifié dans le navigateur, `activeElement`
+  // restait `BODY`.
+  //
+  // Sauf sur mobile : y donner le focus ouvre le clavier par-dessus la
+  // conversation, et cache justement ce qu'on venait lire.
+  const focusPose = useRef(false);
+
+  /**
+   * Référence de rappel : elle se déclenche À L'INSTANT où le champ entre
+   * dans le document, pas avant.
+   *
+   * POURQUOI PAS UN `useEffect`
+   * ---------------------------
+   * J'ai d'abord posé le focus dans un effet au montage, puis dans un effet
+   * dépendant de `loading`. Les deux échouaient, et le navigateur l'a montré :
+   * `activeElement` restait `BODY`. Le champ n'existe pas encore quand ces
+   * effets tournent — il apparaît plus tard, quand la session est résolue, et
+   * aucune dépendance ne redéclenche l'effet à ce moment-là.
+   *
+   * Un rappel de référence n'a pas ce problème : React l'appelle avec
+   * l'élément, quand l'élément est là.
+   */
+  const attacherChamp = useCallback((el: HTMLTextAreaElement | null) => {
+    textareaRef.current = el;
+    // DÉMONTAGE : on relâche le verrou.
+    //
+    // React remonte les composants en développement (mode strict) : le champ
+    // est monté, démonté, remonté. Un verrou « une seule fois » posé au
+    // premier montage faisait donc porter le focus sur un élément aussitôt
+    // jeté, et refusait de le reposer sur celui qui reste. Vérifié dans le
+    // navigateur : `activeElement` restait `BODY`.
+    if (!el) {
+      focusPose.current = false;
+      return;
+    }
+    if (focusPose.current) return;
+
+    // LE CRITÈRE EST LE CLAVIER, PAS LA LARGEUR.
+    //
+    // J'avais écrit `min-width: 768px`. Le navigateur l'a démenti : au moment
+    // où la référence se déclenche, la fenêtre mesure encore 0 — la garde
+    // était donc toujours fausse, et le focus n'était jamais posé. Mesuré,
+    // pas supposé : une sonde temporaire n'a jamais été atteinte.
+    //
+    // Ce qu'on veut vraiment éviter, ce n'est pas un petit écran : c'est
+    // qu'un clavier surgisse par-dessus la conversation qu'on venait lire.
+    // `(hover: hover) and (pointer: fine)` désigne exactement les appareils à
+    // souris, et ne dépend d'aucune dimension encore inconnue.
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+
+    focusPose.current = true;
+    // Après la peinture, pas pendant l'attachement : focaliser un élément que
+    // le navigateur n'a pas encore affiché est au mieux inutile.
+    requestAnimationFrame(() => el.focus());
+  }, []);
+
+  // Écrit à chaque frappe, effacé à l'envoi (voir l'envoi plus bas).
+  useEffect(() => {
+    try {
+      if (input) window.sessionStorage.setItem(BROUILLON, input);
+      else window.sessionStorage.removeItem(BROUILLON);
+    } catch {
+      // Voir plus haut.
+    }
+  }, [input]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 640px)");
@@ -425,7 +563,15 @@ export default function ChatPage() {
     lastUserMessageRef.current = text;
 
     const isFirstMessage = messages.length === 0;
-    const userMsg: Message = { id: nextId(), role: "user", content: text };
+    const userMsg: Message = {
+      id: nextId(),
+      role: "user",
+      content: text,
+      // La pièce part avec le message et reste visible dans le fil.
+      ...(attachedDoc
+        ? { piece: { nom: attachedDoc.filename, apercu: apercuJoint ?? undefined } }
+        : {}),
+    };
     const assistantId = nextId();
     setMessages((prev) => [
       ...prev,
@@ -495,6 +641,10 @@ export default function ChatPage() {
     try {
       const documentId = attachedDoc?.doc_id;
       setAttachedDoc(null);
+      // On lâche la référence SANS révoquer l adresse : le message du fil
+      // affiche desormais la même vignette, et la révoquer y laisserait un
+      // cadre vide.
+      setApercuJoint(null);
       // ÉPHÉMÈRE : le contexte voyage AVEC la requête. Sans identifiant de
       // conversation, le serveur n'a rien à relire — chaque message serait le
       // premier, et « résume ce que je viens de dire » ne répondrait rien.
@@ -801,6 +951,26 @@ export default function ChatPage() {
     if (rec && rec.state === "recording") rec.stop();
   }
 
+  /** Fabrique l'aperçu d'une image. Les autres formats gardent leur icône. */
+  function poserApercu(file: File) {
+    oublierApercu();
+    if (file.type.startsWith("image/")) {
+      setApercuJoint(URL.createObjectURL(file));
+    }
+  }
+
+  /** Rend la mémoire de l'aperçu.
+   *
+   * `createObjectURL` réserve le fichier tant qu'on ne le révoque pas : sans
+   * cet appel, joindre vingt images dans une session en garderait vingt en
+   * mémoire jusqu'à la fermeture de l'onglet. */
+  function oublierApercu() {
+    setApercuJoint((prec) => {
+      if (prec) URL.revokeObjectURL(prec);
+      return null;
+    });
+  }
+
   async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -809,6 +979,7 @@ export default function ChatPage() {
       setError("Fichier trop volumineux (10 Mo max).");
       return;
     }
+    poserApercu(file);
     setUploadingDoc(true);
     clearError();
     try {
@@ -828,6 +999,7 @@ export default function ChatPage() {
       setError("Fichier trop volumineux (10 Mo max).");
       return;
     }
+    poserApercu(file);
     setUploadingDoc(true);
     clearError();
     try {
@@ -892,7 +1064,7 @@ export default function ChatPage() {
       label: "Partager cette conversation",
       keywords: ["lien", "envoyer"],
       disabledReason: activeSessionId ? undefined : "Disponible une fois la conversation commencée",
-      run: () => setShareOpen(true),
+      run: () => setShareId(activeSessionId),
     },
   ];
 
@@ -972,7 +1144,19 @@ export default function ChatPage() {
     }
   }
 
-  const canSend = Boolean(input.trim()) && !sending && Boolean(session);
+  // UNE PIÈCE JOINTE SEULE EST UNE DEMANDE.
+  //
+  // Le bouton exigeait du texte : joindre une photo puis appuyer sur Entrée
+  // ne faisait rien, sans que rien ne dise pourquoi. Or « voici une image »
+  // se passe très bien de mots — c'est même le geste le plus naturel.
+  //
+  // On attend en revanche la FIN de l'import : partir avant, c'est envoyer un
+  // message qui référence un document que le serveur n'a pas encore.
+  const canSend =
+    (Boolean(input.trim()) || Boolean(attachedDoc)) &&
+    !uploadingDoc &&
+    !sending &&
+    Boolean(session);
 
   return (
     <div className="chat-shell flex h-dvh overflow-hidden">
@@ -980,6 +1164,7 @@ export default function ChatPage() {
         activeId={activeSessionId}
         onSelect={openSession}
         onNewChat={newChat}
+        onShare={setShareId}
         refreshKey={sidebarRefreshKey}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -1052,7 +1237,7 @@ export default function ChatPage() {
             )}
             {!ephemeral && activeSessionId && messages.length > 0 && (
               <button
-                onClick={() => setShareOpen(true)}
+                onClick={() => setShareId(activeSessionId)}
                 aria-label="Partager la conversation"
                 title="Partager la conversation"
                 className="chat-iconbtn"
@@ -1077,7 +1262,15 @@ export default function ChatPage() {
             {historyLoading && <HistorySkeleton />}
 
             {!historyLoading && messages.length === 0 && (
-              <div className="flex flex-1 flex-col items-center justify-center px-1 py-8">
+              <div className="flex flex-1 flex-col items-center justify-center px-1 pb-24 pt-8 sm:pb-32">
+                {/* LE GROUPE ACCUEIL + SAISIE REMONTE VERS LE MILIEU.
+                    Le bloc occupait toute la hauteur restante, ce qui collait
+                    le champ de saisie au bas de l'écran : sur un grand écran,
+                    on lisait la salutation en haut et on écrivait tout en bas,
+                    avec un vide entre les deux.
+                    Le `pb` réserve la place SOUS le groupe plutôt qu'autour,
+                    donc l'ensemble monte — sans toucher au composeur, qui
+                    garde sa place dès que la conversation a commencé. */}
                 {/* Marque en tête d'accueil : un halo doux derrière le logo —
                     l'écran vide portait uniquement du texte et ne ressemblait
                     à aucun produit en particulier. */}
@@ -1217,7 +1410,19 @@ export default function ChatPage() {
         )}
 
         {/* Saisie — glisser-déposer actif sur toute la zone du composeur. */}
-        <footer className="chat-dock relative px-4 pb-3 pt-1 sm:px-6">
+        {/* SUR L'ÉCRAN VIDE, LA SAISIE REMONTE AVEC LA SALUTATION.
+            Collé au bas de l'écran, le champ laissait un grand vide entre la
+            salutation et lui — on lisait en haut, on écrivait tout en bas.
+            Le décalage ne s'applique QUE tant que rien n'a été dit : dès le
+            premier message, le champ reprend sa place, là où on l'attend
+            pendant qu'on lit une conversation. */}
+        <footer
+          className={`chat-dock relative px-4 pt-1 sm:px-6 ${
+            messages.length === 0 && !historyLoading
+              ? "pb-[12vh] sm:pb-[16vh]"
+              : "pb-3"
+          }`}
+        >
           <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">
           <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-col gap-2">
             <input
@@ -1250,16 +1455,50 @@ export default function ChatPage() {
                   n'a pas besoin de mots : son icône allumée dans la barre suffit
                   — un libellé pour un état déjà visible encombre le champ. */}
               <div className="flex flex-wrap items-center gap-1.5 px-1.5 pt-1">
-                {(attachedDoc || uploadingDoc) && (
-                  <ComposerChip
-                    icon={<FileIcon />}
-                    label={uploadingDoc ? "Import en cours…" : (attachedDoc?.filename ?? "")}
-                    tone="accent"
-                    onRemove={attachedDoc ? () => setAttachedDoc(null) : undefined}
-                  />
+                {/* ON MONTRE L'IMAGE, PAS SON NOM DE FICHIER.
+                    « Capture d'écran 2026-07-24 152219.jpg » ne dit rien de ce
+                    qu'on s'apprête à envoyer ; la vignette le dit d'un coup
+                    d'œil, et permet de voir qu'on s'est trompé de fichier
+                    AVANT d'appuyer sur Entrée. */}
+                {apercuJoint ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={apercuJoint}
+                      alt={attachedDoc?.filename ?? "Image jointe"}
+                      className="h-16 w-16 rounded-lg border border-[var(--border)] object-cover"
+                    />
+                    {uploadingDoc && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/45 text-[11px] text-white">
+                        …
+                      </div>
+                    )}
+                    {attachedDoc && !uploadingDoc && (
+                      <button
+                        onClick={() => {
+                          setAttachedDoc(null);
+                          oublierApercu();
+                        }}
+                        aria-label="Retirer la pièce jointe"
+                        title="Retirer"
+                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[11px] leading-none text-[var(--text-secondary)] shadow transition hover:text-[var(--text-primary)]"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  (attachedDoc || uploadingDoc) && (
+                    <ComposerChip
+                      icon={<FileIcon />}
+                      label={uploadingDoc ? "Import en cours…" : (attachedDoc?.filename ?? "")}
+                      tone="accent"
+                      onRemove={attachedDoc ? () => setAttachedDoc(null) : undefined}
+                    />
+                  )
                 )}
               <textarea
-                ref={textareaRef}
+                ref={attacherChamp}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
@@ -1508,8 +1747,8 @@ export default function ChatPage() {
       {voiceModeOpen && (
         <VoiceModeOverlay onSend={voiceSend} onClose={() => setVoiceModeOpen(false)} />
       )}
-      {shareOpen && activeSessionId && (
-        <ShareDialog sessionId={activeSessionId} onClose={() => setShareOpen(false)} />
+      {shareId && (
+        <ShareDialog sessionId={shareId} onClose={() => setShareId(null)} />
       )}
       {browserGoal && (
         <BrowserAgentOverlay
