@@ -546,7 +546,15 @@ export default function ChatPage() {
 
   async function send(overrideText?: string) {
     const text = (overrideText ?? input).trim();
-    if (!text || sending || !session) return;
+    // UNE PIÈCE JOINTE SEULE SUFFIT À PARTIR.
+    //
+    // Cette garde exigeait du texte. J'avais activé le bouton d'envoi sans la
+    // corriger : le bouton s'allumait, le clic partait, et `send` sortait
+    // aussitôt. Un bouton qui a l'air actif et ne fait rien est PIRE qu'un
+    // bouton grisé — le premier laisse croire à une panne, le second dit ce
+    // qu'il attend. Constaté dans le navigateur : aucun appel réseau après le
+    // clic.
+    if ((!text && !attachedDoc) || sending || !session) return;
     // Demande de navigation web → l'Agent Navigateur prend le relais dans sa
     // fenêtre dédiée (l'utilisateur n'a plus à le lancer manuellement).
     // Second garde-fou : une édition de site (prompt de patch contenant le HTML
@@ -1262,15 +1270,7 @@ export default function ChatPage() {
             {historyLoading && <HistorySkeleton />}
 
             {!historyLoading && messages.length === 0 && (
-              <div className="flex flex-1 flex-col items-center justify-center px-1 pb-24 pt-8 sm:pb-32">
-                {/* LE GROUPE ACCUEIL + SAISIE REMONTE VERS LE MILIEU.
-                    Le bloc occupait toute la hauteur restante, ce qui collait
-                    le champ de saisie au bas de l'écran : sur un grand écran,
-                    on lisait la salutation en haut et on écrivait tout en bas,
-                    avec un vide entre les deux.
-                    Le `pb` réserve la place SOUS le groupe plutôt qu'autour,
-                    donc l'ensemble monte — sans toucher au composeur, qui
-                    garde sa place dès que la conversation a commencé. */}
+              <div className="flex flex-1 flex-col items-center justify-center px-1 py-8">
                 {/* Marque en tête d'accueil : un halo doux derrière le logo —
                     l'écran vide portait uniquement du texte et ne ressemblait
                     à aucun produit en particulier. */}
@@ -1418,9 +1418,7 @@ export default function ChatPage() {
             pendant qu'on lit une conversation. */}
         <footer
           className={`chat-dock relative px-4 pt-1 sm:px-6 ${
-            messages.length === 0 && !historyLoading
-              ? "pb-[12vh] sm:pb-[16vh]"
-              : "pb-3"
+            messages.length === 0 && !historyLoading ? "pb-[7vh]" : "pb-3"
           }`}
         >
           <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">

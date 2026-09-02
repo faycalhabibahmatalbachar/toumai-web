@@ -13,7 +13,7 @@ import {
   type ChatSession,
 } from "@/lib/chat-api";
 import { getProfile, type UserProfile } from "@/lib/user-api";
-import { cacheWrite, useCacheSeed } from "@/lib/swr-cache";
+import { cacheRead, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { describeError } from "@/lib/errors";
 
 interface SidebarProps {
@@ -110,9 +110,17 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
-    // Squelette seulement si on n'a rien à montrer — sinon revalidation
-    // silencieuse derrière la liste en cache.
-    setLoading((sessions.length === 0) as boolean);
+    // LE SQUELETTE NE DOIT APPARAÎTRE QUE SI LE CACHE EST VIDE.
+    //
+    // On lisait `sessions.length` — c'est-à-dire l'état de CE rendu-ci. Or le
+    // cache est semé par un `useLayoutEffect`, dont la mise à jour d'état
+    // n'arrive qu'au rendu SUIVANT : cet effet voyait donc toujours une liste
+    // vide, et allumait le squelette même quand la liste était déjà connue.
+    // D'où la liste qui « se recharge sous les yeux » à chaque ouverture.
+    //
+    // On interroge le cache directement : la réponse ne dépend plus de
+    // l'ordre dans lequel React applique les états.
+    setLoading(cacheRead("chat:sessions") == null);
     setError(null);
     listSessions()
       .then((data) => {
