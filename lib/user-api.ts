@@ -157,3 +157,43 @@ export function formaterOctets(n: number): string {
     maximumFractionDigits: valeur < 10 && i > 0 ? 1 : 0,
   })} ${unites[i]}`;
 }
+
+
+// ─── Sessions actives ───────────────────────────────────────────────────────
+
+export interface AppareilSession {
+  id: string;
+  /** Cet appareil-ci ? Vrai uniquement quand l'empreinte a pu être calculée
+   *  ET qu'elle correspond. Dans le doute on ne marque rien : se tromper de
+   *  ligne serait pire que n'en marquer aucune. */
+  current: boolean;
+  device_type: string;
+  platform?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  last_seen?: string | null;
+  sessions: number;
+  first_seen?: string | null;
+}
+
+export async function listerSessions(empreinte?: string | null): Promise<AppareilSession[]> {
+  const q = empreinte ? `?fingerprint=${encodeURIComponent(empreinte)}` : "";
+  const r = await http.get<{ devices: AppareilSession[] }>(`/user/sessions${q}`);
+  return r?.devices ?? [];
+}
+
+/** Ferme TOUTES les sessions, celle-ci comprise.
+ *
+ * Supprime les jetons de rafraîchissement : plus aucune session ne peut être
+ * prolongée. Un jeton d'accès déjà émis reste toutefois valide jusqu'à son
+ * expiration — il se vérifie sans consulter la base, c'est ce qui le rend
+ * rapide. L'écran doit le dire, sinon l'opération paraît ratée. */
+export async function toutDeconnecter(): Promise<number> {
+  const r = await http.delete<{ revoked: number }>("/user/sessions");
+  return Number(r?.revoked ?? 0);
+}
+
+/** Retire un appareil de la LISTE — ne ferme pas sa session. Voir l'écran. */
+export function oublierAppareil(deviceId: string): Promise<unknown> {
+  return http.delete(`/user/sessions/${encodeURIComponent(deviceId)}`);
+}

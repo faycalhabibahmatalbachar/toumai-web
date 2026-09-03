@@ -74,6 +74,41 @@ async function computeFingerprint(attrs: Record<string, unknown>): Promise<strin
   }
 }
 
+/**
+ * L'empreinte de CET appareil, calculée exactement comme à l'enregistrement.
+ *
+ * POURQUOI RECALCULER PLUTÔT QUE RELIRE
+ * --------------------------------------
+ * `registerDeviceOnce` la calcule déjà, mais une fois par session de
+ * navigation seulement. La ranger quelque part ne suffirait donc pas : au
+ * retour sur un onglet neuf, la valeur manquerait — et c'est précisément là
+ * qu'on ouvre la page des sessions.
+ *
+ * Les attributs et leur ORDRE doivent rester identiques à ceux passés lors de
+ * l'enregistrement : une empreinte est un condensat, deux ordres différents
+ * donnent deux appareils différents, et la ligne « session actuelle » se
+ * poserait alors sur la mauvaise — ou sur aucune.
+ */
+export async function empreinteActuelle(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const { browser } = detectBrowser();
+    const { os } = detectOs();
+    return await computeFingerprint({
+      platform: navigator.platform,
+      browser,
+      os,
+      screen_width: window.screen?.width,
+      screen_height: window.screen?.height,
+      language: navigator.language,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      gpu_renderer: getGpuRenderer(),
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** Enregistre l'appareil courant une fois par session de navigation. */
 export async function registerDeviceOnce(): Promise<void> {
   if (typeof window === "undefined") return;

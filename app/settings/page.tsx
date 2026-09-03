@@ -15,6 +15,8 @@ import { VoiceSection } from "@/components/settings/VoiceSection";
 import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { ConnectorsTab } from "@/components/settings/ConnectorsTab";
 import { SecuritySection } from "@/components/settings/SecuritySection";
+import { MemorySection } from "@/components/settings/MemorySection";
+import { SessionsSection } from "@/components/settings/SessionsSection";
 import { SharesSection } from "@/components/settings/SharesSection";
 import { StorageSection } from "@/components/settings/StorageSection";
 import { SupportTab } from "@/components/settings/SupportTab";
@@ -28,6 +30,8 @@ type Section =
   | "connectors"
   | "security"
   | "shares"
+  | "memory"
+  | "sessions"
   | "storage"
   | "support";
 
@@ -95,6 +99,20 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
         title: "Sécurité du compte",
         sub: "Double authentification et codes de secours.",
         icon: <ShieldIcon />,
+      },
+      {
+        id: "memory",
+        label: "Mémoire",
+        title: "Mémoire",
+        sub: "Ce que Toumaï AI a retenu de vous — et comment le corriger.",
+        icon: <BrainIcon />,
+      },
+      {
+        id: "sessions",
+        label: "Sessions actives",
+        title: "Sessions actives",
+        sub: "Les appareils depuis lesquels votre compte a été ouvert.",
+        icon: <DevicesIcon />,
       },
       {
         id: "shares",
@@ -366,6 +384,8 @@ export default function SettingsPage() {
                 {section === "voice" && <VoiceSection />}
                 {section === "notifications" && <NotificationsSection />}
                 {section === "security" && <SecuritySection />}
+                {section === "memory" && <MemorySection />}
+                {section === "sessions" && <SessionsSection />}
                 {section === "shares" && <SharesSection />}
                 {section === "storage" && <StorageSection />}
                 {section === "support" && <SupportTab />}
@@ -467,6 +487,25 @@ function LinkIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M10 13a5 5 0 007.5.5l2-2a5 5 0 00-7-7l-1.2 1.1" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M14 11a5 5 0 00-7.5-.5l-2 2a5 5 0 007 7l1.2-1.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DevicesIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="2" y="4" width="14" height="10" rx="1.6" strokeLinejoin="round" />
+      <path d="M1 18h16M6 14v4" strokeLinecap="round" />
+      <rect x="17" y="9" width="6" height="11" rx="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BrainIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 5.5a3 3 0 00-5.6-1.5A2.8 2.8 0 004 8.4a3 3 0 00.6 5.2A3 3 0 008 18a3 3 0 004-.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 5.5A3 3 0 0117.6 4 2.8 2.8 0 0120 8.4a3 3 0 01-.6 5.2A3 3 0 0116 18a3 3 0 01-4-.9zM12 5.5v11.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -2,6 +2,13 @@ import { http } from "./http";
 
 export interface Preferences {
   user_id?: string;
+  /** La mémoire est-elle allumée ? Absente = allumée (défaut serveur).
+   *
+   * Le bouton coupe RÉELLEMENT les deux portes côté serveur — la lecture (ce
+   * qu'on injecte dans le prompt) et l'écriture (ce qu'on extrait des
+   * échanges). Un interrupteur qui ne couperait qu'une des deux laisserait la
+   * mémoire grossir en silence pendant que la page affiche « désactivée ». */
+  memory_enabled?: boolean;
   ai_name: string;
   ai_tone: "friendly" | "professional" | "casual" | "concise";
   ai_language: string;
