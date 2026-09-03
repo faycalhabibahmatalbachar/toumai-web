@@ -55,7 +55,11 @@ export function Landing() {
 function LandingContent() {
   const { t, dir, lang } = useLang();
   return (
-    <div className="tm flex flex-1 flex-col" dir={dir} lang={lang}>
+    /* `tm-rails` pose les deux traits verticaux qui marquent les bords du
+       conteneur, derrière toute la page. C'est eux qui font qu'on VOIT la
+       grille : sans axe commun visible, chaque section trouve le sien et
+       l'ensemble se lit comme une pile de blocs. */
+    <div className="tm tm-rails flex flex-1 flex-col" dir={dir} lang={lang}>
       <RevealRoot />
       {/* Au clavier, c'est le tout premier arrêt : il saute la navigation et
        * dépose directement dans le contenu. Invisible tant qu'il n'a pas le

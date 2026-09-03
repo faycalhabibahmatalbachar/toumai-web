@@ -1161,4 +1161,125 @@ html:has(.tm) {
   }
 }
 
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     RAILS — la grille visible
+
+     D'OÙ VIENT CE PARTI PRIS
+     ------------------------
+     Ce qui rend une page « très structurée » n'est pas la quantité d'effets :
+     c'est qu'on VOIE la grille qui la tient. Deux traits verticaux discrets aux
+     bords du conteneur, un trait horizontal sous chaque section, et l'œil
+     comprend d'un coup que tout est aligné sur le même axe — même le contenu
+     qui, lui, ne touche jamais ces traits.
+
+     Sans eux, chaque section flotte pour elle-même et la page paraît être une
+     pile de blocs. C'est exactement ce qu'on lui reprochait.
+
+     POURQUOI L'APPARITION EST MINUTÉE ET NON PILOTÉE PAR LE DÉFILEMENT
+     ------------------------------------------------------------------
+     Une entrée déclenchée par le défilement dépend d'un observateur, d'une
+     hauteur de fenêtre, d'un conteneur qui défile. Chacun de ces trois éléments
+     peut manquer — et quand il manque, le contenu reste invisible. Une page
+     d'accueil blanche est le pire défaut possible : elle ne se plaint pas, elle
+     ne se voit pas dans les journaux, et le visiteur part.
+
+     Une animation minutée depuis le chargement n'a aucune de ces dépendances.
+     Elle démarre, elle finit, le contenu est là. On perd le couplage à la main ;
+     on gagne de ne jamais servir une page vide.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Le conteneur de référence. Tout s'aligne dessus : les rails, les titres,
+     les grilles. Une seule valeur, un seul axe. */
+  .tm-rails {
+    --tm-rail-max: 1200px;
+  }
+
+  /* Les deux rails verticaux, fixes derrière la page. Ils ne défilent pas :
+     ce sont les bords du cadre, pas du contenu. */
+  .tm-rails::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    width: min(var(--tm-rail-max), 100% - 2 * var(--tm-pad));
+    margin-inline: auto;
+    border-inline: 1px dashed var(--tm-line);
+  }
+
+  /* Le trait sous une section. Il marque la fin d'une idée et le début de la
+     suivante — le rôle qu'un blanc seul ne remplit pas. */
+  .tm-rule {
+    border-bottom: 1px solid var(--tm-line);
+  }
+
+  /* ── L'entrée ──────────────────────────────────────────────────────────────
+     Opacité, translation et flou. Le flou est ce qui distingue une entrée
+     soignée d'un simple fondu : l'élément se met au point, comme un objectif. */
+  @keyframes tm-appear {
+    0% {
+      opacity: 0;
+      transform: translateY(14px);
+      filter: blur(7px);
+    }
+    55% {
+      filter: blur(0);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+
+  @keyframes tm-appear-zoom {
+    0% {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .tm-appear {
+    opacity: 0;
+    animation: tm-appear 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--tm-d, 0ms);
+  }
+
+  .tm-appear-zoom {
+    opacity: 0;
+    animation: tm-appear-zoom 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--tm-d, 0ms);
+  }
+
+  /* Le titre : dégradé du blanc vers un gris chaud, découpé dans le texte.
+     Un blanc plat sur fond sombre paraît dur ; le dégradé donne au bas des
+     lettres le poids que l'encre a sur le papier. */
+  .tm-title-grad {
+    background-image: linear-gradient(180deg, var(--tm-ink) 30%, var(--tm-ink-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Le voile bas : la section s'efface vers son pied au lieu de s'arrêter net.
+     Utile là où un élément déborde volontairement (console, grille). */
+  .tm-fade-b {
+    mask-image: linear-gradient(to top, transparent 0%, #000 32%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Le contenu est là, tout de suite, sans mouvement. Jamais d'attente
+       imposée à quelqu'un qui a demandé moins d'animation. */
+    .tm-appear,
+    .tm-appear-zoom {
+      opacity: 1;
+      animation: none;
+    }
+  }
+
 } /* @layer components */
