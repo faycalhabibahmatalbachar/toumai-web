@@ -197,3 +197,27 @@ export async function toutDeconnecter(): Promise<number> {
 export function oublierAppareil(deviceId: string): Promise<unknown> {
   return http.delete(`/user/sessions/${encodeURIComponent(deviceId)}`);
 }
+
+
+// ─── Limites d'usage ────────────────────────────────────────────────────────
+
+export interface FenetreLimite {
+  utilise: number;
+  /** `0` = aucun plafond. L'écran n'affiche alors AUCUNE jauge : une barre de
+   *  progression sans limite au bout laisse croire qu'un couperet approche
+   *  alors que rien ne bloque. */
+  limite: number;
+  reouvre_dans_s: number;
+}
+
+export interface EtatLimites {
+  courte: FenetreLimite;
+  longue: FenetreLimite;
+  /** `false` quand la consommation n'a pas pu être lue. On ne montre pas
+   *  « 0 utilisé » dans ce cas : ce serait rassurant et faux. */
+  mesure: boolean;
+}
+
+export function getLimites(): Promise<EtatLimites> {
+  return http.get<EtatLimites>("/user/limits");
+}

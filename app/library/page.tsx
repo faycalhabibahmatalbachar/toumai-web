@@ -13,6 +13,7 @@ import {
   type DocumentFile,
   type GeneratedFile,
 } from "@/lib/library-api";
+import { LigneFichier } from "@/components/library/LigneFichier";
 
 const FILE_TYPE_ICON: Record<string, string> = {
   cv: "📄",
@@ -35,6 +36,33 @@ function formatSize(bytes?: number | null): string {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** L'étiquette du groupe « sans dossier ».
+
+ *
+ * Un caractère qu'aucun nom de dossier ne peut porter — le serveur coupe les
+ * espaces et refuse le vide —, pour qu'il ne puisse jamais entrer en collision
+ * avec un vrai dossier qu'on aurait nommé « Racine ». */
+const RACINE = "\u0000";
+
+/** Groupe par dossier : la racine d'abord, puis l'ordre alphabétique.
+ *
+ * La racine en tête parce que c'est là qu'arrive tout ce qui est récent —
+ * reléguer le non-classé en bas ferait chercher ce qu'on vient de créer. */
+function grouper<T extends { f: { folder?: string | null } }>(
+  items: T[],
+): [string, T[]][] {
+  const par = new Map<string, T[]>();
+  for (const it of items) {
+    const cle = (it.f.folder || "").trim() || RACINE;
+    const liste = par.get(cle);
+    if (liste) liste.push(it);
+    else par.set(cle, [it]);
+  }
+  return [...par.entries()].sort(([a], [b]) =>
+    a === RACINE ? -1 : b === RACINE ? 1 : a.localeCompare(b, "fr"),
+  );
 }
 
 export default function LibraryPage() {
@@ -82,6 +110,23 @@ export default function LibraryPage() {
     }
   }
 
+  /** Applique un renommage ou un déplacement à la liste locale.
+   *
+   * Le serveur a déjà répondu quand on arrive ici : on n'affiche donc jamais
+   * un nom que la base n'a pas accepté. Recharger toute la bibliothèque pour
+   * un seul champ ferait clignoter la page entière et perdre la position de
+   * défilement. */
+  function appliquer(
+    id: string,
+    kind: "generated" | "document",
+    patch: { filename?: string; folder?: string | null },
+  ) {
+    const maj = <T extends { id: string }>(prev: T[]) =>
+      prev.map((f) => (f.id === id ? { ...f, ...patch } : f));
+    if (kind === "generated") setGenerated(maj);
+    else setDocuments(maj);
+  }
+
   const images = generated.filter((f) => isImage(f.file_type));
   const nonImageGenerated = generated.filter((f) => !isImage(f.file_type));
 
@@ -114,65 +159,47 @@ export default function LibraryPage() {
                   Les CV, lettres et rapports que Toumaï AI génère pour vous apparaîtront ici.
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {nonImageGenerated.map((f) => (
-                    <a
-                      key={f.id}
-                      href={fileUrl(f.storage_path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex items-center gap-3 rounded-2xl bg-[var(--card)] px-4 py-3 transition hover:bg-[var(--hover)]"
-                    >
-                      <span className="text-xl" aria-hidden="true">
-                        {FILE_TYPE_ICON[f.file_type] ?? "📎"}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{f.filename}</span>
-                        <span className="block text-xs text-[var(--text-tertiary)]">{formatDate(f.created_at)}</span>
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          remove(f.id, "generated");
-                        }}
-                        aria-label="Supprimer"
-                        disabled={deletingId === f.id}
-                        className="rounded p-1.5 text-[var(--text-tertiary)] opacity-0 transition hover:text-[var(--error)] group-hover:opacity-100"
-                      >
-                        <TrashIcon />
-                      </button>
-                    </a>
-                  ))}
-                  {documents.map((f) => (
-                    <a
-                      key={f.id}
-                      href={fileUrl(f.storage_path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex items-center gap-3 rounded-2xl bg-[var(--card)] px-4 py-3 transition hover:bg-[var(--hover)]"
-                    >
-                      <span className="text-xl" aria-hidden="true">
-                        {FILE_TYPE_ICON[f.file_type ?? "other"] ?? "📎"}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{f.filename}</span>
-                        <span className="block text-xs text-[var(--text-tertiary)]">
-                          {formatDate(f.created_at)}
-                          {f.file_size ? ` · ${formatSize(f.file_size)}` : ""}
-                        </span>
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          remove(f.id, "document");
-                        }}
-                        aria-label="Supprimer"
-                        disabled={deletingId === f.id}
-                        className="rounded p-1.5 text-[var(--text-tertiary)] opacity-0 transition hover:text-[var(--error)] group-hover:opacity-100"
-                      >
-                        <TrashIcon />
-                      </button>
-                    </a>
+                <div className="space-y-5">
+                  {/* GROUPÉ PAR DOSSIER.
+                      « Déplacer » ne servirait à rien si la bibliothèque
+                      continuait d'afficher une liste plate : ranger sans voir
+                      le rangement, c'est ranger pour personne. */}
+                  {grouper([
+                    ...nonImageGenerated.map((f) => ({
+                      f,
+                      icone: FILE_TYPE_ICON[f.file_type] ?? "\u{1F4CE}",
+                      sous: formatDate(f.created_at),
+                      genre: "generated" as const,
+                    })),
+                    ...documents.map((f) => ({
+                      f,
+                      icone: FILE_TYPE_ICON[f.file_type ?? "other"] ?? "\u{1F4CE}",
+                      sous:
+                        formatDate(f.created_at) +
+                        (f.file_size ? ` \u00B7 ${formatSize(f.file_size)}` : ""),
+                      genre: "document" as const,
+                    })),
+                  ]).map(([dossier, items]) => (
+                    <div key={dossier}>
+                      {dossier !== RACINE && (
+                        <p className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
+                          {dossier}
+                        </p>
+                      )}
+                      <div className="space-y-2">
+                        {items.map(({ f, icone, sous, genre }) => (
+                          <LigneFichier
+                            key={f.id}
+                            fichier={f}
+                            icone={icone}
+                            sousTitre={sous}
+                            suppressionEnCours={deletingId === f.id}
+                            onSupprimer={() => remove(f.id, genre)}
+                            onChange={(patch) => appliquer(f.id, genre, patch)}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

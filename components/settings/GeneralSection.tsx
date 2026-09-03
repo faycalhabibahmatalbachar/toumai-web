@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { LimitesUsage } from "./LimitesUsage";
 import { Panel, Row } from "./Rows";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -198,6 +199,11 @@ export function GeneralSection() {
           />
         </Panel>
       )}
+
+      {/* Les fenêtres glissantes viennent APRÈS les totaux : ceux-ci disent
+          ce qu'on a fait, celles-là ce qu'on peut encore faire. On lit
+          rarement la seconde question sans avoir vu la première. */}
+      {!isGuest && <LimitesUsage />}
 
       <Panel title="Compte">
         {isGuest ? (

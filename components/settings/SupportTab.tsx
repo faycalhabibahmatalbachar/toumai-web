@@ -1,4 +1,8 @@
-import { Panel } from "./Rows";
+"use client";
+
+import { useState } from "react";
+import { Signalement } from "@/components/Signalement";
+import { Panel, Row } from "./Rows";
 
 /** Aide & Support — contact direct (téléphone, WhatsApp, e-mail), réseaux
  * sociaux officiels avec leurs vrais logos SVG (jamais d'emoji), et guide
@@ -38,8 +42,32 @@ const SOCIALS = [
 ];
 
 export function SupportTab() {
+  const [signalement, setSignalement] = useState(false);
   return (
     <div>
+      {signalement && <Signalement onClose={() => setSignalement(false)} />}
+
+      {/* EN PREMIER, ET C'EST VOULU.
+          Les liens de contact demandent d'ouvrir un autre outil, de retrouver
+          une adresse, et de décrire soi-même le contexte. Un formulaire posé
+          ici recueille le contexte tout seul — la page, l'appareil, ce qui
+          était à l'écran — et ne demande que la phrase que nous ne pouvons
+          pas deviner. */}
+      <Panel title="Un problème ?">
+        <Row
+          label="Signaler ce qui ne va pas"
+          description="Un bouton qui ne répond pas, une page figée, une réponse absurde. Nous récupérons automatiquement la page et l'appareil : vous n'avez qu'à décrire ce qui s'est passé."
+        >
+          <button
+            onClick={() => setSignalement(true)}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition"
+            style={{ background: "var(--primary)" }}
+          >
+            Signaler
+          </button>
+        </Row>
+      </Panel>
+
       <Panel title="Contact direct">
         {CONTACTS.map((c) => (
           <a
