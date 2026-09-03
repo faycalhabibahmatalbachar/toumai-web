@@ -8,11 +8,12 @@
  * La structure, les textes, l'ordre des sections, les classes et la feuille de
  * style viennent de la maquette sans retouche : `app/toumai-accueil.css` est
  * la feuille d'origine, portée mécaniquement sous `.tmh` (voir
- * `outils/porter_css_accueil.py`). Les quatre démonstrations restent des
+ * `outils/porter_css_accueil.py`). Les démonstrations animées restent des
  * fichiers HTML autonomes, servis depuis `public/accueil-medias/animations/` et
  * affichés en `<iframe>` — exactement comme dans la maquette. Les toucher
  * pour les « intégrer » aurait été la seule façon sûre de casser leurs
- * animations.
+ * animations. Voir `CadreAnime` pour la seule chose qui les entoure : le
+ * moment où on les démarre.
  *
  * TROIS CHOSES ONT DÛ CHANGER, ET AUCUNE N'EST UN CHOIX DE DESIGN
  * ----------------------------------------------------------------
@@ -56,7 +57,14 @@ const RACCOURCIS = [
   { icone: "◇", nom: "Créer", prompt: "Aide-moi à créer une nouvelle idée." },
 ];
 
-/** Les quatre démonstrations, dans l'ordre de la maquette. */
+/** Les démonstrations, dans l'ordre de la maquette.
+ *
+ * La cinquième — le code secret — a été ajoutée le 4 septembre 2026. Elle est
+ * insérée AVANT le Puissance 4 et non après : la grande scène finale porte la
+ * montée en puissance de la section, et la faire suivre par une scène de
+ * taille normale aurait cassé cette progression. Le Puissance 4 passe donc de
+ * 04 à 05, et reste la dernière.
+ */
 const CAPACITES = [
   {
     sequence: "01",
@@ -109,6 +117,23 @@ const CAPACITES = [
   },
   {
     sequence: "04",
+    kicker: "Déduction par indices",
+    titre: "Chaque essai réduit le champ des possibles.",
+    texte:
+      "Une main cache un code, l’autre le cherche. Toumaï ne tire pas au hasard : il lit les indices de chaque tentative — bonne couleur, bonne place — et n’essaie plus que ce qui reste possible.",
+    points: [
+      "Aucun essai tiré au hasard",
+      "Chaque indice élimine des combinaisons",
+      "Le code exact atteint par déduction",
+    ],
+    fichier: "04-code-secret.html",
+    resume:
+      "Une main cache un code, l’autre le déduit en trois tentatives à partir des indices",
+    inverse: true,
+    grande: false,
+  },
+  {
+    sequence: "05",
     kicker: "Anticipation à grande échelle",
     titre: "Projeter plusieurs coups avant d’agir.",
     texte:
@@ -118,7 +143,7 @@ const CAPACITES = [
       "Réponse directe aux menaces concurrentes",
       "Planification jusqu’au coup gagnant",
     ],
-    fichier: "04-puissance-quatre.html",
+    fichier: "05-puissance-quatre.html",
     resume: "Deux mains s’affrontent intelligemment sur un grand plateau de Puissance 4",
     inverse: false,
     grande: true,
@@ -159,6 +184,84 @@ const LIENS_NAV = [
 
 /** Le zip livré par le lien « Télécharger le code » du bandeau et du pied. */
 const ARCHIVE_SOURCE = "/accueil-medias/toumai-ai-homepage-source.zip";
+
+/** Racine des démonstrations, servies comme fichiers HTML autonomes. */
+const DOSSIER_ANIMATIONS = "/accueil-medias/animations";
+
+/** Au-delà de ce temps hors écran, on relance la démonstration à l'entrée. */
+const ABSENCE_AVANT_RELANCE_MS = 20_000;
+
+function CadreAnime({ fichier, resume }: { fichier: string; resume: string }) {
+  const cadre = useRef<HTMLIFrameElement>(null);
+
+  /**
+   * L'ANIMATION NE DÉMARRE QUE QUAND ELLE EST REGARDÉE.
+   *
+   * CE QUI NE MARCHAIT PAS, ET POURQUOI ON NE LE VOIT PAS EN LA TESTANT SEULE
+   * -------------------------------------------------------------------------
+   * Ces démonstrations sont pilotées par `requestAnimationFrame`. Or un
+   * navigateur n'accorde aucune image à un cadre hors écran : le rAF n'y bat
+   * pas. Avec `loading="lazy"`, le cadre se chargeait jusqu'à 1 250 px avant
+   * d'entrer dans la vue — donc la scène démarrait sans jamais être peinte,
+   * pendant que ses `setTimeout` continuaient d'avancer. Quand la personne
+   * arrivait enfin dessus, elle tombait au milieu d'une pause de deux
+   * secondes, ou sur un état intermédiaire figé.
+   *
+   * Ouverte seule dans un onglet, la même page tourne parfaitement — c'est ce
+   * qui rend le défaut si difficile à croire, et pourquoi il valait mieux le
+   * supprimer que le discuter.
+   *
+   * Le `src` n'est donc posé qu'à l'entrée dans la vue. La scène commence à
+   * sa première image, sous les yeux de quelqu'un.
+   *
+   * ET ELLE REPART SI L'ON REVIENT PLUS TARD. Après vingt secondes passées
+   * hors écran, on recharge : une personne qui remonte la page retrouve la
+   * démonstration au début plutôt qu'à un endroit quelconque de sa boucle.
+   * Le seuil existe pour qu'un simple frémissement de défilement ne relance
+   * rien.
+   */
+  useEffect(() => {
+    const element = cadre.current;
+    if (!element) return;
+
+    const source = `${DOSSIER_ANIMATIONS}/${fichier}`;
+    let sortieLe = 0;
+
+    const observateur = new IntersectionObserver(
+      (entrees) => {
+        for (const entree of entrees) {
+          if (entree.isIntersecting) {
+            const jamaisChargee = !element.getAttribute("src");
+            const absenteLongtemps =
+              sortieLe > 0 && Date.now() - sortieLe > ABSENCE_AVANT_RELANCE_MS;
+            if (jamaisChargee || absenteLongtemps) element.setAttribute("src", source);
+            sortieLe = 0;
+          } else if (element.getAttribute("src")) {
+            sortieLe = Date.now();
+          }
+        }
+      },
+      // Une marge courte : assez pour que le chargement soit fini quand la
+      // scène arrive à l'écran, trop courte pour qu'elle joue dans le vide.
+      { rootMargin: "120px" },
+    );
+
+    observateur.observe(element);
+    return () => observateur.disconnect();
+  }, [fichier]);
+
+  return (
+    <>
+      <iframe ref={cadre} title={resume} />
+      {/* Sans JavaScript — robot d'indexation, script bloqué — le cadre
+          resterait un rectangle vide. On sert alors la scène directement :
+          elle est autonome, elle n'a besoin de personne pour se jouer. */}
+      <noscript>
+        <iframe src={`${DOSSIER_ANIMATIONS}/${fichier}`} title={resume} />
+      </noscript>
+    </>
+  );
+}
 
 export function PageAccueil() {
   const router = useRouter();
@@ -427,11 +530,7 @@ export function PageAccueil() {
                   c.grande ? "animation-shell animation-shell-large" : "animation-shell"
                 }
               >
-                <iframe
-                  loading="lazy"
-                  src={`/accueil-medias/animations/${c.fichier}`}
-                  title={c.resume}
-                />
+                <CadreAnime fichier={c.fichier} resume={c.resume} />
               </div>
             </article>
           ))}
