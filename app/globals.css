@@ -1394,4 +1394,239 @@ svg {
     }
   }
 
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     ACCUEIL SIMPLE (/accueil)
+
+     UN SEUL PRINCIPE : RETIRER JUSQU'À CE QU'IL NE RESTE QUE LE CHAMP.
+
+     Pas de halo, pas de treillis, pas de dégradé sur le titre, pas de cadre
+     autour des blocs. Ce qui donne à une page cette qualité-là n'est pas ce
+     qu'on y ajoute — c'est le blanc qu'on laisse, et une seule couleur d'appui
+     qui n'apparaît que sur ce qu'on doit cliquer.
+
+     Les valeurs viennent toutes de `--landing-*`. Qui a choisi le thème sombre
+     garde le sombre : aucune couleur n'est écrite en dur ici.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  .ac {
+    --ac-accent: var(--landing-terra);
+    background: var(--landing-bg);
+    color: var(--landing-ink);
+  }
+
+  .ac-wrap {
+    width: 100%;
+    max-width: 1120px;
+    margin-inline: auto;
+    padding-inline: clamp(1.15rem, 4vw, 2.25rem);
+  }
+
+  /* ── En-tête ──────────────────────────────────────────────────────────────
+     Un seul filet sous la barre. Ni voile, ni ombre, ni fond translucide :
+     trois effets pour marquer une frontière qu'un trait marque déjà. */
+  .ac-nav {
+    border-bottom: 1px solid var(--landing-line);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--landing-bg);
+  }
+
+  .ac-lien {
+    color: var(--landing-muted);
+    transition: color 0.16s;
+  }
+
+  .ac-lien:hover {
+    color: var(--landing-ink);
+  }
+
+  .ac :is(a, button, input):focus-visible {
+    outline: 2px solid var(--ac-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* ── Le titre ─────────────────────────────────────────────────────────────
+     Très grand, très serré, aligné à gauche. L'interlignage descend sous 1 :
+     c'est ce qui fait qu'un titre en sérif tient comme un bloc plutôt que comme
+     trois lignes empilées. */
+  .ac-titre {
+    font-size: clamp(2.9rem, 7.2vw, 4.9rem);
+    line-height: 0.98;
+    letter-spacing: -0.028em;
+    font-weight: 400;
+    text-wrap: balance;
+  }
+
+  .ac-lead {
+    color: var(--landing-muted);
+    font-size: 1.06rem;
+    line-height: 1.62;
+    text-wrap: pretty;
+  }
+
+  .ac-fin {
+    color: var(--landing-faint);
+    font-size: 0.84rem;
+  }
+
+  /* ── Boutons ──────────────────────────────────────────────────────────── */
+  .ac-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 10px;
+    padding: 0.62rem 1.1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background 0.16s, color 0.16s, transform 0.12s;
+  }
+
+  .ac-btn:active {
+    transform: translateY(1px);
+  }
+
+  .ac-btn-plein {
+    background: var(--ac-accent);
+    color: #fff;
+  }
+
+  .ac-btn-plein:hover {
+    /* Assombrir plutôt qu'éclaircir : sur fond crème, un survol plus clair
+       recule au lieu d'avancer. */
+    background: color-mix(in srgb, var(--ac-accent) 88%, #000);
+  }
+
+  /* ── Le champ ─────────────────────────────────────────────────────────────
+     Le seul élément de la page qui porte une bordure pleine. C'est ce qui en
+     fait le point d'entrée évident sans qu'aucune flèche ne le désigne. */
+  .ac-champ {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 560px;
+    padding: 0.42rem 0.42rem 0.42rem 1.05rem;
+    border: 1px solid var(--landing-line);
+    border-radius: 14px;
+    background: var(--landing-card);
+    transition: border-color 0.16s, box-shadow 0.16s;
+  }
+
+  .ac-champ:focus-within {
+    border-color: var(--ac-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac-accent) 14%, transparent);
+  }
+
+  .ac-champ-saisie {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--landing-ink);
+    font-size: 1rem;
+    outline: none;
+  }
+
+  .ac-champ-saisie::placeholder {
+    color: var(--landing-faint);
+  }
+
+  .ac-champ-envoi {
+    flex: 0 0 auto;
+  }
+
+  .ac-fleche {
+    display: inline-block;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ac-btn:hover .ac-fleche {
+    transform: translateY(-2px);
+  }
+
+  /* ── Les entrées rapides ──────────────────────────────────────────────── */
+  .ac-puce {
+    border: 1px solid var(--landing-line);
+    border-radius: 999px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+    color: var(--landing-muted);
+    background: transparent;
+    transition: border-color 0.16s, color 0.16s, background 0.16s;
+  }
+
+  .ac-puce:hover {
+    border-color: var(--landing-ink);
+    color: var(--landing-ink);
+    background: var(--landing-card);
+  }
+
+  /* ── Bandes du bas ────────────────────────────────────────────────────── */
+  .ac-bande {
+    border-top: 1px solid var(--landing-line);
+  }
+
+  /* ── Le tracé ─────────────────────────────────────────────────────────────
+     La ligne se DESSINE : `stroke-dasharray` égale la longueur du chemin, et
+     l'animation ramène le décalage à zéro. `pathLength` n'est pas utilisé —
+     une longueur normalisée obligerait à redéfinir l'échelle des tirets à
+     chaque changement de tracé. */
+  .ac-trait {
+    stroke-dasharray: 1400;
+    stroke-dashoffset: 1400;
+    animation: ac-dessiner 1.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+  }
+
+  .ac-trait-2 {
+    animation-delay: 0.45s;
+  }
+
+  @keyframes ac-dessiner {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Les points arrivent APRÈS le trait : ils sont la conclusion du geste, pas
+     son accompagnement. */
+  .ac-pt {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ac-poser 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(1.55s + var(--ac-i, 0) * 130ms);
+  }
+
+  @keyframes ac-poser {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Le dessin est là, entier, tout de suite. Une illustration qui se construit
+       sous les yeux de quelqu'un qui a demandé moins de mouvement est
+       exactement ce qu'il a demandé d'éviter. */
+    .ac-trait {
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+    .ac-pt {
+      opacity: 1;
+      animation: none;
+    }
+    .ac-btn:hover .ac-fleche {
+      transform: none;
+    }
+  }
+
 }

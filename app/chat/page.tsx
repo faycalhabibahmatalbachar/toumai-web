@@ -188,6 +188,15 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   /** Le brouillon non envoyé, relu au retour. Voir l'effet plus bas. */
   const BROUILLON = "toumai:brouillon";
+  /** Une question posée depuis l'accueil, à ENVOYER dès l'arrivée ici.
+   *
+   * À NE PAS CONFONDRE AVEC LE BROUILLON
+   * ------------------------------------
+   * Le brouillon se REMET dans le champ : on revient, on relit, on complète.
+   * Celle-ci part toute seule — parce qu'on l'a déjà écrite et validée sur
+   * l'écran d'accueil, et que la retrouver dans le champ obligerait à
+   * appuyer une seconde fois sur Entrée pour la même phrase. */
+  const QUESTION_ACCUEIL = "toumai:question";
   const guestAttempted = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastUserMessageRef = useRef<string>("");
@@ -244,6 +253,29 @@ export default function ChatPage() {
       // brouillon est regrettable ; empêcher d'écrire le serait davantage.
     }
   }, []);
+
+  // ── LA QUESTION VENUE DE L'ACCUEIL PART TOUTE SEULE ────────────────────
+  //
+  // On la retire du stockage AVANT de l'envoyer, et c'est délibéré : si
+  // l'envoi échoue, on ne veut pas qu'elle reparte à chaque rechargement de
+  // la page. Une question posée une fois ne doit être posée qu'une fois.
+  const questionEnvoyee = useRef(false);
+  useEffect(() => {
+    if (questionEnvoyee.current || !session || sending) return;
+    let q: string | null = null;
+    try {
+      q = window.sessionStorage.getItem(QUESTION_ACCUEIL);
+      if (q) window.sessionStorage.removeItem(QUESTION_ACCUEIL);
+    } catch {
+      // Stockage refusé : il n'y a simplement rien à envoyer.
+    }
+    if (!q?.trim()) return;
+    questionEnvoyee.current = true;
+    void send(q.trim());
+    // `send` est stable pour ce qui nous concerne : on ne veut surtout pas
+    // relancer cet effet à chaque frappe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, sending]);
 
   // ── LE CURSEUR DANS LE CHAMP, DÈS L'OUVERTURE ──────────────────────────
   //
