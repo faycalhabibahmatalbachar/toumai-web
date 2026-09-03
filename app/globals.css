@@ -1337,4 +1337,61 @@ svg {
   background: color-mix(in srgb, var(--text-primary) 18%, transparent);
   border-radius: 99px;
 }
+  /* ───────────────────────────────────────────────────────────────────────────
+     TITRE DE CONVERSATION QUI DÉFILE AU SURVOL
+
+     `text-overflow: ellipsis` rend un titre long illisible exactement quand on
+     en a besoin : quand plusieurs conversations commencent par les mêmes mots.
+     Au survol, l'ellipse cède et le texte se déplace de la distance qui manque.
+
+     Les deux variables sont posées par JavaScript, qui seul peut répondre à
+     « ce texte déborde-t-il, et de combien ? ». Sans elles — titre court, ou
+     souris jamais passée — rien ne bouge : la règle ne s'applique qu'aux
+     éléments réellement marqués.
+     ─────────────────────────────────────────────────────────────────────────── */
+  .sb-titre[data-defile="1"] {
+    text-overflow: clip;
+    animation: sb-defile var(--defile-duree, 2.4s) ease-in-out infinite alternate;
+  }
+
+  @keyframes sb-defile {
+    /* Une pause en début ET en fin de course : sans elles, le texte repart
+       avant qu'on ait fini de lire la dernière moitié. */
+    0%,
+    18% {
+      transform: translateX(0);
+    }
+    82%,
+    100% {
+      transform: translateX(var(--defile, 0));
+    }
+  }
+
+  /* La conversation tenue par le curseur s'efface : on doit voir qu'elle a
+     quitté sa place, sinon on croit que le glissement n'a pas pris. */
+  .sb-row[data-glisse="1"] {
+    opacity: 0.35;
+  }
+
+  .sb-row[draggable="true"] {
+    /* Le curseur annonce que la ligne se prend. Sans cet indice, la
+       fonctionnalité reste invisible pour qui ne l'essaie pas par hasard. */
+    cursor: grab;
+  }
+
+  .sb-row[data-glisse="1"],
+  .sb-row:active {
+    cursor: grabbing;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Un texte qui bouge tout seul est un obstacle pour qui a demandé moins de
+       mouvement. L'ellipse revient, et l'attribut `title` reste la voie de
+       secours pour lire le titre entier. */
+    .sb-titre[data-defile="1"] {
+      animation: none;
+      text-overflow: ellipsis;
+    }
+  }
+
 }

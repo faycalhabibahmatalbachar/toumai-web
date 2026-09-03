@@ -39,6 +39,13 @@ export interface Message {
   streaming?: boolean;
   /** Présent une fois le message persisté côté backend — nécessaire pour le feedback. */
   serverId?: string;
+  /** Instant d'envoi, en ISO 8601.
+   *
+   * Le fil n'en portait aucun : en remontant une longue conversation, rien ne
+   * disait si une question datait de ce matin ou du mois dernier. Le jour
+   * s'affiche sous le message, l'heure exacte au survol — la précision à la
+   * minute encombre quand on ne la cherche pas. */
+  envoyeLe?: string;
   imageUrls?: string[];
   /** La pièce jointe envoyée AVEC ce message.
    *
@@ -357,12 +364,55 @@ function TypingDots() {
   );
 }
 
+/** Le jour, dit comme on le dit à l'oral.
+ *
+ * « Aujourd'hui » et « Hier » plutôt qu'une date : c'est ce qu'on retient
+ * réellement, et cela évite de lire « 3 septembre » pour un message envoyé il
+ * y a dix minutes. Au-delà d'une semaine la date reprend ses droits, parce que
+ * « il y a 34 jours » ne situe plus rien.
+ */
+function jourDit(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const auj = new Date();
+  const jours = Math.round(
+    (new Date(auj.getFullYear(), auj.getMonth(), auj.getDate()).getTime() -
+      new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
+      86_400_000,
+  );
+  if (jours === 0) return "Aujourd'hui";
+  if (jours === 1) return "Hier";
+  if (jours < 7) return d.toLocaleDateString("fr-FR", { weekday: "long" });
+  return d.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    ...(d.getFullYear() === auj.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+/** L'horodatage complet, pour l'infobulle du survol. */
+function instantComplet(iso?: string): string | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toLocaleString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function ChatMessage({
   message,
   prevContent,
   onEdit,
   editable = true,
   onRegenerate,
+  onRetry,
   onSuggest,
   isLast = false,
 }: {
@@ -372,6 +422,13 @@ export function ChatMessage({
   onEdit?: (newContent: string) => void;
   editable?: boolean;
   onRegenerate?: () => void;
+  /** Renvoie le message tel quel — sans l'éditer.
+   *
+   * « Réessayer » et « Modifier » répondent à deux gestes différents : l'un
+   * quand la réponse a déraillé alors que la question était bonne, l'autre
+   * quand c'est la question qu'on veut reformuler. Les confondre oblige à
+   * retaper une phrase qui n'avait rien de faux. */
+  onRetry?: () => void;
   /** Renvoie une demande d'amélioration dans le chat (suggestions de site). */
   onSuggest?: (text: string) => void;
   /** Dernier message de la conversation : sa barre d'actions reste visible
@@ -437,20 +494,31 @@ export function ChatMessage({
               rows={Math.min(8, Math.max(2, draft.split("\n").length))}
               className="w-full resize-none rounded-2xl border border-[var(--primary)] bg-[var(--card)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text-primary)] outline-none"
             />
-            <div className="flex justify-end gap-2">
+            {/* CE QUE L'ÉDITION FAIT VRAIMENT, DIT AVANT DE LA FAIRE.
+                Modifier ne corrige pas le message en place : cela repart de ce
+                point et écarte la suite. Quelqu'un qui l'ignore perd la fin de
+                sa conversation sans avoir été prévenu — la phrase coûte une
+                ligne, la surprise coûte le fil. */}
+            <div className="flex items-center justify-end gap-2">
+              <span
+                title="Apporter des modifications crée une nouvelle branche dans la conversation."
+                className="mr-auto cursor-help text-[11px] text-[var(--text-tertiary)]"
+              >
+                Crée une nouvelle branche
+              </span>
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-lg px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
+                className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
               >
                 Annuler
               </button>
               <button
                 onClick={saveEdit}
                 disabled={!draft.trim()}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
+                className="rounded-full px-3.5 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
                 style={{ background: "var(--primary)" }}
               >
-                Envoyer
+                Enregistrer
               </button>
             </div>
           </div>
@@ -480,18 +548,50 @@ export function ChatMessage({
               </span>
             )}
           </div>
-          {editable && onEdit && (
-            <div className="msg-actions flex items-center">
+          {/* SES PROPRES MESSAGES MÉRITENT LES MÊMES GESTES QUE CEUX DE L'IA.
+              Seul « Modifier » existait ici. On ne pouvait ni recopier ce
+              qu'on avait écrit — un prompt long qu'on veut réutiliser
+              ailleurs — ni relancer une question restée sans bonne réponse
+              sans la retaper mot pour mot. */}
+          <div className="msg-actions flex items-center gap-0.5">
+            <button
+              onClick={copy}
+              aria-label={copied ? "Copié" : "Copier le message"}
+              title={copied ? "Copié" : "Copier"}
+              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+              {copied ? "Copié" : "Copier"}
+            </button>
+            {editable && onEdit && (
               <button
                 onClick={startEdit}
                 aria-label="Modifier le message"
-                title="Modifier le message"
+                title="Modifier"
                 className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
               >
                 <EditIcon /> Modifier
               </button>
-            </div>
-          )}
+            )}
+            {editable && onRetry && (
+              <button
+                onClick={onRetry}
+                aria-label="Renvoyer ce message"
+                title="Renvoyer la même question"
+                className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+              >
+                <RegenerateIcon /> Réessayer
+              </button>
+            )}
+            {jourDit(message.envoyeLe) && (
+              <span
+                title={instantComplet(message.envoyeLe)}
+                className="cursor-help select-none px-1.5 py-1 text-[11px] text-[var(--text-tertiary)]"
+              >
+                {jourDit(message.envoyeLe)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     );

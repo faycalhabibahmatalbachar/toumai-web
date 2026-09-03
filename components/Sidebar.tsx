@@ -188,6 +188,25 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
     }
   }
 
+  /** La conversation actuellement tenue par le curseur, ou `null`.
+   *
+   * CE QUE LE GLISSEMENT PERMET, ET CE QU'IL NE PERMET PAS
+   * ------------------------------------------------------
+   * Deux dépôts, et deux seulement : le groupe « Épinglées » pour hisser une
+   * conversation en tête, et la corbeille pour la supprimer.
+   *
+   * Un réordonnancement LIBRE a été écarté, et c'est un choix, pas un oubli :
+   * la liste est groupée par date. Traîner une conversation d'« Hier » vers
+   * « Aujourd'hui » lui ferait afficher un jour qui n'est pas le sien, et un
+   * ordre manuel sans colonne en base repartirait à zéro au rechargement —
+   * un rangement qui ne tient pas est pire que pas de rangement du tout.
+   *
+   * « Mettre en haut » a déjà son geste, il persiste, et il porte un nom :
+   * épingler. Le glissement lui donne simplement un raccourci direct. */
+  const [glisse, setGlisse] = useState<ChatSession | null>(null);
+  /** La zone actuellement survolée pendant le glissement — pour l'éclairer. */
+  const [surZone, setSurZone] = useState<"epingle" | "corbeille" | null>(null);
+
   async function togglePin(s: ChatSession) {
     setMenuId(null);
     const next = !s.pinned;
@@ -201,6 +220,31 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
     } catch {
       setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, pinned: s.pinned } : x)));
     }
+  }
+
+  /** Fait défiler un titre trop long, au survol, et seulement s'il déborde.
+   *
+   * POURQUOI MESURER PLUTÔT QU'ANIMER TOUT LE MONDE
+   * -----------------------------------------------
+   * Un titre coupé par « … » est illisible précisément quand on en a besoin :
+   * quand plusieurs conversations commencent par les mêmes mots. Mais animer
+   * un titre qui tient déjà entièrement produirait un tressautement gratuit
+   * sur presque toutes les lignes.
+   *
+   * `scrollWidth > clientWidth` répond exactement à la question posée — « ce
+   * texte est-il coupé ? » — et la durée suit la distance, pour que défiler
+   * dix caractères ne prenne pas le même temps que d'en défiler cinquante. */
+  function survolerTitre(e: React.MouseEvent<HTMLSpanElement>) {
+    const el = e.currentTarget;
+    const debord = el.scrollWidth - el.clientWidth;
+    if (debord <= 4) return;
+    el.style.setProperty("--defile", `-${debord}px`);
+    el.style.setProperty("--defile-duree", `${Math.max(1.6, debord / 45)}s`);
+    el.dataset.defile = "1";
+  }
+
+  function quitterTitre(e: React.MouseEvent<HTMLSpanElement>) {
+    delete e.currentTarget.dataset.defile;
   }
 
   function startRename(s: ChatSession) {
@@ -383,9 +427,44 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
             </p>
           )}
           {grouped.map((group) => (
-            <div key={group.label} className="mb-4">
+            /* DÉPOSER DANS UN GROUPE = ÉPINGLER OU DÉTACHER.
+               Les groupes de dates ne sont pas des dossiers : on ne peut pas
+               « ranger » une conversation d'hier dans aujourd'hui. Seul
+               « Épinglées » désigne un état réel, modifiable et durable — donc
+               seul lui accepte un dépôt, et il le refuse si la conversation
+               s'y trouve déjà. */
+            <div
+              key={group.label}
+              className="mb-4"
+              onDragOver={(e) => {
+                if (!glisse) return;
+                const versEpingle = group.label === "Épinglées";
+                if (versEpingle === Boolean(glisse.pinned)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (versEpingle) setSurZone("epingle");
+              }}
+              onDragLeave={() => setSurZone((z) => (z === "epingle" ? null : z))}
+              onDrop={(e) => {
+                e.preventDefault();
+                const cible = glisse;
+                setGlisse(null);
+                setSurZone(null);
+                if (!cible) return;
+                const versEpingle = group.label === "Épinglées";
+                if (versEpingle !== Boolean(cible.pinned)) togglePin(cible);
+              }}
+              data-survol={
+                group.label === "Épinglées" && surZone === "epingle" ? "1" : undefined
+              }
+            >
               <p className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
                 {group.label}
+                {group.label === "Épinglées" && surZone === "epingle" && (
+                  <span className="ml-1.5 normal-case tracking-normal text-[var(--primary)]">
+                    déposer pour épingler
+                  </span>
+                )}
               </p>
               {group.items.map((s) =>
                 renamingId === s.id ? (
@@ -402,7 +481,24 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
                     className="w-full rounded-lg border border-[var(--primary)] bg-transparent px-2.5 py-2 text-sm outline-none"
                   />
                 ) : (
-                  <div key={s.id} className="sb-row group relative" data-active={s.id === activeId}>
+                  <div
+                    key={s.id}
+                    className="sb-row group relative"
+                    data-active={s.id === activeId}
+                    draggable
+                    onDragStart={(e) => {
+                      setGlisse(s);
+                      e.dataTransfer.effectAllowed = "move";
+                      // Certains navigateurs refusent de démarrer un
+                      // glissement sans charge utile.
+                      e.dataTransfer.setData("text/plain", s.id);
+                    }}
+                    onDragEnd={() => {
+                      setGlisse(null);
+                      setSurZone(null);
+                    }}
+                    data-glisse={glisse?.id === s.id ? "1" : undefined}
+                  >
                     <button
                       onClick={() => {
                         onSelect(s.id);
@@ -414,8 +510,39 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
                           : "text-[var(--text-secondary)] hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
                       }`}
                     >
-                      {s.pinned && <PinIcon className="shrink-0 text-[var(--text-tertiary)]" />}
-                      <span className="min-w-0 flex-1 truncate">{s.title || "Sans titre"}</span>
+                      {/* ÉPINGLER SANS OUVRIR DE MENU.
+                          Le geste demandait trois clics — les trois points, le
+                          menu, l'entrée — pour une bascule. Épinglée, l'icône
+                          reste visible parce qu'elle porte alors une
+                          information ; sinon elle n'apparaît qu'au survol,
+                          pour ne pas encombrer une liste au repos. */}
+                      <span
+                        role="button"
+                        aria-label={s.pinned ? "Détacher le chat" : "Épingler le chat"}
+                        title={s.pinned ? "Détacher" : "Épingler"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePin(s);
+                        }}
+                        className={`shrink-0 rounded p-0.5 transition ${
+                          s.pinned
+                            ? "text-[var(--primary)] opacity-100"
+                            : "text-[var(--text-tertiary)] opacity-0 hover:text-[var(--text-primary)] group-hover:opacity-100"
+                        }`}
+                      >
+                        <PinIcon />
+                      </span>
+                      <span
+                        onMouseEnter={survolerTitre}
+                        onMouseLeave={quitterTitre}
+                        // La voie de secours quand l'animation est refusée
+                        // (mouvement réduit) ou sur un écran tactile, où il
+                        // n'y a pas de survol du tout.
+                        title={s.title || "Sans titre"}
+                        className="sb-titre min-w-0 flex-1 truncate"
+                      >
+                        {s.title || "Sans titre"}
+                      </span>
                       <span
                         role="button"
                         aria-label="Options de la conversation"
@@ -497,6 +624,46 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
             </div>
           ))}
         </nav>
+
+        {/* LA CORBEILLE, VISIBLE SEULEMENT QUAND ELLE SERT.
+            Elle n'existe que pendant un glissement : une corbeille affichée en
+            permanence est un bouton de suppression posé à demeure sous le
+            curseur, et c'est exactement ce qu'on veut éviter.
+
+            Le dépôt n'efface RIEN : il ouvre la même confirmation nommée que
+            le menu. Un geste peut déraper — le doigt glisse, la souris saute —
+            et un geste qui dérape ne doit jamais coûter une conversation. */}
+        {glisse && (
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setSurZone("corbeille");
+            }}
+            onDragLeave={() => setSurZone((z) => (z === "corbeille" ? null : z))}
+            onDrop={(e) => {
+              e.preventDefault();
+              const cible = glisse;
+              setGlisse(null);
+              setSurZone(null);
+              if (cible) setToConfirm(cible);
+            }}
+            className={`mx-3 mb-2 flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed py-6 transition ${
+              surZone === "corbeille"
+                ? "scale-[1.02] border-[var(--error)] bg-[color-mix(in_srgb,var(--error)_12%,transparent)] text-[var(--error)]"
+                : "border-[var(--border)] text-[var(--text-tertiary)]"
+            }`}
+          >
+            <span className={surZone === "corbeille" ? "scale-125 transition" : "transition"}>
+              <TrashIcon />
+            </span>
+            <span className="px-3 text-center text-[11px] leading-snug">
+              {surZone === "corbeille"
+                ? "Relâchez pour supprimer"
+                : "Déposez ici pour supprimer"}
+            </span>
+          </div>
+        )}
 
         {collapsed && <div className="hidden flex-1 md:block" aria-hidden="true" />}
         {/* Session invité : proposer la connexion directement depuis la sidebar. */}

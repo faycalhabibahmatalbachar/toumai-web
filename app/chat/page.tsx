@@ -503,6 +503,7 @@ export default function ChatPage() {
         serverId: m.id,
         role: m.role,
         content: m.content,
+        envoyeLe: m.created_at,
         imageUrls: m.metadata?.image_urls,
         sources: m.metadata?.sources,
         searchImages: m.metadata?.search_images,
@@ -575,6 +576,7 @@ export default function ChatPage() {
       id: nextId(),
       role: "user",
       content: text,
+      envoyeLe: new Date().toISOString(),
       // La pièce part avec le message et reste visible dans le fil.
       ...(attachedDoc
         ? { piece: { nom: attachedDoc.filename, apercu: apercuJoint ?? undefined } }
@@ -805,7 +807,12 @@ export default function ChatPage() {
     stickToBottomRef.current = true;
     lastUserMessageRef.current = trimmed;
     const isFirstMessage = messages.length === 0;
-    const userMsg: Message = { id: nextId(), role: "user", content: trimmed };
+    const userMsg: Message = {
+      id: nextId(),
+      role: "user",
+      content: trimmed,
+      envoyeLe: new Date().toISOString(),
+    };
     const assistantId = nextId();
     setMessages((prev) => [
       ...prev,
@@ -1331,6 +1338,11 @@ export default function ChatPage() {
                   prevContent={i > 0 ? messages[i - 1].content : undefined}
                   editable={!sending}
                   onEdit={m.role === "user" ? (text) => editMessage(m.id, text) : undefined}
+                  onRetry={
+                    m.role === "user" && !sending
+                      ? () => editMessage(m.id, m.content)
+                      : undefined
+                  }
                   onRegenerate={
                     !sending && i === messages.length - 1 && m.role === "assistant" && m.content
                       ? regenerate
