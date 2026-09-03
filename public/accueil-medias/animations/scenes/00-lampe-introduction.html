@@ -142,7 +142,7 @@
       <g id="lumiere" opacity="0">
         <polygon class="faisceau" points="510,190 690,190 1010,624 190,624"
                  fill="url(#faisceau)" filter="url(#flou-cone)" />
-        <ellipse cx="600" cy="470" rx="360" ry="152" fill="url(#flaque)" />
+        <ellipse cx="656" cy="474" rx="368" ry="150" fill="url(#flaque)" />
         <g id="poussieres" clip-path="url(#clip-faisceau)">
           <circle class="poussiere" cx="470" cy="330" r="2.4" />
           <circle class="poussiere" cx="560" cy="420" r="1.8" />
@@ -187,7 +187,7 @@
 
       <!-- Le livre -->
       <g id="livre">
-        <ellipse id="ombre-livre" cx="600" cy="598" rx="268" ry="17" fill="#0d0705" opacity="0" />
+        <ellipse id="ombre-livre" cx="730" cy="598" rx="140" ry="16" fill="#0d0705" opacity="0" />
 
         <!-- Les deux pages, sous la couverture -->
         <g id="pages" opacity="0">
@@ -337,6 +337,12 @@
       }
 
       /** La couverture, entre 1 (fermée) et -1 (rabattue à gauche). */
+      /** L ombre portee, entre le livre ferme (0) et le livre ouvert (1). */
+      function ombreA(t) {
+        ombreLivre.setAttribute("cx", String(S.entre(730, 600, t).toFixed(1)));
+        ombreLivre.setAttribute("rx", String(S.entre(140, 268, t).toFixed(1)));
+      }
+
       function couvertureA(sx) {
         // Un livre qui s'ouvre se bombe légèrement : sans ce gonflement, la
         // couverture a l'air d'une carte qu'on retourne, pas d'un carton relié.
@@ -353,6 +359,7 @@
       function preparer() {
         cordonA(BILLE.y);
         couvertureA(1);
+        ombreA(0);
         S.opacite(lumiere, 0);
         S.opacite(halo, 0);
         ampoule.setAttribute("fill", "#3a2c22");
@@ -377,6 +384,7 @@
       function finFixe() {
         cordonA(BILLE.y);
         couvertureA(-1);
+        ombreA(1);
         S.opacite(lumiere, 1);
         S.opacite(halo, 1);
         ampoule.setAttribute("fill", "#ffe7bd");
@@ -384,7 +392,7 @@
         S.opacite(chaise, 1);
         S.opacite(pages, 1);
         S.opacite(gouttiere, 1);
-        S.opacite(ombreLivre, 0.5);
+        S.opacite(ombreLivre, 0.4);
         S.opacite(refletVerre, 0.55);
         S.opacite(etat, 1);
         filet.setAttribute("x2", "764");
@@ -426,7 +434,7 @@
           S.opacite(lumiere, eclat);
           S.opacite(nuit, S.entre(0.88, 0.16, t));
           S.opacite(chaise, S.entre(0.72, 1, t));
-          S.opacite(ombreLivre, t * 0.5);
+          S.opacite(ombreLivre, t * 0.4);
           S.opacite(refletVerre, t * 0.55);
         }, S.courbes.freine);
 
@@ -450,6 +458,7 @@
         await S.tween(900, (t) => {
           const sx = S.entre(1, -1, t);
           couvertureA(sx);
+          ombreA(t);
           const bordX = DOS_X + 254 * sx;
           const leve = Math.sin(Math.PI * t) * 54;
           main.poser(main.pourToucher({ x: bordX, y: 470 - leve }));
@@ -502,7 +511,7 @@
             S.opacite(pages, 1 - t);
             S.opacite(gouttiere, 1 - t);
             S.opacite(etat, 1 - t);
-            S.opacite(ombreLivre, 0.5 * (1 - t));
+            S.opacite(ombreLivre, 0.4 * (1 - t));
             S.opacite(refletVerre, 0.55 * (1 - t));
           });
         },
