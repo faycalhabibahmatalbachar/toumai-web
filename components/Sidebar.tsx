@@ -12,7 +12,7 @@ import {
   setSessionPinned,
   type ChatSession,
 } from "@/lib/chat-api";
-import { getProfile, type UserProfile } from "@/lib/user-api";
+import { getProfile, type UserProfile, nomAffichable } from "@/lib/user-api";
 import { cacheRead, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { describeError } from "@/lib/errors";
 
@@ -76,7 +76,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
   // cache a déjà tranché).
   const [profileResolved, setProfileResolved] = useState(false);
   useCacheSeed<UserProfile>("user:profile", (p) => {
-    setDisplayName(p.full_name ?? null);
+    setDisplayName(nomAffichable(p.full_name));
     setAvatarUrl(p.avatar_url ?? null);
     setProfileResolved(true);
   });
@@ -91,7 +91,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
     getProfile()
       .then((p) => {
         cacheWrite("user:profile", p);
-        setDisplayName(p.full_name ?? null);
+        setDisplayName(nomAffichable(p.full_name));
         setAvatarUrl(p.avatar_url ?? null);
       })
       .catch(() => {})

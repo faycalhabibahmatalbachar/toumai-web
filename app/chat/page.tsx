@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { streamChat, type HistoryTurn } from "@/lib/chat-stream";
 import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/chat-api";
-import { getProfile } from "@/lib/user-api";
+import { getProfile, prenomAffichable } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { transcribeAudio } from "@/lib/voice-api";
 import { uploadDocument, type UploadedDocument } from "@/lib/documents-api";
@@ -335,7 +335,10 @@ export default function ChatPage() {
   // seed du cache appliqué avant peinture par useCacheSeed.
   const [firstName, setFirstName] = useState<string | null>(null);
   useCacheSeed<{ full_name?: string | null }>("user:profile", (p) => {
-    const name = p.full_name?.trim().split(/\s+/)[0];
+    // `prenomAffichable` écarte les identifiants techniques. Le cache peut
+    // avoir été rempli ailleurs (écran de réglages) pour une session invitée,
+    // et l'accueil affichait alors « Bonjour, guest-6bbab7de-… ».
+    const name = prenomAffichable(p.full_name);
     if (name) setFirstName(name);
   });
   useEffect(() => {
@@ -343,7 +346,7 @@ export default function ChatPage() {
     getProfile()
       .then((p) => {
         cacheWrite("user:profile", p);
-        const name = p.full_name?.trim().split(/\s+/)[0];
+        const name = prenomAffichable(p.full_name);
         if (name) setFirstName(name);
       })
       .catch(() => {});
@@ -793,6 +796,17 @@ export default function ChatPage() {
     } finally {
       setSending(false);
       abortRef.current = null;
+      // FILET : quoi qu'il arrive, le message cesse d'être « en cours ».
+      //
+      // `streaming: false` n'était posé que sur l'événement de fin et sur la
+      // branche d'erreur. Un flux qui se referme proprement SANS cet
+      // événement — connexion coupée net, proxy qui tronque — laissait le
+      // message marqué en cours pour toujours : le curseur clignotait sous
+      // une réponse achevée, et le message n'obtenait jamais son identifiant
+      // serveur, donc plus aucun retour possible dessus.
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId && m.streaming ? { ...m, streaming: false } : m)),
+      );
     }
     return acc;
   }

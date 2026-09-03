@@ -694,9 +694,12 @@ export function ChatMessage({
             {isSite && finishedHtml && <SiteArtifactCard html={finishedHtml} onSuggest={onSuggest} />}
           </div>
         )}
-        {message.streaming && message.content && (
-          <span className="streaming-cursor ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 bg-current align-middle" />
-        )}
+        {/* PAS DE CURSEUR CLIGNOTANT.
+            Il imitait une saisie en cours, mais le texte apparaît déjà par
+            morceaux : le mouvement du texte dit à lui seul que la réponse
+            s'écrit. La barre n'ajoutait rien et restait à l'écran quand le
+            flux se terminait sans son événement de fin — un curseur qui
+            clignote sur une réponse achevée fait croire qu'elle continue. */}
       </div>
       {/* LA PIÈCE JOINTE RESTE DANS LE FIL.
           Sans elle, on relisait « analyse ça » sans savoir quoi — la question

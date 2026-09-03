@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { getProfile, type UserProfile } from "@/lib/user-api";
+import { getProfile, type UserProfile, nomAffichable } from "@/lib/user-api";
 import { cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
@@ -16,6 +16,7 @@ import { NotificationsSection } from "@/components/settings/NotificationsSection
 import { ConnectorsTab } from "@/components/settings/ConnectorsTab";
 import { SecuritySection } from "@/components/settings/SecuritySection";
 import { SharesSection } from "@/components/settings/SharesSection";
+import { StorageSection } from "@/components/settings/StorageSection";
 import { SupportTab } from "@/components/settings/SupportTab";
 
 type Section =
@@ -27,6 +28,7 @@ type Section =
   | "connectors"
   | "security"
   | "shares"
+  | "storage"
   | "support";
 
 interface SectionDef {
@@ -100,6 +102,13 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
         title: "Liens partagés",
         sub: "Les conversations que vous avez rendues accessibles par lien.",
         icon: <LinkIcon />,
+      },
+      {
+        id: "storage",
+        label: "Stockage",
+        title: "Stockage",
+        sub: "L'espace occupé par vos fichiers, et comment le reprendre.",
+        icon: <DriveIcon />,
       },
     ],
   },
@@ -178,7 +187,7 @@ export default function SettingsPage() {
     : session.is_guest
       ? "Session invité"
       : profile
-        ? profile.full_name || "Mon compte"
+        ? nomAffichable(profile.full_name) || "Mon compte"
         : "Connexion…";
 
   function NavItem({ s }: { s: SectionDef }) {
@@ -358,6 +367,7 @@ export default function SettingsPage() {
                 {section === "notifications" && <NotificationsSection />}
                 {section === "security" && <SecuritySection />}
                 {section === "shares" && <SharesSection />}
+                {section === "storage" && <StorageSection />}
                 {section === "support" && <SupportTab />}
               </div>
             )}
@@ -457,6 +467,15 @@ function LinkIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M10 13a5 5 0 007.5.5l2-2a5 5 0 00-7-7l-1.2 1.1" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M14 11a5 5 0 00-7.5-.5l-2 2a5 5 0 007 7l1.2-1.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DriveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
