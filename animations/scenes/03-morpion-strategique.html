@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toumaï — Tic-Tac-Toe Battle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #100e0c;
+      --stage-a: #d77a58;
+      --stage-b: #c96546;
+      --ink: #17130f;
+      --ivory: #fff8ef;
+      --ivory-soft: #f4e9dd;
+      --cell: rgba(255, 248, 239, .82);
+      --cell-edge: rgba(255, 255, 255, .34);
+      --terracotta-dark: #713821;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 42%, #2a201a 0, var(--page) 64%);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    .stage {
+      position: relative;
+      width: min(1180px, 96vw);
+      aspect-ratio: 5 / 3;
+      max-height: 94vh;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 34px;
+      background: linear-gradient(145deg, var(--stage-a), var(--stage-b));
+      box-shadow:
+        0 44px 110px rgba(0, 0, 0, .46),
+        inset 0 1px 0 rgba(255, 255, 255, .24);
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: .08;
+      background-image: radial-gradient(rgba(255,255,255,.65) .55px, transparent .55px);
+      background-size: 6px 6px;
+      mix-blend-mode: soft-light;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .board-cell {
+      fill: var(--cell);
+      stroke: var(--cell-edge);
+      stroke-width: 1.5;
+      transition: filter .2s ease, opacity .2s ease;
+    }
+
+    .board-cell.is-target {
+      filter: url(#cellGlow);
+    }
+
+    .reserve-slot {
+      fill: rgba(75, 31, 17, .12);
+      stroke: rgba(255, 255, 255, .18);
+      stroke-width: 1.5;
+    }
+
+    .token {
+      transform-box: fill-box;
+      transform-origin: center;
+      filter: url(#tokenShadow);
+      will-change: transform, opacity;
+    }
+
+    .hand {
+      will-change: transform;
+    }
+
+    #balance-halo {
+      opacity: 0;
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 8px; }
+      .stage { width: 100%; border-radius: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <svg viewBox="0 0 1200 720" role="img" aria-labelledby="scene-title scene-desc">
+      <title id="scene-title">Partie animée de morpion entre deux mains</title>
+      <desc id="scene-desc">Trois O sont placés à gauche, trois X à droite et un plateau de neuf cases au centre. Les deux mains jouent intelligemment, attaquent et bloquent chaque menace adverse.</desc>
+
+      <defs>
+        <filter id="boardShadow" x="-20%" y="-20%" width="140%" height="150%">
+          <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#4c2415" flood-opacity=".28" />
+        </filter>
+        <filter id="tokenShadow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#4c2415" flood-opacity=".2" />
+        </filter>
+        <filter id="cellGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="0" stdDeviation="9" flood-color="#fff7ed" flood-opacity=".78" />
+        </filter>
+        <filter id="winGlow" x="-20%" y="-100%" width="140%" height="300%">
+          <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#fffaf2" flood-opacity=".9" />
+        </filter>
+      </defs>
+
+      <!-- Réserves latérales -->
+      <g opacity=".88">
+        <rect class="reserve-slot" x="92" y="116" width="116" height="116" rx="34" />
+        <rect class="reserve-slot" x="92" y="302" width="116" height="116" rx="34" />
+        <rect class="reserve-slot" x="92" y="488" width="116" height="116" rx="34" />
+
+        <rect class="reserve-slot" x="992" y="116" width="116" height="116" rx="34" />
+        <rect class="reserve-slot" x="992" y="302" width="116" height="116" rx="34" />
+        <rect class="reserve-slot" x="992" y="488" width="116" height="116" rx="34" />
+      </g>
+
+      <!-- Plateau central SaaS : neuf cartes séparées -->
+      <g filter="url(#boardShadow)">
+        <rect x="392" y="88" width="416" height="544" rx="48" fill="rgba(81,35,20,.14)" stroke="rgba(255,255,255,.18)" />
+
+        <rect id="cell-0" class="board-cell" x="420" y="116" width="112" height="148" rx="28" />
+        <rect id="cell-1" class="board-cell" x="544" y="116" width="112" height="148" rx="28" />
+        <rect id="cell-2" class="board-cell" x="668" y="116" width="112" height="148" rx="28" />
+
+        <rect id="cell-3" class="board-cell" x="420" y="286" width="112" height="148" rx="28" />
+        <rect id="cell-4" class="board-cell" x="544" y="286" width="112" height="148" rx="28" />
+        <rect id="cell-5" class="board-cell" x="668" y="286" width="112" height="148" rx="28" />
+
+        <rect id="cell-6" class="board-cell" x="420" y="456" width="112" height="148" rx="28" />
+        <rect id="cell-7" class="board-cell" x="544" y="456" width="112" height="148" rx="28" />
+        <rect id="cell-8" class="board-cell" x="668" y="456" width="112" height="148" rx="28" />
+      </g>
+
+      <!-- Pions O à gauche -->
+      <g id="o-1" class="token" transform="translate(150 174)">
+        <circle r="35" fill="none" stroke="var(--ivory)" stroke-width="20" />
+      </g>
+      <g id="o-2" class="token" transform="translate(150 360)">
+        <circle r="35" fill="none" stroke="var(--ivory)" stroke-width="20" />
+      </g>
+      <g id="o-3" class="token" transform="translate(150 546)">
+        <circle r="35" fill="none" stroke="var(--ivory)" stroke-width="20" />
+      </g>
+
+      <!-- Pions X à droite -->
+      <g id="x-1" class="token" transform="translate(1050 174)">
+        <path d="M-29 -29 L29 29 M29 -29 L-29 29" fill="none" stroke="var(--ink)" stroke-width="20" stroke-linecap="round" />
+      </g>
+      <g id="x-2" class="token" transform="translate(1050 360)">
+        <path d="M-29 -29 L29 29 M29 -29 L-29 29" fill="none" stroke="var(--ink)" stroke-width="20" stroke-linecap="round" />
+      </g>
+      <g id="x-3" class="token" transform="translate(1050 546)">
+        <path d="M-29 -29 L29 29 M29 -29 L-29 29" fill="none" stroke="var(--ink)" stroke-width="20" stroke-linecap="round" />
+      </g>
+
+      <!-- Halo final : équilibre tactique, aucun gagnant offert -->
+      <rect id="balance-halo" x="402" y="98" width="396" height="524" rx="42" fill="none" stroke="var(--ivory)" stroke-width="5" filter="url(#winGlow)" />
+
+      <!-- Main gauche originale : pouce à droite -->
+      <g id="left-hand" class="hand" transform="translate(-60 468) scale(.88)">
+        <image x="0" y="0" width="238" height="275" preserveAspectRatio="none" href="../commun/mains/main-1.webp" />
+      </g>
+
+      <!-- Main droite : miroir anatomique, pouce à gauche -->
+      <g id="right-hand" class="hand" transform="translate(1008 468) scale(.88)">
+        <g transform="translate(238 0) scale(-1 1)">
+          <image x="0" y="0" width="238" height="275" preserveAspectRatio="none" href="../commun/mains/main-1.webp" />
+        </g>
+      </g>
+    </svg>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const SCALE = 0.88;
+      const grip = {
+        left:  { x: 180 * SCALE, y: 69 * SCALE },
+        right: { x:  58 * SCALE, y: 69 * SCALE }
+      };
+
+      const rest = {
+        left:  { x: -60, y: 468 },
+        right: { x: 1008, y: 468 }
+      };
+
+      const sources = {
+        x1: { x: 1050, y: 174 },
+        x2: { x: 1050, y: 360 },
+        x3: { x: 1050, y: 546 },
+        o1: { x: 150,  y: 174 },
+        o2: { x: 150,  y: 360 },
+        o3: { x: 150,  y: 546 }
+      };
+
+      const cells = {
+        0: { x: 476, y: 190 },
+        1: { x: 600, y: 190 },
+        2: { x: 724, y: 190 },
+        3: { x: 476, y: 360 },
+        4: { x: 600, y: 360 },
+        5: { x: 724, y: 360 },
+        6: { x: 476, y: 530 },
+        7: { x: 600, y: 530 },
+        8: { x: 724, y: 530 }
+      };
+
+      const hands = {
+        left: document.getElementById("left-hand"),
+        right: document.getElementById("right-hand")
+      };
+
+      const allTokens = [...document.querySelectorAll(".token")];
+      const balanceHalo = document.getElementById("balance-halo");
+      const board = Array(9).fill(null);
+      const currentHandPosition = {
+        left: { ...rest.left },
+        right: { ...rest.right }
+      };
+
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+      const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      function setHand(side, point, scale = SCALE) {
+        hands[side].setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale})`);
+        currentHandPosition[side] = { x: point.x, y: point.y };
+      }
+
+      function setToken(token, point, scale = 1, rotation = 0) {
+        token.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) rotate(${rotation.toFixed(2)}) scale(${scale.toFixed(3)})`);
+      }
+
+      function tween(duration, draw) {
+        return new Promise(resolve => {
+          const start = performance.now();
+          function frame(now) {
+            const raw = Math.min(1, (now - start) / duration);
+            draw(ease(raw), raw);
+            if (raw < 1) requestAnimationFrame(frame);
+            else resolve();
+          }
+          requestAnimationFrame(frame);
+        });
+      }
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      function handPointFor(side, worldPoint) {
+        return {
+          x: worldPoint.x - grip[side].x,
+          y: worldPoint.y - grip[side].y
+        };
+      }
+
+      async function moveHand(side, destination, duration = 620) {
+        const from = { ...currentHandPosition[side] };
+        await tween(duration, t => {
+          const point = {
+            x: lerp(from.x, destination.x, t),
+            y: lerp(from.y, destination.y, t) - Math.sin(Math.PI * t) * 22
+          };
+          setHand(side, point);
+        });
+      }
+
+      async function carry(side, token, source, target) {
+        const from = handPointFor(side, source);
+        const to = handPointFor(side, target);
+        setHand(side, from);
+        setToken(token, source);
+
+        await tween(900, (t, raw) => {
+          const arc = Math.sin(Math.PI * t) * 58;
+          const point = {
+            x: lerp(from.x, to.x, t),
+            y: lerp(from.y, to.y, t) - arc
+          };
+          const piecePoint = {
+            x: point.x + grip[side].x,
+            y: point.y + grip[side].y
+          };
+          setHand(side, point, SCALE * (1 - Math.sin(Math.PI * raw) * .012));
+          setToken(token, piecePoint, .98, side === "right" ? lerp(-2, 1, t) : lerp(2, -1, t));
+        });
+
+        setToken(token, target);
+      }
+
+      async function playMove(side, tokenId, sourceKey, cellIndex, moveKind) {
+        const token = document.getElementById(tokenId);
+        const source = sources[sourceKey];
+        const target = cells[cellIndex];
+        const targetCell = document.getElementById(`cell-${cellIndex}`);
+
+        await moveHand(side, handPointFor(side, source), 600);
+        await tween(160, t => setHand(side, handPointFor(side, source), SCALE * (1 - .018 * Math.sin(Math.PI * t))));
+        await sleep(80);
+
+        targetCell.classList.add("is-target");
+        await carry(side, token, source, target);
+        await sleep(130);
+        targetCell.classList.remove("is-target");
+
+        if (moveKind === "block") {
+          targetCell.animate(
+            [{ opacity: 1 }, { opacity: .64 }, { opacity: 1 }],
+            { duration: 420, easing: "ease-in-out" }
+          );
+          await sleep(180);
+        }
+
+        await moveHand(side, rest[side], 620);
+        await sleep(130);
+      }
+
+      const winningPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+      ];
+
+      function hasWon(mark) {
+        return winningPatterns.some(pattern => pattern.every(index => board[index] === mark));
+      }
+
+      function immediateMove(mark) {
+        for (let index = 0; index < board.length; index += 1) {
+          if (board[index] !== null) continue;
+          board[index] = mark;
+          const wins = hasWon(mark);
+          board[index] = null;
+          if (wins) return index;
+        }
+        return null;
+      }
+
+      function chooseSmartMove(mark) {
+        const opponent = mark === "X" ? "O" : "X";
+
+        const winningCell = immediateMove(mark);
+        if (winningCell !== null) return { cell: winningCell, kind: "win" };
+
+        const blockingCell = immediateMove(opponent);
+        if (blockingCell !== null) return { cell: blockingCell, kind: "block" };
+
+        // Ordre tactique : centre, angles utiles, côtés.
+        const preferences = mark === "X"
+          ? [4, 2, 6, 8, 0, 3, 5, 1, 7]
+          : [0, 6, 2, 8, 3, 5, 1, 7, 4];
+
+        const cell = preferences.find(index => board[index] === null);
+        return { cell, kind: "position" };
+      }
+
+      function resetScene() {
+        setHand("left", rest.left);
+        setHand("right", rest.right);
+
+        setToken(document.getElementById("x-1"), sources.x1);
+        setToken(document.getElementById("x-2"), sources.x2);
+        setToken(document.getElementById("x-3"), sources.x3);
+        setToken(document.getElementById("o-1"), sources.o1);
+        setToken(document.getElementById("o-2"), sources.o2);
+        setToken(document.getElementById("o-3"), sources.o3);
+
+        allTokens.forEach(token => { token.style.opacity = "1"; });
+        board.fill(null);
+        balanceHalo.style.opacity = "0";
+      }
+
+      function showFinalState() {
+        const final = [
+          ["x-1", 4], ["o-1", 0], ["x-2", 2],
+          ["o-2", 6], ["x-3", 3], ["o-3", 5]
+        ];
+        final.forEach(([id, cell]) => setToken(document.getElementById(id), cells[cell]));
+        balanceHalo.style.opacity = ".75";
+      }
+
+      async function revealStalemate(placements) {
+        await tween(720, t => {
+          const pulse = 1 + Math.sin(Math.PI * t) * .075;
+          placements.forEach(({ token, cell }) => setToken(token, cells[cell], pulse));
+          balanceHalo.style.opacity = String(Math.sin(Math.PI * t) * .82);
+        });
+
+        balanceHalo.style.opacity = ".5";
+      }
+
+      async function fadeAndRestart() {
+        await tween(500, t => {
+          const opacity = String(1 - t);
+          allTokens.forEach(token => { token.style.opacity = opacity; });
+          balanceHalo.style.opacity = opacity;
+        });
+        resetScene();
+        await sleep(650);
+      }
+
+      async function run() {
+        resetScene();
+
+        if (reduceMotion) {
+          showFinalState();
+          return;
+        }
+
+        await sleep(850);
+        while (true) {
+          const counts = { X: 0, O: 0 };
+          const placements = [];
+
+          // Six tours réels : chaque décision dépend de l'état actuel du plateau.
+          for (let turn = 0; turn < 6; turn += 1) {
+            const mark = turn % 2 === 0 ? "X" : "O";
+            const side = mark === "X" ? "right" : "left";
+            counts[mark] += 1;
+
+            const decision = chooseSmartMove(mark);
+            const lower = mark.toLowerCase();
+            const tokenId = `${lower}-${counts[mark]}`;
+            const sourceKey = `${lower}${counts[mark]}`;
+            const token = document.getElementById(tokenId);
+
+            await playMove(side, tokenId, sourceKey, decision.cell, decision.kind);
+            board[decision.cell] = mark;
+            placements.push({ token, cell: decision.cell });
+          }
+
+          await revealStalemate(placements);
+          await sleep(2100);
+          await fadeAndRestart();
+        }
+      }
+
+      run();
+    })();
+  </script>
+</body>
+</html>

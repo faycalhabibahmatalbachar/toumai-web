@@ -117,18 +117,18 @@ const CAPACITES = [
   },
   {
     sequence: "04",
-    kicker: "Déduction par indices",
-    titre: "Chaque essai réduit le champ des possibles.",
+    kicker: "Raisonnement visible",
+    titre: "Il réfléchit avant de répondre.",
     texte:
-      "Une main cache un code, l’autre le cherche. Toumaï ne tire pas au hasard : il lit les indices de chaque tentative — bonne couleur, bonne place — et n’essaie plus que ce qui reste possible.",
+      "Toumaï 5 ne se jette pas sur la première phrase venue : il éclaire le sujet, ouvre le dossier, et n’écrit qu’ensuite. Sur les demandes difficiles, cette étape est affichée — vous pouvez lire ce qu’il s’est dit avant de vous répondre.",
     points: [
-      "Aucun essai tiré au hasard",
-      "Chaque indice élimine des combinaisons",
-      "Le code exact atteint par déduction",
+      "Un temps de réflexion réel, pas une animation d’attente",
+      "La trace consultable, jamais fabriquée",
+      "L’écriture ne commence qu’une fois le sujet posé",
     ],
-    fichier: "04-code-secret.html",
+    fichier: "00-lampe-introduction.html",
     resume:
-      "Une main cache un code, l’autre le déduit en trois tentatives à partir des indices",
+      "Une main allume une lampe au-dessus d’une table, ouvre un livre, et le titre « Introduction — Toumaï 5 » s’y écrit lettre après lettre",
     inverse: true,
     grande: false,
   },
@@ -185,8 +185,15 @@ const LIENS_NAV = [
 /** Le zip livré par le lien « Télécharger le code » du bandeau et du pied. */
 const ARCHIVE_SOURCE = "/accueil-medias/toumai-ai-homepage-source.zip";
 
-/** Racine des démonstrations, servies comme fichiers HTML autonomes. */
-const DOSSIER_ANIMATIONS = "/accueil-medias/animations";
+/** Racine des démonstrations, servies comme fichiers HTML autonomes.
+ *
+ * Le dossier `scenes/` a un voisin `commun/` : le socle, la feuille de style
+ * et la main y sont chargés UNE fois pour toutes les scènes. Avant ce
+ * partage, la même main était recopiée en base64 dans chaque fichier —
+ * 1 090 Ko envoyés pour deux images. Les scènes sont produites depuis
+ * `animations/` par `outils/publier_animations.py`, qui refuse de publier
+ * une scène au-dessus de 80 Ko. */
+const DOSSIER_ANIMATIONS = "/accueil-medias/animations/scenes";
 
 /** Au-delà de ce temps hors écran, on relance la démonstration à l'entrée. */
 const ABSENCE_AVANT_RELANCE_MS = 20_000;

@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toumaï — Labyrinthe adaptatif</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #0f0d0b;
+      --stage-a: #d77a58;
+      --stage-b: #c96546;
+      --ink: #17130f;
+      --ivory: #fff8ef;
+      --sand: #ecd6c5;
+      --amber: #f2b56f;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width:100%; height:100%; margin:0; overflow:hidden; }
+    body {
+      display:grid;
+      place-items:center;
+      padding:18px;
+      background:radial-gradient(circle at 50% 42%,#2b211b 0,var(--page) 67%);
+    }
+
+    .stage {
+      position:relative;
+      width:min(1180px,96vw);
+      aspect-ratio:5/3;
+      max-height:94vh;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:34px;
+      background:linear-gradient(145deg,var(--stage-a),var(--stage-b));
+      box-shadow:0 44px 110px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.24);
+    }
+
+    .stage::after {
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.07;
+      background-image:radial-gradient(rgba(255,255,255,.72) .55px,transparent .55px);
+      background-size:6px 6px;
+      mix-blend-mode:soft-light;
+    }
+
+    svg { display:block; width:100%; height:100%; }
+
+    .corridor {
+      fill:none;
+      stroke:rgba(69,27,15,.12);
+      stroke-width:62;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+
+    .wall {
+      fill:none;
+      stroke:var(--sand);
+      stroke-width:18;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+
+    .memory-dot { opacity:0; }
+    #success-trace { opacity:0; stroke-dasharray:940; stroke-dashoffset:940; }
+    #analysis-ring { opacity:0; }
+    .hand, #traveller { will-change:transform,opacity; }
+
+    @media (max-width:760px) {
+      body { padding:8px; }
+      .stage { width:100%; border-radius:22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <svg viewBox="0 0 1200 720" role="img" aria-labelledby="scene-title scene-desc">
+      <title id="scene-title">Labyrinthe adaptatif animé</title>
+      <desc id="scene-desc">Une main déplace un pion. Deux routes se ferment successivement. La main mémorise les obstacles, revient au dernier embranchement et choisit une troisième route jusqu'à la sortie.</desc>
+
+      <defs>
+        <filter id="panelShadow" x="-20%" y="-20%" width="140%" height="150%">
+          <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#4c2415" flood-opacity=".28" />
+        </filter>
+        <filter id="softGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#fff8ef" flood-opacity=".88" />
+        </filter>
+        <radialGradient id="travellerFill" cx="34%" cy="28%" r="76%">
+          <stop offset="0" stop-color="#fffdf8" />
+          <stop offset="1" stop-color="#f0c69e" />
+        </radialGradient>
+      </defs>
+
+      <!-- Surface du labyrinthe -->
+      <g filter="url(#panelShadow)">
+        <rect x="282" y="58" width="646" height="604" rx="58" fill="rgba(77,31,17,.16)" stroke="rgba(255,255,255,.2)" stroke-width="2" />
+        <rect x="306" y="82" width="598" height="556" rx="42" fill="rgba(42,23,16,.1)" />
+
+        <!-- Trois routes physiques possibles -->
+        <path class="corridor" d="M1040 560 L850 560 L850 450 L800 450 L800 326" />
+        <path class="corridor" d="M800 450 L580 450 L580 360" />
+        <path class="corridor" d="M800 450 L800 560 L640 560 L640 420 L480 420 L480 260 L360 260 L360 150" />
+
+        <!-- Parois structurantes -->
+        <path class="wall" d="M326 112 H694 M842 112 H886 V260" />
+        <path class="wall" d="M326 112 V618 H486" />
+        <path class="wall" d="M326 618 H594 M686 618 H886 V510" />
+        <path class="wall" d="M886 112 V236 M886 356 V510" />
+        <path class="wall" d="M430 112 V218 H536" />
+        <path class="wall" d="M530 304 H706 V188" />
+        <path class="wall" d="M390 338 H468" />
+        <path class="wall" d="M548 508 H610" />
+        <path class="wall" d="M708 486 V372 H760" />
+        <path class="wall" d="M744 188 H842" />
+
+        <!-- Sortie -->
+        <circle cx="360" cy="150" r="39" fill="rgba(255,248,239,.08)" stroke="var(--ivory)" stroke-width="5" stroke-dasharray="8 8" />
+        <circle id="exit-core" cx="360" cy="150" r="10" fill="var(--ivory)" filter="url(#softGlow)" />
+
+        <!-- Obstacles qui apparaissent -->
+        <rect id="gate-1" x="759" y="292" width="82" height="18" rx="9" fill="var(--ink)" opacity="0" />
+        <rect id="gate-2" x="539" y="326" width="82" height="18" rx="9" fill="var(--ink)" opacity="0" />
+
+        <!-- Mémoire des échecs -->
+        <g id="memory-1" class="memory-dot">
+          <circle cx="800" cy="301" r="18" fill="none" stroke="var(--amber)" stroke-width="4" />
+          <circle cx="800" cy="301" r="5" fill="var(--amber)" />
+        </g>
+        <g id="memory-2" class="memory-dot">
+          <circle cx="580" cy="335" r="18" fill="none" stroke="var(--amber)" stroke-width="4" />
+          <circle cx="580" cy="335" r="5" fill="var(--amber)" />
+        </g>
+
+        <circle id="analysis-ring" cx="800" cy="450" r="34" fill="none" stroke="var(--ivory)" stroke-width="4" stroke-dasharray="8 7" filter="url(#softGlow)" />
+        <path id="success-trace" d="M800 450 L800 560 L640 560 L640 420 L480 420 L480 260 L360 260 L360 150" fill="none" stroke="var(--ivory)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)" />
+      </g>
+
+      <!-- Pion manipulé -->
+      <g id="traveller" transform="translate(1040 560)">
+        <circle r="28" fill="url(#travellerFill)" stroke="var(--ink)" stroke-width="5" />
+        <circle r="8" fill="var(--stage-a)" />
+      </g>
+
+      <!-- Main droite exacte -->
+      <g id="right-hand" class="hand" transform="translate(990 500) scale(.86)">
+        <g transform="translate(238 0) scale(-1 1)">
+          <image x="0" y="0" width="238" height="275" preserveAspectRatio="none" href="../commun/mains/main-1.webp" />
+        </g>
+      </g>
+    </svg>
+  </main>
+
+  <script>
+    (()=>{
+      "use strict";
+
+      const SCALE=.86;
+      const hand=document.getElementById("right-hand");
+      const traveller=document.getElementById("traveller");
+      const gate1=document.getElementById("gate-1");
+      const gate2=document.getElementById("gate-2");
+      const memory1=document.getElementById("memory-1");
+      const memory2=document.getElementById("memory-2");
+      const analysisRing=document.getElementById("analysis-ring");
+      const successTrace=document.getElementById("success-trace");
+      const exitCore=document.getElementById("exit-core");
+
+      const grip={x:58*SCALE,y:69*SCALE};
+      const start={x:1040,y:560};
+      const rest={x:start.x-grip.x,y:start.y-grip.y};
+      let handPoint={...rest};
+      let tokenPoint={...start};
+      const reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+      const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+      const lerp=(a,b,t)=>a+(b-a)*t;
+
+      function tween(duration,draw){
+        return new Promise(resolve=>{
+          const begin=performance.now();
+          function frame(now){
+            const raw=Math.min(1,(now-begin)/duration);
+            draw(ease(raw),raw);
+            if(raw<1) requestAnimationFrame(frame); else resolve();
+          }
+          requestAnimationFrame(frame);
+        });
+      }
+
+      function setHand(point,scale=SCALE){
+        hand.setAttribute("transform",`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale})`);
+        handPoint={...point};
+      }
+
+      function setTraveller(point,scale=1){
+        traveller.setAttribute("transform",`translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) scale(${scale.toFixed(3)})`);
+        tokenPoint={...point};
+      }
+
+      async function movePair(destination,duration=520){
+        const fromToken={...tokenPoint};
+        const fromHand={...handPoint};
+        const toHand={x:destination.x-grip.x,y:destination.y-grip.y};
+
+        await tween(duration,(t,raw)=>{
+          const handNow={x:lerp(fromHand.x,toHand.x,t),y:lerp(fromHand.y,toHand.y,t)};
+          const tokenNow={x:lerp(fromToken.x,destination.x,t),y:lerp(fromToken.y,destination.y,t)};
+          setHand(handNow,SCALE*(1-Math.sin(Math.PI*raw)*.008));
+          setTraveller(tokenNow,1-Math.sin(Math.PI*raw)*.018);
+        });
+      }
+
+      async function follow(points,speed=.88){
+        for(const point of points){
+          const distance=Math.hypot(point.x-tokenPoint.x,point.y-tokenPoint.y);
+          await movePair(point,Math.max(220,distance/speed));
+        }
+      }
+
+      async function closeGate(gate,cx){
+        gate.style.opacity="1";
+        await tween(360,t=>{
+          const width=82*t;
+          gate.setAttribute("x",String(cx-width/2));
+          gate.setAttribute("width",String(width));
+        });
+      }
+
+      async function blocked(memory){
+        const baseToken={...tokenPoint};
+        const baseHand={...handPoint};
+        await tween(420,(_t,raw)=>{
+          const shake=Math.sin(raw*Math.PI*7)*(1-raw)*7;
+          setTraveller({x:baseToken.x+shake,y:baseToken.y});
+          setHand({x:baseHand.x+shake,y:baseHand.y});
+        });
+
+        memory.style.opacity="1";
+        await tween(420,t=>{
+          memory.setAttribute("transform",`translate(${Math.sin(Math.PI*t)*2} 0) scale(${1+Math.sin(Math.PI*t)*.22})`);
+        });
+      }
+
+      async function rethink(){
+        analysisRing.style.opacity="1";
+        await tween(820,t=>{
+          analysisRing.setAttribute("r",String(34+54*t));
+          analysisRing.style.opacity=String(Math.sin(Math.PI*t));
+          const pulse=1+Math.sin(Math.PI*t)*.045;
+          setTraveller(tokenPoint,pulse);
+        });
+        analysisRing.style.opacity="0";
+        analysisRing.setAttribute("r","34");
+      }
+
+      async function success(){
+        successTrace.style.opacity="1";
+        await tween(820,t=>{
+          successTrace.style.strokeDashoffset=String(940*(1-t));
+          const pulse=1+Math.sin(Math.PI*t)*.18;
+          setTraveller({x:360,y:150},pulse);
+          exitCore.setAttribute("r",String(10+18*Math.sin(Math.PI*t)));
+        });
+        await moveHand(rest,620);
+      }
+
+      async function moveHand(destination,duration=600){
+        const from={...handPoint};
+        await tween(duration,t=>setHand({
+          x:lerp(from.x,destination.x,t),
+          y:lerp(from.y,destination.y,t)-Math.sin(Math.PI*t)*18
+        }));
+      }
+
+      function reset(){
+        gate1.style.opacity="0";
+        gate2.style.opacity="0";
+        gate1.setAttribute("x","800"); gate1.setAttribute("width","0");
+        gate2.setAttribute("x","580"); gate2.setAttribute("width","0");
+        memory1.style.opacity="0";
+        memory2.style.opacity="0";
+        memory1.removeAttribute("transform");
+        memory2.removeAttribute("transform");
+        analysisRing.style.opacity="0";
+        successTrace.style.opacity="0";
+        successTrace.style.strokeDashoffset="940";
+        exitCore.setAttribute("r","10");
+        traveller.style.opacity="1";
+        setTraveller(start);
+        setHand(rest);
+      }
+
+      function showFinal(){
+        gate1.style.opacity="1"; gate1.setAttribute("x","759"); gate1.setAttribute("width","82");
+        gate2.style.opacity="1"; gate2.setAttribute("x","539"); gate2.setAttribute("width","82");
+        memory1.style.opacity="1";
+        memory2.style.opacity="1";
+        successTrace.style.opacity="1";
+        successTrace.style.strokeDashoffset="0";
+        setTraveller({x:360,y:150});
+      }
+
+      async function fadeReset(){
+        await tween(520,t=>{
+          traveller.style.opacity=String(1-t);
+          successTrace.style.opacity=String(1-t);
+          memory1.style.opacity=String(1-t);
+          memory2.style.opacity=String(1-t);
+        });
+        reset();
+        await sleep(700);
+      }
+
+      async function run(){
+        reset();
+        if(reduceMotion){showFinal();return;}
+        await sleep(900);
+
+        while(true){
+          // Entrée et premier embranchement.
+          await follow([{x:850,y:560},{x:850,y:450},{x:800,y:450}]);
+
+          // Route 1 : fermeture inattendue.
+          await follow([{x:800,y:336}]);
+          await closeGate(gate1,800);
+          await blocked(memory1);
+          await follow([{x:800,y:450}]);
+
+          // Route 2 : second obstacle, mémorisé lui aussi.
+          await follow([{x:580,y:450},{x:580,y:368}]);
+          await closeGate(gate2,580);
+          await blocked(memory2);
+          await follow([{x:580,y:450},{x:800,y:450}]);
+
+          // Replanification à partir des deux erreurs conservées.
+          await rethink();
+          await follow([
+            {x:800,y:560},{x:640,y:560},{x:640,y:420},
+            {x:480,y:420},{x:480,y:260},{x:360,y:260},{x:360,y:150}
+          ],.96);
+
+          await success();
+          await sleep(2100);
+          await fadeReset();
+        }
+      }
+
+      run();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+/* SCÈNE — habillage commun
+ * ==========================
+ *
+ * Le cadre, le grain, la palette. Une scène ne redéfinit ici que ce qui lui est
+ * propre ; tout ce qui est repris à l'identique d'une scène à l'autre vit dans
+ * ce fichier, et se corrige donc à un seul endroit.
+ *
+ * La palette est celle de la maquette de l'accueil, aux mêmes valeurs — une
+ * scène qui dérive d'un ton se voit immédiatement dans la page, alors qu'elle
+ * paraît juste isolée dans son onglet.
+ */
+
+:root {
+  color-scheme: dark;
+  --page: #100e0c;
+  --terracotta: #d97857;
+  --terracotta-profond: #bd5c3f;
+  --encre: #17130f;
+  --ivoire: #fff8ef;
+  --creme: #f6eee5;
+  --creme-tiede: #ead6c8;
+  --or: #f2c36f;
+  --ombre: rgba(50, 20, 12, 0.22);
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, #2a201a 0, var(--page) 66%);
+}
+
+body {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.scene {
+  position: relative;
+  width: min(1180px, 96vw);
+  aspect-ratio: 5 / 3;
+  max-height: 94vh;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 34px;
+  box-shadow: 0 44px 110px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+/* Le grain. Il ne se remarque pas et pourtant il change tout : sans lui, les
+ * grands aplats de la scène ont l'air d'un rendu 3D bas de gamme ; avec lui,
+ * ils ont l'air imprimés. */
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.55px, transparent 0.55px);
+  background-size: 6px 6px;
+  mix-blend-mode: soft-light;
+}
+
+svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.main,
+.mobile {
+  will-change: transform;
+}
+
+/* LE FIL D'ÉTAT.
+ *
+ * C'est ce qui sépare une jolie animation d'une démonstration de produit : à
+ * chaque instant, la scène DIT ce qu'elle est en train de faire, dans le
+ * vocabulaire du produit et non dans celui du dessin. Un acheteur qui regarde
+ * dix secondes sans légende doit pouvoir nommer l'étape.
+ */
+.etat {
+  font: 600 15px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: rgba(255, 248, 239, 0.62);
+}
+
+.etat-fond {
+  fill: rgba(23, 19, 15, 0.42);
+  stroke: rgba(255, 248, 239, 0.16);
+  stroke-width: 1;
+}
+
+@media (max-width: 760px) {
+  body { padding: 8px; }
+  .scene { width: 100%; border-radius: 22px; }
+  .etat { font-size: 19px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene { cursor: default; }
+}
