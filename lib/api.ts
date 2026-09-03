@@ -92,14 +92,51 @@ export async function guestLogin(): Promise<TokenPayload> {
   return payload;
 }
 
+/** Le mot de passe est bon, mais un second facteur est attendu.
+ *
+ * `pending_token` ne donne accès à RIEN : il prouve seulement, pendant cinq
+ * minutes, qu'un mot de passe correct vient d'être présenté. */
+export interface MfaChallenge {
+  mfa_required: true;
+  pending_token: string;
+}
+
+export type LoginResult = TokenPayload | MfaChallenge;
+
+export function estUnDefiMfa(r: LoginResult): r is MfaChallenge {
+  return (r as MfaChallenge).mfa_required === true;
+}
+
 export async function login(
   email: string,
   password: string,
   turnstileToken?: string | null,
-): Promise<TokenPayload> {
-  const res = await request<TokenPayload>("/auth/login", {
+): Promise<LoginResult> {
+  const res = await request<TokenPayload & Partial<MfaChallenge>>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
+  });
+  if (!res.data) throw new Error("Réponse invalide du serveur");
+  // AUCUNE SESSION N'EST ENREGISTRÉE TANT QUE LE CODE N'EST PAS DONNÉ.
+  // Poser des jetons ici puis les retirer en cas d'échec laisserait une
+  // fenêtre — courte, mais réelle — où le compte est ouvert sans le second
+  // facteur.
+  if (res.data.mfa_required) {
+    return { mfa_required: true, pending_token: res.data.pending_token! };
+  }
+  const payload: TokenPayload = { ...res.data, is_guest: false };
+  saveSession(payload);
+  return payload;
+}
+
+/** Étape 2 : le code (TOTP ou code de secours) contre le jeton d'attente. */
+export async function loginAvecCode(
+  pendingToken: string,
+  code: string,
+): Promise<TokenPayload> {
+  const res = await request<TokenPayload>("/auth/2fa/login", {
+    method: "POST",
+    body: JSON.stringify({ pending_token: pendingToken, code }),
   });
   if (!res.data) throw new Error("Réponse invalide du serveur");
   const payload: TokenPayload = { ...res.data, is_guest: false };

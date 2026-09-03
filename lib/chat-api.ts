@@ -183,6 +183,45 @@ export async function shareSession(
 }
 
 /** Révoque le partage — le lien cesse immédiatement de fonctionner. */
+/** Un lien de partage encore ouvert, tel que l'utilisateur peut le retrouver. */
+export interface ShareEntry {
+  session_id: string;
+  title: string;
+  token: string;
+  url: string;
+  visibility: "unlisted" | "public";
+  anonymous: boolean;
+  shared_at: string | null;
+}
+
+/** Tous les liens que l'utilisateur a ouverts sur ses conversations.
+ *
+ * On savait créer un lien et le révoquer, mais nulle part les lister : un
+ * partage fait il y a trois mois restait donc ouvert au monde sans que
+ * personne ne puisse s'en souvenir. Un lien qu'on ne peut pas retrouver est
+ * un lien qu'on ne peut pas fermer. */
+export async function listShares(): Promise<ShareEntry[]> {
+  const res = await authFetch("/chat/shares");
+  const body = await res.json();
+  if (!res.ok || body.success === false) {
+    throw new Error(body.message || `Erreur ${res.status}`);
+  }
+  return (body.data?.shares ?? []) as ShareEntry[];
+}
+
+/** Ferme TOUS les liens d'un coup.
+ *
+ * Pour le moment où l'on réalise qu'on a partagé plus qu'on ne croyait :
+ * le faire un par un sur quarante conversations, c'est renoncer à le faire. */
+export async function revokeAllShares(): Promise<number> {
+  const res = await authFetch("/chat/shares", { method: "DELETE" });
+  const body = await res.json();
+  if (!res.ok || body.success === false) {
+    throw new Error(body.message || `Erreur ${res.status}`);
+  }
+  return Number(body.data?.revoked ?? 0);
+}
+
 export async function unshareSession(sessionId: string): Promise<void> {
   const res = await authFetch(`/chat/session/${sessionId}/share`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Erreur ${res.status}`);

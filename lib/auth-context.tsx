@@ -16,6 +16,8 @@ import {
   guestLogin,
   loadSession,
   login as apiLogin,
+  loginAvecCode as apiLoginAvecCode,
+  estUnDefiMfa,
   loginWithGoogle as apiLoginWithGoogle,
   register as apiRegister,
   type TokenPayload,
@@ -27,11 +29,15 @@ interface AuthState {
   session: TokenPayload | null;
   loading: boolean;
   loginAsGuest: () => Promise<void>;
+  /** Rend `{ mfaPendingToken }` quand un second facteur est exigé — la
+   *  session n'est PAS ouverte dans ce cas —, `null` quand elle l'est. */
   loginWithPassword: (
     email: string,
     password: string,
     turnstileToken?: string | null,
-  ) => Promise<void>;
+  ) => Promise<{ mfaPendingToken: string } | null>;
+  /** Étape 2 : le code à six chiffres, ou l'un des codes de secours. */
+  finirAvecCode: (pendingToken: string, code: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   registerAccount: (
     email: string,
@@ -98,13 +104,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void registerDeviceOnce();
   }, []);
 
+  /** Connexion par mot de passe.
+   *
+   * Rend le jeton d'attente quand un second facteur est exigé — et n'ouvre
+   * alors AUCUNE session. L'écran de connexion demande le code, puis appelle
+   * `finirAvecCode`. Poser des jetons ici pour les retirer ensuite laisserait
+   * une fenêtre, courte mais réelle, où le compte est ouvert sans le code. */
   const loginWithPassword = useCallback(async (
     email: string,
     password: string,
     turnstileToken?: string | null,
-  ) => {
+  ): Promise<{ mfaPendingToken: string } | null> => {
     const s = await apiLogin(email, password, turnstileToken);
+    if (estUnDefiMfa(s)) return { mfaPendingToken: s.pending_token };
     cachePurge(); // changement d'identité : jamais servir le cache d'un autre compte
+    setSession(s);
+    void registerDeviceOnce();
+    return null;
+  }, []);
+
+  /** Étape 2 : le code à six chiffres, ou l'un des codes de secours. */
+  const finirAvecCode = useCallback(async (pendingToken: string, code: string) => {
+    const s = await apiLoginAvecCode(pendingToken, code);
+    cachePurge();
     setSession(s);
     void registerDeviceOnce();
   }, []);
@@ -144,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, loginAsGuest, loginWithPassword, loginWithGoogle, registerAccount, logout }}
+      value={{ session, loading, loginAsGuest, loginWithPassword, finirAvecCode, loginWithGoogle, registerAccount, logout }}
     >
       {children}
     </AuthContext.Provider>

@@ -14,6 +14,8 @@ import { AppearanceSection } from "@/components/settings/AppearanceSection";
 import { VoiceSection } from "@/components/settings/VoiceSection";
 import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { ConnectorsTab } from "@/components/settings/ConnectorsTab";
+import { SecuritySection } from "@/components/settings/SecuritySection";
+import { SharesSection } from "@/components/settings/SharesSection";
 import { SupportTab } from "@/components/settings/SupportTab";
 
 type Section =
@@ -23,6 +25,8 @@ type Section =
   | "voice"
   | "notifications"
   | "connectors"
+  | "security"
+  | "shares"
   | "support";
 
 interface SectionDef {
@@ -77,6 +81,25 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
         title: "Notifications",
         sub: "Ce que Toumaï AI a le droit de vous signaler.",
         icon: <BellIcon />,
+      },
+    ],
+  },
+  {
+    label: "Sécurité & confidentialité",
+    items: [
+      {
+        id: "security",
+        label: "Sécurité",
+        title: "Sécurité du compte",
+        sub: "Double authentification et codes de secours.",
+        icon: <ShieldIcon />,
+      },
+      {
+        id: "shares",
+        label: "Liens partagés",
+        title: "Liens partagés",
+        sub: "Les conversations que vous avez rendues accessibles par lien.",
+        icon: <LinkIcon />,
       },
     ],
   },
@@ -333,6 +356,8 @@ export default function SettingsPage() {
                 {section === "appearance" && <AppearanceSection />}
                 {section === "voice" && <VoiceSection />}
                 {section === "notifications" && <NotificationsSection />}
+                {section === "security" && <SecuritySection />}
+                {section === "shares" && <SharesSection />}
                 {section === "support" && <SupportTab />}
               </div>
             )}
@@ -414,6 +439,24 @@ function BellIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 3l7 3v6c0 4.5-3 7.8-7 9-4-1.2-7-4.5-7-9V6l7-3z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.2 12.2l1.9 1.9 3.7-3.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M10 13a5 5 0 007.5.5l2-2a5 5 0 00-7-7l-1.2 1.1" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 11a5 5 0 00-7.5-.5l-2 2a5 5 0 007 7l1.2-1.1" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
