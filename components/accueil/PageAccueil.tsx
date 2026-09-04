@@ -227,6 +227,35 @@ type Plan = {
   mis_en_avant?: boolean;
 };
 
+/** Les plateformes en service. Chaque ligne décrit ce que le logiciel FAIT,
+ *  pas ce qu'il promet. */
+const REALISATIONS = [
+  {
+    secteur: "Opérateur mobile",
+    nom: "Moov Money sur WhatsApp",
+    texte:
+      "Les services Moov Money, côté client et côté agent, dans une conversation WhatsApp. Consultation de solde, transferts, dépôts et retraits, sans quitter la messagerie.",
+  },
+  {
+    secteur: "Éducation",
+    nom: "Lycée La Renaissance",
+    texte:
+      "Gestion scolaire de la 6e à la Terminale : inscriptions, notes, bulletins. Les résultats partent aux tuteurs par SMS, y compris à ceux qui n’ont pas de smartphone.",
+  },
+  {
+    secteur: "Télévision",
+    nom: "Canal+ Tchad",
+    texte:
+      "Réabonnement en ligne, relance avant expiration, assistance par WhatsApp. Le client renouvelle depuis son téléphone au lieu de se déplacer.",
+  },
+  {
+    secteur: "Commerce",
+    nom: "GBA",
+    texte:
+      "Boutique en ligne avec livraison à N’Djaména : catalogue, panier, commandes et administration des stocks.",
+  },
+];
+
 const PLANS_DE_REPLI: Plan[] = [
   {
     code: "gratuit",
@@ -367,6 +396,131 @@ const ABSENCE_AVANT_RELANCE_MS = 20_000;
  * qu'un bouton absent. `GET /paiements/etat` donne cette information, et c'est
  * le serveur qui la donne — pas une constante qu'on oubliera de changer.
  */
+/**
+ * TROIS FAÇONS D'ÉCRIRE, ET LES TROIS MARCHENT.
+ *
+ * WhatsApp et l'adresse électronique sont des liens directs. Le formulaire
+ * compose un message et l'ouvre dans le logiciel de courrier de la personne :
+ * il n'y a pas de serveur derrière, et il n'y en a pas besoin. Un formulaire
+ * qui poste vers une adresse inexistante affiche « message envoyé » et jette
+ * le message. Celui-ci ouvre un brouillon rempli, que la personne voit partir.
+ *
+ * Le jour où le serveur aura une route de contact, le bouton changera de
+ * destination sans que le reste bouge.
+ */
+function ContactFondateur() {
+  const [ouvert, setOuvert] = useState(false);
+  const [nom, setNom] = useState("");
+  const [message, setMessage] = useState("");
+
+  const envoyer = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const sujet = encodeURIComponent(`Toumaï AI — message de ${nom || "un visiteur"}`);
+      const corps = encodeURIComponent(`${message}\n\n${nom}`);
+      window.location.href = `mailto:contact@toumaiai.com?subject=${sujet}&body=${corps}`;
+    },
+    [nom, message],
+  );
+
+  return (
+    <div className="fondateur-contact">
+      <div className="fondateur-contact-choix">
+        <a
+          className="button button-dark"
+          href="https://wa.me/23591912191"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Écrire sur WhatsApp
+        </a>
+        <a className="button button-quiet" href="mailto:contact@toumaiai.com">
+          contact@toumaiai.com
+        </a>
+        <button
+          className="text-link fondateur-bascule"
+          type="button"
+          aria-expanded={ouvert}
+          onClick={() => setOuvert((o) => !o)}
+        >
+          {ouvert ? "Fermer le formulaire" : "Ou remplir un formulaire"}
+        </button>
+      </div>
+
+      {ouvert && (
+        <form className="fondateur-formulaire" onSubmit={envoyer}>
+          <label>
+            <span>Votre nom</span>
+            <input
+              type="text"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Nom et prénom"
+              required
+            />
+          </label>
+          <label>
+            <span>Votre message</span>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={4}
+              placeholder="Dites-moi ce que vous cherchez à faire."
+              required
+            />
+          </label>
+          <button className="button button-dark" type="submit">
+            Envoyer
+          </button>
+          <p className="fondateur-note">
+            Le message s’ouvre dans votre logiciel de courrier avant de partir.
+            Vous le relisez, vous l’envoyez.
+          </p>
+        </form>
+      )}
+    </div>
+  );
+}
+
+/**
+ * CE QUI TOURNE DÉJÀ.
+ *
+ * Un acheteur qui ne nous connaît pas veut savoir si nous avons déjà livré
+ * quelque chose qui tient debout. Ces quatre plateformes sont en service au
+ * Tchad et sortent de la même équipe que Toumaï AI. C'est la formulation
+ * exacte, et elle compte : ce ne sont pas des clients de Toumaï, ce sont nos
+ * réalisations. Écrire « ils utilisent Toumaï » serait faux, et une preuve
+ * fausse est pire que pas de preuve.
+ */
+function SectionDeploiements() {
+  return (
+    <section className="deploiements" id="realisations">
+      <div className="shell">
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Déjà en service</p>
+            <h2>Ce que nous avons déjà mis en production.</h2>
+          </div>
+          <p>
+            Quatre plateformes qui tournent au Tchad aujourd’hui, construites par
+            l’équipe qui développe Toumaï AI.
+          </p>
+        </div>
+
+        <div className="deploiements-grille">
+          {REALISATIONS.map((item) => (
+            <article key={item.nom}>
+              <p className="deploiement-secteur">{item.secteur}</p>
+              <h3>{item.nom}</h3>
+              <p>{item.texte}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SectionTarifs() {
   const [plans, setPlans] = useState<Plan[]>(PLANS_DE_REPLI);
   const [paiementOuvert, setPaiementOuvert] = useState(false);
@@ -943,6 +1097,8 @@ export function PageAccueil() {
           </div>
         </section>
 
+        <SectionDeploiements />
+
         <SectionTarifs />
 
         {/* LA SECTION FONDATEUR.
@@ -995,12 +1151,7 @@ export function PageAccueil() {
                 </li>
                 <li>
                   <strong>Vous parlez au fondateur.</strong>
-                  Pas de formulaire, pas de file d’attente : mon numéro est en bas
-                  de cette page.
-                </li>
-                <li>
-                  <strong>Conçu et développé à N’Djaména.</strong>
-                  L’équipe, le code et le service sont ici.
+                  Votre message arrive chez moi, pas dans une boîte partagée.
                 </li>
               </ul>
 
@@ -1009,14 +1160,7 @@ export function PageAccueil() {
                 <span>Fondateur &amp; CEO, Toumaï AI</span>
               </div>
 
-              <a
-                className="button button-dark"
-                href="https://wa.me/23591912191"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Parler au fondateur
-              </a>
+              <ContactFondateur />
             </div>
           </div>
         </section>
