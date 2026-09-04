@@ -45,6 +45,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Logo } from "@/components/Logo";
+import { RESEAUX } from "@/components/ReseauxSociaux";
+
 import "@/app/toumai-accueil.css";
 
 /** Où vit la question posée depuis l'accueil, lue ensuite par `/chat`. */
@@ -184,6 +187,47 @@ const LIENS_NAV = [
 
 /** Le zip livré par le lien « Télécharger le code » du bandeau et du pied. */
 const ARCHIVE_SOURCE = "/accueil-medias/toumai-ai-homepage-source.zip";
+
+/** Les colonnes du pied de page — les mêmes que sur le reste du site. */
+const COLONNES_PIED = [
+  {
+    titre: "Produit",
+    liens: [
+      { texte: "Chat", href: "/chat" },
+      { texte: "Capacités", href: "#capacites" },
+      { texte: "Bibliothèque", href: "/library" },
+      { texte: "Agent Navigateur", href: "/agent" },
+      { texte: "Tableau de bord WhatsApp", href: "/whatsapp" },
+    ],
+  },
+  {
+    titre: "Modèles",
+    liens: [
+      { texte: "Sao 4 & Toumaï 5", href: "/models" },
+      { texte: "L’IA au Tchad", href: "/intelligence-artificielle-tchad" },
+      { texte: "النسخة العربية", href: "/ar" },
+      { texte: "GitHub", href: "https://github.com/Toumai-AI" },
+    ],
+  },
+  {
+    titre: "Connecteurs",
+    liens: [
+      { texte: "Gérer mes connecteurs", href: "/settings?tab=connectors" },
+      { texte: "Paramètres", href: "/settings" },
+    ],
+  },
+  {
+    titre: "Compte & légal",
+    liens: [
+      { texte: "Créer un compte", href: "/register" },
+      { texte: "Se connecter", href: "/login" },
+      { texte: "Conditions & politiques", href: "/terms" },
+      { texte: "Politique de confidentialité", href: "/privacy" },
+      { texte: "Choix de confidentialité", href: "/privacy-choices" },
+      { texte: "Supprimer mon compte", href: "/delete-account" },
+    ],
+  },
+];
 
 /** Racine des démonstrations, servies comme fichiers HTML autonomes.
  *
@@ -334,9 +378,7 @@ export function PageAccueil() {
       <header className="site-header" id="top">
         <div className="primary-nav shell">
           <a className="brand" href="#top" aria-label="Toumaï AI, accueil">
-            <span className="brand-mark" aria-hidden="true">
-              T
-            </span>
+            <Logo size={42} className="brand-logo" />
             <span className="brand-name">Toumaï</span>
           </a>
 
@@ -466,27 +508,7 @@ export function PageAccueil() {
                 width={1448}
                 height={1086}
               />
-              <span className="hero-art-note" aria-hidden="true">
-                Observer · essayer · affiner
-              </span>
             </div>
-
-            <article className="update-card">
-              <div className="update-copy">
-                <span className="update-label">
-                  <span aria-hidden="true">◉</span> À découvrir
-                </span>
-                <h2>Une IA qui affine son raisonnement</h2>
-                <p>Toumaï ne s’arrête pas à sa première réponse.</p>
-                <a href="#capacites">
-                  Voir comment <span aria-hidden="true">↗</span>
-                </a>
-              </div>
-              <div className="update-tile" aria-hidden="true">
-                <span className="tile-orbit"></span>
-                <strong>T</strong>
-              </div>
-            </article>
           </div>
         </section>
 
@@ -717,46 +739,61 @@ export function PageAccueil() {
       <footer className="site-footer">
         <div className="shell footer-top">
           <a className="brand footer-brand" href="#top">
-            <span className="brand-mark" aria-hidden="true">
-              T
-            </span>
+            <Logo size={38} className="brand-logo" />
             <span className="brand-name">Toumaï</span>
           </a>
-          <p>Une intelligence créée au Tchad, pensée pour le monde.</p>
+          <p>
+            Nommé d’après le plus ancien hominidé connu, découvert au Tchad.
+            L’intelligence, depuis toujours.
+          </p>
         </div>
+
         <div className="shell footer-links">
-          <div>
-            <strong>Produit</strong>
-            <a href="#capacites">Capacités</a>
-            <a href="#tarifs">Tarifs</a>
-            <Link href="/chat">Essayer Toumaï</Link>
-          </div>
-          <div>
-            <strong>Solutions</strong>
-            <a href="#solutions">Particuliers</a>
-            <a href="#entreprise">Organisations</a>
-            <a href="#ressources">Ressources</a>
-          </div>
-          <div>
-            <strong>Entreprise</strong>
-            <a href="https://github.com/Toumai-AI" target="_blank" rel="noopener noreferrer">
-              GitHub
-            </a>
-            <a href={ARCHIVE_SOURCE} download>
-              Code source
-            </a>
-            <a href="mailto:contact@toumaiai.com">Contact</a>
-          </div>
-          <div>
-            <strong>Informations</strong>
-            <Link href="/privacy">Confidentialité</Link>
-            <Link href="/terms">Conditions</Link>
-            <Link href="/privacy">Sécurité</Link>
-          </div>
+          {COLONNES_PIED.map((colonne) => (
+            <div key={colonne.titre}>
+              <strong>{colonne.titre}</strong>
+              {colonne.liens.map((lien) =>
+                lien.href.startsWith("http") ? (
+                  <a key={lien.href} href={lien.href} target="_blank" rel="noopener noreferrer">
+                    {lien.texte}
+                  </a>
+                ) : (
+                  <Link key={lien.href} href={lien.href}>
+                    {lien.texte}
+                  </Link>
+                ),
+              )}
+            </div>
+          ))}
         </div>
+
+        <div className="shell footer-contact">
+          <a href="tel:+23568663737">+235 68 66 37 37</a>
+          <a href="https://wa.me/23591912191" target="_blank" rel="noopener noreferrer">
+            +235 91 91 21 91 <span className="sr-only">(WhatsApp)</span>
+          </a>
+          <a href="mailto:contact@toumaiai.com">contact@toumaiai.com</a>
+        </div>
+
         <div className="shell footer-bottom">
-          <span>© {new Date().getFullYear()} Toumaï AI</span>
-          <span>N’Djamena · Tchad</span>
+          <span>
+            © {new Date().getFullYear()} Toumaï AI. Conçu et développé à
+            N’Djaména, Tchad.
+          </span>
+          <div className="footer-socials">
+            {RESEAUX.map((reseau) => (
+              <a
+                key={reseau.label}
+                href={reseau.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={reseau.label}
+                title={reseau.label}
+              >
+                {reseau.icon}
+              </a>
+            ))}
+          </div>
         </div>
       </footer>
     </div>

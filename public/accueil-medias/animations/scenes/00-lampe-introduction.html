@@ -13,14 +13,6 @@
      * « screen », le meme cone vire au gris-vert sur le mur sombre. */
     .faisceau { mix-blend-mode: screen; }
 
-    /* Le point du fil d etat respire : c est le seul mouvement qui reste
-     * quand la scene tient sa pose, et il suffit a dire que ca tourne. */
-    #etat-point { animation: pouls 2.4s ease-in-out infinite; transform-origin: 70px 63px; }
-    @keyframes pouls {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: .45; transform: scale(.82); }
-    }
-
     .poussiere {
       fill: var(--or);
       opacity: .5;
@@ -36,7 +28,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .poussiere, #etat-point { animation: none; }
+      .poussiere { animation: none; }
     }
   </style>
 </head>
@@ -200,20 +192,14 @@
           
           <!-- La page de droite : c'est là que ça s'écrit -->
           <g clip-path="url(#clip-page-droite)">
-            <text id="sur-titre" x="632" y="404" fill="#b95438"
+            <text id="sur-titre" x="632" y="420" fill="#b95438"
                   font-family="Inter, ui-sans-serif, system-ui, sans-serif"
                   font-size="17" font-weight="700" letter-spacing="4.6"></text>
-            <line id="filet" x1="632" y1="422" x2="632" y2="422"
+            <line id="filet" x1="632" y1="438" x2="632" y2="438"
                   stroke="#dcc8ab" stroke-width="2" />
-            <text id="titre" x="632" y="486" fill="#1d1712"
+            <text id="titre" x="632" y="502" fill="#1d1712"
                   font-family="Georgia, 'Times New Roman', serif"
-                  font-size="52" letter-spacing="-1.8"></text>
-            <text id="ligne-1" x="632" y="532" fill="#6b5b48"
-                  font-family="Inter, ui-sans-serif, system-ui, sans-serif"
-                  font-size="17"></text>
-            <text id="ligne-2" x="632" y="558" fill="#6b5b48"
-                  font-family="Inter, ui-sans-serif, system-ui, sans-serif"
-                  font-size="17"></text>
+                  font-size="54" letter-spacing="-1.9"></text>
           </g>
         </g>
 
@@ -269,13 +255,6 @@
       <!-- Le voile de nuit : il se retire quand la lampe s'allume -->
       <rect id="nuit" x="0" y="0" width="1200" height="720" fill="#0b0806" opacity=".88" />
       <rect x="0" y="0" width="1200" height="720" fill="url(#vignette)" pointer-events="none" />
-
-      <!-- Le fil d'état : ce que la scène est en train de faire, en clair -->
-      <g id="etat" opacity="0">
-        <rect class="etat-fond" x="40" y="40" width="248" height="46" rx="23" />
-        <circle id="etat-point" cx="70" cy="63" r="5" fill="#d97857" />
-        <text id="etat-texte" class="etat" x="88" y="69"></text>
-      </g>
     </svg>
   </main>
 
@@ -300,14 +279,10 @@
       const ombreLivre = S.el("ombre-livre");
       const refletVerre = S.el("reflet-verre");
       const eclatVerre = S.el("eclat-verre");
-      const etat = S.el("etat");
-      const etatTexte = S.el("etat-texte");
       const filet = S.el("filet");
 
       const surTitre = S.el("sur-titre");
       const titre = S.el("titre");
-      const ligne1 = S.el("ligne-1");
-      const ligne2 = S.el("ligne-2");
 
       /** Le dos du livre : tout pivote autour de lui. */
       const DOS_X = 600;
@@ -324,10 +299,6 @@
         grip: { x: 58, y: 69 },
         repos: { x: 1140, y: 470 },
       });
-
-      function dire(texte) {
-        etatTexte.textContent = texte;
-      }
 
       function cordonA(y) {
         const ligne = cordon.querySelector("line");
@@ -370,13 +341,9 @@
         S.opacite(ombreLivre, 0);
         S.opacite(refletVerre, 0);
         S.opacite(eclatVerre, 0);
-        S.opacite(etat, 0);
         filet.setAttribute("x2", "632");
         surTitre.textContent = "";
         titre.textContent = "";
-        ligne1.textContent = "";
-        ligne2.textContent = "";
-        dire("");
         main.poser(main.pourToucher({ x: 1240, y: 500 }));
       }
 
@@ -394,19 +361,14 @@
         S.opacite(gouttiere, 1);
         S.opacite(ombreLivre, 0.4);
         S.opacite(refletVerre, 0.55);
-        S.opacite(etat, 1);
-        filet.setAttribute("x2", "764");
+        filet.setAttribute("x2", "770");
         surTitre.textContent = "INTRODUCTION";
         titre.textContent = "Toumaï 5";
-        ligne1.textContent = "Un modèle qui réfléchit";
-        ligne2.textContent = "avant de répondre.";
-        dire("Toumaï 5 · raisonnement");
         main.poser(main.pourToucher({ x: 1240, y: 500 }));
       }
 
       async function allumer() {
-        dire("Éclairer");
-        await S.tween(420, (t) => S.opacite(etat, t));
+        await S.attendre(320);
 
         await main.aller(BILLE, 720, 34);
         await main.serrer(160);
@@ -446,8 +408,6 @@
       }
 
       async function ouvrirLeLivre() {
-        dire("Ouvrir");
-
         const bord = { x: DOS_X + 254, y: 470 };
         await main.aller(bord, 640, 30);
         await main.serrer(150);
@@ -475,14 +435,10 @@
       }
 
       async function ecrireLaPage() {
-        dire("Écrire");
-        await S.tween(360, (t) => filet.setAttribute("x2", String(S.entre(632, 764, t))));
-        await S.ecrire(surTitre, "INTRODUCTION", 42);
-        await S.attendre(220);
-        await S.ecrire(titre, "Toumaï 5", 74);
-        await S.attendre(320);
-        await S.ecrire(ligne1, "Un modèle qui réfléchit", 26);
-        await S.ecrire(ligne2, "avant de répondre.", 26);
+        await S.tween(360, (t) => filet.setAttribute("x2", String(S.entre(632, 770, t))));
+        await S.ecrire(surTitre, "INTRODUCTION", 46);
+        await S.attendre(240);
+        await S.ecrire(titre, "Toumaï 5", 86);
       }
 
       const scene = S.jouer({
@@ -500,8 +456,7 @@
           await ecrireLaPage();
           if (annulee()) return;
 
-          dire("Toumaï 5 · raisonnement");
-          await S.attendre(1600);
+          await S.attendre(1900);
 
           // Extinction : on referme sur le noir, et la boucle recommence.
           await S.tween(760, (t) => {
@@ -510,7 +465,6 @@
             S.opacite(nuit, S.entre(0.16, 0.88, t));
             S.opacite(pages, 1 - t);
             S.opacite(gouttiere, 1 - t);
-            S.opacite(etat, 1 - t);
             S.opacite(ombreLivre, 0.4 * (1 - t));
             S.opacite(refletVerre, 0.55 * (1 - t));
           });

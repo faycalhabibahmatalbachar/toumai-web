@@ -534,3 +534,111 @@ html:has(.tmh) {
   min-height: 100vh;
   min-height: 100dvh;
 }
+
+/* ─── AGRANDISSEMENT DES SCÈNES ────────────────────────────────────────────
+ *
+ * La maquette donnait 1,22 part sur 2 à l'animation, dans une grille large de
+ * 1 240 px : la scène faisait 690 px de large pour 414 px de haut. Les scènes
+ * sont dessinées dans un cadre de 1 200 × 720 — à cette taille-là, le titre
+ * écrit dans le livre tombait à 20 px de haut à l'écran, et les mains
+ * devenaient des taches.
+ *
+ * La rangée passe à 1 480 px et la part de l'animation à 1,38 sur 2 : 990 px
+ * de large, 594 px de haut. Le même dessin, au même rapport, agrandi de 43 %.
+ * La colonne de texte, elle, ne perd presque rien : elle était limitée à 32rem
+ * (512 px) par `.capability-copy > p`, elle en garde 490.
+ *
+ * Ces règles écrasent celles de la maquette parce qu'elles viennent après
+ * dans la même feuille — la maquette reste lisible telle qu'elle a été portée.
+ */
+/* Au-dela de 1080 px SEULEMENT. En dessous, la maquette passe la section en
+ * une seule colonne dans une media query ; ces regles-ci, ecrites plus bas
+ * dans la meme feuille et a specificite egale, la battaient sans etre bornees.
+ * Mesure du degat avant correction : la scene tombait a 46 px de large sur un
+ * telephone de 390 px, le texte prenant la totalite de la rangee. */
+@media (min-width: 1081px) {
+  .tmh .capability {
+    width: min(96vw, 1480px);
+    grid-template-columns: minmax(18rem, .62fr) minmax(0, 1.38fr);
+    gap: clamp(2.5rem, 5vw, 5.5rem);
+  }
+  /* Une rangee sur deux est inversee : `order` deplace l'animation dans la
+   * PREMIERE colonne — celle qui est etroite. La maquette avait deja ce
+   * defaut (440 px contre 688) ; elargir les colonnes l'aggravait (406 contre
+   * 904). Les rangees inversees renversent donc aussi le gabarit. */
+  .tmh .capability-reverse {
+    grid-template-columns: minmax(0, 1.38fr) minmax(18rem, .62fr);
+  }
+  .tmh .capability-featured {
+    grid-template-columns: minmax(0, .52fr) minmax(0, 1.48fr);
+  }
+}
+
+/* Entre 821 et 1080 px, la maquette garde ses deux colonnes a elle : les
+ * regles ci-dessus ne s'y appliquent pas, mais le defaut des rangees
+ * inversees, lui, y est toujours (320 px contre 445, mesures a 900 px).
+ * Meme renversement, avec les proportions d'origine. */
+@media (min-width: 821px) and (max-width: 1080px) {
+  .tmh .capability-reverse {
+    grid-template-columns: minmax(0, 1.22fr) minmax(20rem, .78fr);
+  }
+}
+
+/* Le cadre lui-meme, a toutes les largeurs. */
+.tmh .animation-shell {
+  width: 100%;
+  border-radius: 1.9rem;
+  box-shadow: 0 32px 78px rgba(67, 35, 25, .17);
+}
+
+
+/* ─── LE LOGO, LE VRAI ─────────────────────────────────────────────────────
+ *
+ * La maquette dessinait un galet terracotta avec un « T » dedans, faute de
+ * fichier. Le logo du site le remplace : `next/image` sort une balise `img`,
+ * il faut donc lui redire de ne pas se déformer. Le léger arrondi reprend
+ * celui du galet ; l'inclinaison, non — un logo penché, c'est un logo mal
+ * posé.
+ */
+.tmh .brand-logo {
+  flex: 0 0 auto;
+  border-radius: .55rem;
+  object-fit: contain;
+}
+
+/* ─── PIED DE PAGE ─────────────────────────────────────────────────────────
+ *
+ * Deux rangées que la maquette n'avait pas, parce que ses liens étaient
+ * inventés : les contacts réels, et les comptes réels. Le reste (fond sombre,
+ * colonnes, filets) vient de la maquette sans retouche.
+ */
+.tmh .footer-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem 2.4rem;
+  padding-block: 0 3rem;
+}
+.tmh .footer-contact a { color: #aaa49a; font-size: .88rem; }
+.tmh .footer-contact a:hover { color: var(--paper-light); }
+
+.tmh .footer-bottom { align-items: center; gap: 1.2rem; }
+.tmh .footer-socials { display: flex; flex-wrap: wrap; gap: .55rem; }
+.tmh .footer-socials a {
+  width: 2.15rem;
+  height: 2.15rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid #3c3933;
+  border-radius: 50%;
+  color: #aaa49a;
+  transition: transform .2s ease, color .2s ease, border-color .2s ease;
+}
+.tmh .footer-socials a:hover {
+  transform: translateY(-2px);
+  border-color: var(--terracotta);
+  color: var(--paper-light);
+}
+
+@media (max-width: 720px) {
+  .tmh .footer-bottom { align-items: start; flex-direction: column; }
+}
