@@ -174,12 +174,46 @@ Elle est bonne. On la garde, on ne la réinvente pas.
 
 ---
 
-## 6. Ce qui n'est pas encore ici
+## 6. Ce qui a été construit depuis
 
-`commun/scene.js` — le socle partagé (interpolation, gréement des mains, boucle,
-respect du mouvement réduit) — **n'est pas écrit**, et c'est volontaire : un
-socle écrit avant sa première scène est un socle deviné. Il sera extrait de la
-première scène du rang 1, une fois qu'elle tournera.
+**A — la boîte qui se vide** (`scenes/06-boite-mail.html`, 4 septembre 2026).
+Écrite telle que le rang 1 la décrivait, à une chose près : la deuxième lettre
+ne monte plus sur la feuille de travail. Elle part directement au classement,
+sans être ouverte. C'était d'abord une coupe de durée ; c'est devenu le meilleur
+plan de la scène, parce que c'est le seul qui dit « la règle est acquise » sans
+l'écrire.
 
-Le dossier contient aujourd'hui ce qui est mesuré et ce qui est décidé. Le reste
-viendra avec le premier geste.
+Elle prend la grande place finale de l'accueil. Le **Puissance 4** la lui cède :
+des cinq scènes de jeu, c'était celle dont la preuve était déjà portée par le
+morpion — deux agents qui s'observent et se bloquent. Une section qui se termine
+sur un jeu se termine sur « ça réfléchit » ; elle se termine maintenant sur « ça
+travaille, et ça demande ». Le fichier est sorti de `scenes/` pour ne pas être
+publié sans être lu ; il reste dans l'historique.
+
+Mesures de la scène A, sur la version produite :
+
+| | |
+|---|---|
+| Poids | 20,9 Ko — budget 80 Ko |
+| Boucle | 16,0 s |
+| Premier objet affiché | 1,9 s |
+| Carte « Envoyer ? » | 10,4 s, tenue 3,5 s |
+| Mouvement réduit | état final complet : boîte vide, deux lettres classées, réponse écrite, carte posée |
+
+La première version durait 23,9 s et la carte arrivait à la 18e seconde —
+c'est-à-dire jamais, pour qui fait défiler une page. Trois coupes l'ont ramenée
+à 16 s : la main ne rentre plus entre deux lettres, la réponse tient sur une
+ligne, et la deuxième lettre ne passe plus par la feuille.
+
+**Ce qui reste du rang 1** : B (le rendez-vous qui se pose tout seul) et C (le
+fournisseur qui tombe, et la phrase qui continue). C est la seule qui montrerait
+la cascade à huit fournisseurs, qui est aujourd'hui le différenciateur le plus
+réel et le plus invisible de Toumaï.
+
+---
+
+## 7. Le socle
+
+`commun/scene.js` n'a pas été écrit avant les scènes : il en a été extrait, une
+fois qu'elles tournaient. Un socle écrit avant sa première scène est un socle
+deviné.

@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toumaï — La boîte qui se vide</title>
+  <link rel="stylesheet" href="../commun/scene.css" />
+  <style>
+    /* Cette scène-ci est claire, là où les autres sont sombres. Ce n'est pas
+     * une fantaisie : c'est la seule qui montre un poste de travail, et un
+     * poste de travail est éclairé. Le fond reste dans la palette de
+     * l'accueil — crème, terre cuite, encre. */
+    .scene {
+      background: linear-gradient(150deg, #f2e7da 0%, #e9dbca 58%, #e3d1bd 100%);
+    }
+
+    .sujet {
+      font: 600 27px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      fill: #17130f;
+      letter-spacing: -.01em;
+    }
+
+    .reponse {
+      font: 400 25px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      fill: #2a211b;
+    }
+
+    .question {
+      font: 650 22px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      fill: #17130f;
+    }
+
+    .puce {
+      font: 600 17px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      text-anchor: middle;
+    }
+
+    /* L'anneau qui respire autour de « Envoyer ». C'est le seul mouvement qui
+     * reste quand la scène tient sa pose, et il dit la seule chose qui
+     * compte : ça attend quelqu'un. */
+    #attente {
+      animation: attendre 2.1s ease-in-out infinite;
+      transform-origin: 1014px 555px;
+    }
+    @keyframes attendre {
+      0%, 100% { opacity: .0; transform: scale(.92); }
+      45%      { opacity: .55; transform: scale(1.06); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #attente { animation: none; opacity: .45; }
+    }
+  </style>
+</head>
+<body>
+  <main class="scene" id="scene">
+    <svg viewBox="0 0 1200 720" role="img" aria-labelledby="titre-scene desc-scene">
+      <title id="titre-scene">Toumaï trie une boîte de courriels et demande l’accord avant d’envoyer</title>
+      <desc id="desc-scene">
+        Un bureau. À gauche, un bac contenant trois lettres ; en dessous, un bac
+        de classement vide. À droite, une feuille de travail. Une main prend la
+        première lettre, l’ouvre sur la feuille, lit son objet — une facture —,
+        puis la classe. Elle recommence, plus vite, avec une lettre
+        d’information. La troisième demande un rendez-vous : au lieu de la
+        classer, la main prend un stylo et écrit la réponse mot à mot. Puis elle
+        s’arrête : une carte demande « Envoyer ? ». La main s’en approche, et
+        recule. Rien ne part sans accord.
+      </desc>
+
+      <defs>
+        <linearGradient id="bac-creux" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#dcc7ae" />
+          <stop offset="1" stop-color="#e8d8c5" />
+        </linearGradient>
+        <linearGradient id="bac-levre" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d9c2a7" />
+          <stop offset="1" stop-color="#c7ab8c" />
+        </linearGradient>
+        <linearGradient id="papier" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fffdf9" />
+          <stop offset="1" stop-color="#fbf5ec" />
+        </linearGradient>
+
+        <filter id="ombre-douce" x="-25%" y="-25%" width="150%" height="160%">
+          <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#6b4527"
+                        flood-opacity=".18" />
+        </filter>
+        <filter id="ombre-carte" x="-25%" y="-40%" width="150%" height="200%">
+          <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#6b4527"
+                        flood-opacity=".22" />
+        </filter>
+
+        <radialGradient id="vignette" cx="50%" cy="44%" r="76%">
+          <stop offset="60%" stop-color="#000" stop-opacity="0" />
+          <stop offset="100%" stop-color="#4a2c18" stop-opacity=".16" />
+        </radialGradient>
+      </defs>
+
+      <!-- ── LA FEUILLE DE TRAVAIL ─────────────────────────────────────────
+           Toujours là, comme un écran posé sur le bureau. Ce qui change, c'est
+           ce qui s'y affiche. -->
+      <g filter="url(#ombre-douce)">
+        <rect x="496" y="92" width="628" height="524" rx="20"
+              fill="url(#papier)" stroke="#e7d9c7" stroke-width="1.5" />
+      </g>
+
+      <!-- Le corps du message : des barres, pas du faux texte. Un paragraphe
+           illisible écrit en petit se lit comme du remplissage ; des barres se
+           lisent comme « du texte », ce qu'elles sont. -->
+      <g id="corps" opacity="0">
+        <line x1="528" y1="242" x2="1092" y2="242" stroke="#efe3d4" stroke-width="1.5" />
+        <rect x="528" y="272" width="500" height="10" rx="5" fill="#e9dcc9" />
+        <rect x="528" y="304" width="540" height="10" rx="5" fill="#e9dcc9" />
+        <rect x="528" y="336" width="452" height="10" rx="5" fill="#e9dcc9" />
+        <rect x="528" y="368" width="300" height="10" rx="5" fill="#e9dcc9" />
+      </g>
+
+      <!-- L'objet du courriel. Il APPARAÎT, il ne s'écrit pas : ce n'est pas
+           Toumaï qui l'a rédigé. Seule la réponse s'écrit. -->
+      <g id="entete" opacity="0">
+        <text id="sujet" class="sujet" x="672" y="172"></text>
+        <rect x="672" y="190" width="152" height="9" rx="4.5" fill="#e9ddce" />
+      </g>
+
+      <!-- La réponse -->
+      <g id="bloc-reponse" opacity="0">
+        <line x1="528" y1="416" x2="1092" y2="416" stroke="#efe3d4" stroke-width="1.5" />
+        <text id="ligne-1" class="reponse" x="528" y="470"></text>
+      </g>
+
+      <!-- ── LES BACS ──────────────────────────────────────────────────────
+           Les lettres sont dessinées ENTRE le creux et la lèvre : c'est ce
+           chevauchement, et rien d'autre, qui fait qu'elles sont « dans » le
+           bac et non posées dessus. -->
+      <ellipse cx="254" cy="332" rx="170" ry="14" fill="#6b4527" opacity=".13" />
+      <rect x="96" y="176" width="316" height="132" rx="12" fill="url(#bac-creux)" />
+
+      <g id="lettres">
+        <g id="env-3">
+          <rect x="0" y="0" width="132" height="88" rx="7" fill="#fdf4e8"
+                stroke="#d8c0a4" stroke-width="2" />
+          <path class="rabat" d="M0 6 L66 50 L132 6 Z" fill="#f0dcc4"
+                stroke="#d8c0a4" stroke-width="2" />
+        </g>
+        <g id="env-2">
+          <rect x="0" y="0" width="132" height="88" rx="7" fill="#fdf4e8"
+                stroke="#d8c0a4" stroke-width="2" />
+          <path class="rabat" d="M0 6 L66 50 L132 6 Z" fill="#f0dcc4"
+                stroke="#d8c0a4" stroke-width="2" />
+        </g>
+        <g id="env-1">
+          <rect x="0" y="0" width="132" height="88" rx="7" fill="#fdf4e8"
+                stroke="#d8c0a4" stroke-width="2" />
+          <path class="rabat" d="M0 6 L66 50 L132 6 Z" fill="#f0dcc4"
+                stroke="#d8c0a4" stroke-width="2" />
+        </g>
+      </g>
+
+      <rect x="96" y="286" width="316" height="36" rx="12" fill="url(#bac-levre)" />
+
+      <ellipse cx="254" cy="600" rx="170" ry="14" fill="#6b4527" opacity=".13" />
+      <rect x="96" y="444" width="316" height="132" rx="12" fill="url(#bac-creux)" />
+      <g id="classees"></g>
+      <rect x="96" y="554" width="316" height="36" rx="12" fill="url(#bac-levre)" />
+
+      <!-- ── LA CARTE DE CONFIRMATION ──────────────────────────────────────
+           C'est elle qui justifie la scène. Le reste montre que Toumaï sait
+           faire ; celle-ci montre qu'il ne le fait pas sans vous. -->
+      <g id="carte" opacity="0">
+        <g filter="url(#ombre-carte)">
+          <rect x="520" y="516" width="580" height="86" rx="16" fill="#fffdf9"
+                stroke="#e6d2bd" stroke-width="1.5" />
+        </g>
+        <text class="question" x="552" y="566">Envoyer&#160;?</text>
+
+        <rect x="812" y="538" width="124" height="42" rx="21" fill="none"
+              stroke="#d9c6b0" stroke-width="1.6" />
+        <text class="puce" x="874" y="565" fill="#6b5b4a">Modifier</text>
+
+        <circle id="attente" cx="1014" cy="559" r="30" fill="none"
+                stroke="#d97857" stroke-width="2" />
+        <rect x="952" y="538" width="124" height="42" rx="21" fill="#d97857" />
+        <text class="puce" x="1014" y="565" fill="#fff8ef">Envoyer</text>
+      </g>
+
+      <!-- ── LE STYLO ──────────────────────────────────────────────────────
+           Dessiné pointe à l'origine : tout le reste du geste se calcule
+           depuis la pointe, qui est le seul point qui doit tomber juste. -->
+      <g id="stylo">
+        <path d="M0 0 L15 -6 L15 6 Z" fill="#c25b3c" />
+        <rect x="14" y="-5.5" width="104" height="11" rx="5.5" fill="#2a211b" />
+        <rect x="92" y="-5.5" width="26" height="11" rx="5.5" fill="#c25b3c" />
+      </g>
+
+      <!-- La main. Retournée : les doigts sont à gauche de l'image. -->
+      <g id="main" class="main">
+        <g transform="translate(238 0) scale(-1 1)">
+          <image x="0" y="0" width="238" height="275" preserveAspectRatio="none"
+                 href="../commun/mains/main-1.webp" />
+        </g>
+      </g>
+
+      <rect x="0" y="0" width="1200" height="720" fill="url(#vignette)"
+            pointer-events="none" />
+    </svg>
+  </main>
+
+  <script src="../commun/scene.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const S = window.Scene;
+
+      const entete = S.el("entete");
+      const sujet = S.el("sujet");
+      const corps = S.el("corps");
+      const blocReponse = S.el("bloc-reponse");
+      const ligne1 = S.el("ligne-1");
+      const carte = S.el("carte");
+      const stylo = S.el("stylo");
+      const classees = S.el("classees");
+
+      /** Où la lettre ouverte se pose sur la feuille de travail. */
+      const SUR_FEUILLE = { x: 528, y: 128 };
+      const ECHELLE_LUE = 0.82;
+
+      /** Le stylo au repos, posé sur le bureau à droite. */
+      const STYLO_REPOS = { x: 960, y: 664 };
+
+      /** Le début des lignes de réponse, et leur ligne de base. */
+      const X_TEXTE = 528;
+      const LIGNES = [470];
+
+      /**
+       * Les trois lettres. L'ordre compte : la main prend celle du dessus.
+       * Les deux premières se classent, la troisième appelle une réponse —
+       * c'est la seule chose que la scène décide, et elle la décide sur le
+       * contenu, pas sur un minuteur.
+       */
+      const LETTRES = [
+        {
+          id: "env-1",
+          repos: { x: 178, y: 194 },
+          objet: "Facture 2026-03",
+          bac: { x: 132, y: 508 },
+        },
+        {
+          id: "env-2",
+          repos: { x: 152, y: 212 },
+          objet: "Lettre d’information",
+          bac: { x: 176, y: 478 },
+          // Celle-ci ne monte pas sur la feuille : elle part directement
+          // au classement. C’est le seul endroit ou la scene dit que la
+          // regle est acquise, et elle le dit par le geste.
+          direct: true,
+        },
+        {
+          id: "env-3",
+          repos: { x: 126, y: 230 },
+          objet: "Rendez-vous jeudi ?",
+          bac: null,
+          reponse: ["Jeudi 15 h me convient."],
+        },
+      ];
+
+      const main = S.Main({
+        id: "main",
+        echelle: 0.84,
+        grip: { x: 58, y: 69 },
+        repos: { x: 1210, y: 470 },
+      });
+
+      /** Le rabat d'une lettre, entre 1 (fermé) et -1 (relevé). */
+      function rabatA(lettre, sy) {
+        lettre.querySelector(".rabat").setAttribute(
+          "transform",
+          "translate(0 " + (6 - 6 * sy).toFixed(2) + ") scale(1 " + sy.toFixed(3) + ")"
+        );
+      }
+
+      /** La main tient la lettre par son bord supérieur. */
+      function tenir(point, echelle) {
+        main.poser(main.pourToucher({ x: point.x + 66 * echelle, y: point.y + 12 }));
+      }
+
+      function styloA(pointe, angle) {
+        S.place(stylo, pointe, 1, angle);
+        // La main saisit le corps du stylo, à 62 unités de la pointe le long
+        // de son axe. Sans ce calcul, elle « pousse » le stylo au lieu de le
+        // tenir, et ça se voit tout de suite.
+        const rad = (angle * Math.PI) / 180;
+        main.poser(main.pourToucher({
+          x: pointe.x + 62 * Math.cos(rad),
+          y: pointe.y + 62 * Math.sin(rad),
+        }));
+      }
+
+      /* ─── LES GESTES ──────────────────────────────────────────────────── */
+
+      async function prendre(lettre) {
+        await main.aller({ x: lettre.repos.x + 66, y: lettre.repos.y + 12 }, 520, 32);
+        await main.serrer(120);
+      }
+
+      async function porter(noeud, depart, duree) {
+        await S.tween(duree, (t) => {
+          const p = {
+            x: S.entre(depart.x, SUR_FEUILLE.x, t),
+            y: S.entre(depart.y, SUR_FEUILLE.y, t) - Math.sin(Math.PI * t) * 64,
+          };
+          const e = S.entre(1, ECHELLE_LUE, t);
+          S.place(noeud, p, e);
+          tenir(p, e);
+        });
+      }
+
+      async function ouvrir(noeud, duree) {
+        await S.tween(duree, (t) => rabatA(noeud, S.entre(1, -1, t)), S.courbes.freine);
+      }
+
+      async function afficher(objet, duree) {
+        sujet.textContent = objet;
+        await S.tween(duree, (t) => {
+          S.opacite(entete, t);
+          S.opacite(corps, t);
+        });
+      }
+
+      async function classer(lettre, noeud) {
+        await main.aller({ x: SUR_FEUILLE.x + 58, y: SUR_FEUILLE.y + 34 }, 400, 22);
+        await main.serrer(120);
+        await S.tween(240, (t) => rabatA(noeud, S.entre(-1, 1, t)));
+
+        await S.tween(660, (t) => {
+          const p = {
+            x: S.entre(SUR_FEUILLE.x, lettre.bac.x, t),
+            y: S.entre(SUR_FEUILLE.y, lettre.bac.y, t) - Math.sin(Math.PI * t) * 118,
+          };
+          const e = S.entre(ECHELLE_LUE, 1, t);
+          S.place(noeud, p, e);
+          S.opacite(entete, Math.max(0, 1 - t * 2.4));
+          S.opacite(corps, Math.max(0, 1 - t * 2.4));
+          // La main lâche à mi-course : la lettre finit sa trajectoire seule.
+          // Une main qui accompagne jusqu'au fond du bac a l'air de ranger un
+          // objet lourd ; celle-ci jette une lettre, ce qui est le geste juste.
+          if (t < 0.45) tenir(p, e);
+        });
+        // Elle est classée : elle passe derrière la lèvre du bac.
+        classees.appendChild(noeud);
+      }
+
+      /** Du bac d'entrée au bac de classement, sans passer par la feuille. */
+      async function classerDirect(lettre, noeud) {
+        await S.tween(620, (t) => {
+          const p = {
+            x: S.entre(lettre.repos.x, lettre.bac.x, t),
+            y: S.entre(lettre.repos.y, lettre.bac.y, t) - Math.sin(Math.PI * t) * 96,
+          };
+          S.place(noeud, p, 1);
+          if (t < 0.5) tenir(p, 1);
+        });
+        classees.appendChild(noeud);
+      }
+
+      /** Écrit une ligne, le stylo suivant la largeur réellement rendue. */
+      async function ecrireLigne(element, texte, y, cadence) {
+        element.textContent = "";
+        if (S.mouvementReduit) {
+          element.textContent = texte;
+          return;
+        }
+        for (let i = 0; i < texte.length; i += 1) {
+          element.textContent = texte.slice(0, i + 1);
+          styloA({ x: X_TEXTE + element.getComputedTextLength() + 5, y: y + 9 }, -34);
+          const c = texte[i];
+          await S.attendre(c === "." || c === "," ? cadence * 5 : cadence);
+        }
+      }
+
+      async function repondre(lettre) {
+        S.opacite(blocReponse, 1);
+
+        // Prendre le stylo, puis l'amener au début de la première ligne.
+        await main.aller({ x: STYLO_REPOS.x + 62, y: STYLO_REPOS.y - 8 }, 520, 30);
+        await main.serrer(120);
+        await S.tween(460, (t) => {
+          styloA({
+            x: S.entre(STYLO_REPOS.x, X_TEXTE + 5, t),
+            y: S.entre(STYLO_REPOS.y, LIGNES[0] + 9, t) - Math.sin(Math.PI * t) * 52,
+          }, S.entre(-6, -34, t));
+        });
+
+        await ecrireLigne(ligne1, lettre.reponse[0], LIGNES[0], 26);
+
+        // Reposer le stylo : la main ne peut pas le garder pendant qu'elle
+        // hésite au-dessus du bouton, sinon elle écrit encore.
+        const depart = {
+          x: X_TEXTE + ligne1.getComputedTextLength() + 5,
+          y: LIGNES[0] + 9,
+        };
+        await S.tween(440, (t) => {
+          styloA({
+            x: S.entre(depart.x, STYLO_REPOS.x, t),
+            y: S.entre(depart.y, STYLO_REPOS.y, t) - Math.sin(Math.PI * t) * 44,
+          }, S.entre(-34, -6, t));
+        });
+      }
+
+      async function demanderAccord() {
+        await S.tween(420, (t) => {
+          S.place(carte, { x: 0, y: S.entre(52, 0, t) });
+          S.opacite(carte, t);
+        }, S.courbes.freine);
+
+        // La main s'approche du bouton… et recule sans le toucher.
+        await S.attendre(200);
+        await main.aller({ x: 1014, y: 646 }, 560, 26);
+        await S.attendre(480);
+        await main.aller({ x: 1170, y: 700 }, 520, 16);
+      }
+
+      /* ─── LA SCÈNE ────────────────────────────────────────────────────── */
+
+      function preparer() {
+        LETTRES.forEach((l) => {
+          const noeud = S.el(l.id);
+          S.el("lettres").appendChild(noeud);
+          S.place(noeud, l.repos, 1);
+          S.opacite(noeud, 1);
+          rabatA(noeud, 1);
+        });
+        // Les lettres sont réempilées dans l'ordre du dessin : la première du
+        // tableau doit être au-dessus, donc dessinée en dernier.
+        S.el("lettres").append(...LETTRES.map((l) => S.el(l.id)).reverse());
+
+        S.opacite(entete, 0);
+        S.opacite(corps, 0);
+        S.opacite(blocReponse, 0);
+        S.opacite(carte, 0);
+        S.place(carte, { x: 0, y: 52 });
+        sujet.textContent = "";
+        ligne1.textContent = "";
+        styloA(STYLO_REPOS, -6);
+        main.poser(main.pourToucher({ x: 1290, y: 520 }));
+      }
+
+      /** L'état final, pour qui a demandé moins de mouvement. */
+      function finFixe() {
+        LETTRES.forEach((l) => {
+          const noeud = S.el(l.id);
+          if (l.bac) {
+            classees.appendChild(noeud);
+            S.place(noeud, l.bac, 1);
+            rabatA(noeud, 1);
+          } else {
+            S.place(noeud, SUR_FEUILLE, ECHELLE_LUE);
+            rabatA(noeud, -1);
+            sujet.textContent = l.objet;
+            ligne1.textContent = l.reponse[0];
+          }
+        });
+        S.opacite(entete, 1);
+        S.opacite(corps, 1);
+        S.opacite(blocReponse, 1);
+        S.opacite(carte, 1);
+        S.place(carte, { x: 0, y: 0 });
+        styloA(STYLO_REPOS, -6);
+        main.poser(main.pourToucher({ x: 1290, y: 520 }));
+      }
+
+      const scene = S.jouer({
+        preparer,
+        finFixe,
+        pause: 1600,
+        async sequence(annulee) {
+          await S.attendre(320);
+
+          for (let i = 0; i < LETTRES.length; i += 1) {
+            const lettre = LETTRES[i];
+            const noeud = S.el(lettre.id);
+
+            await prendre(lettre);
+            if (annulee()) return;
+
+            if (lettre.direct) {
+              await classerDirect(lettre, noeud);
+              continue;
+            }
+
+            await porter(noeud, lettre.repos, 560);
+            await ouvrir(noeud, 320);
+            // La main s'ecarte PENDANT que l'objet s'affiche : posee sur
+            // la lettre, elle la recouvrait entierement.
+            await Promise.all([
+              main.aller({ x: 1186, y: 300 }, 360, 14),
+              afficher(lettre.objet, 280),
+            ]);
+            await S.attendre(400);
+            if (annulee()) return;
+
+            if (lettre.bac) {
+              await classer(lettre, noeud);
+            } else {
+              await repondre(lettre);
+              if (annulee()) return;
+              await demanderAccord();
+            }
+            if (annulee()) return;
+          }
+
+          // La pose : la carte attend, l'anneau respire, rien ne part.
+          await S.attendre(1300);
+
+          await S.tween(520, (t) => {
+            S.opacite(carte, 1 - t);
+            S.opacite(blocReponse, 1 - t);
+            S.opacite(entete, 1 - t);
+            S.opacite(corps, 1 - t);
+          });
+        },
+      });
+
+      // Un clic relance la scène. Le cadre de l'accueil neutralise les clics ;
+      // ouverte seule, la page reste rejouable.
+      S.el("scene").addEventListener("click", () => scene.relancer());
+      scene.tour();
+    })();
+  </script>
+</body>
+</html>

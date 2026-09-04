@@ -138,17 +138,18 @@ const CAPACITES = [
   },
   {
     sequence: "05",
-    kicker: "Anticipation à grande échelle",
-    titre: "Projeter plusieurs coups avant d’agir.",
+    kicker: "Travail réel, accord demandé",
+    titre: "Il fait le travail. Il ne l’envoie pas sans vous.",
     texte:
-      "Sur un terrain plus vaste, chaque main répond à l’autre, protège ses lignes et prépare une combinaison gagnante. La scène agrandie rend chaque décision visible.",
+      "Toumaï ouvre le courrier, classe ce qui se classe, rédige ce qui appelle une réponse — puis il s’arrête et demande. Rien ne part en votre nom tant que vous n’avez pas dit oui.",
     points: [
-      "Lecture de plusieurs scénarios possibles",
-      "Réponse directe aux menaces concurrentes",
-      "Planification jusqu’au coup gagnant",
+      "Le tri fait sans vous, la réponse rédigée pour vous",
+      "Une confirmation obligatoire avant toute action sortante",
+      "Le même garde-fou sur le mail, WhatsApp et l’agenda",
     ],
-    fichier: "05-puissance-quatre.html",
-    resume: "Deux mains s’affrontent intelligemment sur un grand plateau de Puissance 4",
+    fichier: "06-boite-mail.html",
+    resume:
+      "Une main vide une boîte de courrier : elle classe deux lettres, rédige la réponse à la troisième, puis s’arrête devant une carte « Envoyer ? » sans y toucher",
     inverse: false,
     grande: true,
   },
