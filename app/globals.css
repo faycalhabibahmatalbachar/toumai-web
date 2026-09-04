@@ -1349,6 +1349,17 @@ svg {
      souris jamais passée — rien ne bouge : la règle ne s'applique qu'aux
      éléments réellement marqués.
      ─────────────────────────────────────────────────────────────────────────── */
+  /* La coupure est declaree ICI, et non par l utilitaire `truncate`, pour une
+     raison de calque : `truncate` vit dans `@layer utilities`, declare apres
+     `@layer components`. Il gagnait, et le titre gardait ses trois points
+     pendant qu il defilait. Au meme calque, la regle de survol peut lever la
+     coupure. */
+  .sb-titre {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
   .sb-titre[data-defile="1"] {
     text-overflow: clip;
     animation: sb-defile var(--defile-duree, 2.4s) ease-in-out infinite alternate;

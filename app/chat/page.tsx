@@ -21,6 +21,7 @@ import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgen
 import { DropZone } from "@/components/chat/media/DropZone";
 import { useClipboardImage } from "@/hooks/useClipboardImage";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
+import { convertirHistorique } from "@/lib/prechargement-conversations";
 import { applyChatFontSize } from "@/lib/ui-prefs";
 import { describeError, errorMessage, microphoneErrorMessage } from "@/lib/errors";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -533,19 +534,11 @@ export default function ChatPage() {
     clearError();
     try {
       const history = await getHistory(id);
-      const mapped: Message[] = history.map((m) => ({
-        id: m.id,
-        serverId: m.id,
-        role: m.role,
-        content: m.content,
-        envoyeLe: m.created_at,
-        imageUrls: m.metadata?.image_urls,
-        sources: m.metadata?.sources,
-        searchImages: m.metadata?.search_images,
-        // Le panneau « Réflexion » reste disponible en rouvrant la conversation.
-        reasoning: m.metadata?.reasoning,
-        reasoningMs: m.metadata?.reasoning_ms,
-      }));
+      // La conversion vit dans `lib/prechargement-conversations` et sert aussi
+      // au préchargement. Deux conversions du même historique finiraient par
+      // diverger d'un champ, et le symptôme serait un panneau « Réflexion »
+      // qui disparaît quand la conversation vient du cache.
+      const mapped = convertirHistorique(history) as unknown as Message[];
       setMessages(mapped);
       // On borne à 60 messages en cache : assez pour un retour instantané,
       // sans saturer le quota localStorage sur les longues conversations.

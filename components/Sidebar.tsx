@@ -15,6 +15,10 @@ import {
 import { getProfile, type UserProfile, nomAffichable } from "@/lib/user-api";
 import { cacheRead, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { describeError } from "@/lib/errors";
+import {
+  prechargerConversation,
+  prechargerLesRecentes,
+} from "@/lib/prechargement-conversations";
 
 interface SidebarProps {
   activeId: string | null;
@@ -127,6 +131,14 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
         if (cancelled) return;
         setSessions(data);
         cacheWrite("chat:sessions", data);
+        // LES QUELQUES PLUS RECENTES, EN TACHE DE FOND.
+        // Le cache ne couvrait que le RETOUR sur une conversation deja
+        // ouverte. La toute premiere ouverture attendait l aller-retour
+        // complet jusqu au serveur : une a trois secondes de squelette sur une
+        // connexion tchadienne, et c est justement le moment ou l on juge le
+        // produit. Le module s abstient tout seul si la connexion est lente ou
+        // si l economiseur de donnees est actif.
+        prechargerLesRecentes(data.map((s) => s.id));
       })
       .catch((err) => {
         // « Failed to fetch » n'est pas une phrase adressée à quelqu'un : on
@@ -533,13 +545,25 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
                         <PinIcon />
                       </span>
                       <span
-                        onMouseEnter={survolerTitre}
+                        onMouseEnter={(e) => {
+                          survolerTitre(e);
+                          // Le survol dit l intention 200 a 400 ms avant le
+                          // clic. C est assez pour que la conversation soit
+                          // deja la quand il arrive.
+                          void prechargerConversation(s.id);
+                        }}
                         onMouseLeave={quitterTitre}
                         // La voie de secours quand l'animation est refusée
                         // (mouvement réduit) ou sur un écran tactile, où il
                         // n'y a pas de survol du tout.
                         title={s.title || "Sans titre"}
-                        className="sb-titre min-w-0 flex-1 truncate"
+                        // PAS de `truncate` ici. Cet utilitaire vit dans `@layer utilities`,
+                        // declare APRES `@layer components` ou vit la regle de
+                        // defilement : il gagnait, et le titre gardait ses trois
+                        // points meme pendant qu il defilait. La coupure est donc
+                        // declaree dans `.sb-titre`, au meme calque que la regle qui
+                        // doit pouvoir la lever.
+                        className="sb-titre min-w-0 flex-1"
                       >
                         {s.title || "Sans titre"}
                       </span>
