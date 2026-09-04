@@ -46,7 +46,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Logo } from "@/components/Logo";
-import { RESEAUX } from "@/components/ReseauxSociaux";
+import { CONTACTS, RESEAUX } from "@/components/ReseauxSociaux";
+import { useAuth } from "@/lib/auth-context";
 
 import "@/app/toumai-accueil.css";
 
@@ -185,9 +186,6 @@ const LIENS_NAV = [
   { href: "#ressources", texte: "Ressources" },
 ];
 
-/** Le zip livré par le lien « Télécharger le code » du bandeau et du pied. */
-const ARCHIVE_SOURCE = "/accueil-medias/toumai-ai-homepage-source.zip";
-
 /** Les colonnes du pied de page — les mêmes que sur le reste du site. */
 const COLONNES_PIED = [
   {
@@ -316,6 +314,21 @@ function CadreAnime({ fichier, resume }: { fichier: string; resume: string }) {
 
 export function PageAccueil() {
   const router = useRouter();
+  const { session, logout } = useAuth();
+
+  /** Un invité n'est pas connecté : lui proposer « Déconnexion » n'aurait
+   *  aucun sens. Même règle que la barre du reste du site. */
+  const connecte = Boolean(session && !session.is_guest);
+
+  /** Le clic sur la marque recharge la page au lieu de sauter à l'ancre.
+   *  Le `href` reste « / » : clic milieu, ouverture dans un onglet et
+   *  robots d'indexation ont besoin d'une vraie destination. */
+  const rafraichir = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    window.location.reload();
+  }, []);
+
   const [menuOuvert, setMenuOuvert] = useState(false);
   const [questionHero, setQuestionHero] = useState("");
   const [questionFinale, setQuestionFinale] = useState("");
@@ -377,9 +390,16 @@ export function PageAccueil() {
 
       <header className="site-header" id="top">
         <div className="primary-nav shell">
-          <a className="brand" href="#top" aria-label="Toumaï AI, accueil">
-            <Logo size={42} className="brand-logo" />
-            <span className="brand-name">Toumaï</span>
+          <a
+            className="brand"
+            href="/"
+            aria-label="Toumaï AI — recharger la page d’accueil"
+            onClick={rafraichir}
+          >
+            <Logo size={34} className="brand-logo" />
+            <span className="brand-name">
+              Toumaï<span className="brand-suffix">AI</span>
+            </span>
           </a>
 
           <nav className="desktop-nav" aria-label="Navigation principale">
@@ -391,14 +411,22 @@ export function PageAccueil() {
           </nav>
 
           <div className="header-actions">
-            <Link className="text-link desktop-only" href="/login">
-              Connexion
-            </Link>
-            <a className="button button-quiet desktop-only" href={ARCHIVE_SOURCE} download>
-              Télécharger le code
-            </a>
+            {connecte ? (
+              <button
+                className="text-link desktop-only"
+                type="button"
+                onClick={logout}
+                style={{ background: "none", border: 0, cursor: "pointer" }}
+              >
+                Déconnexion
+              </button>
+            ) : (
+              <Link className="text-link desktop-only" href="/login">
+                Connexion
+              </Link>
+            )}
             <Link className="button button-dark" href="/chat">
-              Essayer Toumaï
+              {connecte ? "Ouvrir Toumaï" : "Essayer Toumaï"}
             </Link>
             <button
               className="menu-button"
@@ -431,6 +459,26 @@ export function PageAccueil() {
             </a>
           ))}
           <a href="#entreprise">Nous contacter</a>
+          {connecte ? (
+            <button
+              type="button"
+              onClick={logout}
+              style={{
+                width: "100%",
+                background: "none",
+                border: 0,
+                borderBottom: "1px solid var(--line)",
+                padding: ".82rem 0",
+                fontWeight: 500,
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              Déconnexion
+            </button>
+          ) : (
+            <Link href="/login">Connexion</Link>
+          )}
         </nav>
 
         <div className="product-bar">
@@ -693,10 +741,10 @@ export function PageAccueil() {
               <span>Explorer les solutions</span>
               <strong>→</strong>
             </a>
-            <a href={ARCHIVE_SOURCE} download>
-              <span>Télécharger tout le code source</span>
-              <strong>↓</strong>
-            </a>
+            <Link href="/models">
+              <span>Comparer Sao 4 et Toumaï 5</span>
+              <strong>→</strong>
+            </Link>
             <a href="https://github.com/Toumai-AI" target="_blank" rel="noopener noreferrer">
               <span>Suivre le projet ouvert</span>
               <strong>→</strong>
@@ -738,14 +786,17 @@ export function PageAccueil() {
 
       <footer className="site-footer">
         <div className="shell footer-top">
-          <a className="brand footer-brand" href="#top">
-            <Logo size={38} className="brand-logo" />
-            <span className="brand-name">Toumaï</span>
+          <a
+            className="brand footer-brand"
+            href="/"
+            aria-label="Toumaï AI — recharger la page d’accueil"
+            onClick={rafraichir}
+          >
+            <Logo size={32} className="brand-logo" />
+            <span className="brand-name">
+              Toumaï<span className="brand-suffix">AI</span>
+            </span>
           </a>
-          <p>
-            Nommé d’après le plus ancien hominidé connu, découvert au Tchad.
-            L’intelligence, depuis toujours.
-          </p>
         </div>
 
         <div className="shell footer-links">
@@ -768,18 +819,26 @@ export function PageAccueil() {
         </div>
 
         <div className="shell footer-contact">
-          <a href="tel:+23568663737">+235 68 66 37 37</a>
-          <a href="https://wa.me/23591912191" target="_blank" rel="noopener noreferrer">
-            +235 91 91 21 91 <span className="sr-only">(WhatsApp)</span>
-          </a>
-          <a href="mailto:contact@toumaiai.com">contact@toumaiai.com</a>
+          {CONTACTS.map((contact) => (
+            <a
+              key={contact.libelle}
+              href={contact.href}
+              target={contact.externe ? "_blank" : undefined}
+              rel={contact.externe ? "noopener noreferrer" : undefined}
+            >
+              <span className="footer-contact-icone" aria-hidden="true">
+                {contact.icon}
+              </span>
+              <span className="footer-contact-texte">
+                <small>{contact.libelle}</small>
+                <strong>{contact.valeur}</strong>
+              </span>
+            </a>
+          ))}
         </div>
 
         <div className="shell footer-bottom">
-          <span>
-            © {new Date().getFullYear()} Toumaï AI. Conçu et développé à
-            N’Djaména, Tchad.
-          </span>
+          <span>© {new Date().getFullYear()} Toumaï AI. Tous droits réservés.</span>
           <div className="footer-socials">
             {RESEAUX.map((reseau) => (
               <a

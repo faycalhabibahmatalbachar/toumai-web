@@ -461,7 +461,6 @@ export const arTd: Dict = {
   },
 
   footer: {
-    blurb: "اتسمّى على اسم أقدم إنسان قديم معروف، اتلقى في تشاد. الذكاء، من زمان.",
     nav: "تذييل الصفحة",
     cols: {
       product: "المنتج",
@@ -489,6 +488,6 @@ export const arTd: Dict = {
       choices: "خيارات الخصوصية",
       deleteAccount: "امسح حسابي",
     },
-    rights: (year) => `© ${year} توماي AI. اتصمّم واتطوّر في نجامينا، تشاد.`,
+    rights: (year) => `© ${year} توماي AI. جميع الحقوق محفوظة.`,
   },
 };

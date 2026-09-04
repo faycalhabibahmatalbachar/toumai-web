@@ -437,7 +437,6 @@ export const en: Dict = {
   },
 
   footer: {
-    blurb: "Named after the oldest known hominid, found in Chad. Intelligence, from the very beginning.",
     nav: "Footer",
     cols: {
       product: "Product",
@@ -465,6 +464,6 @@ export const en: Dict = {
       choices: "Privacy choices",
       deleteAccount: "Delete my account",
     },
-    rights: (year) => `© ${year} Toumaï AI. Designed and built in N'Djamena, Chad.`,
+    rights: (year) => `© ${year} Toumaï AI. All rights reserved.`,
   },
 };

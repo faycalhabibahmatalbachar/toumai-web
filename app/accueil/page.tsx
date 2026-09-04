@@ -215,7 +215,7 @@ export default function AccueilSimple() {
       {/* ── Pied ────────────────────────────────────────────────────────── */}
       <footer className="ac-bande">
         <div className="ac-wrap flex flex-wrap items-center justify-between gap-4 py-7 text-[13.5px]">
-          <span className="ac-fin">Conçu à N&apos;Djaména, pour le monde.</span>
+          <span className="ac-fin">© {new Date().getFullYear()} Toumaï AI. Tous droits réservés.</span>
           <nav className="flex flex-wrap gap-5">
             <Link href="/privacy" className="ac-lien">
               Confidentialité

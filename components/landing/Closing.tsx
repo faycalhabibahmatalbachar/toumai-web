@@ -275,9 +275,6 @@ export function Footer() {
               <Logo size={28} />
               Toumaï&nbsp;AI
             </div>
-            <p className="mt-4 max-w-[34ch] text-[13.5px] leading-relaxed" style={{ color: "var(--tm-ink-3)" }}>
-              {t.footer.blurb}
-            </p>
 
             {/* Le spectre du logo, en toutes lettres : c'est la signature de
              * la marque, elle a sa place au bas de la page. */}

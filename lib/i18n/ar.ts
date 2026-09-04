@@ -441,7 +441,6 @@ export const ar: Dict = {
   },
 
   footer: {
-    blurb: "سُمّي على اسم أقدم إنسان بدائي معروف، اكتُشف في تشاد. الذكاء، منذ البداية.",
     nav: "تذييل الصفحة",
     cols: {
       product: "المنتج",
@@ -469,6 +468,6 @@ export const ar: Dict = {
       choices: "خيارات الخصوصية",
       deleteAccount: "حذف حسابي",
     },
-    rights: (year) => `© ${year} توماي AI. صُمّم وطُوّر في نجامينا، تشاد.`,
+    rights: (year) => `© ${year} توماي AI. جميع الحقوق محفوظة.`,
   },
 };

@@ -592,6 +592,31 @@ html:has(.tmh) {
 }
 
 
+
+/* ─── LA MARQUE ────────────────────────────────────────────────────────────
+ *
+ * La maquette n'écrivait que « Toumaï ». Le nom du produit est « Toumaï AI » —
+ * c'est celui qui est déposé, celui qui est référencé, celui qui est écrit
+ * partout ailleurs sur le site. Le suffixe est posé en petites capitales
+ * relevées : mis à la même taille que le nom, un sigle de deux lettres pèse
+ * autant que le mot entier et le déséquilibre.
+ */
+.tmh .brand { gap: .56rem; }
+.tmh .brand-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .32rem;
+  font-size: 1.62rem;
+}
+.tmh .brand-suffix {
+  transform: translateY(-.52em);
+  color: var(--terracotta-deep);
+  font: 700 .66rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+.tmh .site-footer .brand-suffix { color: var(--terracotta); }
+
 /* ─── LE LOGO, LE VRAI ─────────────────────────────────────────────────────
  *
  * La maquette dessinait un galet terracotta avec un « T » dedans, faute de
@@ -602,43 +627,100 @@ html:has(.tmh) {
  */
 .tmh .brand-logo {
   flex: 0 0 auto;
-  border-radius: .55rem;
+  border-radius: .5rem;
   object-fit: contain;
 }
 
 /* ─── PIED DE PAGE ─────────────────────────────────────────────────────────
  *
- * Deux rangées que la maquette n'avait pas, parce que ses liens étaient
- * inventés : les contacts réels, et les comptes réels. Le reste (fond sombre,
- * colonnes, filets) vient de la maquette sans retouche.
+ * Trois rangées que la maquette n'avait pas, parce que ses liens étaient
+ * inventés : la signature avec les comptes en vis-à-vis, les contacts
+ * étiquetés, et une mention légale seule en bas. Le reste — fond sombre,
+ * colonnes, filets — vient de la maquette sans retouche.
  */
-.tmh .footer-contact {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .6rem 2.4rem;
-  padding-block: 0 3rem;
-}
-.tmh .footer-contact a { color: #aaa49a; font-size: .88rem; }
-.tmh .footer-contact a:hover { color: var(--paper-light); }
+.tmh .footer-top { padding-block: 4rem 2.2rem; }
 
-.tmh .footer-bottom { align-items: center; gap: 1.2rem; }
-.tmh .footer-socials { display: flex; flex-wrap: wrap; gap: .55rem; }
-.tmh .footer-socials a {
-  width: 2.15rem;
-  height: 2.15rem;
+/* En dessous de 821 px, la maquette empile la rangée : ne pas le défaire.
+ * Cette feuille étant lue après la sienne, une règle non bornée la battrait
+ * à spécificité égale. */
+@media (min-width: 821px) {
+  .tmh .footer-top { align-items: center; }
+}
+
+/* Les contacts. Trois liens nus posés côte à côte ne disaient pas lequel est
+ * le standard et lequel est WhatsApp : chacun porte maintenant son
+ * pictogramme et son étiquette, et les trois s'alignent en colonnes. */
+.tmh .footer-contact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem 2rem;
+  padding-block: 0 3.4rem;
+}
+.tmh .footer-contact a { display: inline-flex; align-items: center; gap: .8rem; }
+.tmh .footer-contact-icone {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   border: 1px solid #3c3933;
   border-radius: 50%;
-  color: #aaa49a;
-  transition: transform .2s ease, color .2s ease, border-color .2s ease;
+  color: var(--terracotta);
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
 }
-.tmh .footer-socials a:hover {
-  transform: translateY(-2px);
+.tmh .footer-contact-texte {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+}
+.tmh .footer-contact-texte small {
+  color: #8d887f;
+  font-size: .67rem;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.tmh .footer-contact-texte strong {
+  color: #d8d3ca;
+  font-size: .93rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  transition: color .2s ease;
+}
+.tmh .footer-contact a:hover .footer-contact-icone {
+  background: var(--terracotta);
   border-color: var(--terracotta);
-  color: var(--paper-light);
+  color: #fff9f5;
+}
+.tmh .footer-contact a:hover .footer-contact-texte strong { color: var(--paper-light); }
+
+/* Les comptes. La pastille se REMPLIT au survol au lieu de changer seulement
+ * de couleur de trait : sur un fond sombre, un liseré qui passe du gris au
+ * terracotta se voit à peine. */
+.tmh .footer-socials { display: flex; flex-wrap: wrap; gap: .55rem; }
+.tmh .footer-socials a {
+  width: 2.3rem;
+  height: 2.3rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid #3c3933;
+  border-radius: 50%;
+  background: transparent;
+  color: #aaa49a;
+  transition: transform .2s ease, background .2s ease, border-color .2s ease,
+    color .2s ease;
+}
+.tmh .footer-socials a:hover,
+.tmh .footer-socials a:focus-visible {
+  transform: translateY(-2px);
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  color: #fff9f5;
 }
 
+.tmh .footer-bottom { align-items: center; gap: 1.2rem; }
+
 @media (max-width: 720px) {
+  .tmh .footer-contact { grid-template-columns: 1fr; gap: 1.1rem; }
   .tmh .footer-bottom { align-items: start; flex-direction: column; }
 }

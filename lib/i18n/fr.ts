@@ -459,7 +459,6 @@ export const fr = {
   },
 
   footer: {
-    blurb: "Nommé d'après le plus ancien hominidé connu, découvert au Tchad. L'intelligence, depuis toujours.",
     nav: "Pied de page",
     cols: {
       product: "Produit",
@@ -487,7 +486,7 @@ export const fr = {
       choices: "Choix de confidentialité",
       deleteAccount: "Supprimer mon compte",
     },
-    rights: (year: number) => `© ${year} Toumaï AI. Conçu et développé à N'Djaména, Tchad.`,
+    rights: (year: number) => `© ${year} Toumaï AI. Tous droits réservés.`,
   },
 };
 
