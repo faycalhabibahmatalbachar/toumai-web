@@ -62,50 +62,29 @@ const RACCOURCIS = [
   { icone: "◇", nom: "Créer", prompt: "Aide-moi à créer une nouvelle idée." },
 ];
 
-/** Les démonstrations, dans l'ordre de la maquette.
+/** Les démonstrations, dans l'ordre où elles se lisent.
  *
- * La cinquième — le code secret — a été ajoutée le 4 septembre 2026. Elle est
- * insérée AVANT le Puissance 4 et non après : la grande scène finale porte la
- * montée en puissance de la section, et la faire suivre par une scène de
- * taille normale aurait cassé cette progression. Le Puissance 4 passe donc de
- * 04 à 05, et reste la dernière.
+ * L'ORDRE N'EST PAS CELUI DE LEUR ÉCRITURE, ET IL COMPTE.
+ *
+ * Le morpion ouvre : c'est la scène la plus lisible en deux secondes — deux
+ * mains, une grille, un gagnant. Une section de démonstrations qui commence
+ * par sa scène la plus subtile perd les gens avant la deuxième.
+ *
+ * Puis l'autocorrection, puis le labyrinthe, puis le Puissance 4 : la
+ * difficulté du raisonnement montre, plateau après plateau.
+ *
+ * La boîte mail ferme, en grand format. C'est la seule qui ne montre pas un
+ * jeu mais un TRAVAIL — lire un courrier, écrire la réponse, demander
+ * l'accord. Une section qui se termine sur un jeu se termine sur « ça
+ * réfléchit » ; celle-ci se termine sur « ça travaille, et ça demande ».
+ *
+ * La scène de la lampe est sortie de la page le 4 septembre 2026 : elle
+ * disait la même chose que le Puissance 4 — il réfléchit avant d'agir — en
+ * moins démonstratif. Son fichier reste dans l'historique du dépôt.
  */
 const CAPACITES = [
   {
     sequence: "01",
-    kicker: "Autocorrection visible",
-    titre: "Une erreur devient une information utile.",
-    texte:
-      "Pour les trois premières pièces, Toumaï teste une empreinte, détecte l’incompatibilité puis recommence au bon endroit. Une fois la logique comprise, les pièces restantes sont placées directement.",
-    points: [
-      "Trois erreurs réellement testées",
-      "Correction après chaque incompatibilité",
-      "Apprentissage réutilisé pour la suite",
-    ],
-    fichier: "01-puzzle-autocorrectif.html",
-    resume:
-      "Une main teste trois pièces de puzzle, corrige ses erreurs puis place les suivantes directement",
-    inverse: false,
-    grande: false,
-  },
-  {
-    sequence: "02",
-    kicker: "Navigation adaptative",
-    titre: "Changer de route sans perdre l’objectif.",
-    texte:
-      "Toumaï explore le parcours, reconnaît les impasses et réoriente son raisonnement jusqu’à construire un chemin fiable vers la sortie.",
-    points: [
-      "Détection des voies sans issue",
-      "Nouvelle stratégie en temps réel",
-      "Progression conservée malgré les détours",
-    ],
-    fichier: "02-labyrinthe-adaptatif.html",
-    resume: "Toumaï explore un labyrinthe, détecte les impasses et adapte sa trajectoire",
-    inverse: true,
-    grande: false,
-  },
-  {
-    sequence: "03",
     kicker: "Raisonnement concurrentiel",
     titre: "Chaque décision tient compte de l’adversaire.",
     texte:
@@ -121,19 +100,51 @@ const CAPACITES = [
     grande: false,
   },
   {
-    sequence: "04",
-    kicker: "Raisonnement visible",
-    titre: "Il réfléchit avant de répondre.",
+    sequence: "02",
+    kicker: "Autocorrection visible",
+    titre: "Une erreur devient une information utile.",
     texte:
-      "Toumaï 5 ne se jette pas sur la première phrase venue : il éclaire le sujet, ouvre le dossier, et n’écrit qu’ensuite. Sur les demandes difficiles, cette étape est affichée — vous pouvez lire ce qu’il s’est dit avant de vous répondre.",
+      "Pour les trois premières pièces, Toumaï teste une empreinte, détecte l’incompatibilité puis recommence au bon endroit. Une fois la logique comprise, les pièces restantes sont placées directement.",
     points: [
-      "Un temps de réflexion réel, pas une animation d’attente",
-      "La trace consultable, jamais fabriquée",
-      "L’écriture ne commence qu’une fois le sujet posé",
+      "Trois erreurs réellement testées",
+      "Correction après chaque incompatibilité",
+      "Apprentissage réutilisé pour la suite",
     ],
-    fichier: "00-lampe-introduction.html",
+    fichier: "01-puzzle-autocorrectif.html",
     resume:
-      "Une main allume une lampe au-dessus d’une table, ouvre un livre, et le titre « Introduction — Toumaï 5 » s’y écrit lettre après lettre",
+      "Une main teste trois pièces de puzzle, corrige ses erreurs puis place les suivantes directement",
+    inverse: true,
+    grande: false,
+  },
+  {
+    sequence: "03",
+    kicker: "Navigation adaptative",
+    titre: "Changer de route sans perdre l’objectif.",
+    texte:
+      "Toumaï explore le parcours, reconnaît les impasses et réoriente son raisonnement jusqu’à construire un chemin fiable vers la sortie.",
+    points: [
+      "Détection des voies sans issue",
+      "Nouvelle stratégie en temps réel",
+      "Progression conservée malgré les détours",
+    ],
+    fichier: "02-labyrinthe-adaptatif.html",
+    resume: "Toumaï explore un labyrinthe, détecte les impasses et adapte sa trajectoire",
+    inverse: false,
+    grande: false,
+  },
+  {
+    sequence: "04",
+    kicker: "Anticipation à grande échelle",
+    titre: "Projeter plusieurs coups avant d’agir.",
+    texte:
+      "Sur un terrain plus vaste, chaque main répond à l’autre, protège ses lignes et prépare une combinaison gagnante. Chaque décision se lit sur le plateau.",
+    points: [
+      "Lecture de plusieurs scénarios possibles",
+      "Réponse directe aux menaces concurrentes",
+      "Planification jusqu’au coup gagnant",
+    ],
+    fichier: "05-puissance-quatre.html",
+    resume: "Deux mains s’affrontent intelligemment sur un grand plateau de Puissance 4",
     inverse: true,
     grande: false,
   },

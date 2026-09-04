@@ -46,7 +46,11 @@
  * d'où aussi `/sw-kill` plus bas, qui le désinstalle proprement.
  */
 
-const VERSION = "toumai-v1";
+// v2 (4 septembre 2026) : la lampe quitte la page, le Puissance 4 la
+// remplace. Le socle a change, donc le numero change — sinon les visiteurs
+// deja venus garderaient un cache qui precharge une scene disparue et
+// ignore la nouvelle.
+const VERSION = "toumai-v2";
 const CACHE = `${VERSION}`;
 
 /**
@@ -64,12 +68,12 @@ const SOCLE = [
   "/accueil-medias/animations/commun/scene.css",
   "/accueil-medias/animations/commun/mains/main-1.webp",
   "/accueil-medias/animations/commun/polices/caveat-500.woff2",
-  "/accueil-medias/animations/scenes/00-lampe-introduction.html",
+  "/accueil-medias/animations/scenes/05-puissance-quatre.html",
   "/accueil-medias/animations/scenes/01-puzzle-autocorrectif.html",
   "/accueil-medias/animations/scenes/02-labyrinthe-adaptatif.html",
   "/accueil-medias/animations/scenes/03-morpion-strategique.html",
   "/accueil-medias/animations/scenes/06-boite-mail.html",
-  "/accueil-medias/animations/commun/affiches/00-lampe-introduction.webp",
+  "/accueil-medias/animations/commun/affiches/05-puissance-quatre.webp",
   "/accueil-medias/animations/commun/affiches/01-puzzle-autocorrectif.webp",
   "/accueil-medias/animations/commun/affiches/02-labyrinthe-adaptatif.webp",
   "/accueil-medias/animations/commun/affiches/03-morpion-strategique.webp",
