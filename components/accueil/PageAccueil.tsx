@@ -196,7 +196,7 @@ const LIENS_NAV = [
   { href: "#plateforme", texte: "Plateforme" },
   { href: "#solutions", texte: "Solutions" },
   { href: "#tarifs", texte: "Tarifs" },
-  { href: "#ressources", texte: "Ressources" },
+  { href: "#fondateur", texte: "Fondateur" },
 ];
 
 
@@ -945,28 +945,79 @@ export function PageAccueil() {
 
         <SectionTarifs />
 
-        <section className="resources shell" id="ressources">
-          <div>
-            <p className="section-kicker">Ressources</p>
-            <h2>Découvrez ce que Toumaï peut accomplir avec vous.</h2>
-          </div>
-          <div className="resource-links">
-            <a href="#capacites">
-              <span>Voir les capacités</span>
-              <strong>→</strong>
-            </a>
-            <a href="#solutions">
-              <span>Explorer les solutions</span>
-              <strong>→</strong>
-            </a>
-            <Link href="/models">
-              <span>Comparer Sao 4 et Toumaï 5</span>
-              <strong>→</strong>
-            </Link>
-            <a href="https://github.com/Toumai-AI" target="_blank" rel="noopener noreferrer">
-              <span>Suivre le projet ouvert</span>
-              <strong>→</strong>
-            </a>
+        {/* LA SECTION FONDATEUR.
+          *
+          * Elle remplace « Ressources », qui portait quatre liens renvoyant à
+          * des ancres de la même page — « Voir les capacités », « Explorer les
+          * solutions ». Une section qui renvoie à ce qu'on vient de lire ne
+          * fait pas avancer d'un pas : elle occupe de la hauteur.
+          *
+          * Celle-ci répond à la question qu'un acheteur se pose avant de
+          * brancher un logiciel à son courrier et à son agenda : QUI répond si
+          * ça casse. C'est la question la plus chère à ne pas traiter quand on
+          * vend un abonnement depuis N'Djaména à des gens qui ne nous
+          * connaissent pas.
+          *
+          * Les trois engagements sont vérifiables, et c'est la seule raison
+          * pour laquelle ils sont là. La confirmation avant toute action
+          * sortante est dans le produit — c'est la cinquième démonstration de
+          * cette page. Le numéro est dans le pied de page. Le lieu est dans le
+          * copyright. Rien qu'on ne puisse contrôler en trente secondes. */}
+        <section className="fondateur" id="fondateur">
+          <div className="shell fondateur-inner">
+            <figure className="fondateur-portrait">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/accueil-medias/faycal-habib-ahmat.webp"
+                alt="Faycal Habib Ahmat, fondateur et CEO de Toumaï AI"
+                width={900}
+                height={1125}
+                loading="lazy"
+              />
+            </figure>
+
+            <div className="fondateur-mot">
+              <p className="section-kicker">Fondateur &amp; CEO</p>
+              <h2>Derrière ce logiciel, il y a quelqu’un à qui parler.</h2>
+              <p className="fondateur-texte">
+                Toumaï AI n’est pas une démonstration. C’est un service que des
+                entreprises branchent à leur courrier, à leur agenda et à leur
+                WhatsApp, et qu’elles font tourner tous les jours. Un logiciel
+                qu’on facture engage celui qui le signe — c’est pour cela que mon
+                nom, mon numéro et mon adresse sont sur cette page.
+              </p>
+
+              <ul className="fondateur-engagements">
+                <li>
+                  <strong>Rien ne part en votre nom sans votre accord.</strong>
+                  Chaque action vers l’extérieur — un courriel, un message, un
+                  rendez-vous — passe par une confirmation.
+                </li>
+                <li>
+                  <strong>Vous parlez au fondateur.</strong>
+                  Pas de formulaire, pas de file d’attente : mon numéro est en bas
+                  de cette page.
+                </li>
+                <li>
+                  <strong>Conçu et développé à N’Djaména.</strong>
+                  L’équipe, le code et le service sont ici.
+                </li>
+              </ul>
+
+              <div className="fondateur-signature">
+                <strong>Faycal Habib Ahmat</strong>
+                <span>Fondateur &amp; CEO, Toumaï AI</span>
+              </div>
+
+              <a
+                className="button button-dark"
+                href="https://wa.me/23591912191"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Parler au fondateur
+              </a>
+            </div>
           </div>
         </section>
 
