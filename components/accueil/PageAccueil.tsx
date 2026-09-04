@@ -227,35 +227,6 @@ type Plan = {
   mis_en_avant?: boolean;
 };
 
-/** Les plateformes en service. Chaque ligne décrit ce que le logiciel FAIT,
- *  pas ce qu'il promet. */
-const REALISATIONS = [
-  {
-    secteur: "Opérateur mobile",
-    nom: "Moov Money sur WhatsApp",
-    texte:
-      "Les services Moov Money, côté client et côté agent, dans une conversation WhatsApp. Consultation de solde, transferts, dépôts et retraits, sans quitter la messagerie.",
-  },
-  {
-    secteur: "Éducation",
-    nom: "Lycée La Renaissance",
-    texte:
-      "Gestion scolaire de la 6e à la Terminale : inscriptions, notes, bulletins. Les résultats partent aux tuteurs par SMS, y compris à ceux qui n’ont pas de smartphone.",
-  },
-  {
-    secteur: "Télévision",
-    nom: "Canal+ Tchad",
-    texte:
-      "Réabonnement en ligne, relance avant expiration, assistance par WhatsApp. Le client renouvelle depuis son téléphone au lieu de se déplacer.",
-  },
-  {
-    secteur: "Commerce",
-    nom: "GBA",
-    texte:
-      "Boutique en ligne avec livraison à N’Djaména : catalogue, panier, commandes et administration des stocks.",
-  },
-];
-
 const PLANS_DE_REPLI: Plan[] = [
   {
     code: "gratuit",
@@ -400,27 +371,67 @@ const ABSENCE_AVANT_RELANCE_MS = 20_000;
  * TROIS FAÇONS D'ÉCRIRE, ET LES TROIS MARCHENT.
  *
  * WhatsApp et l'adresse électronique sont des liens directs. Le formulaire
- * compose un message et l'ouvre dans le logiciel de courrier de la personne :
- * il n'y a pas de serveur derrière, et il n'y en a pas besoin. Un formulaire
- * qui poste vers une adresse inexistante affiche « message envoyé » et jette
- * le message. Celui-ci ouvre un brouillon rempli, que la personne voit partir.
+ * poste vers `POST /api/v1/contact`, qui envoie le message par Resend.
  *
- * Le jour où le serveur aura une route de contact, le bouton changera de
- * destination sans que le reste bouge.
+ * LA PREMIÈRE VERSION OUVRAIT LE LOGICIEL DE COURRIER, et c'était une erreur.
+ * Sur un téléphone Android sans compte de messagerie configuré, il ne se
+ * passait rien du tout : le visiteur croyait le bouton cassé. Sur un poste où
+ * Gmail vit dans un onglet, il fallait se reconnecter. Personne n'écrit dans
+ * ces conditions.
+ *
+ * Le champ `site_web` est un piège à robots. Il est caché à l'écran et au
+ * lecteur d'écran, et laissé vide par un humain. Le serveur répond 200 sans
+ * rien envoyer quand il est rempli : un robot qui reçoit une erreur réessaie,
+ * un robot qui reçoit un succès passe à autre chose.
  */
 function ContactFondateur() {
   const [ouvert, setOuvert] = useState(false);
   const [nom, setNom] = useState("");
+  const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [piege, setPiege] = useState("");
+  const [envoi, setEnvoi] = useState<"repos" | "en_cours" | "envoye" | "echec">("repos");
+  const [erreur, setErreur] = useState("");
 
   const envoyer = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
-      const sujet = encodeURIComponent(`Toumaï AI — message de ${nom || "un visiteur"}`);
-      const corps = encodeURIComponent(`${message}\n\n${nom}`);
-      window.location.href = `mailto:contact@toumaiai.com?subject=${sujet}&body=${corps}`;
+      if (envoi === "en_cours") return;
+      setEnvoi("en_cours");
+      setErreur("");
+      try {
+        const reponse = await fetch(`${API_BASE}/contact`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nom,
+            message,
+            email: email || null,
+            site_web: piege || null,
+          }),
+        });
+        if (reponse.ok) {
+          setEnvoi("envoye");
+          setNom("");
+          setEmail("");
+          setMessage("");
+          return;
+        }
+        const charge = await reponse.json().catch(() => null);
+        setErreur(
+          charge?.message ||
+            charge?.detail ||
+            "Le message n’est pas parti. Écrivez à contact@toumaiai.com.",
+        );
+        setEnvoi("echec");
+      } catch {
+        setErreur(
+          "Pas de réseau. Réessayez, ou écrivez à contact@toumaiai.com.",
+        );
+        setEnvoi("echec");
+      }
     },
-    [nom, message],
+    [nom, email, message, piege, envoi],
   );
 
   return (
@@ -438,7 +449,7 @@ function ContactFondateur() {
           contact@toumaiai.com
         </a>
         <button
-          className="text-link fondateur-bascule"
+          className="fondateur-bascule"
           type="button"
           aria-expanded={ouvert}
           onClick={() => setOuvert((o) => !o)}
@@ -456,7 +467,17 @@ function ContactFondateur() {
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               placeholder="Nom et prénom"
+              minLength={2}
               required
+            />
+          </label>
+          <label>
+            <span>Votre adresse (pour la réponse)</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@exemple.com"
             />
           </label>
           <label>
@@ -466,58 +487,44 @@ function ContactFondateur() {
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
               placeholder="Dites-moi ce que vous cherchez à faire."
+              minLength={5}
               required
             />
           </label>
-          <button className="button button-dark" type="submit">
-            Envoyer
+
+          {/* Le piège. `aria-hidden` et `tabIndex` le retirent aussi du
+              clavier et des lecteurs d'écran : un champ caché qu'une personne
+              aveugle peut remplir par erreur ferait rejeter son message. */}
+          <div className="fondateur-piege" aria-hidden="true">
+            <label>
+              Ne remplissez pas ce champ
+              <input
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={piege}
+                onChange={(e) => setPiege(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <button className="button button-dark" type="submit" disabled={envoi === "en_cours"}>
+            {envoi === "en_cours" ? "Envoi…" : "Envoyer"}
           </button>
-          <p className="fondateur-note">
-            Le message s’ouvre dans votre logiciel de courrier avant de partir.
-            Vous le relisez, vous l’envoyez.
-          </p>
+
+          {envoi === "envoye" && (
+            <p className="fondateur-note fondateur-note-ok" role="status">
+              Message reçu. Je vous réponds sous 24 heures.
+            </p>
+          )}
+          {envoi === "echec" && (
+            <p className="fondateur-note fondateur-note-erreur" role="alert">
+              {erreur}
+            </p>
+          )}
         </form>
       )}
     </div>
-  );
-}
-
-/**
- * CE QUI TOURNE DÉJÀ.
- *
- * Un acheteur qui ne nous connaît pas veut savoir si nous avons déjà livré
- * quelque chose qui tient debout. Ces quatre plateformes sont en service au
- * Tchad et sortent de la même équipe que Toumaï AI. C'est la formulation
- * exacte, et elle compte : ce ne sont pas des clients de Toumaï, ce sont nos
- * réalisations. Écrire « ils utilisent Toumaï » serait faux, et une preuve
- * fausse est pire que pas de preuve.
- */
-function SectionDeploiements() {
-  return (
-    <section className="deploiements" id="realisations">
-      <div className="shell">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Déjà en service</p>
-            <h2>Ce que nous avons déjà mis en production.</h2>
-          </div>
-          <p>
-            Quatre plateformes qui tournent au Tchad aujourd’hui, construites par
-            l’équipe qui développe Toumaï AI.
-          </p>
-        </div>
-
-        <div className="deploiements-grille">
-          {REALISATIONS.map((item) => (
-            <article key={item.nom}>
-              <p className="deploiement-secteur">{item.secteur}</p>
-              <h3>{item.nom}</h3>
-              <p>{item.texte}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -530,7 +537,7 @@ function SectionTarifs() {
 
     (async () => {
       try {
-        const reponse = await fetch(`${API_BASE}/api/v1/abonnements/plans`);
+        const reponse = await fetch(`${API_BASE}/abonnements/plans`);
         if (!reponse.ok) return;
         const charge = await reponse.json();
         const distants: { code: string; nom: string; prix_xaf: number; periode: string }[] =
@@ -557,7 +564,7 @@ function SectionTarifs() {
 
     (async () => {
       try {
-        const reponse = await fetch(`${API_BASE}/api/v1/paiements/etat`);
+        const reponse = await fetch(`${API_BASE}/paiements/etat`);
         if (!reponse.ok) return;
         const charge = await reponse.json();
         if (vivant) setPaiementOuvert(Boolean(charge?.data?.moneroo?.configure));
@@ -1096,8 +1103,6 @@ export function PageAccueil() {
             </div>
           </div>
         </section>
-
-        <SectionDeploiements />
 
         <SectionTarifs />
 

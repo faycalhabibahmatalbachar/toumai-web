@@ -867,55 +867,6 @@ html:has(.tmh) {
   .tmh .fondateur-portrait { max-width: 18rem; }
 }
 
-/* ─── CE QUI TOURNE DEJA ───────────────────────────────────────────────────
- *
- * Quatre cartes sobres, sans image. Une capture d ecran de chaque plateforme
- * aurait ete tentante ; elle aurait aussi vieilli en trois mois et alourdi la
- * page de 400 Ko. Le texte dit ce que le logiciel fait, ce qui ne vieillit
- * pas. */
-.tmh .deploiements {
-  padding-block: clamp(4rem, 8vw, 7rem);
-  border-top: 1px solid var(--line);
-}
-
-.tmh .deploiements-grille {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 1rem;
-  margin-top: clamp(2.2rem, 4vw, 3.2rem);
-}
-
-.tmh .deploiements-grille article {
-  display: flex;
-  flex-direction: column;
-  padding: 1.7rem;
-  border: 1px solid var(--line);
-  border-radius: 1.2rem;
-  background: rgba(255, 255, 255, .22);
-}
-
-.tmh .deploiement-secteur {
-  margin: 0 0 1.6rem;
-  color: var(--terracotta-deep);
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.tmh .deploiements-grille h3 {
-  margin: 0 0 .8rem;
-  font: 400 1.5rem/1.15 Georgia, "Times New Roman", serif;
-  letter-spacing: -.03em;
-}
-
-.tmh .deploiements-grille article > p:not(.deploiement-secteur) {
-  margin: 0;
-  color: var(--muted);
-  font-size: .9rem;
-  line-height: 1.6;
-}
-
 /* ─── LE CONTACT DU FONDATEUR ──────────────────────────────────────────────
  *
  * Le formulaire est replie par defaut. Deploye, il pousserait le pied de page
@@ -983,3 +934,16 @@ html:has(.tmh) {
   font-size: .78rem;
   line-height: 1.5;
 }
+
+.tmh .fondateur-piege {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.tmh .fondateur-note-ok { color: var(--terracotta-deep); font-weight: 600; }
+.tmh .fondateur-note-erreur { color: #a8482c; }
+
+.tmh .fondateur-formulaire button[disabled] { opacity: .6; cursor: progress; }
