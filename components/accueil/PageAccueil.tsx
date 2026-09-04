@@ -153,7 +153,7 @@ const CAPACITES = [
     kicker: "Travail réel, accord demandé",
     titre: "Il prépare tout. Vous décidez d’envoyer.",
     texte:
-      "Un rendez-vous à décaler, une facture, un devis : Toumaï ouvre le courrier, comprend la demande et écrit la réponse. Puis il s’arrête et demande — rien ne part avant que vous ayez appuyé sur Envoyer.",
+      "Un rendez-vous à décaler, une facture, un devis : Toumaï ouvre le courrier, comprend la demande et écrit la réponse. Puis il s’arrête et demande. Rien ne part avant que vous ayez appuyé sur Envoyer.",
     points: [
       "Trois courriers lus, compris et répondus",
       "Une confirmation obligatoire avant chaque envoi",
@@ -224,6 +224,14 @@ type Plan = {
   accroche: string;
   capacites: string[];
   action: { texte: string; href: string; externe?: boolean };
+  /** Le ton de la carte. Quatre teintes prises dans la palette de la page,
+   *  du plus sobre au plus soutenu : l'oeil doit lire la montée en gamme
+   *  avant même de lire les prix. */
+  ton: "sable" | "ambre" | "terracotta" | "encre";
+  /** Le plan que tout le monde a déjà. Son bouton ne s'enfonce pas : il
+   *  n'y a rien à souscrire, et un bouton qui ne mène nulle part est une
+   *  promesse en l'air. */
+  actuel?: boolean;
   mis_en_avant?: boolean;
 };
 
@@ -241,7 +249,9 @@ const PLANS_DE_REPLI: Plan[] = [
       "1 connecteur",
       "50 Mo de fichiers",
     ],
-    action: { texte: "Créer un compte", href: "/register" },
+    action: { texte: "Votre plan actuel", href: "/register" },
+    ton: "sable",
+    actuel: true,
   },
   {
     code: "essentiel",
@@ -257,7 +267,8 @@ const PLANS_DE_REPLI: Plan[] = [
       "500 messages WhatsApp par mois",
       "1 Go de fichiers",
     ],
-    action: { texte: "Choisir Essentiel", href: "/register?plan=essentiel" },
+    action: { texte: "Passer à Essentiel", href: "/register?plan=essentiel" },
+    ton: "ambre",
   },
   {
     code: "pro",
@@ -273,7 +284,8 @@ const PLANS_DE_REPLI: Plan[] = [
       "Connecteurs illimités, 30 automatisations",
       "10 Go de fichiers",
     ],
-    action: { texte: "Choisir Toumaï 5", href: "/register?plan=pro" },
+    action: { texte: "Passer à Toumaï 5", href: "/register?plan=pro" },
+    ton: "terracotta",
     mis_en_avant: true,
   },
   {
@@ -289,10 +301,11 @@ const PLANS_DE_REPLI: Plan[] = [
       "Accompagnement au déploiement",
     ],
     action: {
-      texte: "Nous écrire",
-      href: "mailto:contact@toumaiai.com?subject=Toumaï%20AI%20—%20offre%20Entreprise",
+      texte: "Demander un devis",
+      href: "mailto:contact@toumaiai.com?subject=Toumai%20AI%20:%20offre%20Entreprise",
       externe: true,
     },
+    ton: "encre",
   },
 ];
 
@@ -472,7 +485,7 @@ function ContactFondateur() {
             />
           </label>
           <label>
-            <span>Votre adresse (pour la réponse)</span>
+            <span>Votre adresse</span>
             <input
               type="email"
               value={email}
@@ -595,50 +608,53 @@ function SectionTarifs() {
         {plans.map((plan) => (
           <article
             key={plan.code}
-            className={plan.mis_en_avant ? "price-card price-card-featured" : "price-card"}
+            className={[
+              "price-card",
+              `price-card-${plan.ton}`,
+              plan.mis_en_avant ? "price-card-featured" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
           >
             <p className="plan">{plan.nom}</p>
-            <h3>
+
+            <p className="price-montant">
               {plan.code === "entreprise" ? (
-                "Sur devis"
+                <span className="price-mot">Sur devis</span>
               ) : plan.prix_xaf === 0 ? (
-                "Gratuit"
+                <span className="price-mot">Gratuit</span>
               ) : (
                 <>
-                  {enFrancs(plan.prix_xaf)}
-                  <span className="price-unite"> FCFA / mois</span>
+                  <span className="price-chiffre">{enFrancs(plan.prix_xaf)}</span>
+                  <span className="price-unite">FCFA par mois</span>
                 </>
               )}
-            </h3>
-            <p>{plan.accroche}</p>
+            </p>
+
+            <p className="price-accroche">{plan.accroche}</p>
+
             <ul>
               {plan.capacites.map((ligne) => (
                 <li key={ligne}>{ligne}</li>
               ))}
             </ul>
-            {plan.action.externe ? (
-              <a
-                className={
-                  plan.mis_en_avant
-                    ? "button button-dark button-full"
-                    : "button button-quiet button-full"
-                }
-                href={plan.action.href}
-              >
+
+            {plan.actuel ? (
+              <span className="button button-full price-action price-action-inerte"
+                    aria-disabled="true">
+                {plan.action.texte}
+              </span>
+            ) : plan.action.externe ? (
+              <a className="button button-full price-action" href={plan.action.href}>
                 {plan.action.texte}
               </a>
             ) : (
-              <Link
-                className={
-                  plan.mis_en_avant
-                    ? "button button-dark button-full"
-                    : "button button-quiet button-full"
-                }
-                href={plan.action.href}
-              >
-                {plan.prix_xaf > 0 && !paiementOuvert
-                  ? "Créer un compte"
-                  : plan.action.texte}
+              // Le libellé ne dépend plus de l'état du paiement. Le lien mène à
+              // la création de compte avec le plan retenu, ce qui est la
+              // première étape réelle, que la carte soit branchée ou non. La
+              // ligne sous la grille dit où en est l'encaissement.
+              <Link className="button button-full price-action" href={plan.action.href}>
+                {plan.action.texte}
               </Link>
             )}
           </article>
@@ -807,7 +823,7 @@ export function PageAccueil() {
           <a
             className="brand"
             href="/"
-            aria-label="Toumaï AI — recharger la page d’accueil"
+            aria-label="Toumaï AI, recharger la page d’accueil"
             onClick={rafraichir}
           >
             <Logo size={34} className="brand-logo" />
@@ -1141,24 +1157,21 @@ export function PageAccueil() {
               <p className="section-kicker">Fondateur &amp; CEO</p>
               <h2>Derrière ce logiciel, il y a quelqu’un à qui parler.</h2>
               <p className="fondateur-texte">
-                Toumaï AI n’est pas une démonstration. C’est un service que des
-                entreprises branchent à leur courrier, à leur agenda et à leur
-                WhatsApp, et qu’elles font tourner tous les jours. Un logiciel
-                qu’on facture engage celui qui le signe — c’est pour cela que mon
-                nom, mon numéro et mon adresse sont sur cette page.
+                Je m’appelle Faycal. J’ai construit Toumaï pour qu’un Tchadien
+                puisse demander de l’aide à une machine dans sa langue, depuis
+                son téléphone, sans attendre que quelqu’un ailleurs y pense pour
+                lui.
               </p>
-
-              <ul className="fondateur-engagements">
-                <li>
-                  <strong>Rien ne part en votre nom sans votre accord.</strong>
-                  Chaque action vers l’extérieur — un courriel, un message, un
-                  rendez-vous — passe par une confirmation.
-                </li>
-                <li>
-                  <strong>Vous parlez au fondateur.</strong>
-                  Votre message arrive chez moi, pas dans une boîte partagée.
-                </li>
-              </ul>
+              <p className="fondateur-texte">
+                Ce qui a commencé dans une chambre à N’Djaména tourne aujourd’hui
+                chez des gens que je ne connais pas. C’est la plus belle chose
+                qui me soit arrivée, et la plus exigeante : quand vous confiez
+                votre travail à Toumaï, vous me faites confiance à moi.
+              </p>
+              <p className="fondateur-texte">
+                Alors écrivez-moi. Une question, une idée, un reproche. Je lis
+                tout, et je réponds.
+              </p>
 
               <div className="fondateur-signature">
                 <strong>Faycal Habib Ahmat</strong>
@@ -1207,7 +1220,7 @@ export function PageAccueil() {
           <a
             className="brand footer-brand"
             href="/"
-            aria-label="Toumaï AI — recharger la page d’accueil"
+            aria-label="Toumaï AI, recharger la page d’accueil"
             onClick={rafraichir}
           >
             <Logo size={32} className="brand-logo" />
