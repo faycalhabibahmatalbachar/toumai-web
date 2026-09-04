@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { AgentDeService } from "@/components/AgentDeService";
 import { ThemeProvider } from "@/lib/theme-context";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { CookieConsent } from "@/components/CookieConsent";
@@ -252,6 +253,7 @@ export default function RootLayout({
           <AuthProvider>
             <MaintenanceGate />
             <AnalyticsInit />
+            <AgentDeService />
             {children}
             <CookieConsent />
           </AuthProvider>

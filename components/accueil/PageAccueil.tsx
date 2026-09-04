@@ -607,6 +607,24 @@ export function PageAccueil() {
                 className={
                   c.grande ? "animation-shell animation-shell-large" : "animation-shell"
                 }
+                /* L'AFFICHE, EN FOND DU CADRE.
+                 *
+                 * Une scène est une iframe. Si ce document-là n'arrive pas —
+                 * réseau coupé, cache partiel —, le cadre restait un
+                 * rectangle vide de 900 × 540 à côté d'un texte qui promet
+                 * une démonstration. L'affiche est l'état FINAL de la scène,
+                 * photographié par `outils/fabriquer_affiches.py` : 8 à 11 Ko
+                 * de WebP, recouverts par l'iframe dès qu'elle arrive, et
+                 * visibles à sa place quand elle n'arrive pas.
+                 *
+                 * Elle est posée en style plutôt qu'en feuille pour une seule
+                 * raison : le nom du fichier vient de la donnée, pas du CSS. */
+                style={{
+                  backgroundImage: `url("${DOSSIER_ANIMATIONS}/../commun/affiches/${c.fichier.replace(
+                    ".html",
+                    ".webp",
+                  )}")`,
+                }}
               >
                 <CadreAnime fichier={c.fichier} resume={c.resume} />
               </div>

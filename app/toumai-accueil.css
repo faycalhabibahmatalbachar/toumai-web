@@ -584,11 +584,19 @@ html:has(.tmh) {
   }
 }
 
-/* Le cadre lui-meme, a toutes les largeurs. */
+/* Le cadre lui-meme, a toutes les largeurs.
+ *
+ * `background-size: cover` et non `contain` : l affiche est photographiee au
+ * meme rapport 5/3 que le cadre, donc rien n est rogne, et `cover` evite les
+ * bandes d un demi-pixel que `contain` laisse aux arrondis. */
 .tmh .animation-shell {
   width: 100%;
   border-radius: 1.9rem;
   box-shadow: 0 32px 78px rgba(67, 35, 25, .17);
+  background-color: var(--terracotta);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 

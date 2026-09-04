@@ -66,6 +66,25 @@
       text-anchor: middle;
     }
 
+    /* La main qui ecrit : contour sombre, chair claire. Le rapport des deux
+     * epaisseurs (26 et 17) donne un liser de 4,5 unites de chaque cote —
+     * assez pour separer deux doigts qui se chevauchent, assez fin pour ne
+     * pas alourdir le trait. */
+    .doigt .contour,
+    .doigt .chair {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .doigt .contour { stroke: #241d18; stroke-width: 26; }
+    .doigt .chair   { stroke: #fdf7ee; stroke-width: 17; }
+
+    /* L avant-bras est plus epais qu un doigt, et le liser reste le meme. */
+    .bras .contour,
+    .bras .chair { fill: none; stroke-linecap: round; }
+    .bras .contour { stroke: #241d18; stroke-width: 62; }
+    .bras .chair   { stroke: #fdf7ee; stroke-width: 53; }
+
     /* L'anneau qui respire autour de « Envoyer » : le seul mouvement qui reste
      * pendant que la carte attend, et il dit la seule chose qui compte —
      * ça attend quelqu'un. */
@@ -130,6 +149,20 @@
              pointe avance sur la même abscisse. C'est ce qui sépare une
              écriture d'un texte qui apparaît : les lettres sortent du trait,
              elles ne surgissent pas entières. -->
+        <!-- LES DOIGTS DE LA MAIN QUI ECRIT.
+             Chaque doigt est un trace unique, dessine deux fois : epais et
+             sombre pour le contour, plus fin et clair pour la chair. Deux
+             `use` sur un seul `path` — la geometrie n existe qu a un endroit.
+             Le repere est celui du stylo : l origine est la POINTE, l axe des
+             x suit le corps. La main placee avec les memes arguments que le
+             stylo le tient donc forcement juste. -->
+        <path id="d-index"       d="M150 -20 C 116 -24, 78 -20, 46 -8" />
+        <path id="d-majeur"      d="M160 28 C 122 18, 86 14, 56 22" />
+        <path id="d-annulaire"   d="M166 60 C 130 50, 96 48, 70 58" />
+        <path id="d-auriculaire" d="M170 90 C 142 82, 112 82, 90 94" />
+        <path id="d-pouce"       d="M140 66 C 110 56, 82 38, 62 14" />
+        <path id="d-bras"        d="M196 76 C 268 132, 338 192, 410 264" />
+
         <clipPath id="encre">
           <rect id="encre-cache" x="522" y="370" width="0" height="72" />
         </clipPath>
@@ -249,29 +282,29 @@
            mêmes arguments que le stylo, elle le tient forcément juste. Les
            doigts se referment autour de x = 62, là où on tient un stylo. -->
       <g id="main-stylo" class="main" opacity="0">
-        <g transform="scale(1.05)"
-           fill="#fdf7ee" stroke="#241d18" stroke-width="10"
-           stroke-linecap="round" stroke-linejoin="round">
-          <!-- L avant-bras, dessine en premier : le poing le recouvre. -->
-          <path d="M140 88 L486 348 L452 396 L106 128 Z" />
-          <!-- Le poing. Il est REMPLI, contrairement aux mains des autres
-               scenes : sur la feuille blanche, un contour vide laisserait
-               voir le corps du stylo au travers, et une main transparente ne
-               tient rien. Les trois bosses du dessus sont les articulations —
-               c est ce qui separe un poing d un ovale. -->
-          <path d="M92 -18
-                   C 100 -32, 118 -34, 126 -20
-                   C 134 -32, 150 -30, 156 -14
-                   C 166 -6, 170 12, 168 32
-                   C 166 58, 160 84, 148 100
-                   C 134 118, 106 122, 86 114
-                   C 64 105, 50 86, 50 62
-                   C 50 40, 60 14, 74 -2 Z" />
-          <!-- L index, pose sur le corps du stylo et dirige vers la pointe. -->
-          <path d="M98 -30 C 74 -27, 50 -20, 30 -12" fill="none" />
-          <!-- Le pouce, qui sort du poing et vient pincer le stylo. -->
-          <path d="M74 80 C 46 64, 34 34, 47 12 C 53 2, 63 -3, 74 -1"
-                fill="none" />
+        <g transform="scale(1.02)">
+          <!-- L avant-bras, sous tout le reste. -->
+          <g class="bras"><use href="#d-bras" class="contour" /><use href="#d-bras" class="chair" /></g>
+          <!-- Les doigts replies, du plus loin au plus proche : chacun est
+               trace deux fois, une fois epais et sombre, une fois plus fin et
+               clair. C est ce liser qui separe deux doigts qui se chevauchent ;
+               sans lui, une main fermee est une masse. -->
+          <g class="doigt"><use href="#d-auriculaire" class="contour" /><use href="#d-auriculaire" class="chair" /></g>
+          <g class="doigt"><use href="#d-annulaire" class="contour" /><use href="#d-annulaire" class="chair" /></g>
+          <g class="doigt"><use href="#d-majeur" class="contour" /><use href="#d-majeur" class="chair" /></g>
+          <!-- Le dos de la main -->
+          <path d="M134 -24 C 174 -22, 204 2, 214 40
+                   C 224 80, 212 114, 178 122
+                   C 144 130, 118 110, 114 74
+                   C 110 38, 114 -12, 134 -24 Z"
+                fill="#fdf7ee" stroke="#241d18" stroke-width="9"
+                stroke-linejoin="round" />
+          <!-- L index, POSE sur le corps du stylo et dirige vers la pointe :
+               c est lui qui dit que la main ecrit et ne pousse pas. -->
+          <g class="doigt"><use href="#d-index" class="contour" /><use href="#d-index" class="chair" /></g>
+          <!-- Le pouce, au premier plan, qui pince le stylo juste derriere
+               la pointe. -->
+          <g class="doigt"><use href="#d-pouce" class="contour" /><use href="#d-pouce" class="chair" /></g>
         </g>
       </g>
 

@@ -37,11 +37,14 @@ RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE = os.path.join(RACINE, "animations")
 CIBLE = os.path.join(RACINE, "public", "accueil-medias", "animations")
 
-#: Par scène, HTML seul — les ressources communes sont partagées et mises en
-#: cache une fois pour toutes, elles ne se comptent pas par scène.
+#: Par scène : son HTML PLUS son affiche. L'affiche vit dans `commun/` pour
+#: des raisons de rangement, mais elle n'a rien de commun — elle appartient
+#: à une seule scène, et doit peser sur le budget de cette scène-là.
+#: Comptée dans le partagé, elle faisait mécaniquement dépasser le commun
+#: sans que personne ne sache quelle scène était lourde.
 BUDGET_SCENE_KO = 80
 
-#: Tout ce qui est commun réuni : socle, feuille de style, mains, police
+#: Ce qui est VRAIMENT partagé : socle, feuille de style, mains, police
 #: manuscrite. Relevé de 60 à 72 Ko le 4 septembre 2026 pour la police : la
 #: pile générique `cursive` donnait trois écritures différentes sur trois
 #: systèmes et rien de manuscrit sur plusieurs Android. 21 Ko sous-ensemble,
@@ -70,18 +73,29 @@ def main() -> int:
     args = ap.parse_args()
 
     scenes = [f for f in lister(os.path.join(SOURCE, "scenes")) if f.endswith(".html")]
-    communs = lister(os.path.join(SOURCE, "commun"))
+    dans_affiches = os.path.sep + "affiches" + os.path.sep
+    communs = [f for f in lister(os.path.join(SOURCE, "commun"))
+               if dans_affiches not in f]
+    dossier_affiches = os.path.join(SOURCE, "commun", "affiches")
 
-    print("SCÈNES")
+    print("SCÈNES  (html + affiche)")
     depassements = []
+    sans_affiche = []
     total_scenes = 0
     for f in scenes:
-        ko = poids(f) / 1024
+        nom = os.path.basename(f)
+        affiche = os.path.join(dossier_affiches, nom.replace(".html", ".webp"))
+        ko_html = poids(f) / 1024
+        ko_affiche = poids(affiche) / 1024 if os.path.exists(affiche) else 0
+        ko = ko_html + ko_affiche
         total_scenes += ko
         marque = "  " if ko <= BUDGET_SCENE_KO else "!!"
         if ko > BUDGET_SCENE_KO:
-            depassements.append((os.path.basename(f), ko))
-        print(f" {marque} {os.path.basename(f):<34} {ko:6.1f} Ko")
+            depassements.append((nom, ko))
+        if not ko_affiche:
+            sans_affiche.append(nom)
+        print(f" {marque} {nom:<34} {ko_html:6.1f} + {ko_affiche:5.1f}"
+              f" = {ko:6.1f} Ko")
 
     print("\nCOMMUN (chargé une fois, partagé par toutes les scènes)")
     total_commun = 0
@@ -95,6 +109,16 @@ def main() -> int:
     print(f"\n  {len(scenes)} scène(s) : {total_scenes:.1f} Ko"
           f"  |  commun : {total_commun:.1f} Ko"
           f"  |  budget : {BUDGET_SCENE_KO} Ko par scène")
+
+    if sans_affiche:
+        # Une scène sans affiche laissera un rectangle vide le jour où son
+        # iframe n'arrivera pas — exactement le défaut que les affiches
+        # existent pour supprimer. On ne publie pas dans cet état.
+        print("\nSANS AFFICHE — publication refusée :")
+        for nom in sans_affiche:
+            print(f"  - {nom}")
+        print("\n  `python outils/fabriquer_affiches.py` les produit toutes.")
+        return 1
 
     if depassements:
         print("\nHORS BUDGET — publication refusée :")
