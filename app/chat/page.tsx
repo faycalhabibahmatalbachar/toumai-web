@@ -1746,8 +1746,15 @@ export default function ChatPage() {
               >
                 <GlobeIcon />
               </button>
-              <div className="flex-1" />
+              {/* LE SELECTEUR DE MODELE PASSE A GAUCHE, avec les outils.
+                  Il etait apres l espace extensible : sur un telephone de
+                  390 px, cela creusait un trou de cent pixels entre le globe
+                  et « Sao 4 », et les commandes avaient l air eparpillees. Il
+                  est de toute facon a sa place ici : c est avec quoi on envoie,
+                  au meme titre que la recherche web. A droite il ne reste que
+                  les deux gestes de sortie, dicter et envoyer. */}
               <ModelSelector value={model} onChange={setModel} />
+              <div className="flex-1" />
               <button
                 onClick={toggleDictation}
                 aria-label="Dicter"

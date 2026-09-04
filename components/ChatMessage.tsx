@@ -553,6 +553,12 @@ export function ChatMessage({
               qu'on avait écrit — un prompt long qu'on veut réutiliser
               ailleurs — ni relancer une question restée sans bonne réponse
               sans la retaper mot pour mot. */}
+          {/* ICONES SEULES.
+              Trois libelles cote a cote — Copier, Modifier, Reessayer —
+              tenaient plus de place que le message lui-meme sur un telephone
+              de 390 px, et repoussaient la bulle. Les icones disent la meme
+              chose ; le libelle reste dans `aria-label` et dans l infobulle,
+              donc rien n est perdu au clavier ni au lecteur d ecran. */}
           <div className="msg-actions flex items-center gap-0.5">
             <button
               onClick={copy}
@@ -561,7 +567,6 @@ export function ChatMessage({
               className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
             >
               {copied ? <CheckIcon /> : <CopyIcon />}
-              {copied ? "Copié" : "Copier"}
             </button>
             {editable && onEdit && (
               <button
@@ -570,7 +575,7 @@ export function ChatMessage({
                 title="Modifier"
                 className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
               >
-                <EditIcon /> Modifier
+                <EditIcon />
               </button>
             )}
             {editable && onRetry && (
@@ -580,16 +585,8 @@ export function ChatMessage({
                 title="Renvoyer la même question"
                 className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
               >
-                <RegenerateIcon /> Réessayer
+                <RegenerateIcon />
               </button>
-            )}
-            {jourDit(message.envoyeLe) && (
-              <span
-                title={instantComplet(message.envoyeLe)}
-                className="cursor-help select-none px-1.5 py-1 text-[11px] text-[var(--text-tertiary)]"
-              >
-                {jourDit(message.envoyeLe)}
-              </span>
             )}
           </div>
         </div>

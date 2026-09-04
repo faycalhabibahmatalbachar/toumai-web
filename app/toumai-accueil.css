@@ -1076,20 +1076,28 @@ html:has(.tmh) {
  * cadrage se fait par `object-fit` plutot qu en deformant l image. Le point de
  * cadrage est a 22 % de la hauteur : c est la ou est le visage, et c est ce
  * qui doit rester quand la colonne raccourcit. */
-.tmh .fondateur-inner {
-  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
-  align-items: stretch;
-}
+/* AU-DELA DE 820 px SEULEMENT. La maquette empile la section sous ce seuil,
+ * dans une media query. Ecrites plus bas dans la meme feuille et a
+ * specificite egale, ces regles la battaient sans etre bornees : sur un
+ * telephone de 390 px, la photo restait en colonne et le cadrage `cover`
+ * coupait le visage en deux. Meme defaut que les scenes tombees a 46 px le
+ * 4 septembre, meme correction. */
+@media (min-width: 821px) {
+  .tmh .fondateur-inner {
+    grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+    align-items: stretch;
+  }
 
-.tmh .fondateur-portrait {
-  max-width: 28rem;
-  align-self: stretch;
-}
+  .tmh .fondateur-portrait {
+    max-width: 28rem;
+    align-self: stretch;
+  }
 
-.tmh .fondateur-portrait img {
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 22%;
+  .tmh .fondateur-portrait img {
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 22%;
+  }
 }
 
 .tmh .fondateur-texte + .fondateur-texte { margin-top: 1rem; }
