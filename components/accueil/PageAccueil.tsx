@@ -45,6 +45,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { API_BASE } from "@/lib/config";
 import { Logo } from "@/components/Logo";
 import { CONTACTS, RESEAUX } from "@/components/ReseauxSociaux";
 import { useAuth } from "@/lib/auth-context";
@@ -187,7 +188,108 @@ const LIENS_NAV = [
   { href: "#ressources", texte: "Ressources" },
 ];
 
-/** Les colonnes du pied de page — les mêmes que sur le reste du site. */
+
+/** LES PLANS.
+ *
+ * Ce tableau est un REPLI, pas la source de vérité : la vraie grille vit dans
+ * la table `plans` du serveur, et `SectionTarifs` la recharge à l'ouverture de
+ * la page. Deux raisons de garder une copie ici :
+ *
+ * 1. La page est un export statique. Sans repli, la grille tarifaire serait
+ *    vide le temps de l'aller-retour — et vide pour de bon si l'API ne répond
+ *    pas. C'est exactement le défaut des cadres d'animation vides qu'on vient
+ *    de supprimer avec les affiches ; la réponse est la même.
+ * 2. Les prix affichés doivent être ceux du serveur. Si les deux divergent,
+ *    c'est le serveur qui gagne, et la divergence se voit à l'écran.
+ *
+ * Les lignes de capacité sont écrites en clair plutôt que dérivées du jsonb
+ * `limites` : « 200 messages par jour » se lit, « messages.jour = 200 » non.
+ */
+type Plan = {
+  code: string;
+  nom: string;
+  prix_xaf: number;
+  periode: string;
+  accroche: string;
+  capacites: string[];
+  action: { texte: string; href: string; externe?: boolean };
+  mis_en_avant?: boolean;
+};
+
+const PLANS_DE_REPLI: Plan[] = [
+  {
+    code: "gratuit",
+    nom: "Découverte",
+    prix_xaf: 0,
+    periode: "aucune",
+    accroche: "Pour essayer Toumaï et faire vos premières tâches.",
+    capacites: [
+      "20 messages par jour",
+      "5 images par mois",
+      "3 documents analysés par mois",
+      "1 connecteur",
+      "50 Mo de fichiers",
+    ],
+    action: { texte: "Créer un compte", href: "/register" },
+  },
+  {
+    code: "essentiel",
+    nom: "Essentiel",
+    prix_xaf: 3000,
+    periode: "mois",
+    accroche: "Pour un usage quotidien, avec la voix et les connecteurs.",
+    capacites: [
+      "200 messages par jour",
+      "60 images et 40 documents par mois",
+      "30 min de voix par mois",
+      "5 connecteurs, 5 automatisations",
+      "500 messages WhatsApp par mois",
+      "1 Go de fichiers",
+    ],
+    action: { texte: "Choisir Essentiel", href: "/register?plan=essentiel" },
+  },
+  {
+    code: "pro",
+    nom: "Toumaï 5",
+    prix_xaf: 9000,
+    periode: "mois",
+    accroche: "Messages illimités, l’agent navigateur, tout le raisonnement.",
+    capacites: [
+      "Messages et documents illimités",
+      "300 images par mois",
+      "2 h 30 de voix par mois",
+      "200 tâches de l’agent navigateur",
+      "Connecteurs illimités, 30 automatisations",
+      "10 Go de fichiers",
+    ],
+    action: { texte: "Choisir Toumaï 5", href: "/register?plan=pro" },
+    mis_en_avant: true,
+  },
+  {
+    code: "entreprise",
+    nom: "Entreprise",
+    prix_xaf: 0,
+    periode: "mois",
+    accroche: "Pour une équipe, une école, une administration.",
+    capacites: [
+      "Tout illimité",
+      "Comptes et rôles gérés",
+      "Facturation sur devis",
+      "Accompagnement au déploiement",
+    ],
+    action: {
+      texte: "Nous écrire",
+      href: "mailto:contact@toumaiai.com?subject=Toumaï%20AI%20—%20offre%20Entreprise",
+      externe: true,
+    },
+  },
+];
+
+/** 9000 → « 9 000 ». L'espace est insécable : un prix coupé en fin de ligne
+ *  se lit comme deux nombres. */
+function enFrancs(montant: number): string {
+  return montant.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+}
 const COLONNES_PIED = [
   {
     titre: "Produit",
@@ -240,6 +342,145 @@ const DOSSIER_ANIMATIONS = "/accueil-medias/animations/scenes";
 
 /** Au-delà de ce temps hors écran, on relance la démonstration à l'entrée. */
 const ABSENCE_AVANT_RELANCE_MS = 20_000;
+
+/**
+ * LA GRILLE TARIFAIRE.
+ *
+ * Elle s'affiche immédiatement avec les plans de repli, puis se corrige avec
+ * ceux du serveur dès qu'ils arrivent. Si l'API ne répond pas, la grille reste
+ * celle du repli — jamais un trou.
+ *
+ * Le libellé du bouton dit ce qui MARCHE AUJOURD'HUI, et rien d'autre. Tant
+ * que le paiement par carte n'est pas branché, il propose de créer un compte,
+ * pas de payer : un bouton « Payer » qui mène à une erreur coûte plus cher
+ * qu'un bouton absent. `GET /paiements/etat` donne cette information, et c'est
+ * le serveur qui la donne — pas une constante qu'on oubliera de changer.
+ */
+function SectionTarifs() {
+  const [plans, setPlans] = useState<Plan[]>(PLANS_DE_REPLI);
+  const [paiementOuvert, setPaiementOuvert] = useState(false);
+
+  useEffect(() => {
+    let vivant = true;
+
+    (async () => {
+      try {
+        const reponse = await fetch(`${API_BASE}/api/v1/abonnements/plans`);
+        if (!reponse.ok) return;
+        const charge = await reponse.json();
+        const distants: { code: string; nom: string; prix_xaf: number; periode: string }[] =
+          charge?.data?.plans ?? [];
+        if (!vivant || distants.length === 0) return;
+
+        // On ne remplace QUE ce que le serveur fait autorité : le nom, le prix
+        // et la période. Les lignes de capacité restent celles écrites ici,
+        // parce qu'elles sont rédigées pour être lues.
+        setPlans((actuels) =>
+          actuels.map((local) => {
+            const distant = distants.find((d) => d.code === local.code);
+            return distant
+              ? { ...local, nom: distant.nom, prix_xaf: distant.prix_xaf,
+                  periode: distant.periode }
+              : local;
+          }),
+        );
+      } catch {
+        // Hors ligne ou API muette : la grille de repli reste affichée. C'est
+        // le comportement voulu, il n'y a rien à signaler.
+      }
+    })();
+
+    (async () => {
+      try {
+        const reponse = await fetch(`${API_BASE}/api/v1/paiements/etat`);
+        if (!reponse.ok) return;
+        const charge = await reponse.json();
+        if (vivant) setPaiementOuvert(Boolean(charge?.data?.moneroo?.configure));
+      } catch {
+        /* le bouton reste « Créer un compte », qui marche toujours */
+      }
+    })();
+
+    return () => {
+      vivant = false;
+    };
+  }, []);
+
+  return (
+    <section className="pricing shell" id="tarifs">
+      <div className="section-heading pricing-heading">
+        <div>
+          <p className="section-kicker">Des offres lisibles</p>
+          <h2>Commencez gratuitement. Payez quand vous en avez besoin.</h2>
+        </div>
+        <p>
+          Les prix sont en francs CFA, sans engagement. Vous changez de plan ou
+          vous arrêtez quand vous voulez.
+        </p>
+      </div>
+
+      <div className="pricing-grid pricing-grid-quatre">
+        {plans.map((plan) => (
+          <article
+            key={plan.code}
+            className={plan.mis_en_avant ? "price-card price-card-featured" : "price-card"}
+          >
+            <p className="plan">{plan.nom}</p>
+            <h3>
+              {plan.code === "entreprise" ? (
+                "Sur devis"
+              ) : plan.prix_xaf === 0 ? (
+                "Gratuit"
+              ) : (
+                <>
+                  {enFrancs(plan.prix_xaf)}
+                  <span className="price-unite"> FCFA / mois</span>
+                </>
+              )}
+            </h3>
+            <p>{plan.accroche}</p>
+            <ul>
+              {plan.capacites.map((ligne) => (
+                <li key={ligne}>{ligne}</li>
+              ))}
+            </ul>
+            {plan.action.externe ? (
+              <a
+                className={
+                  plan.mis_en_avant
+                    ? "button button-dark button-full"
+                    : "button button-quiet button-full"
+                }
+                href={plan.action.href}
+              >
+                {plan.action.texte}
+              </a>
+            ) : (
+              <Link
+                className={
+                  plan.mis_en_avant
+                    ? "button button-dark button-full"
+                    : "button button-quiet button-full"
+                }
+                href={plan.action.href}
+              >
+                {plan.prix_xaf > 0 && !paiementOuvert
+                  ? "Créer un compte"
+                  : plan.action.texte}
+              </Link>
+            )}
+          </article>
+        ))}
+      </div>
+
+      <p className="pricing-note">
+        {paiementOuvert
+          ? "Paiement par carte bancaire (Visa, Mastercard). Airtel Money et Moov Money arrivent."
+          : "Le paiement en ligne ouvre bientôt. Créez votre compte : vous garderez vos conversations."}
+      </p>
+    </section>
+  );
+}
 
 function CadreAnime({ fichier, resume }: { fichier: string; resume: string }) {
   const cadre = useRef<HTMLIFrameElement>(null);
@@ -691,60 +932,7 @@ export function PageAccueil() {
           </div>
         </section>
 
-        <section className="pricing shell" id="tarifs">
-          <div className="section-heading pricing-heading">
-            <div>
-              <p className="section-kicker">Des offres lisibles</p>
-              <h2>Commencez simplement. Évoluez lorsque vous en avez besoin.</h2>
-            </div>
-            <p>
-              Une base accessible pour découvrir Toumaï, puis davantage de capacité pour un
-              usage régulier ou collectif.
-            </p>
-          </div>
-
-          <div className="pricing-grid">
-            <article className="price-card">
-              <p className="plan">Découverte</p>
-              <h3>Gratuit</h3>
-              <p>Pour découvrir Toumaï et réaliser vos premières tâches.</p>
-              <ul>
-                <li>Conversations essentielles</li>
-                <li>Aide à la rédaction</li>
-                <li>Explications et résumés</li>
-              </ul>
-              <Link className="button button-quiet button-full" href="/register">
-                Commencer
-              </Link>
-            </article>
-            <article className="price-card price-card-featured">
-              <p className="plan">Professionnel</p>
-              <h3>Plus de capacité</h3>
-              <p>Pour un travail quotidien plus long, plus avancé et plus fluide.</p>
-              <ul>
-                <li>Usage étendu</li>
-                <li>Raisonnement approfondi</li>
-                <li>Création et analyse avancées</li>
-              </ul>
-              <Link className="button button-dark button-full" href="/chat">
-                Essayer Toumaï
-              </Link>
-            </article>
-            <article className="price-card">
-              <p className="plan">Organisation</p>
-              <h3>Sur mesure</h3>
-              <p>Pour connecter Toumaï aux besoins et aux processus de votre équipe.</p>
-              <ul>
-                <li>Accompagnement dédié</li>
-                <li>Déploiement adapté</li>
-                <li>Support pour les équipes</li>
-              </ul>
-              <a className="button button-quiet button-full" href="mailto:contact@toumaiai.com">
-                Nous contacter
-              </a>
-            </article>
-          </div>
-        </section>
+        <SectionTarifs />
 
         <section className="resources shell" id="ressources">
           <div>

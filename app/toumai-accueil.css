@@ -732,3 +732,37 @@ html:has(.tmh) {
   .tmh .footer-contact { grid-template-columns: 1fr; gap: 1.1rem; }
   .tmh .footer-bottom { align-items: start; flex-direction: column; }
 }
+
+/* ─── LA GRILLE TARIFAIRE, A QUATRE PLANS ──────────────────────────────────
+ *
+ * La maquette en prevoyait trois, decoratifs et sans prix. Il y en a quatre
+ * reels : Decouverte, Essentiel, Toumai 5 et Entreprise. A quatre, des
+ * colonnes fixes donnent des cartes trop etroites ; `auto-fit` avec un
+ * minimum de 16rem descend de lui-meme a deux colonnes puis a une. */
+.tmh .pricing-grid-quatre {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+/* Le prix est un nombre, pas un titre : l unite doit peser moins que lui,
+ * sinon l oeil lit « FCFA » avant de lire « 9 000 ». */
+.tmh .price-unite {
+  display: block;
+  margin-top: .5rem;
+  font: 500 .82rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* La ligne d etat sous la grille. Elle dit ce qui marche AUJOURD HUI, et
+ * c est le serveur qui le dit — pas une constante qu on oubliera. */
+.tmh .pricing-note {
+  margin: 2.2rem 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: .86rem;
+}
+
+@media (max-width: 540px) {
+  .tmh .price-card { min-height: auto; }
+}
