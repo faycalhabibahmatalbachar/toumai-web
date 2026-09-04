@@ -139,17 +139,17 @@ const CAPACITES = [
   {
     sequence: "05",
     kicker: "Travail réel, accord demandé",
-    titre: "Il fait le travail. Il ne l’envoie pas sans vous.",
+    titre: "Il prépare tout. Vous décidez d’envoyer.",
     texte:
-      "Toumaï ouvre le courrier, classe ce qui se classe, rédige ce qui appelle une réponse — puis il s’arrête et demande. Rien ne part en votre nom tant que vous n’avez pas dit oui.",
+      "Un rendez-vous à décaler, une facture, un devis : Toumaï ouvre le courrier, comprend la demande et écrit la réponse. Puis il s’arrête et demande — rien ne part avant que vous ayez appuyé sur Envoyer.",
     points: [
-      "Le tri fait sans vous, la réponse rédigée pour vous",
-      "Une confirmation obligatoire avant toute action sortante",
+      "Trois courriers lus, compris et répondus",
+      "Une confirmation obligatoire avant chaque envoi",
       "Le même garde-fou sur le mail, WhatsApp et l’agenda",
     ],
     fichier: "06-boite-mail.html",
     resume:
-      "Une main vide une boîte de courrier : elle classe deux lettres, rédige la réponse à la troisième, puis s’arrête devant une carte « Envoyer ? » sans y toucher",
+      "Une main vide une boîte de courrier : pour chacune des trois lettres, elle lit la question, écrit la réponse à la main, puis appuie sur « Envoyer » et un avion de papier s’envole",
     inverse: false,
     grande: true,
   },

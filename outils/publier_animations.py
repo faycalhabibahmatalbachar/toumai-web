@@ -41,8 +41,13 @@ CIBLE = os.path.join(RACINE, "public", "accueil-medias", "animations")
 #: cache une fois pour toutes, elles ne se comptent pas par scène.
 BUDGET_SCENE_KO = 80
 
-#: Tout ce qui est commun réuni : socle, feuille de style, mains.
-BUDGET_COMMUN_KO = 60
+#: Tout ce qui est commun réuni : socle, feuille de style, mains, police
+#: manuscrite. Relevé de 60 à 72 Ko le 4 septembre 2026 pour la police : la
+#: pile générique `cursive` donnait trois écritures différentes sur trois
+#: systèmes et rien de manuscrit sur plusieurs Android. 21 Ko sous-ensemble,
+#: chargés une fois, et seulement par qui fait défiler jusqu'à la scène —
+#: chaque scène est une iframe qui ne se charge qu'à l'écran.
+BUDGET_COMMUN_KO = 72
 
 
 def poids(chemin: str) -> int:

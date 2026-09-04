@@ -48,3 +48,4 @@ next-env.d.ts
 # Caches Python des scripts de competences
 __pycache__/
 *.pyc
+.cache-caveat.ttf

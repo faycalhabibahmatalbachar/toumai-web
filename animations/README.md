@@ -177,11 +177,37 @@ Elle est bonne. On la garde, on ne la réinvente pas.
 ## 6. Ce qui a été construit depuis
 
 **A — la boîte qui se vide** (`scenes/06-boite-mail.html`, 4 septembre 2026).
-Écrite telle que le rang 1 la décrivait, à une chose près : la deuxième lettre
-ne monte plus sur la feuille de travail. Elle part directement au classement,
-sans être ouverte. C'était d'abord une coupe de durée ; c'est devenu le meilleur
-plan de la scène, parce que c'est le seul qui dit « la règle est acquise » sans
-l'écrire.
+Trois courriers, trois sujets, trois réponses : un rendez-vous à décaler, une
+facture, un devis. Pour chacun, la main ouvre la lettre, la question s'affiche
+en toutes lettres, la main prend un stylo et **écrit la réponse à la main**,
+puis une carte demande « Envoyer ? » — et la main appuie. Un avion de papier
+part en travers du cadre, et la lettre rejoint le bac du courrier traité.
+
+Trois choix techniques, tous pris après une mesure :
+
+**L'écriture est de l'écriture.** La réponse est posée en entier, masquée, et
+un rectangle de découpe la révèle pendant que la pointe avance sur la même
+abscisse — les lettres sortent du trait au lieu de surgir entières. La cadence
+suit la **largeur réellement rendue** (`getSubStringLength`), pas le nombre de
+caractères : « lll » et « mmm » ne prennent pas le même temps à écrire, et
+l'œil le sait. Entre deux mots, la main s'arrête 80 ms : c'est là qu'on lève le
+stylo.
+
+**La police est embarquée.** `cursive` donnait trois écritures différentes sur
+trois systèmes et rien de manuscrit sur plusieurs Android. Caveat, figée au
+poids 500 et réduite à 59 signes, pèse 21 Ko et vit dans `commun/polices/` —
+chargée une fois, et seulement par qui fait défiler jusqu'à la scène, puisque
+chaque scène est une iframe qui ne se charge qu'à l'écran. Fabriquée par
+`outils/fabriquer_police_manuscrite.py`. SIL OFL 1.1, licence recopiée à côté.
+
+**La main qui écrit est une seconde main.** Celle de toutes les autres scènes a
+l'index tendu : posée sur un stylo, elle le pousse au lieu de le tenir. Celle-ci
+est tracée au trait dans le fichier, avec une masse de poing remplie — sur la
+feuille blanche, un contour vide laisserait voir le corps du stylo au travers,
+et une main transparente ne tient rien. Son origine locale est posée sur la
+**pointe** du stylo et son axe des x suit le corps : placée avec les mêmes
+arguments que le stylo, elle le tient forcément juste. Elle passera dans le
+socle commun le jour où une deuxième scène en aura besoin.
 
 Elle prend la grande place finale de l'accueil. Le **Puissance 4** la lui cède :
 des cinq scènes de jeu, c'était celle dont la preuve était déjà portée par le
@@ -194,16 +220,14 @@ Mesures de la scène A, sur la version produite :
 
 | | |
 |---|---|
-| Poids | 20,9 Ko — budget 80 Ko |
-| Boucle | 16,0 s |
-| Premier objet affiché | 1,9 s |
-| Carte « Envoyer ? » | 10,4 s, tenue 3,5 s |
-| Mouvement réduit | état final complet : boîte vide, deux lettres classées, réponse écrite, carte posée |
+| Poids | 29 Ko de scène, 67 Ko de commun partagé — budget 80 et 72 |
+| Boucle | ≈ 28 s, trois échanges complets |
+| Première question affichée | 1,9 s |
+| Mouvement réduit | état final complet : boîte vide, trois lettres traitées, dernière conversation à l'écran, carte posée |
 
-La première version durait 23,9 s et la carte arrivait à la 18e seconde —
-c'est-à-dire jamais, pour qui fait défiler une page. Trois coupes l'ont ramenée
-à 16 s : la main ne rentre plus entre deux lettres, la réponse tient sur une
-ligne, et la deuxième lettre ne passe plus par la feuille.
+La toute première version durait 23,9 s pour **une** réponse dactylographiée et
+aucun envoi. Elle a été refaite en entier : trois conversations, écriture
+manuscrite, clic et envol.
 
 **Ce qui reste du rang 1** : B (le rendez-vous qui se pose tout seul) et C (le
 fournisseur qui tombe, et la phrase qui continue). C est la seule qui montrerait

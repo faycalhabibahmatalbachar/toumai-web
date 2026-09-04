@@ -6,26 +6,57 @@
   <title>Toumaï — La boîte qui se vide</title>
   <link rel="stylesheet" href="../commun/scene.css" />
   <style>
+    /* L'écriture manuscrite.
+     *
+     * Caveat, figée au poids 500 et réduite aux signes que le stylo peut
+     * tracer : 21 Ko servis depuis notre domaine. La pile générique `cursive`
+     * donnait trois écritures différentes sur trois systèmes, et rien du tout
+     * de manuscrit sur plusieurs Android.
+     *
+     * Caveat — SIL Open Font License 1.1, licence recopiée dans
+     * `commun/polices/OFL.txt`. Fabriquée par
+     * `outils/fabriquer_police_manuscrite.py`. */
+    @font-face {
+      font-family: "Manuscrite";
+      src: url("../commun/polices/caveat-500.woff2") format("woff2");
+      font-weight: 500;
+      font-display: swap;
+    }
+
     /* Cette scène-ci est claire, là où les autres sont sombres. Ce n'est pas
      * une fantaisie : c'est la seule qui montre un poste de travail, et un
-     * poste de travail est éclairé. Le fond reste dans la palette de
-     * l'accueil — crème, terre cuite, encre. */
+     * poste de travail est éclairé. */
     .scene {
       background: linear-gradient(150deg, #f2e7da 0%, #e9dbca 58%, #e3d1bd 100%);
     }
 
-    .sujet {
-      font: 600 27px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    .objet {
+      font: 600 26px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
       fill: #17130f;
       letter-spacing: -.01em;
     }
 
-    .reponse {
-      font: 400 25px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
-      fill: #2a211b;
+    .question {
+      font: 400 21px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      fill: #5c4f42;
     }
 
-    .question {
+    /* La réponse. Plus grande que le texte imprimé : une écriture manuscrite
+     * à la taille d'un corps de texte se lit comme une police fantaisie, pas
+     * comme une main. */
+    .reponse {
+      font: 500 42px/1 "Manuscrite", "Segoe Script", cursive;
+      fill: #22303f;
+    }
+
+    .etiquette {
+      font: 600 12px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      fill: #a0937f;
+    }
+
+    .demande {
       font: 650 22px/1 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
       fill: #17130f;
     }
@@ -35,16 +66,16 @@
       text-anchor: middle;
     }
 
-    /* L'anneau qui respire autour de « Envoyer ». C'est le seul mouvement qui
-     * reste quand la scène tient sa pose, et il dit la seule chose qui
-     * compte : ça attend quelqu'un. */
+    /* L'anneau qui respire autour de « Envoyer » : le seul mouvement qui reste
+     * pendant que la carte attend, et il dit la seule chose qui compte —
+     * ça attend quelqu'un. */
     #attente {
-      animation: attendre 2.1s ease-in-out infinite;
-      transform-origin: 1014px 555px;
+      animation: attendre 1.9s ease-in-out infinite;
+      transform-origin: 1014px 559px;
     }
     @keyframes attendre {
-      0%, 100% { opacity: .0; transform: scale(.92); }
-      45%      { opacity: .55; transform: scale(1.06); }
+      0%, 100% { opacity: 0; transform: scale(.9); }
+      45%      { opacity: .6; transform: scale(1.08); }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -55,16 +86,15 @@
 <body>
   <main class="scene" id="scene">
     <svg viewBox="0 0 1200 720" role="img" aria-labelledby="titre-scene desc-scene">
-      <title id="titre-scene">Toumaï trie une boîte de courriels et demande l’accord avant d’envoyer</title>
+      <title id="titre-scene">Toumaï répond à trois courriels et attend l’accord avant chaque envoi</title>
       <desc id="desc-scene">
         Un bureau. À gauche, un bac contenant trois lettres ; en dessous, un bac
-        de classement vide. À droite, une feuille de travail. Une main prend la
-        première lettre, l’ouvre sur la feuille, lit son objet — une facture —,
-        puis la classe. Elle recommence, plus vite, avec une lettre
-        d’information. La troisième demande un rendez-vous : au lieu de la
-        classer, la main prend un stylo et écrit la réponse mot à mot. Puis elle
-        s’arrête : une carte demande « Envoyer ? ». La main s’en approche, et
-        recule. Rien ne part sans accord.
+        de courrier traité. À droite, une feuille de travail. Pour chacune des
+        trois lettres, une main la prend, l’ouvre, et la question s’affiche :
+        un report de rendez-vous, une facture, un devis. La main saisit alors un
+        stylo et écrit la réponse à la main, mot après mot. Une carte demande
+        « Envoyer ? » ; la main appuie sur le bouton, un avion de papier
+        s’envole, et la lettre rejoint le bac du courrier traité.
       </desc>
 
       <defs>
@@ -94,41 +124,41 @@
           <stop offset="60%" stop-color="#000" stop-opacity="0" />
           <stop offset="100%" stop-color="#4a2c18" stop-opacity=".16" />
         </radialGradient>
+
+        <!-- L'encre. La réponse est posée en entier dès le départ, invisible,
+             et ce rectangle la découvre de gauche à droite pendant que la
+             pointe avance sur la même abscisse. C'est ce qui sépare une
+             écriture d'un texte qui apparaît : les lettres sortent du trait,
+             elles ne surgissent pas entières. -->
+        <clipPath id="encre">
+          <rect id="encre-cache" x="522" y="370" width="0" height="72" />
+        </clipPath>
       </defs>
 
-      <!-- ── LA FEUILLE DE TRAVAIL ─────────────────────────────────────────
-           Toujours là, comme un écran posé sur le bureau. Ce qui change, c'est
-           ce qui s'y affiche. -->
+      <!-- ── LA FEUILLE DE TRAVAIL ───────────────────────────────────────── -->
       <g filter="url(#ombre-douce)">
         <rect x="496" y="92" width="628" height="524" rx="20"
               fill="url(#papier)" stroke="#e7d9c7" stroke-width="1.5" />
       </g>
 
-      <!-- Le corps du message : des barres, pas du faux texte. Un paragraphe
-           illisible écrit en petit se lit comme du remplissage ; des barres se
-           lisent comme « du texte », ce qu'elles sont. -->
-      <g id="corps" opacity="0">
-        <line x1="528" y1="242" x2="1092" y2="242" stroke="#efe3d4" stroke-width="1.5" />
-        <rect x="528" y="272" width="500" height="10" rx="5" fill="#e9dcc9" />
-        <rect x="528" y="304" width="540" height="10" rx="5" fill="#e9dcc9" />
-        <rect x="528" y="336" width="452" height="10" rx="5" fill="#e9dcc9" />
-        <rect x="528" y="368" width="300" height="10" rx="5" fill="#e9dcc9" />
+      <!-- Le message reçu : son objet, et la question, en toutes lettres. Des
+           barres grises à la place du texte ne se comprennent pas ; on montre
+           la conversation, sinon la scène ne prouve rien. -->
+      <g id="message" opacity="0">
+        <text id="objet" class="objet" x="650" y="150"></text>
+        <text class="etiquette" x="650" y="178">Message reçu</text>
+        <line x1="528" y1="212" x2="1092" y2="212" stroke="#efe3d4" stroke-width="1.5" />
+        <text id="question" class="question" x="528" y="258"></text>
+        <rect x="528" y="286" width="240" height="9" rx="4.5" fill="#efe4d6" />
       </g>
 
-      <!-- L'objet du courriel. Il APPARAÎT, il ne s'écrit pas : ce n'est pas
-           Toumaï qui l'a rédigé. Seule la réponse s'écrit. -->
-      <g id="entete" opacity="0">
-        <text id="sujet" class="sujet" x="672" y="172"></text>
-        <rect x="672" y="190" width="152" height="9" rx="4.5" fill="#e9ddce" />
-      </g>
-
-      <!-- La réponse -->
+      <!-- La réponse, écrite à la main -->
       <g id="bloc-reponse" opacity="0">
-        <line x1="528" y1="416" x2="1092" y2="416" stroke="#efe3d4" stroke-width="1.5" />
-        <text id="ligne-1" class="reponse" x="528" y="470"></text>
+        <text class="etiquette" x="528" y="344">Réponse de Toumaï</text>
+        <text id="reponse" class="reponse" x="528" y="416" clip-path="url(#encre)"></text>
       </g>
 
-      <!-- ── LES BACS ──────────────────────────────────────────────────────
+      <!-- ── LES BACS ─────────────────────────────────────────────────────
            Les lettres sont dessinées ENTRE le creux et la lèvre : c'est ce
            chevauchement, et rien d'autre, qui fait qu'elles sont « dans » le
            bac et non posées dessus. -->
@@ -160,18 +190,18 @@
 
       <ellipse cx="254" cy="600" rx="170" ry="14" fill="#6b4527" opacity=".13" />
       <rect x="96" y="444" width="316" height="132" rx="12" fill="url(#bac-creux)" />
-      <g id="classees"></g>
+      <g id="traitees"></g>
       <rect x="96" y="554" width="316" height="36" rx="12" fill="url(#bac-levre)" />
 
-      <!-- ── LA CARTE DE CONFIRMATION ──────────────────────────────────────
+      <!-- ── LA CARTE DE CONFIRMATION ─────────────────────────────────────
            C'est elle qui justifie la scène. Le reste montre que Toumaï sait
-           faire ; celle-ci montre qu'il ne le fait pas sans vous. -->
+           faire ; celle-ci montre qu'il attend qu'on le lui dise. -->
       <g id="carte" opacity="0">
         <g filter="url(#ombre-carte)">
           <rect x="520" y="516" width="580" height="86" rx="16" fill="#fffdf9"
                 stroke="#e6d2bd" stroke-width="1.5" />
         </g>
-        <text class="question" x="552" y="566">Envoyer&#160;?</text>
+        <text class="demande" x="552" y="566">Envoyer&#160;?</text>
 
         <rect x="812" y="538" width="124" height="42" rx="21" fill="none"
               stroke="#d9c6b0" stroke-width="1.6" />
@@ -179,25 +209,79 @@
 
         <circle id="attente" cx="1014" cy="559" r="30" fill="none"
                 stroke="#d97857" stroke-width="2" />
-        <rect x="952" y="538" width="124" height="42" rx="21" fill="#d97857" />
-        <text class="puce" x="1014" y="565" fill="#fff8ef">Envoyer</text>
+        <g id="bouton-envoyer">
+          <rect x="952" y="538" width="124" height="42" rx="21" fill="#d97857" />
+          <text class="puce" x="1014" y="565" fill="#fff8ef">Envoyer</text>
+        </g>
       </g>
 
-      <!-- ── LE STYLO ──────────────────────────────────────────────────────
-           Dessiné pointe à l'origine : tout le reste du geste se calcule
-           depuis la pointe, qui est le seul point qui doit tomber juste. -->
-      <g id="stylo">
-        <path d="M0 0 L15 -6 L15 6 Z" fill="#c25b3c" />
-        <rect x="14" y="-5.5" width="104" height="11" rx="5.5" fill="#2a211b" />
-        <rect x="92" y="-5.5" width="26" height="11" rx="5.5" fill="#c25b3c" />
+      <!-- ── L'ENVOI ──────────────────────────────────────────────────────
+           Le sillage se trace d'abord, l'avion le suit. L'inverse — l'avion
+           puis sa trace — donne un objet qui glisse ; celui-ci vole. -->
+      <path id="sillage" d="M1014 544 C 1078 484, 1140 430, 1252 366"
+            fill="none" stroke="#d97857" stroke-width="2.5"
+            stroke-linecap="round" opacity="0" />
+      <g id="avion" opacity="0">
+        <!-- Deux ailes de tons differents : c est le pli central qui fait la
+             difference entre un avion de papier et une pointe de fleche. -->
+        <path d="M23 0 L-18 -15 L-5 0 Z" fill="#e8926f" />
+        <path d="M23 0 L-18 15 L-5 0 Z" fill="#c0573a" />
+        <path d="M23 0 L-5 0" fill="none" stroke="#a8482c" stroke-width="1.6" />
       </g>
 
-      <!-- La main. Retournée : les doigts sont à gauche de l'image. -->
+      <!-- ── LES MAINS ────────────────────────────────────────────────────
+           Deux mains, parce qu'une main ne fait pas deux choses de la même
+           façon : celle qui prend une lettre et appuie sur un bouton a l'index
+           tendu ; celle qui écrit tient le stylo entre le pouce et l'index,
+           les autres doigts repliés. La première est l'image partagée par
+           toutes les scènes ; la seconde est tracée ici, au trait, dans la
+           même écriture graphique. Elle passera dans le socle commun le jour
+           où une deuxième scène en aura besoin. -->
       <g id="main" class="main">
         <g transform="translate(238 0) scale(-1 1)">
           <image x="0" y="0" width="238" height="275" preserveAspectRatio="none"
                  href="../commun/mains/main-1.webp" />
         </g>
+      </g>
+
+      <!-- La main qui écrit. Son origine locale est posée sur la POINTE du
+           stylo et son axe des x suit le corps du stylo : placée avec les
+           mêmes arguments que le stylo, elle le tient forcément juste. Les
+           doigts se referment autour de x = 62, là où on tient un stylo. -->
+      <g id="main-stylo" class="main" opacity="0">
+        <g transform="scale(1.05)"
+           fill="#fdf7ee" stroke="#241d18" stroke-width="10"
+           stroke-linecap="round" stroke-linejoin="round">
+          <!-- L avant-bras, dessine en premier : le poing le recouvre. -->
+          <path d="M140 88 L486 348 L452 396 L106 128 Z" />
+          <!-- Le poing. Il est REMPLI, contrairement aux mains des autres
+               scenes : sur la feuille blanche, un contour vide laisserait
+               voir le corps du stylo au travers, et une main transparente ne
+               tient rien. Les trois bosses du dessus sont les articulations —
+               c est ce qui separe un poing d un ovale. -->
+          <path d="M92 -18
+                   C 100 -32, 118 -34, 126 -20
+                   C 134 -32, 150 -30, 156 -14
+                   C 166 -6, 170 12, 168 32
+                   C 166 58, 160 84, 148 100
+                   C 134 118, 106 122, 86 114
+                   C 64 105, 50 86, 50 62
+                   C 50 40, 60 14, 74 -2 Z" />
+          <!-- L index, pose sur le corps du stylo et dirige vers la pointe. -->
+          <path d="M98 -30 C 74 -27, 50 -20, 30 -12" fill="none" />
+          <!-- Le pouce, qui sort du poing et vient pincer le stylo. -->
+          <path d="M74 80 C 46 64, 34 34, 47 12 C 53 2, 63 -3, 74 -1"
+                fill="none" />
+        </g>
+      </g>
+
+      <!-- ── LE STYLO ─────────────────────────────────────────────────────
+           Dessiné pointe à l'origine : tout le geste se calcule depuis la
+           pointe, qui est le seul point qui doit tomber juste. -->
+      <g id="stylo">
+        <path d="M0 0 L15 -6 L15 6 Z" fill="#c25b3c" />
+        <rect x="14" y="-5.5" width="104" height="11" rx="5.5" fill="#2a211b" />
+        <rect x="92" y="-5.5" width="26" height="11" rx="5.5" fill="#c25b3c" />
       </g>
 
       <rect x="0" y="0" width="1200" height="720" fill="url(#vignette)"
@@ -211,55 +295,68 @@
       "use strict";
       const S = window.Scene;
 
-      const entete = S.el("entete");
-      const sujet = S.el("sujet");
-      const corps = S.el("corps");
+      const message = S.el("message");
+      const objet = S.el("objet");
+      const question = S.el("question");
       const blocReponse = S.el("bloc-reponse");
-      const ligne1 = S.el("ligne-1");
+      const reponse = S.el("reponse");
+      const encre = S.el("encre-cache");
       const carte = S.el("carte");
+      const bouton = S.el("bouton-envoyer");
+      const attente = S.el("attente");
       const stylo = S.el("stylo");
-      const classees = S.el("classees");
+      const mainStylo = S.el("main-stylo");
+      const avion = S.el("avion");
+      const sillage = S.el("sillage");
+      const traitees = S.el("traitees");
 
       /** Où la lettre ouverte se pose sur la feuille de travail. */
-      const SUR_FEUILLE = { x: 528, y: 128 };
-      const ECHELLE_LUE = 0.82;
+      const SUR_FEUILLE = { x: 528, y: 112 };
+      const ECHELLE_LUE = 0.74;
 
       /** Le stylo au repos, posé sur le bureau à droite. */
-      const STYLO_REPOS = { x: 960, y: 664 };
+      // Pose au bas de la feuille, PAS sous le bouton : a sa place
+      // precedente (952, 664) il se retrouvait sous la main qui appuie
+      // sur « Envoyer », et on croyait qu'elle cliquait avec le stylo.
+      const STYLO_REPOS = { x: 624, y: 672 };
 
-      /** Le début des lignes de réponse, et leur ligne de base. */
+      /** L'angle du stylo pendant qu'il écrit. */
+      const ANGLE_ECRITURE = -34;
+
+      /** Le début de la ligne manuscrite, et sa ligne de base. */
       const X_TEXTE = 528;
-      const LIGNES = [470];
+      const Y_TEXTE = 416;
 
       /**
-       * Les trois lettres. L'ordre compte : la main prend celle du dessus.
-       * Les deux premières se classent, la troisième appelle une réponse —
-       * c'est la seule chose que la scène décide, et elle la décide sur le
-       * contenu, pas sur un minuteur.
+       * Trois courriers, trois sujets, trois réponses. Ce sont trois vraies
+       * conversations : une question compréhensible, une réponse qui y répond.
+       * Une scène où une main s'agite au-dessus d'un texte illisible ne prouve
+       * rien du tout.
        */
-      const LETTRES = [
+      const COURRIERS = [
         {
           id: "env-1",
           repos: { x: 178, y: 194 },
-          objet: "Facture 2026-03",
           bac: { x: 132, y: 508 },
+          objet: "Rendez-vous jeudi",
+          question: "Bonjour, pouvons-nous décaler à jeudi 15 h ?",
+          reponse: "Jeudi 15 h me convient.",
         },
         {
           id: "env-2",
           repos: { x: 152, y: 212 },
-          objet: "Lettre d’information",
-          bac: { x: 176, y: 478 },
-          // Celle-ci ne monte pas sur la feuille : elle part directement
-          // au classement. C’est le seul endroit ou la scene dit que la
-          // regle est acquise, et elle le dit par le geste.
-          direct: true,
+          bac: { x: 176, y: 480 },
+          objet: "Facture 2026-03",
+          question: "La facture de mars est-elle réglée ?",
+          reponse: "Réglée le 28 février.",
         },
         {
           id: "env-3",
           repos: { x: 126, y: 230 },
-          objet: "Rendez-vous jeudi ?",
-          bac: null,
-          reponse: ["Jeudi 15 h me convient."],
+          bac: { x: 148, y: 456 },
+          objet: "Devis boutique",
+          question: "Quel délai pour 40 sacs brodés ?",
+          reponse: "Dix jours ouvrés.",
         },
       ];
 
@@ -270,6 +367,8 @@
         repos: { x: 1210, y: 470 },
       });
 
+      /* ─── PRIMITIVES ──────────────────────────────────────────────────── */
+
       /** Le rabat d'une lettre, entre 1 (fermé) et -1 (relevé). */
       function rabatA(lettre, sy) {
         lettre.querySelector(".rabat").setAttribute(
@@ -278,28 +377,30 @@
         );
       }
 
-      /** La main tient la lettre par son bord supérieur. */
+      /** La main ouverte tient la lettre par son bord supérieur. */
       function tenir(point, echelle) {
         main.poser(main.pourToucher({ x: point.x + 66 * echelle, y: point.y + 12 }));
       }
 
+      /** Le stylo ET la main qui le tient, d'un seul geste. */
       function styloA(pointe, angle) {
         S.place(stylo, pointe, 1, angle);
-        // La main saisit le corps du stylo, à 62 unités de la pointe le long
-        // de son axe. Sans ce calcul, elle « pousse » le stylo au lieu de le
-        // tenir, et ça se voit tout de suite.
-        const rad = (angle * Math.PI) / 180;
-        main.poser(main.pourToucher({
-          x: pointe.x + 62 * Math.cos(rad),
-          y: pointe.y + 62 * Math.sin(rad),
-        }));
+        S.place(mainStylo, pointe, 1, angle);
+      }
+
+      /** Passe d'une main à l'autre en fondu. */
+      async function echangerMains(versLeStylo, duree) {
+        await S.tween(duree === undefined ? 170 : duree, (t) => {
+          S.opacite(mainStylo, versLeStylo ? t : 1 - t);
+          S.opacite(main.noeud, versLeStylo ? 1 - t : t);
+        });
       }
 
       /* ─── LES GESTES ──────────────────────────────────────────────────── */
 
-      async function prendre(lettre) {
-        await main.aller({ x: lettre.repos.x + 66, y: lettre.repos.y + 12 }, 520, 32);
-        await main.serrer(120);
+      async function prendre(courrier) {
+        await main.aller({ x: courrier.repos.x + 66, y: courrier.repos.y + 12 }, 480, 32);
+        await main.serrer(110);
       }
 
       async function porter(noeud, depart, duree) {
@@ -318,152 +419,205 @@
         await S.tween(duree, (t) => rabatA(noeud, S.entre(1, -1, t)), S.courbes.freine);
       }
 
-      async function afficher(objet, duree) {
-        sujet.textContent = objet;
-        await S.tween(duree, (t) => {
-          S.opacite(entete, t);
-          S.opacite(corps, t);
-        });
+      async function afficherLeMessage(courrier, duree) {
+        objet.textContent = courrier.objet;
+        question.textContent = courrier.question;
+        await S.tween(duree, (t) => S.opacite(message, t));
       }
 
-      async function classer(lettre, noeud) {
-        await main.aller({ x: SUR_FEUILLE.x + 58, y: SUR_FEUILLE.y + 34 }, 400, 22);
-        await main.serrer(120);
-        await S.tween(240, (t) => rabatA(noeud, S.entre(-1, 1, t)));
+      /**
+       * L'écriture.
+       *
+       * Le texte est posé en entier, masqué, et le rectangle d'encre le
+       * découvre pendant que la pointe avance sur la même abscisse. La cadence
+       * suit la LARGEUR réellement rendue, pas le nombre de lettres : « lll »
+       * et « mmm » ne prennent pas le même temps à écrire, et l'œil le sait.
+       * Entre deux mots, la main s'arrête un instant — c'est là qu'on lève le
+       * stylo.
+       */
+      async function ecrireAlaMain(texte, vitesse) {
+        reponse.textContent = texte;
+        encre.setAttribute("x", String(X_TEXTE - 6));
+        encre.setAttribute("y", String(Y_TEXTE - 46));
+        encre.setAttribute("height", "72");
+        encre.setAttribute("width", "0");
 
-        await S.tween(660, (t) => {
-          const p = {
-            x: S.entre(SUR_FEUILLE.x, lettre.bac.x, t),
-            y: S.entre(SUR_FEUILLE.y, lettre.bac.y, t) - Math.sin(Math.PI * t) * 118,
-          };
-          const e = S.entre(ECHELLE_LUE, 1, t);
-          S.place(noeud, p, e);
-          S.opacite(entete, Math.max(0, 1 - t * 2.4));
-          S.opacite(corps, Math.max(0, 1 - t * 2.4));
-          // La main lâche à mi-course : la lettre finit sa trajectoire seule.
-          // Une main qui accompagne jusqu'au fond du bac a l'air de ranger un
-          // objet lourd ; celle-ci jette une lettre, ce qui est le geste juste.
-          if (t < 0.45) tenir(p, e);
-        });
-        // Elle est classée : elle passe derrière la lèvre du bac.
-        classees.appendChild(noeud);
-      }
-
-      /** Du bac d'entrée au bac de classement, sans passer par la feuille. */
-      async function classerDirect(lettre, noeud) {
-        await S.tween(620, (t) => {
-          const p = {
-            x: S.entre(lettre.repos.x, lettre.bac.x, t),
-            y: S.entre(lettre.repos.y, lettre.bac.y, t) - Math.sin(Math.PI * t) * 96,
-          };
-          S.place(noeud, p, 1);
-          if (t < 0.5) tenir(p, 1);
-        });
-        classees.appendChild(noeud);
-      }
-
-      /** Écrit une ligne, le stylo suivant la largeur réellement rendue. */
-      async function ecrireLigne(element, texte, y, cadence) {
-        element.textContent = "";
         if (S.mouvementReduit) {
-          element.textContent = texte;
+          encre.setAttribute("width", "640");
           return;
         }
+
+        const bornes = [];
         for (let i = 0; i < texte.length; i += 1) {
-          element.textContent = texte.slice(0, i + 1);
-          styloA({ x: X_TEXTE + element.getComputedTextLength() + 5, y: y + 9 }, -34);
-          const c = texte[i];
-          await S.attendre(c === "." || c === "," ? cadence * 5 : cadence);
+          if (texte[i] === " " || i === texte.length - 1) {
+            bornes.push(reponse.getSubStringLength(0, i + 1));
+          }
+        }
+
+        let precedent = 0;
+        for (const borne of bornes) {
+          const largeur = borne - precedent;
+          await S.tween(Math.max(150, largeur * vitesse), (t) => {
+            const avance = S.entre(precedent, borne, t);
+            encre.setAttribute("width", (avance + 6).toFixed(1));
+            // Le léger balancement : une main n'écrit pas sur un rail.
+            styloA({
+              x: X_TEXTE + avance + 4,
+              y: Y_TEXTE + 8 + Math.sin(t * Math.PI * 2.6) * 2.2,
+            }, ANGLE_ECRITURE + Math.sin(t * Math.PI * 2) * 1.8);
+          }, S.courbes.lineaire);
+          precedent = borne;
+          await S.attendre(80);
         }
       }
 
-      async function repondre(lettre) {
-        S.opacite(blocReponse, 1);
-
-        // Prendre le stylo, puis l'amener au début de la première ligne.
-        await main.aller({ x: STYLO_REPOS.x + 62, y: STYLO_REPOS.y - 8 }, 520, 30);
-        await main.serrer(120);
-        await S.tween(460, (t) => {
+      async function prendreLeStylo() {
+        await main.aller({ x: STYLO_REPOS.x + 60, y: STYLO_REPOS.y - 10 }, 440, 30);
+        await main.serrer(110);
+        await echangerMains(true);
+        await S.tween(400, (t) => {
           styloA({
-            x: S.entre(STYLO_REPOS.x, X_TEXTE + 5, t),
-            y: S.entre(STYLO_REPOS.y, LIGNES[0] + 9, t) - Math.sin(Math.PI * t) * 52,
-          }, S.entre(-6, -34, t));
-        });
-
-        await ecrireLigne(ligne1, lettre.reponse[0], LIGNES[0], 26);
-
-        // Reposer le stylo : la main ne peut pas le garder pendant qu'elle
-        // hésite au-dessus du bouton, sinon elle écrit encore.
-        const depart = {
-          x: X_TEXTE + ligne1.getComputedTextLength() + 5,
-          y: LIGNES[0] + 9,
-        };
-        await S.tween(440, (t) => {
-          styloA({
-            x: S.entre(depart.x, STYLO_REPOS.x, t),
-            y: S.entre(depart.y, STYLO_REPOS.y, t) - Math.sin(Math.PI * t) * 44,
-          }, S.entre(-34, -6, t));
+            x: S.entre(STYLO_REPOS.x, X_TEXTE + 4, t),
+            y: S.entre(STYLO_REPOS.y, Y_TEXTE + 8, t) - Math.sin(Math.PI * t) * 54,
+          }, S.entre(-6, ANGLE_ECRITURE, t));
         });
       }
 
-      async function demanderAccord() {
-        await S.tween(420, (t) => {
+      async function reposerLeStylo(depuis) {
+        await S.tween(380, (t) => {
+          styloA({
+            x: S.entre(depuis, STYLO_REPOS.x, t),
+            y: S.entre(Y_TEXTE + 8, STYLO_REPOS.y, t) - Math.sin(Math.PI * t) * 44,
+          }, S.entre(ANGLE_ECRITURE, -6, t));
+        });
+        main.poser(main.pourToucher({ x: STYLO_REPOS.x + 60, y: STYLO_REPOS.y - 10 }));
+        await echangerMains(false);
+      }
+
+      async function demanderAccord(duree) {
+        await S.tween(duree, (t) => {
           S.place(carte, { x: 0, y: S.entre(52, 0, t) });
           S.opacite(carte, t);
         }, S.courbes.freine);
+      }
 
-        // La main s'approche du bouton… et recule sans le toucher.
-        await S.attendre(200);
-        await main.aller({ x: 1014, y: 646 }, 560, 26);
-        await S.attendre(480);
-        await main.aller({ x: 1170, y: 700 }, 520, 16);
+      /** La main appuie. Le bouton s'enfonce, l'anneau d'attente s'éteint. */
+      async function appuyer(duree) {
+        await main.aller({ x: 1014, y: 594 }, duree, 26);
+        await S.tween(160, (t) => {
+          const e = 1 - 0.07 * Math.sin(Math.PI * t);
+          bouton.setAttribute(
+            "transform",
+            "translate(1014 559) scale(" + e.toFixed(3) + ") translate(-1014 -559)"
+          );
+          main.poser(main.pourToucher({ x: 1014, y: 594 + 6 * Math.sin(Math.PI * t) }));
+        });
+        attente.style.setProperty("display", "none");
+      }
+
+      /** L'envoi : le sillage se trace, l'avion le suit et sort du cadre. */
+      async function envoyer() {
+        const longueur = sillage.getTotalLength();
+        sillage.style.setProperty("stroke-dasharray", String(longueur));
+        sillage.style.setProperty("stroke-dashoffset", String(longueur));
+        S.opacite(sillage, 0.7);
+        S.opacite(avion, 1);
+
+        await S.tween(880, (t) => {
+          sillage.style.setProperty("stroke-dashoffset", String(longueur * (1 - t)));
+          const p = sillage.getPointAtLength(longueur * t);
+          const q = sillage.getPointAtLength(Math.min(longueur, longueur * t + 6));
+          const angle = (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI;
+          S.place(avion, p, S.entre(1.5, 1.05, t), angle);
+          if (t > 0.86) S.opacite(avion, 1 - (t - 0.86) / 0.14);
+        }, S.courbes.freine);
+
+        await S.attendre(180);
+        await S.tween(320, (t) => S.opacite(sillage, 0.7 * (1 - t)));
+      }
+
+      /** La lettre rejoint le bac du courrier traité. */
+      async function ranger(courrier, noeud, duree) {
+        await S.tween(duree, (t) => {
+          const p = {
+            x: S.entre(SUR_FEUILLE.x, courrier.bac.x, t),
+            y: S.entre(SUR_FEUILLE.y, courrier.bac.y, t) - Math.sin(Math.PI * t) * 122,
+          };
+          S.place(noeud, p, S.entre(ECHELLE_LUE, 1, t));
+          if (t > 0.3) rabatA(noeud, S.entre(-1, 1, Math.min(1, (t - 0.3) / 0.5)));
+          S.opacite(message, Math.max(0, 1 - t * 2.6));
+          S.opacite(blocReponse, Math.max(0, 1 - t * 2.6));
+          S.opacite(carte, Math.max(0, 1 - t * 3));
+        });
+        traitees.appendChild(noeud);
+      }
+
+      /** Remet en place ce que l'envoi a consommé, avant le courrier suivant. */
+      function rearmer() {
+        bouton.removeAttribute("transform");
+        attente.style.removeProperty("display");
+        S.place(carte, { x: 0, y: 52 });
+        S.opacite(carte, 0);
+        S.opacite(avion, 0);
+        S.opacite(sillage, 0);
+        sillage.style.removeProperty("stroke-dasharray");
+        sillage.style.removeProperty("stroke-dashoffset");
       }
 
       /* ─── LA SCÈNE ────────────────────────────────────────────────────── */
 
       function preparer() {
-        LETTRES.forEach((l) => {
-          const noeud = S.el(l.id);
-          S.el("lettres").appendChild(noeud);
-          S.place(noeud, l.repos, 1);
+        COURRIERS.forEach((c) => {
+          const noeud = S.el(c.id);
+          S.place(noeud, c.repos, 1);
           S.opacite(noeud, 1);
           rabatA(noeud, 1);
         });
-        // Les lettres sont réempilées dans l'ordre du dessin : la première du
-        // tableau doit être au-dessus, donc dessinée en dernier.
-        S.el("lettres").append(...LETTRES.map((l) => S.el(l.id)).reverse());
+        // Réempilées dans l'ordre du dessin : la première du tableau doit être
+        // au-dessus, donc dessinée en dernier.
+        S.el("lettres").append(...COURRIERS.map((c) => S.el(c.id)).reverse());
 
-        S.opacite(entete, 0);
-        S.opacite(corps, 0);
+        rearmer();
+        S.opacite(message, 0);
         S.opacite(blocReponse, 0);
-        S.opacite(carte, 0);
-        S.place(carte, { x: 0, y: 52 });
-        sujet.textContent = "";
-        ligne1.textContent = "";
+        S.opacite(mainStylo, 0);
+        S.opacite(main.noeud, 1);
+        objet.textContent = "";
+        question.textContent = "";
+        reponse.textContent = "";
+        encre.setAttribute("width", "0");
         styloA(STYLO_REPOS, -6);
         main.poser(main.pourToucher({ x: 1290, y: 520 }));
       }
 
-      /** L'état final, pour qui a demandé moins de mouvement. */
+      /** L'état final, pour qui a demandé moins de mouvement : la boîte vide,
+       *  les trois lettres traitées, la dernière conversation à l'écran. */
       function finFixe() {
-        LETTRES.forEach((l) => {
-          const noeud = S.el(l.id);
-          if (l.bac) {
-            classees.appendChild(noeud);
-            S.place(noeud, l.bac, 1);
-            rabatA(noeud, 1);
-          } else {
-            S.place(noeud, SUR_FEUILLE, ECHELLE_LUE);
-            rabatA(noeud, -1);
-            sujet.textContent = l.objet;
-            ligne1.textContent = l.reponse[0];
-          }
+        const dernier = COURRIERS[COURRIERS.length - 1];
+        COURRIERS.forEach((c) => {
+          const noeud = S.el(c.id);
+          traitees.appendChild(noeud);
+          S.place(noeud, c.bac, 1);
+          rabatA(noeud, 1);
         });
-        S.opacite(entete, 1);
-        S.opacite(corps, 1);
+        const noeudDernier = S.el(dernier.id);
+        S.place(noeudDernier, SUR_FEUILLE, ECHELLE_LUE);
+        rabatA(noeudDernier, -1);
+
+        objet.textContent = dernier.objet;
+        question.textContent = dernier.question;
+        reponse.textContent = dernier.reponse;
+        encre.setAttribute("x", String(X_TEXTE - 6));
+        encre.setAttribute("y", String(Y_TEXTE - 46));
+        encre.setAttribute("height", "72");
+        encre.setAttribute("width", "640");
+
+        S.opacite(message, 1);
         S.opacite(blocReponse, 1);
         S.opacite(carte, 1);
         S.place(carte, { x: 0, y: 0 });
+        S.opacite(mainStylo, 0);
+        S.opacite(main.noeud, 1);
         styloA(STYLO_REPOS, -6);
         main.poser(main.pourToucher({ x: 1290, y: 520 }));
       }
@@ -471,52 +625,54 @@
       const scene = S.jouer({
         preparer,
         finFixe,
-        pause: 1600,
+        pause: 1800,
         async sequence(annulee) {
-          await S.attendre(320);
+          await S.attendre(340);
 
-          for (let i = 0; i < LETTRES.length; i += 1) {
-            const lettre = LETTRES[i];
-            const noeud = S.el(lettre.id);
+          for (let i = 0; i < COURRIERS.length; i += 1) {
+            const courrier = COURRIERS[i];
+            const noeud = S.el(courrier.id);
+            // Le premier courrier prend son temps : c'est celui qu'on lit. Les
+            // suivants vont plus vite — le mécanisme est compris, et trois
+            // lectures au même rythme, c'est une scène qui traîne.
+            const premier = i === 0;
 
-            await prendre(lettre);
+            await prendre(courrier);
             if (annulee()) return;
 
-            if (lettre.direct) {
-              await classerDirect(lettre, noeud);
-              continue;
-            }
-
-            await porter(noeud, lettre.repos, 560);
-            await ouvrir(noeud, 320);
-            // La main s'ecarte PENDANT que l'objet s'affiche : posee sur
-            // la lettre, elle la recouvrait entierement.
+            await porter(noeud, courrier.repos, premier ? 520 : 430);
+            await ouvrir(noeud, premier ? 300 : 240);
+            // La main s'écarte PENDANT que le message s'affiche : posée sur la
+            // lettre, elle recouvrait la moitié de la feuille.
             await Promise.all([
-              main.aller({ x: 1186, y: 300 }, 360, 14),
-              afficher(lettre.objet, 280),
+              main.aller({ x: 1186, y: 300 }, 340, 14),
+              afficherLeMessage(courrier, premier ? 300 : 240),
             ]);
-            await S.attendre(400);
+            await S.attendre(premier ? 640 : 400);
             if (annulee()) return;
 
-            if (lettre.bac) {
-              await classer(lettre, noeud);
-            } else {
-              await repondre(lettre);
-              if (annulee()) return;
-              await demanderAccord();
-            }
+            S.opacite(blocReponse, 1);
+            await prendreLeStylo();
+            await ecrireAlaMain(courrier.reponse, premier ? 5.2 : 4.4);
             if (annulee()) return;
+            await reposerLeStylo(X_TEXTE + reponse.getComputedTextLength() + 4);
+
+            await demanderAccord(premier ? 380 : 300);
+            await S.attendre(premier ? 480 : 300);
+            if (annulee()) return;
+
+            await appuyer(premier ? 500 : 420);
+            await envoyer();
+            if (annulee()) return;
+
+            await ranger(courrier, noeud, 600);
+            rearmer();
+            if (annulee()) return;
+            await S.attendre(200);
           }
 
-          // La pose : la carte attend, l'anneau respire, rien ne part.
-          await S.attendre(1300);
-
-          await S.tween(520, (t) => {
-            S.opacite(carte, 1 - t);
-            S.opacite(blocReponse, 1 - t);
-            S.opacite(entete, 1 - t);
-            S.opacite(corps, 1 - t);
-          });
+          // La boîte est vide : on tient la pose sur le bureau rangé.
+          await S.attendre(1100);
         },
       });
 
