@@ -14,10 +14,40 @@ export class HttpError extends Error {
     public readonly status: number,
     /** Message renvoyé par le backend, s'il est présentable. */
     public readonly serverMessage?: string,
+    /** LE CORPS DU REFUS, TEL QUEL.
+     *
+     * Un 429 de quota ne porte pas qu'un statut : il dit quelle limite, quel
+     * plan, combien il reste et QUAND ça repart. Sans ce champ, tout cela
+     * était jeté par la couche HTTP et l'écran affichait « trop de demandes,
+     * patientez quelques secondes », ce qui est faux quand la remise à zéro
+     * est dans quatre heures. */
+    public readonly detail?: unknown,
   ) {
     super(serverMessage || `HTTP ${status}`);
     this.name = "HttpError";
   }
+}
+
+/** Le corps d'un refus de quota, tel que le pose `core/quotas.py`. */
+export type RefusQuota = {
+  code: "quota_depasse";
+  metrique: string;
+  libelle: string;
+  plan: string;
+  plafond: number;
+  utilise: number;
+  fenetre: string;
+  repart_le: string | null;
+  repart_dans: number | null;
+  repart_en_clair: string;
+  message: string;
+};
+
+/** Le refus de quota porté par une erreur, ou `null`. */
+export function refusDeQuota(err: unknown): RefusQuota | null {
+  if (!(err instanceof HttpError) || err.status !== 429) return null;
+  const d = err.detail as RefusQuota | undefined;
+  return d && d.code === "quota_depasse" ? d : null;
 }
 
 export type ErrorContext =
@@ -44,6 +74,9 @@ export interface FriendlyError {
     | "not-found"
     | "too-large"
     | "rate-limited"
+  /** Une limite d'usage du plan, pas une limite de débit. Elle ne se
+   *  réessaie pas : elle s'attend, ou elle se lève en changeant de plan. */
+  | "quota"
     | "server"
     | "unknown";
 }
@@ -162,12 +195,22 @@ export function describeError(err: unknown, context: ErrorContext = "generic"): 
           retryable: false,
           kind: "too-large",
         };
-      case err.status === 429:
+      case err.status === 429: {
+        // UN QUOTA N'EST PAS UNE LIMITE DE DÉBIT. « Patientez quelques
+        // secondes » est faux quand la remise à zéro est dans quatre heures,
+        // et cette phrase-là fait cliquer trois fois avant d'abandonner sans
+        // avoir compris. Quand le serveur dit quelle limite et quand elle
+        // repart, on le répète mot pour mot.
+        const quota = refusDeQuota(err);
+        if (quota) {
+          return { message: quota.message, retryable: false, kind: "quota" };
+        }
         return {
           message: "Trop de demandes d'un coup. Patientez quelques secondes puis réessayez.",
           retryable: true,
           kind: "rate-limited",
         };
+      }
       case err.status === 502 || err.status === 503 || err.status === 504:
         return {
           // Le backend s'endort quand il n'est pas sollicité : le premier appel

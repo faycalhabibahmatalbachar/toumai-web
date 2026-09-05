@@ -58,11 +58,20 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
-  const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
+  const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T> & {
+    detail?: unknown;
+  };
   if (!res.ok || body.success === false) {
-    // On remonte le statut : c'est `describeError` qui choisit la phrase vue
-    // par l'utilisateur, pas cette couche.
-    throw new HttpError(res.ok ? 400 : res.status, body.message);
+    // On remonte le statut ET le corps. Le statut suffit à choisir une phrase
+    // générique ; le corps porte ce qu'un refus de quota a de précis, et
+    // `describeError` s'en sert quand il est là. FastAPI place ce corps dans
+    // `detail`, hors de notre enveloppe applicative.
+    const message =
+      body.message ??
+      (typeof body.detail === "object" && body.detail !== null
+        ? (body.detail as { message?: string }).message
+        : undefined);
+    throw new HttpError(res.ok ? 400 : res.status, message, body.detail);
   }
   return body.data as T;
 }

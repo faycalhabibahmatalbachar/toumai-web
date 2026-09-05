@@ -19,6 +19,7 @@ import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { DropZone } from "@/components/chat/media/DropZone";
+import { JaugeUsage } from "@/components/chat/JaugeUsage";
 import { useClipboardImage } from "@/hooks/useClipboardImage";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { convertirHistorique } from "@/lib/prechargement-conversations";
@@ -1793,6 +1794,11 @@ export default function ChatPage() {
               </div>
               )}
             </div>
+            {/* La jauge se relit apres chaque envoi : `messagesEnvoyes` change,
+                l effet du composant repart. Sans ce signal, le compteur
+                resterait a sa valeur d ouverture de page et annoncerait un
+                reste faux au troisieme message. */}
+            <JaugeUsage signal={messages.length} />
             <p className="px-2 text-center text-[11px] leading-relaxed text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
             </p>
