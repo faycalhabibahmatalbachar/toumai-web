@@ -31,6 +31,20 @@ export class HttpError extends Error {
 /** Le corps d'un refus de quota, tel que le pose `core/quotas.py`. */
 export type RefusQuota = {
   code: "quota_depasse";
+  /** LAQUELLE des limites a bloqué.
+   *
+   * `code` dit qu'il s'agit d'un quota et non d'une limite de débit — deux
+   * choses que « Trop de demandes d'un coup » confondait. `raison` dit
+   * laquelle, parce que la suite n'est pas la même : un bloc de cinq heures
+   * repart tout seul dans l'heure et n'appelle aucune offre supérieure ; un
+   * plafond mensuel, si. */
+  raison?:
+    | "RATE_WINDOW_REACHED"
+    | "DAILY_QUOTA_REACHED"
+    | "WEEKLY_QUOTA_REACHED"
+    | "MONTHLY_QUOTA_REACHED"
+    | "PLAN_LIMIT_REACHED"
+    | "QUOTA_ATTEINT";
   metrique: string;
   libelle: string;
   plan: string;
