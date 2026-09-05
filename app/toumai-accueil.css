@@ -1111,70 +1111,99 @@ html:has(.tmh) {
   .tmh .fondateur-portrait img { object-position: 50% 18%; }
 }
 
-/* ═══ LA REVELATION AU VENT ════════════════════════════════════════════════
+/* ═══ LE DIPTYQUE DES MODELES ══════════════════════════════════════════════
  *
- * Le texte a gauche, l animation a droite, et l animation prend la plus grande
- * part : c est elle qu on vient voir. Le texte l accompagne, il ne la
- * commente pas.
+ * Deux volets qui se repondent : Sao 4 ASSEMBLE des tessons pour se nommer,
+ * Toumai 5 DISPERSE des feuilles pour se reveler. Cote a cote, ils disent la
+ * difference entre les deux modeles sans qu on ait a l ecrire. Separes, ce
+ * sont deux jolies animations.
  *
- * Le cadre porte l affiche en fond, comme les scenes. Si les 919 Ko du SVG
- * n arrivent jamais, on voit le nom revele plutot qu un rectangle vide. */
+ * Le cadre porte l affiche en fond, comme les scenes : si le fichier n arrive
+ * jamais, on voit l image finale plutot qu un rectangle vide. */
 .tmh .vent {
   padding-block: clamp(4rem, 8vw, 7.5rem);
   border-bottom: 1px solid var(--line);
 }
 
-.tmh .vent-inner {
-  display: grid;
-  grid-template-columns: minmax(0, .62fr) minmax(0, 1.38fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: center;
-}
+.tmh .vent-entete { max-width: 46rem; }
 
-.tmh .vent-mot h2 {
+.tmh .vent-entete h2 {
   margin: 0;
-  max-width: 12ch;
+  max-width: 16ch;
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
-  font-size: clamp(2.4rem, 4.4vw, 4rem);
+  font-size: clamp(2.3rem, 4.2vw, 3.8rem);
   letter-spacing: -.045em;
   line-height: 1;
 }
 
 .tmh .vent-texte {
-  max-width: 34ch;
-  margin: 1.4rem 0 0;
+  max-width: 44ch;
+  margin: 1.3rem 0 0;
   color: var(--muted);
   font-size: 1.02rem;
   line-height: 1.6;
 }
 
-.tmh .vent-note {
-  margin: 1.2rem 0 0;
-  color: var(--muted);
-  font-size: .78rem;
-  letter-spacing: .04em;
+.tmh .vent-diptyque {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+  margin-top: clamp(2.2rem, 4vw, 3.4rem);
 }
+
+.tmh .vent-volet { margin: 0; }
 
 .tmh .vent-cadre {
   position: relative;
   aspect-ratio: 3 / 2;
   overflow: hidden;
-  border-radius: 1.6rem;
+  border-radius: 1.4rem;
   background-color: #efe2cf;
   background-image: url("/accueil-medias/toumai5-vent-affiche.webp");
   background-position: center;
+  background-repeat: no-repeat;
   background-size: cover;
-  box-shadow: 0 30px 72px rgba(67, 35, 25, .16);
+  box-shadow: 0 24px 56px rgba(67, 35, 25, .15);
 }
 
-.tmh .vent-cadre object {
+.tmh .vent-cadre-sao {
+  background-color: #eadac7;
+  background-image: url("/accueil-medias/animations/commun/affiches/07-sao-tessons.webp");
+}
+
+.tmh .vent-cadre object,
+.tmh .vent-cadre iframe {
   display: block;
   width: 100%;
   height: 100%;
   border: 0;
 }
 
+.tmh .vent-volet figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  margin-top: .9rem;
+}
+
+.tmh .vent-volet figcaption strong {
+  font: 400 1.35rem/1.15 Georgia, "Times New Roman", serif;
+  letter-spacing: -.03em;
+}
+
+.tmh .vent-volet figcaption span {
+  color: var(--muted);
+  font-size: .88rem;
+}
+
+.tmh .vent-note {
+  margin: 1.6rem 0 0;
+  color: var(--muted);
+  font-size: .78rem;
+  letter-spacing: .04em;
+}
+
 @media (max-width: 820px) {
-  .tmh .vent-inner { grid-template-columns: 1fr; gap: 2rem; }
+  .tmh .vent-diptyque { grid-template-columns: 1fr; gap: 2rem; }
 }

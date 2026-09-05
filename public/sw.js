@@ -50,7 +50,12 @@
 // remplace. Le socle a change, donc le numero change — sinon les visiteurs
 // deja venus garderaient un cache qui precharge une scene disparue et
 // ignore la nouvelle.
-const VERSION = "toumai-v2";
+// v3 (5 septembre 2026) : purge obligatoire. La strategie « cache d abord,
+// revalide ensuite » sur /accueil-medias/ a servi une ancienne animation
+// pendant une visite entiere apres son remplacement. Les fichiers qu on
+// remplace portent desormais leur version dans leur NOM ; ce numero-ci
+// efface ce que l ancienne strategie avait deja garde.
+const VERSION = "toumai-v3";
 const CACHE = `${VERSION}`;
 
 /**

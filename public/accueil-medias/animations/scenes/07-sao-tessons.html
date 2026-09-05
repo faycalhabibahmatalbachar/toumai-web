@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Toumaï — Sao 4</title>
+  <link rel="stylesheet" href="../commun/scene.css" />
+  <style>
+    /* La jumelle de la révélation au vent : même sable, même terre cuite. Le
+     * vent DISPERSE pour révéler ; celle-ci ASSEMBLE pour se révéler.
+     *
+     * LE CADRE SOMBRE DU SOCLE COMMUN EST NEUTRALISÉ ICI. `commun/scene.css`
+     * pose un fond noir, une bordure claire et une ombre portée : c'est le
+     * boîtier qui convient aux scènes de démonstration, posées seules dans une
+     * carte. Celle-ci vit à côté du volet Toumaï 5, qui n'a pas de boîtier :
+     * un liseré noir sur un seul des deux volets se lit comme une erreur de
+     * montage. */
+    html, body { background: #eadac7; }
+    .scene {
+      background: linear-gradient(158deg, #f2e7da 0%, #eadac7 55%, #e2cfba 100%);
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      width: 100%;
+      max-height: none;
+    }
+    body { padding: 0; }
+
+    .nom {
+      font: 400 76px/1 Georgia, "Times New Roman", serif;
+      letter-spacing: .04em;
+      fill: #fdf3e6;
+      text-anchor: middle;
+    }
+
+    .tesson { will-change: transform; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .poussiere { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="scene" id="scene">
+    <svg viewBox="0 0 1200 720" role="img" aria-labelledby="titre-scene desc-scene">
+      <title id="titre-scene">Des tessons de poterie se rassemblent et forment Sao 4</title>
+      <desc id="desc-scene">
+        Douze fragments de terre cuite reposent sur un sol sable. Ils se
+        soulèvent, convergent vers le centre et s'emboîtent : ils étaient les
+        morceaux d'une même jarre. Le nom Sao 4 s'inscrit alors sur la panse.
+      </desc>
+
+      <defs>
+        <clipPath id="jarre"><path d="M566 128 C560 150 554 166 560 180 C480 204 434 262 434 344 C434 452 496 536 598 540 C704 540 766 452 766 344 C766 262 720 204 640 180 C646 166 640 150 634 128 Z" /></clipPath>
+        <clipPath id="cell-0"><rect x="428" y="126" width="78.8" height="92.3" /></clipPath>
+        <clipPath id="cell-1"><rect x="506.8" y="126" width="105.5" height="92.3" /></clipPath>
+        <clipPath id="cell-2"><rect x="612.3" y="126" width="159.7" height="92.3" /></clipPath>
+        <clipPath id="cell-3"><rect x="428" y="218.3" width="85.0" height="98.6" /></clipPath>
+        <clipPath id="cell-4"><rect x="513.0" y="218.3" width="188.8" height="98.6" /></clipPath>
+        <clipPath id="cell-5"><rect x="701.8" y="218.3" width="70.2" height="98.6" /></clipPath>
+        <clipPath id="cell-6"><rect x="428" y="317.0" width="71.7" height="119.1" /></clipPath>
+        <clipPath id="cell-7"><rect x="499.7" y="317.0" width="168.7" height="119.1" /></clipPath>
+        <clipPath id="cell-8"><rect x="668.3" y="317.0" width="103.7" height="119.1" /></clipPath>
+        <clipPath id="cell-9"><rect x="428" y="436.0" width="157.2" height="110.0" /></clipPath>
+        <clipPath id="cell-10"><rect x="585.2" y="436.0" width="79.7" height="110.0" /></clipPath>
+        <clipPath id="cell-11"><rect x="664.9" y="436.0" width="107.1" height="110.0" /></clipPath>
+
+        <filter id="ombre-jarre" x="-40%" y="-20%" width="180%" height="160%">
+          <feDropShadow dx="0" dy="18" stdDeviation="20"
+                        flood-color="#7a4423" flood-opacity=".22" />
+        </filter>
+      </defs>
+
+      <!-- L'ombre au sol. Elle grandit avec l'assemblage : une ombre de jarre
+           entière sous trois tessons épars se lit comme une tache. -->
+      <ellipse id="ombre" cx="600" cy="556" rx="60" ry="16"
+               fill="#7a4423" opacity="0" />
+
+      <g id="tessons" filter="url(#ombre-jarre)">
+      <g class="tesson" id="tesson-0" data-dx="-297.7" data-dy="-278.2" data-rot="137.9" data-retard="0.072">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-0)">
+            <rect x="428" y="126" width="344" height="420" fill="#d68f5c" />
+            <rect x="428" y="126" width="78.8" height="92.3" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-1" data-dx="-126.4" data-dy="-386.8" data-rot="-91.8" data-retard="0.103">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-1)">
+            <rect x="428" y="126" width="344" height="420" fill="#a44e30" />
+            <rect x="506.8" y="126" width="105.5" height="92.3" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-2" data-dx="211.3" data-dy="-284.2" data-rot="-108.0" data-retard="0.12">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-2)">
+            <rect x="428" y="126" width="344" height="420" fill="#c67446" />
+            <rect x="612.3" y="126" width="159.7" height="92.3" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-3" data-dx="-509.1" data-dy="-254.3" data-rot="101.2" data-retard="0.237">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-3)">
+            <rect x="428" y="126" width="344" height="420" fill="#8f4128" />
+            <rect x="428" y="218.3" width="85.0" height="98.6" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-4" data-dx="34.0" data-dy="-298.2" data-rot="-62.7" data-retard="0.276">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-4)">
+            <rect x="428" y="126" width="344" height="420" fill="#cd8151" />
+            <rect x="513.0" y="218.3" width="188.8" height="98.6" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-5" data-dx="499.1" data-dy="-235.9" data-rot="117.0" data-retard="0.354">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-5)">
+            <rect x="428" y="126" width="344" height="420" fill="#b0603a" />
+            <rect x="701.8" y="218.3" width="70.2" height="98.6" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-6" data-dx="-611.0" data-dy="12.5" data-rot="2.0" data-retard="0.346">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-6)">
+            <rect x="428" y="126" width="344" height="420" fill="#e0a271" />
+            <rect x="428" y="317.0" width="71.7" height="119.1" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-7" data-dx="-537.2" data-dy="93.4" data-rot="-135.5" data-retard="0.469">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-7)">
+            <rect x="428" y="126" width="344" height="420" fill="#d68f5c" />
+            <rect x="499.7" y="317.0" width="168.7" height="119.1" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-8" data-dx="663.2" data-dy="15.3" data-rot="15.7" data-retard="0.467">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-8)">
+            <rect x="428" y="126" width="344" height="420" fill="#a44e30" />
+            <rect x="668.3" y="317.0" width="103.7" height="119.1" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-9" data-dx="-412.6" data-dy="325.9" data-rot="114.9" data-retard="0.541">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-9)">
+            <rect x="428" y="126" width="344" height="420" fill="#c67446" />
+            <rect x="428" y="436.0" width="157.2" height="110.0" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-10" data-dx="111.5" data-dy="328.7" data-rot="32.6" data-retard="0.589">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-10)">
+            <rect x="428" y="126" width="344" height="420" fill="#8f4128" />
+            <rect x="585.2" y="436.0" width="79.7" height="110.0" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      <g class="tesson" id="tesson-11" data-dx="334.0" data-dy="208.1" data-rot="-64.3" data-retard="0.678">
+        <g clip-path="url(#jarre)">
+          <g clip-path="url(#cell-11)">
+            <rect x="428" y="126" width="344" height="420" fill="#cd8151" />
+            <rect x="664.9" y="436.0" width="107.1" height="110.0" fill="none" stroke="#8d4327" stroke-width="2.4" stroke-opacity=".55" />
+          </g>
+        </g>
+      </g>
+      </g>
+
+      <!-- Les cannelures. Une jarre sao porte des bandes incisées ; deux
+           suffisent à dire de quoi il s agit, et elles traversent les joints,
+           ce qui achève de casser la lecture en carreaux. -->
+      <g id="cannelures" clip-path="url(#jarre)" opacity="0">
+        <path d="M420 292 H780" stroke="#7d3a22" stroke-width="3" opacity=".38" />
+        <path d="M420 302 H780" stroke="#e3a878" stroke-width="2" opacity=".30" />
+        <path d="M420 452 H780" stroke="#7d3a22" stroke-width="3" opacity=".38" />
+        <path d="M420 462 H780" stroke="#e3a878" stroke-width="2" opacity=".30" />
+      </g>
+
+      <!-- Le nom, inscrit une fois la jarre refermée. -->
+      <text id="nom" class="nom" x="600" y="392" opacity="0">SAO 4</text>
+    </svg>
+  </main>
+
+  <script src="../commun/scene.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const S = window.Scene;
+
+      const tessons = Array.from(document.querySelectorAll(".tesson")).map((n) => ({
+        noeud: n,
+        dx: parseFloat(n.dataset.dx),
+        dy: parseFloat(n.dataset.dy),
+        rot: parseFloat(n.dataset.rot),
+        retard: parseFloat(n.dataset.retard),
+      }));
+      const nom = S.el("nom");
+      const ombre = S.el("ombre");
+      const cannelures = S.el("cannelures");
+
+      /** Pose un tesson entre sa position d'arrivée (t = 1) et son point de
+       *  départ (t = 0). La rotation se fait autour du CENTRE du cadre : les
+       *  pièces tournent avec la jarre, pas chacune sur elle-même, ce qui
+       *  donne un mouvement de rassemblement plutôt qu'un tourbillon. */
+      function poser(t, avancement) {
+        const reste = 1 - avancement;
+        t.noeud.setAttribute(
+          "transform",
+          `translate(${(t.dx * reste).toFixed(1)} ${(t.dy * reste).toFixed(1)}) ` +
+            `rotate(${(t.rot * reste).toFixed(1)} 600 372)`
+        );
+        S.opacite(t.noeud, Math.min(1, 0.25 + avancement * 1.4));
+      }
+
+      function preparer() {
+        tessons.forEach((t) => poser(t, 0));
+        nom.textContent = "SAO 4";
+        S.opacite(nom, 0);
+        S.opacite(cannelures, 0);
+        S.opacite(ombre, 0);
+        ombre.setAttribute("rx", "60");
+      }
+
+      function finFixe() {
+        tessons.forEach((t) => poser(t, 1));
+        S.opacite(nom, 1);
+        S.opacite(cannelures, 1);
+        S.opacite(ombre, 0.28);
+        ombre.setAttribute("rx", "150");
+      }
+
+      /** Chaque tesson part à son heure, mais tous arrivent presque ensemble :
+       *  le décalage est sur le DÉPART, pas sur la durée. Douze pièces qui
+       *  finissent l'une après l'autre donnent une file d'attente ; douze
+       *  pièces qui convergent donnent un assemblage. */
+      async function assembler() {
+        const duree = 2600;
+        await S.tween(duree, (t) => {
+          for (const tesson of tessons) {
+            const avance = Math.max(0, Math.min(1, (t - tesson.retard) / (1 - tesson.retard)));
+            // Une courbe qui freine à l'arrivée : un morceau de terre cuite
+            // qui se pose ne décélère pas linéairement.
+            poser(tesson, 1 - Math.pow(1 - avance, 3));
+          }
+          S.opacite(ombre, t * 0.28);
+          ombre.setAttribute("rx", String(60 + t * 90));
+        }, S.courbes.lineaire);
+      }
+
+      /** Le petit tassement final : la jarre se pose. Sans lui, l'assemblage
+       *  s'arrête net et on voit qu'il était calculé. */
+      async function tasser() {
+        const groupe = S.el("tessons");
+        await S.tween(320, (t) => {
+          const e = 1 - 0.012 * Math.sin(Math.PI * t);
+          groupe.setAttribute(
+            "transform",
+            `translate(600 372) scale(${e.toFixed(4)}) translate(-600 -372)`
+          );
+        });
+        groupe.removeAttribute("transform");
+      }
+
+      const scene = S.jouer({
+        preparer,
+        finFixe,
+        pause: 2200,
+        async sequence(annulee) {
+          await S.attendre(620);
+          await assembler();
+          if (annulee()) return;
+          await tasser();
+          if (annulee()) return;
+
+          await S.attendre(220);
+          await S.tween(520, (t) => {
+            S.opacite(nom, t);
+            S.opacite(cannelures, t);
+          });
+          if (annulee()) return;
+
+          await S.attendre(2000);
+
+          // On se disperse à nouveau : la boucle reprend là où elle a commencé.
+          await S.tween(760, (t) => {
+            tessons.forEach((tesson) => poser(tesson, 1 - t));
+            S.opacite(nom, 1 - t);
+            S.opacite(cannelures, 1 - t);
+            S.opacite(ombre, 0.28 * (1 - t));
+            ombre.setAttribute("rx", String(150 - t * 90));
+          });
+        },
+      });
+
+      S.el("scene").addEventListener("click", () => scene.relancer());
+      scene.tour();
+    })();
+  </script>
+</body>
+</html>

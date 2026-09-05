@@ -3,6 +3,7 @@ import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { AgentDeService } from "@/components/AgentDeService";
+import { SignatureOuverture } from "@/components/SignatureOuverture";
 import { ThemeProvider } from "@/lib/theme-context";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { CookieConsent } from "@/components/CookieConsent";
@@ -254,6 +255,7 @@ export default function RootLayout({
             <MaintenanceGate />
             <AnalyticsInit />
             <AgentDeService />
+            <SignatureOuverture />
             {children}
             <CookieConsent />
           </AuthProvider>

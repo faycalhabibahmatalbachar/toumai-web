@@ -420,51 +420,95 @@ const ABSENCE_AVANT_RELANCE_MS = 20_000;
  */
 function SectionVent() {
   const objet = useRef<HTMLObjectElement>(null);
+  const cadreSao = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    const element = objet.current;
-    if (!element || element.getAttribute("data")) return;
+    const vent = objet.current;
+    const sao = cadreSao.current;
+    if (!vent && !sao) return;
 
     const observateur = new IntersectionObserver(
       (entrees) => {
         for (const entree of entrees) {
           if (!entree.isIntersecting) continue;
-          element.setAttribute("data", "/accueil-medias/toumai5-vent.svg");
-          observateur.disconnect();
+          const cible = entree.target as HTMLElement;
+          if (cible === vent && !vent?.getAttribute("data")) {
+            // LE NOM PORTE LA VERSION, et ce n'est pas cosmétique. L'agent de
+            // service met tout `/accueil-medias/` en cache d'abord, revalide
+            // ensuite : remplacer un fichier sous le MÊME nom fait servir
+            // l'ancien pendant toute une visite. C'est exactement ce qui s'est
+            // passé le 5 septembre, le sous-titre « voir plus loin » restant à
+            // l'écran alors que la production servait déjà le bon fichier. Un
+            // nom neuf est une adresse neuve, que le cache ne peut pas
+            // confondre.
+            vent.setAttribute("data", "/accueil-medias/toumai5-vent-v2.svg");
+          }
+          if (cible === sao && !sao?.getAttribute("src")) {
+            sao.setAttribute(
+              "src",
+              `${DOSSIER_ANIMATIONS}/07-sao-tessons.html`,
+            );
+          }
         }
       },
       // 150 px, et pas davantage. Mesure : à 600 px, la section était déjà
       // dans la marge au chargement d'une page de 950 px de haut, et les
       // 916 Ko partaient AVANT que quiconque ait fait défiler. Un chargement
-      // paresseux qui se déclenche tout seul n'est pas paresseux. À 150 px, il
-      // faut avoir commencé à descendre, et l'affiche en fond couvre le temps
-      // d'arrivée.
+      // paresseux qui se déclenche tout seul n'est pas paresseux.
       { rootMargin: "150px" },
     );
-    observateur.observe(element);
+    if (vent) observateur.observe(vent);
+    if (sao) observateur.observe(sao);
     return () => observateur.disconnect();
   }, []);
 
   return (
     <section className="vent" id="plateforme">
-      <div className="shell vent-inner">
-        <div className="vent-mot">
-          <p className="section-kicker">Toumaï 5</p>
-          <h2>Voir plus loin.</h2>
+      <div className="shell">
+        <div className="vent-entete">
+          <p className="section-kicker">Deux modèles</p>
+          <h2>L’un rassemble. L’autre révèle.</h2>
           <p className="vent-texte">
-            Une brise se lève sur le sable. Les feuilles se soulèvent une à une,
-            et ce qui était dessous apparaît.
+            Sao 4 reconstruit à partir de fragments : rapide, économe, taillé
+            pour le quotidien. Toumaï 5 prend le temps de voir plus loin.
           </p>
-          <p className="vent-note">Cliquez sur l’image pour la rejouer.</p>
         </div>
 
-        <div className="vent-cadre">
-          <object
-            ref={objet}
-            type="image/svg+xml"
-            aria-label="Le vent soulève des feuilles et révèle le nom Toumaï 5"
-          />
+        {/* LE DIPTYQUE. Les deux scènes se répondent : l'une ASSEMBLE des
+            tessons pour se nommer, l'autre DISPERSE des feuilles pour se
+            révéler. Côte à côte, elles disent la différence entre les deux
+            modèles sans qu'on ait à l'écrire. Séparées, ce sont deux jolies
+            animations. */}
+        <div className="vent-diptyque">
+          <figure className="vent-volet">
+            <div className="vent-cadre vent-cadre-sao">
+              <iframe
+                ref={cadreSao}
+                title="Des tessons de poterie se rassemblent et forment Sao 4"
+              />
+            </div>
+            <figcaption>
+              <strong>Sao 4</strong>
+              <span>Reconstruit à partir de fragments.</span>
+            </figcaption>
+          </figure>
+
+          <figure className="vent-volet">
+            <div className="vent-cadre">
+              <object
+                ref={objet}
+                type="image/svg+xml"
+                aria-label="Le vent soulève des feuilles et révèle le nom Toumaï 5"
+              />
+            </div>
+            <figcaption>
+              <strong>Toumaï 5</strong>
+              <span>Prend le temps de voir plus loin.</span>
+            </figcaption>
+          </figure>
         </div>
+
+        <p className="vent-note">Cliquez sur une image pour la rejouer.</p>
       </div>
     </section>
   );
