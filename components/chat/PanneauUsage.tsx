@@ -230,11 +230,13 @@ export function PanneauUsage({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
+        {/* Le pied ne porte plus que la sortie. « Les compteurs viennent du
+            serveur » expliquait une garantie technique à quelqu'un qui voulait
+            juste savoir ce qu'il lui reste : c'est notre problème, pas le sien. */}
         <div
-          className="flex items-center justify-between gap-3 border-t px-5 py-3 text-[13px]"
+          className="flex items-center justify-end border-t px-5 py-3 text-[13px]"
           style={{ borderColor: "var(--border)", color: "var(--text-tertiary)" }}
         >
-          <span>Les compteurs viennent du serveur.</span>
           <Link href="/usage" className="underline underline-offset-2">
             Tout voir
           </Link>
