@@ -66,6 +66,30 @@ const LIBELLES: Record<string, { nom: string; quoi: string }> = {
   stockage_mo: { nom: "Stockage", quoi: "Vos fichiers, en mégaoctets." },
 };
 
+/** LES HORAIRES, DANS L'HEURE DE CELUI QUI LIT.
+ *
+ * Le serveur découpe ses fenêtres en UTC. La page annonçait ces heures telles
+ * quelles — « les blocs commencent à minuit, 5 h, 10 h… » — et c'était faux
+ * pour presque tous nos utilisateurs : le Tchad est à UTC+1 toute l'année, si
+ * bien que les blocs commencent en réalité à 1 h, 6 h, 11 h, 16 h et 21 h, et
+ * que la journée repart à 1 h du matin.
+ *
+ * Quelqu'un à N'Djamena qui attendait minuit pour réécrire restait bloqué une
+ * heure de plus, sans comprendre pourquoi. On convertit donc les bornes réelles
+ * dans le fuseau du navigateur : juste au Tchad, juste aussi pour la diaspora.
+ */
+function heureLocale(heureUtc: number): string {
+  const d = new Date();
+  d.setUTCHours(heureUtc, 0, 0, 0);
+  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** « 01:00, 06:00, 11:00, 16:00 et 21:00 » — la liste, dans l'heure du lecteur. */
+function bornesDesBlocs(): string {
+  const heures = [0, 5, 10, 15, 20].map(heureLocale);
+  return `${heures.slice(0, -1).join(", ")} et ${heures[heures.length - 1]}`;
+}
+
 /** L'ordre d'affichage des fenêtres : de celle qui bloque en premier à celle
  *  qui ne bloque jamais. C'est l'ordre dans lequel on se pose la question. */
 const FENETRES: { cle: string; titre: string; explication: string }[] = [
@@ -73,18 +97,21 @@ const FENETRES: { cle: string; titre: string; explication: string }[] = [
     cle: "5h",
     titre: "Limite de 5 heures",
     explication:
-      "Elle protège le service des rafales. Les blocs commencent à minuit, 5 h, 10 h, 15 h et 20 h.",
+      "Elle protège le service des rafales. Les blocs commencent à " +
+      bornesDesBlocs() +
+      ", à votre heure.",
   },
   {
     cle: "jour",
     titre: "Limite du jour",
-    explication: "Remise à zéro chaque nuit à minuit.",
+    explication: `Remise à zéro chaque jour à ${heureLocale(0)}, à votre heure.`,
   },
   {
     cle: "semaine",
     titre: "Limite de la semaine",
     explication:
-      "Elle repart le dimanche à minuit, pour que la semaine pleine soit devant vous le lundi.",
+      `Elle repart le dimanche à ${heureLocale(0)}, pour que la semaine pleine ` +
+      "soit devant vous le lundi.",
   },
   { cle: "mois", titre: "Limite du mois", explication: "Remise à zéro le 1er." },
   {
