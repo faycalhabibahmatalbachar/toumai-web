@@ -142,18 +142,17 @@ export function JaugeUsage({ signal }: { signal?: number }) {
         )}
       </span>
 
-      {/* Le lien n'apparaît que sur le plan gratuit. Proposer de payer à
-          quelqu'un qui paie déjà est une maladresse, et il arrive qu'un plan
-          payant atteigne aussi sa limite de cinq heures. */}
-      {etat.plan?.code === "gratuit" && (
-        <Link
-          href="/#tarifs"
-          className="underline underline-offset-2"
-          style={{ color: "var(--text-tertiary)" }}
-        >
-          Voir les offres
-        </Link>
-      )}
+      {/* LE LIEN MÈNE AU DÉTAIL, PAS AUX OFFRES. « Pourquoi suis-je bloqué »
+          se pose avant « combien ça coûte », et un plan payant peut atteindre
+          sa limite de cinq heures sans avoir rien à acheter. La page d'usage
+          porte le bouton vers les offres, quand il a un sens. */}
+      <Link
+        href="/usage"
+        className="underline underline-offset-2"
+        style={{ color: "var(--text-tertiary)" }}
+      >
+        Détail
+      </Link>
     </div>
   );
 }

@@ -1740,15 +1740,14 @@ export default function ChatPage() {
               >
                 <GlobeIcon />
               </button>
-              {/* LE SELECTEUR DE MODELE PASSE A GAUCHE, avec les outils.
-                  Il etait apres l espace extensible : sur un telephone de
-                  390 px, cela creusait un trou de cent pixels entre le globe
-                  et « Sao 4 », et les commandes avaient l air eparpillees. Il
-                  est de toute facon a sa place ici : c est avec quoi on envoie,
-                  au meme titre que la recherche web. A droite il ne reste que
-                  les deux gestes de sortie, dicter et envoyer. */}
-              <ModelSelector value={model} onChange={setModel} />
+              {/* LE SELECTEUR RESTE A DROITE. Je l'avais deplace a gauche le
+                  4 septembre pour resserrer la barre sur telephone ; c'etait
+                  une erreur de ma part, pas une demande. Sa place est ici,
+                  avec les gestes de sortie : on choisit le modele juste avant
+                  d'envoyer, pas au moment ou l'on ajoute une piece jointe.
+                  Le resserrement mobile passe par le `gap`, pas par l'ordre. */}
               <div className="flex-1" />
+              <ModelSelector value={model} onChange={setModel} />
               <button
                 onClick={toggleDictation}
                 aria-label="Dicter"
