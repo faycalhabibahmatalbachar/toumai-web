@@ -96,6 +96,15 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
   /** `null` quand la permission est exercable ; sinon la raison, a afficher. */
   function indisponible(p: PermDef): string | null {
     if (!p.capacite || !capacites) return null;
+    // ON NE GRISE QUE SUR UNE ABSENCE DECLAREE.
+    //
+    // Tant que la passerelle en service ne repond pas a /capabilities, la
+    // source vaut « inconnu ». Griser sur cette base retirerait a
+    // l'utilisateur des permissions qui fonctionnent parfaitement, sans
+    // qu'aucun ecran ne lui dise pourquoi. C'est exactement ce qui est arrive
+    // cote serveur le 05/09/2026, et la lecon vaut ici : le doute laisse
+    // passer, et la passerelle tranche au moment de l'action.
+    if (capacites.source !== "passerelle") return null;
     if (capacites.capacites?.[p.capacite]) return null;
     const definitif = capacites.impossibles?.[p.capacite];
     if (definitif) return definitif;

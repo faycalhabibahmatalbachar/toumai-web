@@ -102,7 +102,7 @@ export interface WaEtat {
   detail?: string;
   /** Ce que la passerelle en service sait reellement faire. */
   capacites?: Record<string, boolean>;
-  capacites_source?: "passerelle" | "socle" | "aucune";
+  capacites_source?: "passerelle" | "inconnu" | "aucune";
   /** Ce qu'aucune version ne fera, avec la raison. */
   hors_de_portee?: Record<string, string>;
 }
@@ -112,7 +112,14 @@ export function getWaEtat(): Promise<WaEtat> {
 }
 
 export interface WaCapacites {
-  source: "passerelle" | "socle" | "aucune";
+  /** D'ou vient cette liste.
+   *
+   * `passerelle` : elle a declare, on peut s'y fier dans les deux sens.
+   * `inconnu` : elle ne sait pas repondre. La liste est informative, elle ne
+   * doit RIEN interdire — voir le commentaire de `indisponible` dans
+   * WhatsAppPermissionsPanel.
+   * `aucune` : pas de connecteur du tout, ce que dit deja l'etat. */
+  source: "passerelle" | "inconnu" | "aucune";
   version: string | null;
   capacites: Record<string, boolean>;
   impossibles: Record<string, string>;
