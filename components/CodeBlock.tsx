@@ -430,7 +430,7 @@ export function CodeBlock({
   }
 
   const webPreview = runnable && isWebPreview(language, code);
-  const consoleRun = runnable && !webPreview && isConsoleRunnable(language);
+  const consoleRun = runnable && !webPreview && isConsoleRunnable(language, code);
 
   return (
     <div className="my-2 overflow-hidden rounded-lg border border-[var(--border)]">

@@ -47,8 +47,35 @@ const CONSOLE_LANGS = new Set([
   "nim", "crystal", "ocaml", "pascal", "julia", "zig", "d",
 ]);
 
-export function isConsoleRunnable(language: string): boolean {
+/** UN APPEL D'OUTIL N'EST PAS DU CODE À EXÉCUTER.
+ *
+ * Observé en production : le modèle, privé d'outils, a écrit dans sa réponse
+ * `use_skill(skill_name="whatsapp_etat")`. L'interface y a vu du Python, a
+ * proposé « Exécuter », et la personne a récolté une trace Pyodide à la place
+ * de ses messages.
+ *
+ * La cause est traitée côté serveur — le prompt ne montre plus de syntaxe
+ * d'appel. Ceci est la seconde barrière, celle qui tient quand la première
+ * cède : un modèle peut toujours halluciner une ligne de ce genre, et rien ne
+ * justifie de proposer d'exécuter ce qui n'a jamais été du code de personne.
+ *
+ * On ne masque QUE le bouton. Le bloc reste affiché tel quel : cacher la ligne
+ * empêcherait de comprendre ce qui s'est passé, et c'est précisément ce qu'il
+ * faut voir pour le signaler.
+ */
+const APPEL_D_OUTIL =
+  /^\s*(?:use_skill|use_skill_reference|send_whatsapp|whatsapp_\w+|mon_compte|generate_document|generate_image|web_search|read_mail|send_mail)\s*\(/;
+
+export function estUnAppelDOutil(code: string): boolean {
+  const lignes = (code || "").trim().split("\n").filter((l) => l.trim());
+  // Un vrai programme qui appellerait `web_search(...)` en ligne 40 reste un
+  // programme. Ce qu'on écarte, c'est le bloc qui n'est QUE cet appel.
+  return lignes.length > 0 && lignes.length <= 3 && lignes.every((l) => APPEL_D_OUTIL.test(l) || !l.trim());
+}
+
+export function isConsoleRunnable(language: string, code = ""): boolean {
   const l = (language || "").toLowerCase();
+  if (code && estUnAppelDOutil(code)) return false;
   return isBrowserPython(l) || CONSOLE_LANGS.has(l);
 }
 
