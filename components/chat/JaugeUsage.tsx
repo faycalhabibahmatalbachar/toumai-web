@@ -1,26 +1,34 @@
 "use client";
 
 /**
- * LA JAUGE D'USAGE, SOUS LE CHAMP DE SAISIE.
+ * LE BANDEAU DE QUOTA, SOUS LE CHAMP DE SAISIE.
  *
- * CE QU'ELLE RÉSOUT
- * ------------------
- * Les quotas existent côté serveur et refusent proprement. Sans rien à
- * l'écran, la personne les découvre au moment où on lui dit non, et ce
- * moment-là est toujours le mauvais : elle écrivait quelque chose. Une jauge
- * qui prévient à l'avance transforme un mur en information.
+ * IL NE S'AFFICHE QU'AU MOMENT OÙ IL SERT
+ * ========================================
+ * La première version se montrait dès qu'il restait moins d'un quart du
+ * quota. L'intention était bonne — prévenir avant le mur — mais le résultat
+ * ne l'était pas : « 1 message aujourd'hui sur 20 » restait affiché en
+ * permanence sous le champ de saisie, et un compteur permanent au-dessus
+ * d'un endroit où l'on écrit donne l'impression d'être surveillé pendant
+ * qu'on parle.
  *
- * ELLE NE S'AFFICHE PAS TOUT LE TEMPS, et c'est le point important. Tant qu'il
- * reste plus du quart du quota, elle reste muette : un compteur permanent
- * au-dessus d'un champ de saisie donne l'impression d'être surveillé pendant
- * qu'on écrit. Elle apparaît quand elle devient utile, c'est-à-dire quand la
- * fin approche.
+ * Il n'apparaît donc plus qu'une fois la limite ATTEINTE, c'est-à-dire au
+ * seul instant où l'information change quelque chose : celui où l'on ne peut
+ * plus envoyer et où l'on a besoin de savoir pourquoi.
  *
- * ELLE MONTRE LA FENÊTRE LA PLUS CONTRAIGNANTE. Trois limites encadrent les
- * messages : cinq heures, la journée, la semaine. Afficher les trois, c'est
- * un tableau de bord ; afficher celle qui bloquera en premier, c'est une
- * réponse. Et c'est aussi celle qui repart le plus tôt, donc la seule dont
- * l'heure de reprise intéresse quelqu'un.
+ * IL DIT CE QUI BLOQUE, PAS TOUT CE QUI EXISTE
+ * =============================================
+ * Trois limites encadrent les messages : cinq heures, la journée, la semaine.
+ * Les afficher toutes serait un tableau de bord. On montre celle qui bloque —
+ * et si plusieurs sont pleines, celle qui repart le plus tôt, parce que c'est
+ * la seule dont l'heure de reprise intéresse quelqu'un.
+ *
+ * LES CHIFFRES VIENNENT DU SERVEUR, TOUJOURS
+ * ===========================================
+ * Rien n'est compté ici. Un compteur tenu par le navigateur repart à zéro à
+ * chaque rechargement, ne voit pas le deuxième onglet, et ment dès qu'on
+ * ouvre l'application sur un autre appareil. `/abonnements/moi` est la seule
+ * source, et elle est relue après chaque échange.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -28,11 +36,6 @@ import Link from "next/link";
 
 import { API_BASE } from "@/lib/config";
 import { authHeaders } from "@/lib/api";
-
-/** En dessous de ce reste, la jauge se montre. Un quart : assez tôt pour
- *  changer ses plans, assez tard pour ne pas peser sur les vingt premiers
- *  messages. */
-const SEUIL = 0.25;
 
 /** Les trois fenêtres qui encadrent les messages, de la plus courte à la plus
  *  longue. Le même ordre que `core/quotas.py`, et pour la même raison. */
@@ -65,9 +68,9 @@ function enClair(secondes: number | null): string {
 }
 
 const LIBELLES: Record<string, string> = {
-  messages_5h: "sur cinq heures",
-  messages: "aujourd’hui",
-  messages_semaine: "cette semaine",
+  messages_5h: "Limite de 5 heures atteinte",
+  messages: "Limite quotidienne atteinte",
+  messages_semaine: "Limite hebdomadaire atteinte",
 };
 
 export function JaugeUsage({ signal }: { signal?: number }) {
@@ -82,7 +85,8 @@ export function JaugeUsage({ signal }: { signal?: number }) {
       const charge = await reponse.json();
       if (charge?.data) setEtat(charge.data as Etat);
     } catch {
-      // La jauge est un confort. Elle ne fait jamais de bruit.
+      // Le bandeau est un secours. Il ne fait jamais de bruit : c'est le
+      // serveur qui refuse pour de bon, pas cet affichage.
     }
   }, []);
 
@@ -90,68 +94,68 @@ export function JaugeUsage({ signal }: { signal?: number }) {
     void relire();
   }, [relire, signal]);
 
+  // ── QUAND SE MONTRER ─────────────────────────────────────────────────
+  //
+  // Une seule condition : une fenêtre est PLEINE. Tant qu'il reste ne
+  // serait-ce qu'un message, l'interface reste nue.
   if (!etat) return null;
 
-  // La plus contraignante : celle dont la part restante est la plus faible.
-  let pire: { cle: string; q: Quota; part: number } | null = null;
-  for (const cle of FENETRES_MESSAGES) {
-    const q = etat.quotas?.[cle];
-    if (!q || q.illimite || q.plafond <= 0) continue;
-    const part = (q.restant ?? 0) / q.plafond;
-    if (!pire || part < pire.part) pire = { cle, q, part };
-  }
+  const pleines = FENETRES_MESSAGES.map((cle) => ({ cle, q: etat.quotas?.[cle] }))
+    .filter(({ q }) => q && !q.illimite && q.plafond > 0 && (q.restant ?? 0) <= 0);
 
-  if (!pire || pire.part > SEUIL) return null;
+  if (!pleines.length) return null;
 
-  const { q, cle, part } = pire;
-  const epuise = (q.restant ?? 0) <= 0;
+  // Plusieurs limites pleines : on cite celle qui repart le plus tôt. C'est la
+  // seule échéance qui aide — savoir que l'hebdomadaire repart dans six jours
+  // n'apprend rien à qui pourra réécrire dans deux heures.
+  const bloquante = pleines.reduce((meilleur, courant) => {
+    const a = courant.q!.secondes_restantes ?? Number.MAX_SAFE_INTEGER;
+    const b = meilleur.q!.secondes_restantes ?? Number.MAX_SAFE_INTEGER;
+    return a < b ? courant : meilleur;
+  });
+
+  const q = bloquante.q!;
+  const titre = LIBELLES[bloquante.cle] ?? "Limite atteinte";
 
   return (
     <div
-      className="mx-auto mt-1.5 flex w-full max-w-[var(--chat-measure)] items-center gap-2 px-2 text-[11.5px]"
+      className="mx-auto mt-2 flex w-full max-w-[var(--chat-measure)] flex-wrap items-center gap-x-2 gap-y-1 rounded-[10px] px-3 py-2 text-[12.5px]"
+      style={{
+        background: "var(--danger-bg, rgba(192,87,58,0.08))",
+        border: "1px solid var(--danger-border, rgba(192,87,58,0.24))",
+        color: "var(--text-secondary)",
+      }}
       role="status"
+      aria-live="polite"
     >
-      <span
-        aria-hidden="true"
-        className="h-1 w-14 shrink-0 overflow-hidden rounded-full"
-        style={{ background: "var(--border)" }}
-      >
-        <span
-          className="block h-full rounded-full transition-[width] duration-500"
-          style={{
-            width: `${Math.max(3, part * 100)}%`,
-            background: epuise ? "var(--danger, #c0573a)" : "var(--primary)",
-          }}
-        />
+      <span aria-hidden="true" className="shrink-0" style={{ color: "var(--danger, #c0573a)" }}>
+        {/* Un rond barré : le geste est refusé, ce n'est pas une panne. */}
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" />
+          <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+        </svg>
       </span>
 
-      <span style={{ color: "var(--text-tertiary)" }}>
-        {epuise ? (
-          <>
-            Limite {LIBELLES[cle] ?? ""} atteinte
-            {q.secondes_restantes
-              ? `, ça repart dans ${enClair(q.secondes_restantes)}`
-              : ""}
-            .
-          </>
-        ) : (
-          <>
-            {q.restant} message{(q.restant ?? 0) > 1 ? "s" : ""}{" "}
-            {LIBELLES[cle] ?? ""} sur {q.plafond}
-          </>
-        )}
+      <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{titre}</span>
+      <span className="tabular-nums" style={{ color: "var(--text-tertiary)" }}>
+        {q.utilise} messages sur {q.plafond}
       </span>
 
-      {/* LE LIEN MÈNE AU DÉTAIL, PAS AUX OFFRES. « Pourquoi suis-je bloqué »
-          se pose avant « combien ça coûte », et un plan payant peut atteindre
-          sa limite de cinq heures sans avoir rien à acheter. La page d'usage
-          porte le bouton vers les offres, quand il a un sens. */}
+      {q.secondes_restantes ? (
+        <span style={{ color: "var(--text-tertiary)" }}>
+          · reprise dans {enClair(q.secondes_restantes)}
+        </span>
+      ) : null}
+
+      {/* « POURQUOI SUIS-JE BLOQUÉ » SE POSE AVANT « COMBIEN ÇA COÛTE ».
+          La page d'usage explique la règle, montre les autres compteurs, et
+          porte le lien vers les offres quand il a un sens. */}
       <Link
         href="/usage"
-        className="underline underline-offset-2"
-        style={{ color: "var(--text-tertiary)" }}
+        className="ml-auto shrink-0 underline underline-offset-2"
+        style={{ color: "var(--text-secondary)" }}
       >
-        Détail
+        Détails
       </Link>
     </div>
   );

@@ -133,6 +133,18 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [model, setModel] = useState("auto");
   const [error, setError] = useState<string | null>(null);
+  /** LE SIGNAL DE RELECTURE DES COMPTEURS.
+   *
+   * Il valait `messages.length`, ce qui paraissait suffire : un message de
+   * plus, un compteur de plus. Mais un envoi REFUSÉ pour quota n'ajoute aucun
+   * message — le nombre ne bougeait pas, les compteurs n'étaient pas relus, et
+   * le bandeau qui explique le blocage n'arrivait qu'au prochain événement.
+   * C'est-à-dire jamais, puisque plus rien ne pouvait partir.
+   *
+   * Un compteur propre, incrémenté à la FIN de chaque envoi quel qu'en soit le
+   * sort, couvre les trois cas : réussite, refus, interruption.
+   */
+  const [signalUsage, setSignalUsage] = useState(0);
   /** Une erreur « collante » attend une action : on ne l'efface pas toute seule. */
   const [errorSticky, setErrorSticky] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -812,8 +824,13 @@ export default function ChatPage() {
         setError(friendly.message);
         // Réseau, serveur, session expirée : rien ne repartira tant que la
         // personne n'agit pas — le message doit rester à l'écran.
+        // « quota » est collant comme les autres, et pour la même raison :
+        // rien ne repartira tant que la fenêtre n'aura pas tourné. Un message
+        // qui s'efface tout seul laisserait quelqu'un réessayer sans savoir.
         setErrorSticky(
-          ["offline", "unreachable", "server", "unauthorized", "timeout"].includes(friendly.kind),
+          ["offline", "unreachable", "server", "unauthorized", "timeout", "quota"].includes(
+            friendly.kind,
+          ),
         );
       }
       setMessages((prev) =>
@@ -822,6 +839,10 @@ export default function ChatPage() {
     } finally {
       setSending(false);
       abortRef.current = null;
+      // Les compteurs ont pu changer — parce que l'envoi a réussi, ou parce
+      // qu'il a été refusé. Dans les deux cas c'est maintenant qu'il faut
+      // relire, pas au prochain message.
+      setSignalUsage((n) => n + 1);
       // FILET : quoi qu'il arrive, le message cesse d'être « en cours ».
       //
       // `streaming: false` n'était posé que sur l'événement de fin et sur la
@@ -1797,7 +1818,7 @@ export default function ChatPage() {
                 l effet du composant repart. Sans ce signal, le compteur
                 resterait a sa valeur d ouverture de page et annoncerait un
                 reste faux au troisieme message. */}
-            <JaugeUsage signal={messages.length} />
+            <JaugeUsage signal={signalUsage} />
             <p className="px-2 text-center text-[11px] leading-relaxed text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
             </p>
