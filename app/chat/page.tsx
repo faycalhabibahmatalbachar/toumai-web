@@ -20,6 +20,7 @@ import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { DropZone } from "@/components/chat/media/DropZone";
 import { JaugeUsage } from "@/components/chat/JaugeUsage";
+import { PanneauUsage } from "@/components/chat/PanneauUsage";
 import { useClipboardImage } from "@/hooks/useClipboardImage";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { convertirHistorique } from "@/lib/prechargement-conversations";
@@ -145,6 +146,12 @@ export default function ChatPage() {
    * sort, couvre les trois cas : réussite, refus, interruption.
    */
   const [signalUsage, setSignalUsage] = useState(0);
+  /** Le panneau des compteurs, ouvert par la commande `/usage`.
+   *
+   * « Combien il me reste ? » se pose au milieu d'un échange. Renvoyer
+   * vers une autre page ferait perdre le fil de ce qu'on était en train
+   * d'écrire ; on répond sur place, puis on referme. */
+  const [usageOuvert, setUsageOuvert] = useState(false);
   /** Une erreur « collante » attend une action : on ne l'efface pas toute seule. */
   const [errorSticky, setErrorSticky] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -1120,6 +1127,14 @@ export default function ChatPage() {
       run: () => setVoiceModeOpen(true),
     },
     {
+      id: "usage",
+      trigger: "usage",
+      label: "Voir mon usage",
+      hint: "Ce qu'il vous reste, et quand ça repart",
+      keywords: ["quota", "limite", "compteur", "messages", "forfait", "plan"],
+      run: () => setUsageOuvert(true),
+    },
+    {
       id: "nouveau",
       trigger: "nouveau",
       label: "Nouvelle conversation",
@@ -1819,6 +1834,7 @@ export default function ChatPage() {
                 resterait a sa valeur d ouverture de page et annoncerait un
                 reste faux au troisieme message. */}
             <JaugeUsage signal={signalUsage} />
+            {usageOuvert ? <PanneauUsage onClose={() => setUsageOuvert(false)} /> : null}
             <p className="px-2 text-center text-[11px] leading-relaxed text-[var(--text-tertiary)]">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
             </p>
