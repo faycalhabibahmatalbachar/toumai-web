@@ -397,6 +397,79 @@ const ABSENCE_AVANT_RELANCE_MS = 20_000;
  * rien envoyer quand il est rempli : un robot qui reçoit une erreur réessaie,
  * un robot qui reçoit un succès passe à autre chose.
  */
+/**
+ * LA RÉVÉLATION AU VENT.
+ *
+ * Une animation SVG de 919 Ko, 329 Ko une fois compressée. C'est sept fois
+ * tout le reste des animations de la page réunies, et c'est pour cela qu'elle
+ * n'est PAS chargée avec la page : l'adresse n'est posée sur l'objet qu'au
+ * moment où la section entre dans la vue. Quelqu'un qui lit le hero et repart
+ * ne la télécharge jamais.
+ *
+ * POURQUOI UN `<object>` ET NON UN `<img>`
+ * -----------------------------------------
+ * Le fichier porte un petit script : il saute à l'image finale quand la
+ * personne a demandé moins de mouvement, il met l'animation en pause quand
+ * l'onglet passe en arrière-plan, et il la rejoue au clic. Dans un `<img>`,
+ * ce script ne tourne pas : l'animation jouerait en boucle dans un onglet
+ * caché, et personne ne pourrait la revoir.
+ *
+ * L'AFFICHE EN FOND, comme pour les scènes : 23 Ko de WebP montrant l'image
+ * finale. Si les 919 Ko n'arrivent jamais, on voit le nom révélé plutôt qu'un
+ * rectangle vide.
+ */
+function SectionVent() {
+  const objet = useRef<HTMLObjectElement>(null);
+
+  useEffect(() => {
+    const element = objet.current;
+    if (!element || element.getAttribute("data")) return;
+
+    const observateur = new IntersectionObserver(
+      (entrees) => {
+        for (const entree of entrees) {
+          if (!entree.isIntersecting) continue;
+          element.setAttribute("data", "/accueil-medias/toumai5-vent.svg");
+          observateur.disconnect();
+        }
+      },
+      // 150 px, et pas davantage. Mesure : à 600 px, la section était déjà
+      // dans la marge au chargement d'une page de 950 px de haut, et les
+      // 919 Ko partaient AVANT que quiconque ait fait défiler. Un chargement
+      // paresseux qui se déclenche tout seul n'est pas paresseux. À 150 px, il
+      // faut avoir commencé à descendre, et l'affiche en fond couvre le temps
+      // d'arrivée.
+      { rootMargin: "150px" },
+    );
+    observateur.observe(element);
+    return () => observateur.disconnect();
+  }, []);
+
+  return (
+    <section className="vent" id="plateforme">
+      <div className="shell vent-inner">
+        <div className="vent-mot">
+          <p className="section-kicker">Toumaï 5</p>
+          <h2>Voir plus loin.</h2>
+          <p className="vent-texte">
+            Une brise se lève sur le sable. Les feuilles se soulèvent une à une,
+            et ce qui était dessous apparaît.
+          </p>
+          <p className="vent-note">Cliquez sur l’image pour la rejouer.</p>
+        </div>
+
+        <div className="vent-cadre">
+          <object
+            ref={objet}
+            type="image/svg+xml"
+            aria-label="Le vent soulève des feuilles et révèle le nom Toumaï 5"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ContactFondateur() {
   const [ouvert, setOuvert] = useState(false);
   const [nom, setNom] = useState("");
@@ -1000,13 +1073,7 @@ export function PageAccueil() {
           </div>
         </section>
 
-        <section className="manifesto shell" id="plateforme">
-          <p className="section-kicker">Un partenaire de raisonnement</p>
-          <h2>
-            Une intelligence utile ne donne pas seulement une réponse. Elle comprend le
-            problème, mesure les possibilités et sait changer d’approche.
-          </h2>
-        </section>
+        <SectionVent />
 
         <section className="capability-list" id="capacites" aria-label="Capacités animées de Toumaï">
           {CAPACITES.map((c) => (
