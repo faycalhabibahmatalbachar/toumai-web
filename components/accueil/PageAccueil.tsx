@@ -400,7 +400,7 @@ const ABSENCE_AVANT_RELANCE_MS = 20_000;
 /**
  * LA RÉVÉLATION AU VENT.
  *
- * Une animation SVG de 919 Ko, 329 Ko une fois compressée. C'est sept fois
+ * Une animation SVG de 916 Ko, 328 Ko une fois compressée. C'est sept fois
  * tout le reste des animations de la page réunies, et c'est pour cela qu'elle
  * n'est PAS chargée avec la page : l'adresse n'est posée sur l'objet qu'au
  * moment où la section entre dans la vue. Quelqu'un qui lit le hero et repart
@@ -414,8 +414,8 @@ const ABSENCE_AVANT_RELANCE_MS = 20_000;
  * ce script ne tourne pas : l'animation jouerait en boucle dans un onglet
  * caché, et personne ne pourrait la revoir.
  *
- * L'AFFICHE EN FOND, comme pour les scènes : 23 Ko de WebP montrant l'image
- * finale. Si les 919 Ko n'arrivent jamais, on voit le nom révélé plutôt qu'un
+ * L'AFFICHE EN FOND, comme pour les scènes : 24 Ko de WebP montrant l'image
+ * finale. Si les 916 Ko n'arrivent jamais, on voit le nom révélé plutôt qu'un
  * rectangle vide.
  */
 function SectionVent() {
@@ -435,7 +435,7 @@ function SectionVent() {
       },
       // 150 px, et pas davantage. Mesure : à 600 px, la section était déjà
       // dans la marge au chargement d'une page de 950 px de haut, et les
-      // 919 Ko partaient AVANT que quiconque ait fait défiler. Un chargement
+      // 916 Ko partaient AVANT que quiconque ait fait défiler. Un chargement
       // paresseux qui se déclenche tout seul n'est pas paresseux. À 150 px, il
       // faut avoir commencé à descendre, et l'affiche en fond couvre le temps
       // d'arrivée.
