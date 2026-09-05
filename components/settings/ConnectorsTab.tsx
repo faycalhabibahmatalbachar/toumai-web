@@ -15,11 +15,13 @@ import {
   getGoogleAuthUrl,
   getGoogleStatus,
   getMailStatus,
+  getWaEtat,
   getWhatsAppStatus,
   linkWhatsApp,
   linkWhatsAppQr,
   refreshWhatsAppCode,
   type MailStatus,
+  type WaEtat,
   type WhatsAppState,
 } from "@/lib/connectors-api";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
@@ -970,6 +972,13 @@ function MailRow({ onStatus }: { onStatus: OnStatus }) {
 }
 
 function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
+  // L'ÉTAT PRODUIT, À CÔTÉ DE L'ÉTAT BRUT.
+  //
+  // `/whatsapp/status` dit ce que la passerelle rapporte ; `/whatsapp/etat`
+  // dit ce que le produit en conclut, y compris les étapes de la liaison. On
+  // ne remplace pas le premier : il porte le code de jumelage et le QR, que
+  // cet écran affiche déjà. On l'accompagne.
+  const [etat, setEtat] = useState<WaEtat | null>(null);
   const [state, setState] = useState<WhatsAppState | null>(() =>
     cacheSeed<WhatsAppState>("cx:whatsapp"),
   );
@@ -1005,6 +1014,10 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
   }
 
   function refresh() {
+    // Les étapes sont un confort : si `/whatsapp/etat` ne répond pas, l'écran
+    // reste exactement ce qu'il était avant. Une liaison ne doit jamais
+    // dépendre de l'affichage de sa propre progression.
+    getWaEtat().then(setEtat).catch(() => {});
     return getWhatsAppStatus()
       .then((s) => {
         apply(s);
@@ -1172,6 +1185,12 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
         expanded={
           rowStatus === "pending" && (state?.qr || state?.pairingCode) ? (
             <div className="flex max-w-md flex-col gap-3">
+              {/* OÙ EN EST LA LIAISON.
+                  Une à deux minutes d'attente sans rien à l'écran ressemblent
+                  à une panne, et c'est le moment où quelqu'un relance la
+                  connexion — ce qui invalide le code qu'il est en train de
+                  saisir. */}
+              {etat?.progression ? <EtapesLiaison progression={etat.progression} /> : null}
               {state?.pairingCode ? (
                 <>
                   <ol className="ml-4 list-decimal space-y-1 text-[13px] text-[var(--cx-text-secondary)]">
@@ -1474,5 +1493,53 @@ function DotsIcon() {
       <circle cx="12" cy="12" r="1.6" />
       <circle cx="19" cy="12" r="1.6" />
     </svg>
+  );
+}
+
+/** LES ÉTAPES D'UNE LIAISON WHATSAPP.
+ *
+ * Elles viennent du serveur, jamais d'un minuteur local. Une barre qui avance
+ * toute seule pendant que rien ne se passe est un mensonge poli, et elle
+ * atteint cent pour cent sur un échec.
+ *
+ * Un échec n'efface pas le progrès : ce qui était fait reste marqué fait, le
+ * reste passe en « annulé » et non en « échoué ». Tout barrer donnerait
+ * l'impression qu'il faut recommencer de zéro.
+ */
+function EtapesLiaison({ progression }: { progression: NonNullable<WaEtat["progression"]> }) {
+  const couleur = (e: string) =>
+    e === "termine"
+      ? "var(--cx-success-text)"
+      : e === "en_cours"
+        ? "var(--cx-accent)"
+        : e === "echoue"
+          ? "var(--cx-error-text)"
+          : "var(--cx-text-faint)";
+
+  return (
+    <ol className="flex flex-col gap-1.5" aria-label="Progression de la connexion">
+      {progression.etapes.map((e) => (
+        <li key={e.cle} className="flex items-center gap-2.5 text-[13px]">
+          <span
+            aria-hidden="true"
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold"
+            style={{ borderColor: couleur(e.etat), color: couleur(e.etat) }}
+          >
+            {e.etat === "termine" ? "✓" : e.etat === "echoue" ? "!" : ""}
+          </span>
+          <span
+            style={{
+              color:
+                e.etat === "en_attente" || e.etat === "annule"
+                  ? "var(--cx-text-faint)"
+                  : "var(--cx-text-secondary)",
+              fontWeight: e.etat === "en_cours" ? 600 : 400,
+            }}
+          >
+            {e.libelle}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }

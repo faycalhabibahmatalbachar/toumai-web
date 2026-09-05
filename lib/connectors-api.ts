@@ -100,6 +100,22 @@ export interface WaEtat {
   code_jumelage?: string;
   code_expire_le?: number;
   detail?: string;
+  /** LES ÉTAPES DE LA LIAISON, quand une liaison est en cours.
+   *
+   * Relier un compte prend une à deux minutes, dont l'essentiel se passe sur
+   * le téléphone, hors de notre vue. Sans rien à l'écran, cette attente
+   * ressemble à une panne : c'est le moment où quelqu'un relance la connexion
+   * « pour voir », ce qui invalide le code qu'il était en train de saisir.
+   *
+   * Absente quand rien ne se passe : une séquence figée à l'étape zéro
+   * laisserait croire le contraire. */
+  progression?: {
+    etapes: { cle: string; libelle: string; etat: "en_attente" | "en_cours" | "termine" | "echoue" | "annule" }[];
+    rang: number;
+    total: number;
+    libelle_courant: string;
+    termine: boolean;
+  };
   /** Ce que la passerelle en service sait reellement faire. */
   capacites?: Record<string, boolean>;
   capacites_source?: "passerelle" | "inconnu" | "aucune";
