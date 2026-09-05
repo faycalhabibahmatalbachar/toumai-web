@@ -42,6 +42,16 @@ export type WhatsAppStatus =
   | "connecting"
   | "pairing"
   | "connected"
+  /** LA PASSERELLE NE REPOND PAS. Ce n'est PAS un compte delie.
+   *
+   * Le serveur distinguait deja les deux ; l'ecran, non : `injoignable`
+   * tombait dans le cas par defaut et affichait « Connecter ». On invitait
+   * donc quelqu'un a relier son telephone alors que le service etait en
+   * panne, et il recommencait indefiniment. Les deux etats se resolvent par
+   * des gestes opposes : l'un se repare en reliant, l'autre en attendant. */
+  | "injoignable"
+  /** WhatsApp a invalide la session : il faut refaire le jumelage une fois. */
+  | "session_expiree"
   | "error";
 
 export interface WhatsAppState {
@@ -53,6 +63,63 @@ export interface WhatsAppState {
   number?: string | null;
   /** Message d'erreur éventuel renvoyé par la passerelle. */
   error?: string | null;
+  /** Precision technique quand le service ne repond pas. Jamais affichee
+   *  telle quelle : elle sert au diagnostic, pas a l'utilisateur. */
+  detail?: string | null;
+}
+
+/** L'ETAT DU CONNECTEUR, DANS LE VOCABULAIRE DU PRODUIT.
+ *
+ * `/whatsapp/status` rend ce que la passerelle dit. `/whatsapp/etat` rend ce
+ * que le produit en conclut : un code stable, une phrase deja ecrite, et
+ * l'action a proposer. L'app, le site et l'assistant traduisaient chacun
+ * « disconnected » a leur facon, et les trois versions avaient diverge. */
+export interface WaEtat {
+  code:
+    | "non_configure"
+    | "injoignable"
+    | "deconnecte"
+    | "jumelage"
+    | "qr"
+    | "connexion"
+    | "connecte"
+    | "session_expiree"
+    | "en_pause"
+    | "erreur";
+  pret: boolean;
+  lecture_possible: boolean;
+  libelle: string;
+  action?: "connecter" | "reconnecter" | "reessayer" | "saisir_code" | "scanner" | "attendre" | "reprendre";
+  action_libelle?: string;
+  numero?: string;
+  nom_profil?: string;
+  plateforme?: string;
+  connecte_depuis_ms?: number;
+  derniere_activite_ms?: number;
+  contacts?: number;
+  code_jumelage?: string;
+  code_expire_le?: number;
+  detail?: string;
+  /** Ce que la passerelle en service sait reellement faire. */
+  capacites?: Record<string, boolean>;
+  capacites_source?: "passerelle" | "socle" | "aucune";
+  /** Ce qu'aucune version ne fera, avec la raison. */
+  hors_de_portee?: Record<string, string>;
+}
+
+export function getWaEtat(): Promise<WaEtat> {
+  return http.get("/whatsapp/etat");
+}
+
+export interface WaCapacites {
+  source: "passerelle" | "socle" | "aucune";
+  version: string | null;
+  capacites: Record<string, boolean>;
+  impossibles: Record<string, string>;
+}
+
+export function getWaCapacites(): Promise<WaCapacites> {
+  return http.get("/whatsapp/capacites");
 }
 
 export function getWhatsAppStatus(): Promise<WhatsAppState> {

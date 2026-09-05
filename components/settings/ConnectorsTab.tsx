@@ -1080,6 +1080,13 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
     }
   }
 
+  // UNE PASSERELLE EN PANNE N'EST PAS UN COMPTE DÉLIÉ.
+  //
+  // `injoignable` tombait dans le cas par défaut et s'affichait comme
+  // « non connecté », bouton « Connecter » compris. On invitait donc à relier
+  // son téléphone pendant que le service était à l'arrêt, et le geste ne
+  // pouvait pas aboutir. Le serveur faisait déjà la distinction ; l'écran
+  // l'effaçait.
   const rowStatus: RowStatus =
     state === null
       ? "loading"
@@ -1087,7 +1094,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
         ? "unavailable"
         : state.status === "connected"
           ? "connected"
-          : state.status === "error"
+          : state.status === "error" || state.status === "injoignable"
             ? "error"
             : state.status === "qr" || state.status === "pairing" || state.status === "connecting"
               ? "pending"
@@ -1106,6 +1113,10 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
       <span className="tabular-nums text-[var(--cx-text-secondary)]">{state.number}</span> ·
       auto-pilote actif
     </>
+  ) : state?.status === "injoignable" ? (
+    "Le service WhatsApp ne répond pas en ce moment. Votre compte n'est pas en cause, et rien n'a été envoyé."
+  ) : state?.status === "session_expiree" ? (
+    "WhatsApp a délié Toumaï de votre compte. Il faut refaire la connexion une fois."
   ) : rowStatus === "pending" ? (
     "Liaison en cours — saisissez le code dans WhatsApp pour terminer."
   ) : (
@@ -1129,10 +1140,16 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
                 Déconnecter
               </BtnGhost>
             </>
+          ) : state?.status === "injoignable" ? (
+            // Relier ne répare pas un service arrêté : le seul geste utile est
+            // de redemander l'état.
+            <BtnPrimary onClick={refresh} disabled={busy}>
+              Réessayer
+            </BtnPrimary>
           ) : state?.status === "unconfigured" || state === null ? undefined : rowStatus ===
             "pending" ? undefined : (
             <BtnPrimary onClick={() => setLinkOpen((o) => !o)}>
-              {linkOpen ? "Fermer" : "Connecter"}
+              {linkOpen ? "Fermer" : state?.status === "session_expiree" ? "Reconnecter" : "Connecter"}
             </BtnPrimary>
           )
         }

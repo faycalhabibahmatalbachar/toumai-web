@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getWaSettings, updateWaSettings, type WaSettings } from "@/lib/connectors-api";
+import {
+  getWaCapacites,
+  getWaSettings,
+  updateWaSettings,
+  type WaCapacites,
+  type WaSettings,
+} from "@/lib/connectors-api";
 import { WhatsAppIcon } from "./BrandIcons";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 import { Segmented } from "./Rows";
@@ -13,6 +19,16 @@ interface PermDef {
   label: string;
   desc: string;
   icon: React.ReactNode;
+  /** LA CAPACITE QUI REND CETTE PERMISSION REELLE.
+   *
+   * Une permission accordee a un connecteur qui ne sait pas l'exercer est un
+   * interrupteur qui ne commande rien : on l'active, et l'action echoue quand
+   * meme. Quand la capacite manque, l'interrupteur est desactive et la raison
+   * s'affiche a la place de la description.
+   *
+   * Les envois et les lectures n'en portent pas : toutes les versions de la
+   * passerelle les ont toujours servis. */
+  capacite?: string;
 }
 
 const GROUPS: { title: string; items: PermDef[] }[] = [
@@ -41,19 +57,19 @@ const GROUPS: { title: string; items: PermDef[] }[] = [
     title: "Gestion & confidentialité",
     items: [
       { key: "manage_messages", label: "Gérer les messages", desc: "Réagir, transférer, modifier, marquer comme lu.", icon: <ManageIcon /> },
-      { key: "sync_contacts", label: "Synchroniser les contacts", desc: "Resynchroniser votre carnet d'adresses.", icon: <SyncIcon /> },
-      { key: "save_contacts", label: "Fiches contact", desc: "Enregistrer et partager des fiches contact.", icon: <ContactIcon /> },
+      { key: "sync_contacts", label: "Synchroniser les contacts", desc: "Resynchroniser votre carnet d'adresses.", icon: <SyncIcon />, capacite: "contacts.lister" },
+      { key: "save_contacts", label: "Fiches contact", desc: "Enregistrer et partager des fiches contact.", icon: <ContactIcon />, capacite: "contacts.enregistrer" },
       { key: "advanced", label: "Fonctions avancées", desc: "Mode furtif, présence, messages éphémères…", icon: <BoltIcon /> },
     ],
   },
   {
     title: "Compte WhatsApp",
     items: [
-      { key: "manage_account", label: "Profil & confidentialité", desc: "Changer votre nom affiché, votre « à propos », votre photo, vos réglages de confidentialité.", icon: <AccountIcon /> },
-      { key: "manage_contacts", label: "Contacts", desc: "Bloquer ou débloquer, enregistrer, renommer, retirer un contact.", icon: <BlockIcon /> },
-      { key: "manage_groups", label: "Groupes", desc: "Créer un groupe, ajouter ou retirer des membres, nommer des admins, quitter.", icon: <GroupIcon /> },
-      { key: "manage_chats", label: "Conversations", desc: "Archiver, épingler, mettre en sourdine, vider ou supprimer une conversation.", icon: <FolderIcon /> },
-      { key: "calls", label: "Appels", desc: "Consulter le journal des appels reçus et rejeter un appel en cours.", icon: <PhoneIcon /> },
+      { key: "manage_account", label: "Profil & confidentialité", desc: "Changer votre nom affiché, votre « à propos », votre photo, vos réglages de confidentialité.", icon: <AccountIcon />, capacite: "profil.nom" },
+      { key: "manage_contacts", label: "Contacts", desc: "Bloquer ou débloquer, enregistrer, renommer, retirer un contact.", icon: <BlockIcon />, capacite: "contacts.bloquer" },
+      { key: "manage_groups", label: "Groupes", desc: "Créer un groupe, ajouter ou retirer des membres, nommer des admins, quitter.", icon: <GroupIcon />, capacite: "groupes.membres" },
+      { key: "manage_chats", label: "Conversations", desc: "Archiver, épingler, mettre en sourdine, vider ou supprimer une conversation.", icon: <FolderIcon />, capacite: "conversations.organiser" },
+      { key: "calls", label: "Appels", desc: "Consulter le journal des appels reçus et rejeter un appel en cours.", icon: <PhoneIcon />, capacite: "appels.rejeter" },
     ],
   },
 ];
@@ -63,6 +79,7 @@ const GROUPS: { title: string; items: PermDef[] }[] = [
  * désactivez ici, l'IA ne peut plus le faire, même si on le lui demande. */
 export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<WaSettings | null>(null);
+  const [capacites, setCapacites] = useState<WaCapacites | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(0);
 
@@ -70,7 +87,20 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
     getWaSettings()
       .then(setSettings)
       .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"));
+    // Les capacites sont un confort : si elles n'arrivent pas, le panneau reste
+    // utilisable et se contente de ne rien griser. Une permission grisee a tort
+    // serait pire qu'une permission qui echoue une fois.
+    getWaCapacites().then(setCapacites).catch(() => {});
   }, []);
+
+  /** `null` quand la permission est exercable ; sinon la raison, a afficher. */
+  function indisponible(p: PermDef): string | null {
+    if (!p.capacite || !capacites) return null;
+    if (capacites.capacites?.[p.capacite]) return null;
+    const definitif = capacites.impossibles?.[p.capacite];
+    if (definitif) return definitif;
+    return "La version du connecteur en service ne sait pas encore le faire.";
+  }
 
   async function patch(p: Partial<WaSettings>) {
     if (!settings) return;
@@ -158,11 +188,13 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
                 </h3>
                 <div className="overflow-hidden rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
                   {group.items.map((p) => {
-                    const on = settings[p.key];
+                    const raison = indisponible(p);
+                    const on = settings[p.key] && !raison;
                     return (
                       <div
                         key={p.key}
                         className="flex items-center gap-3.5 border-t border-[var(--cx-border-subtle)] px-4 py-3 transition-colors first:border-t-0 hover:bg-[var(--cx-hover-row)]"
+                        style={raison ? { opacity: 0.55 } : undefined}
                       >
                         <span
                           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] transition-colors"
@@ -182,11 +214,14 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
                           >
                             {p.label}
                           </p>
-                          <p className="text-xs text-[var(--cx-text-muted)]">{p.desc}</p>
+                          <p className="text-xs text-[var(--cx-text-muted)]">
+                            {raison || p.desc}
+                          </p>
                         </div>
                         <CxSwitch
                           checked={on}
                           label={p.label}
+                          disabled={!!raison}
                           onChange={(v) => patch({ [p.key]: v } as Partial<WaSettings>)}
                         />
                       </div>
@@ -231,10 +266,14 @@ function CxSwitch({
   checked,
   label,
   onChange,
+  disabled = false,
 }: {
   checked: boolean;
   label: string;
   onChange: (v: boolean) => void;
+  /** Le connecteur ne sait pas exercer cette permission : l'accorder ne
+   *  changerait rien, et laisserait croire le contraire. */
+  disabled?: boolean;
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2.5">
@@ -243,15 +282,16 @@ function CxSwitch({
         style={{ color: checked ? "var(--cx-success-text)" : "var(--cx-text-faint)" }}
         aria-hidden="true"
       >
-        {checked ? "Actif" : "Inactif"}
+        {disabled ? "Indispo." : checked ? "Actif" : "Inactif"}
       </span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         aria-label={label}
-        onClick={() => onChange(!checked)}
-        className="relative h-[26px] w-[46px] rounded-full border transition-colors"
+        disabled={disabled}
+        onClick={() => !disabled && onChange(!checked)}
+        className="relative h-[26px] w-[46px] rounded-full border transition-colors disabled:cursor-not-allowed"
         style={
           checked
             ? { background: "var(--cx-accent)", borderColor: "var(--cx-accent)" }
