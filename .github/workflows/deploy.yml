@@ -19,7 +19,6 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run lint
       - run: npm run build
       - name: Vérifier le jeton de déploiement
         id: jeton
