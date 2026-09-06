@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Logo } from "@/components/Logo";
+import { BillingShell, BillingLoading, PriceDisplay } from "@/components/billing/BillingUI";
 import { authHeaders } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/config";
@@ -20,6 +21,8 @@ function CheckoutContent() {
   const [etat, setEtat] = useState<Etat>("loading");
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  const [prixServeur, setPrixServeur] = useState<number | null>(null);
+  const [sandbox, setSandbox] = useState(false);
 
   const plan = planId && PLAN_CATALOG[planId];
   const planPayant = planId === "essentiel" || planId === "toumai_5";
@@ -31,10 +34,15 @@ function CheckoutContent() {
       return;
     }
     let actif = true;
+    fetch(`${API_BASE}/abonnements/plans`).then(r => r.json()).then(body => {
+      const row = body?.data?.plans?.find((p: {code:string}) => p.code === PLAN_CATALOG[planId as PublicPlanId].backendCode);
+      if (actif && typeof row?.prix_xaf === "number") setPrixServeur(row.prix_xaf);
+    }).catch(() => {});
     fetch(`${API_BASE}/paiements/etat`)
       .then((r) => r.json())
       .then((charge) => {
         if (!actif) return;
+        setSandbox(charge?.data?.moneroo?.mode === "sandbox");
         setEtat(charge?.data?.moneroo?.configure ? "ready" : "unavailable");
       })
       .catch(() => actif && setEtat("unavailable"));
@@ -69,19 +77,22 @@ function CheckoutContent() {
   }
 
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col items-center justify-center px-6 py-14 text-center">
+    <section className="billing-card billing-state">
       <Logo size={44} />
       <p className="mt-6 text-sm text-[var(--text-secondary)]">Votre choix</p>
       <h1 className="mt-1 text-3xl font-semibold">{plan.publicName}</h1>
-      <p className="mt-3 text-lg"><strong>{plan.amount.toLocaleString("fr-FR")} FCFA</strong> par mois</p>
+      {prixServeur !== null ? <PriceDisplay amount={prixServeur}/> : <p role="status">Chargement du prix…</p>}
+      <p className="billing-muted">XAF · accès pendant 30 jours · renouvellement manuel</p>
+      <ul className="billing-features">{plan.quotas.map(q => <li key={q}>{q}</li>)}</ul>
       <p className="mt-3 max-w-md text-sm text-[var(--text-secondary)]">
-        Vous allez être redirigé vers la page de paiement sécurisée de Moneroo. Le prix et votre abonnement sont vérifiés côté serveur.
+        Vérifiez votre offre, puis continuez vers Moneroo pour le paiement.
       </p>
 
       {etat === "loading" && <p className="mt-8 text-sm text-[var(--text-secondary)]">Préparation du paiement…</p>}
+      {sandbox && <p className="billing-notice">Mode test Moneroo. Les paiements réels ne sont pas encore ouverts. N’utilisez pas de moyen de paiement réel.</p>}
       {etat === "ready" && (
-        <button onClick={payer} disabled={envoi} className="tm-btn tm-btn-primary mt-8 disabled:opacity-50">
-          {envoi ? "Ouverture sécurisée…" : `Continuer vers le paiement`}
+        <button onClick={payer} disabled={envoi || prixServeur === null} className="billing-button billing-button-primary mt-8">
+          {envoi ? "Ouverture sécurisée…" : `${sandbox ? "Tester" : "Continuer"} — ${prixServeur?.toLocaleString("fr-FR")} FCFA`}
         </button>
       )}
       {etat === "unavailable" && (
@@ -92,7 +103,7 @@ function CheckoutContent() {
       )}
       {erreur && <p role="alert" className="mt-5 text-sm text-[var(--error)]">{erreur}</p>}
       <Link href="/#tarifs" className="mt-8 text-sm underline underline-offset-4">Revenir aux offres</Link>
-    </main>
+    </section>
   );
 }
 
@@ -101,5 +112,5 @@ function EtatSimple({ titre, texte }: { titre: string; texte: string }) {
 }
 
 export default function CheckoutPage() {
-  return <Suspense fallback={<main className="min-h-[70vh]" />}><CheckoutContent /></Suspense>;
+  return <BillingShell><Suspense fallback={<BillingLoading />}><CheckoutContent /></Suspense></BillingShell>;
 }

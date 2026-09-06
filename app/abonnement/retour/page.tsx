@@ -32,6 +32,8 @@ import { useSearchParams } from "next/navigation";
 import { API_BASE } from "@/lib/config";
 import { authHeaders } from "@/lib/api";
 import { Logo } from "@/components/Logo";
+import { BillingShell, BillingLoading, StatusBadge } from "@/components/billing/BillingUI";
+import { PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 
 /** Une minute d'attente, par pas de deux secondes. Au-delà, ce n'est plus un
  *  décalage de rappel, c'est un problème, et il vaut mieux le dire. */
@@ -49,6 +51,8 @@ function Contenu() {
   const [montant, setMontant] = useState<number | null>(null);
   const [devise, setDevise] = useState("XAF");
   const [essais, setEssais] = useState(0);
+  const [relance, setRelance] = useState(0);
+  const [date, setDate] = useState("");
   const arrete = useRef(false);
 
   const interroger = useCallback(async () => {
@@ -68,7 +72,11 @@ function Contenu() {
       if (!reponse.ok) return false;
       const charge = await reponse.json();
       const statut = charge?.data?.statut as string | undefined;
-      if (charge?.data?.plan_code) setPlan(charge.data.plan_code);
+      if (charge?.data?.plan_code) {
+        const id = publicPlanId(charge.data.plan_code);
+        setPlan(id ? PLAN_CATALOG[id].publicName : charge.data.plan_code);
+      }
+      if (charge?.data?.cree_le) setDate(charge.data.cree_le);
       if (typeof charge?.data?.montant_xaf === "number") setMontant(charge.data.montant_xaf);
       if (charge?.data?.devise) setDevise(charge.data.devise);
       if (statut === "success" || statut === "failed" || statut === "cancelled" || statut === "expired") {
@@ -98,18 +106,18 @@ function Contenu() {
     return () => {
       arrete.current = true;
     };
-  }, [interroger]);
+  }, [interroger, relance]);
 
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col items-center justify-center gap-6 px-6 text-center">
+    <section className="billing-card billing-state">
       <Logo size={44} />
+      <div className="mt-6"><StatusBadge status={etat === "attente" ? (essais >= ESSAIS_MAX ? "pending" : "verifying") : etat}/></div>
 
       {etat === "attente" && (
         <>
-          <h1 className="text-2xl font-semibold">Nous vérifions votre paiement.</h1>
+          <h1>{essais >= ESSAIS_MAX ? "Nous attendons encore la confirmation." : "Nous vérifions votre paiement."}</h1>
           <p className="text-sm opacity-70">
-            La confirmation vient de notre serveur, pas de votre navigateur. Cela
-            prend quelques secondes.
+            Vous pouvez vérifier à nouveau dans quelques instants. Votre compte reste accessible.
           </p>
           <div
             className="h-1 w-48 overflow-hidden rounded-full"
@@ -127,6 +135,7 @@ function Contenu() {
               }}
             />
           </div>
+          {essais >= ESSAIS_MAX && <button className="billing-button billing-button-primary mt-6" onClick={() => {setEssais(0);setRelance(n=>n+1);}}>Vérifier à nouveau</button>}
         </>
       )}
 
@@ -146,8 +155,8 @@ function Contenu() {
         <>
           <h1 className="text-2xl font-semibold">Le paiement n’est pas passé.</h1>
           <p className="text-sm opacity-70">
-            Rien n’a été débité. Vous pouvez réessayer, ou nous écrire si votre
-            banque vous dit le contraire.
+            Vous pouvez réessayer. Si un débit apparaît sur votre compte,
+            contactez-nous avec la référence de votre demande.
           </p>
           <Link href="/#tarifs" className="tm-btn tm-btn-primary">
             Revenir aux offres
@@ -159,7 +168,7 @@ function Contenu() {
         <>
           <h1 className="text-2xl font-semibold">Paiement annulé.</h1>
           <p className="text-sm opacity-70">
-            Aucun changement n’a été apporté à votre abonnement.
+            Aucun montant n’a été confirmé par Toumaï AI.
           </p>
           <Link href="/#tarifs" className="tm-btn tm-btn-primary">
             Revenir aux offres
@@ -192,7 +201,8 @@ function Contenu() {
           </a>
         </>
       )}
-    </main>
+      {reference && <dl className="billing-summary"><div><dt>Référence</dt><dd>{reference}</dd></div>{date && <div><dt>Demande créée le</dt><dd>{new Date(date).toLocaleString("fr-FR")}</dd></div>}</dl>}
+    </section>
   );
 }
 
@@ -200,8 +210,8 @@ export default function PageRetourPaiement() {
   // `useSearchParams` impose une frontière de suspension dans une page
   // exportée en statique. Sans elle, la compilation échoue.
   return (
-    <Suspense fallback={null}>
+    <BillingShell><Suspense fallback={<BillingLoading/>}>
       <Contenu />
-    </Suspense>
+    </Suspense></BillingShell>
   );
 }

@@ -701,7 +701,7 @@ function SectionTarifs() {
         const reponse = await fetch(`${API_BASE}/paiements/etat`);
         if (!reponse.ok) return;
         const charge = await reponse.json();
-        if (vivant) setPaiementOuvert(Boolean(charge?.data?.moneroo?.configure));
+        if (vivant) setPaiementOuvert(Boolean(charge?.data?.moneroo?.configure && charge?.data?.moneroo?.mode === "live" && charge?.data?.moneroo?.application_active));
       } catch {
         /* le bouton reste « Créer un compte », qui marche toujours */
       }
@@ -720,8 +720,8 @@ function SectionTarifs() {
           <h2>Commencez gratuitement. Payez quand vous en avez besoin.</h2>
         </div>
         <p>
-          Les prix sont en francs CFA, sans engagement. Vous changez de plan ou
-          vous arrêtez quand vous voulez.
+          Les prix sont en francs CFA. Les offres payantes donnent accès à
+          30 jours d’utilisation, avec renouvellement manuel et sans prélèvement automatique.
         </p>
       </div>
 
@@ -761,10 +761,9 @@ function SectionTarifs() {
             </ul>
 
             {plan.actuel ? (
-              <span className="button button-full price-action price-action-inerte"
-                    aria-disabled="true">
+              <Link className="button button-full price-action" href={compteConnecte ? "/chat" : "/register"}>
                 {plan.action.texte}
-              </span>
+              </Link>
             ) : plan.action.externe ? (
               <a className="button button-full price-action" href={plan.action.href}>
                 {plan.action.texte}
@@ -772,7 +771,7 @@ function SectionTarifs() {
             ) : (
               <Link
                 className="button button-full price-action"
-                href={paiementOuvert && compteConnecte
+                href={compteConnecte
                   ? checkoutUrl(plan.code === "toumai_5" ? "toumai_5" : "essentiel")
                   : plan.action.href}
               >
@@ -785,7 +784,7 @@ function SectionTarifs() {
 
       <p className="pricing-note">
         {paiementOuvert
-          ? "Paiement par carte bancaire (Visa, Mastercard). Airtel Money et Moov Money arrivent."
+          ? "Les moyens de paiement disponibles sont présentés lors du paiement par Moneroo."
           : "Le paiement en ligne ouvre bientôt. Créez votre compte : vous garderez vos conversations."}
       </p>
     </section>
