@@ -329,6 +329,7 @@ const COLONNES_PIED = [
     titre: "Modèles",
     liens: [
       { texte: "Sao 4 & Toumaï 5", href: "/models" },
+      { texte: "Assistant IA", href: "/assistant-ia" },
       { texte: "L’IA au Tchad", href: "/intelligence-artificielle-tchad" },
       { texte: "النسخة العربية", href: "/ar" },
       { texte: "GitHub", href: "https://github.com/Toumai-AI" },
