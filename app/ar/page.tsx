@@ -40,6 +40,7 @@ export const metadata: Metadata = {
     locale: "ar_TD",
     type: "article",
   },
+  other: { "content-language": "ar" },
 };
 
 const FAQ = [

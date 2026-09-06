@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     languages: { fr: "https://toumaiai.com/", en: "https://toumaiai.com/en/", ar: "https://toumaiai.com/ar/", "x-default": "https://toumaiai.com/" },
   },
   openGraph: { title: "AI Assistant for Africa — Toumaï AI", description: "A practical AI assistant built in Chad for multilingual work.", url: "https://toumaiai.com/en", locale: "en_US" },
+  other: { "content-language": "en" },
 };
 
 const FAQ = [
