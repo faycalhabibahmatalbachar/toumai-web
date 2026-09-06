@@ -57,9 +57,9 @@ const CLE_QUESTION = "toumai:question";
 
 /** Les trois raccourcis du hero. `prompt` remplit le champ, il ne l'envoie pas. */
 const RACCOURCIS = [
-  { icone: "✎", nom: "Écrire", prompt: "Rédige un document clair et professionnel." },
-  { icone: "▤", nom: "Apprendre", prompt: "Explique-moi un sujet complexe simplement." },
-  { icone: "◇", nom: "Créer", prompt: "Aide-moi à créer une nouvelle idée." },
+  { icone: "✎", nom: "Préparer un texte", prompt: "Aide-moi à rédiger un message clair." },
+  { icone: "▤", nom: "Comprendre", prompt: "Explique-moi ce sujet avec des mots simples." },
+  { icone: "◇", nom: "Trouver une idée", prompt: "Aide-moi à trouver des pistes pour ce projet." },
 ];
 
 /** Les démonstrations, dans l'ordre où elles se lisent.
@@ -170,24 +170,24 @@ const CAPACITES = [
 const SOLUTIONS = [
   {
     index: "A",
-    titre: "Comprendre et apprendre",
+    titre: "Relire un cours ou débloquer une notion",
     texte:
-      "Clarifier une idée, approfondir un sujet et transformer une question complexe en explication accessible.",
-    action: "Commencer",
+      "Vous avez un chapitre dense ou une question qui reste floue ? Demandez une explication, un résumé ou quelques questions pour réviser.",
+    action: "Poser une question",
   },
   {
     index: "B",
-    titre: "Écrire et structurer",
+    titre: "Préparer un texte sans partir d’une page blanche",
     texte:
-      "Préparer des documents, résumer des informations et améliorer un texte sans perdre votre intention.",
-    action: "Créer un document",
+      "Donnez le contexte, puis demandez un plan, un premier brouillon ou une relecture. Vous gardez le dernier mot sur ce qui est envoyé.",
+    action: "Préparer un brouillon",
   },
   {
     index: "C",
-    titre: "Planifier et agir",
+    titre: "Faire avancer une tâche par étapes",
     texte:
-      "Découper un objectif en étapes, anticiper les blocages et garder une direction claire jusqu’au résultat.",
-    action: "Préparer un plan",
+      "Décrivez l’objectif et les contraintes. Toumaï peut proposer un ordre de travail, des points à vérifier et une première liste d’actions.",
+    action: "Organiser une tâche",
   },
 ];
 
@@ -1042,15 +1042,15 @@ export function PageAccueil() {
       <main id="contenu">
         <section className="hero shell" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <p className="eyebrow">Intelligence adaptative</p>
+            <p className="eyebrow">Toumaï AI, un assistant pour le travail de tous les jours</p>
             <h1 id="hero-title">
-              Pensez plus loin.
+              Posez une question.
               <br />
-              Agissez avec justesse.
+              Écrivez, cherchez, avancez.
             </h1>
             <p className="hero-intro">
-              Toumaï analyse les situations, anticipe les obstacles et améliore son
-              raisonnement jusqu’à trouver une réponse solide.
+              Toumaï AI réunit le chat, la rédaction, la recherche web, les images et la voix.
+              Commencez par ce que vous avez à faire ; ajustez la réponse avec vos propres mots.
             </p>
 
             <form
@@ -1068,7 +1068,7 @@ export function PageAccueil() {
                 ref={champHero}
                 name="q"
                 type="text"
-                placeholder="Comment Toumaï peut-il vous aider ?"
+                placeholder="Que voulez-vous faire aujourd’hui ?"
                 autoComplete="off"
                 value={questionHero}
                 onChange={(e) => setQuestionHero(e.target.value)}
@@ -1178,11 +1178,11 @@ export function PageAccueil() {
             <div className="section-heading">
               <div>
                 <p className="section-kicker">Dans votre quotidien</p>
-                <h2>Un même niveau de réflexion, pour des besoins très différents.</h2>
+                <h2>Des situations ordinaires, un point de départ utile.</h2>
               </div>
               <p>
-                Toumaï vous accompagne du premier questionnement jusqu’au travail terminé,
-                sans vous perdre dans une interface compliquée.
+                Une question, un document, une tâche à organiser : dites ce que vous cherchez.
+                La réponse reste une piste à vérifier, pas une décision à votre place.
               </p>
             </div>
 
@@ -1204,10 +1204,10 @@ export function PageAccueil() {
         <section className="enterprise shell" id="entreprise">
           <div className="enterprise-copy">
             <p className="section-kicker">Toumaï pour les organisations</p>
-            <h2>Une intelligence conçue pour travailler avec votre équipe.</h2>
+            <h2>Un espace commun pour préparer, chercher et relire.</h2>
             <p>
-              Déployez une expérience cohérente pour la rédaction, l’analyse, la recherche
-              et l’organisation du travail.
+              Pour une équipe, une école ou une organisation, Toumaï peut servir à préparer des
+              textes, explorer des informations et garder le contexte d’un travail en cours.
             </p>
             <a className="button button-light" href="mailto:contact@toumaiai.com">
               Parler à notre équipe
@@ -1227,7 +1227,7 @@ export function PageAccueil() {
             <div>
               <span>03</span>
               <strong>Expérience simple</strong>
-              <p>Une interface claire pour avancer sans friction.</p>
+              <p>Des outils regroupés au même endroit, sans masquer ce qui se passe.</p>
             </div>
           </div>
         </section>
@@ -1297,9 +1297,9 @@ export function PageAccueil() {
 
         <section className="final-cta">
           <div className="shell final-cta-inner">
-            <p className="section-kicker">Votre prochaine idée peut commencer ici</p>
+            <p className="section-kicker">Essayez avec une tâche réelle</p>
             <h2>
-              Travaillez avec une intelligence qui sait réfléchir, s’adapter et progresser.
+              Commencez par une question, un texte ou un document.
             </h2>
             <form
               className="final-prompt"
@@ -1315,7 +1315,7 @@ export function PageAccueil() {
                 id="final-prompt"
                 name="q"
                 type="text"
-                placeholder="Écrivez votre première demande…"
+                placeholder="Écrivez ce que vous voulez préparer…"
                 value={questionFinale}
                 onChange={(e) => setQuestionFinale(e.target.value)}
               />

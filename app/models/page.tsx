@@ -5,11 +5,11 @@ import { LegalLayout } from "@/components/LegalLayout";
 export const metadata: Metadata = {
   title: "Modèles IA — Sao 4 et Toumaï 5",
   description:
-    "La famille de modèles Toumaï AI : Sao 4 pour le quotidien et le code, Toumaï 5 pour le raisonnement profond.",
+    "Les modèles utilisés par Toumaï AI : Sao 4 pour les tâches courantes et Toumaï 5 lorsqu’une demande nécessite plus d’analyse.",
   alternates: { canonical: "https://toumaiai.com/models" },
   openGraph: {
     title: "Modèles IA — Sao 4 et Toumaï 5 | Toumaï AI",
-    description: "Découvrez les modèles Toumaï AI pour le chat, le code, l'analyse, la voix et les images.",
+    description: "Comprendre quel modèle Toumaï AI est choisi selon la tâche : chat, code, analyse, voix ou images.",
     url: "https://toumaiai.com/models",
   },
 };
@@ -18,14 +18,14 @@ const MODELS = [
   {
     name: "Sao 4",
     role: "Le modèle du quotidien",
-    desc: "Rapide et polyvalent : conversation, rédaction, code, traduction, résumés. C'est le modèle par défaut de Toumaï AI — il route automatiquement chaque demande vers le meilleur moteur disponible.",
-    points: ["Réponses instantanées en streaming", "Excellent en code et en français", "Comprend l'arabe et le parler tchadien"],
+    desc: "C’est le modèle utilisé pour de nombreuses demandes courantes : conversation, rédaction, code, traduction et résumés. Toumaï AI peut l’orienter vers un autre moteur lorsque la tâche le demande.",
+    points: ["Réponses affichées progressivement", "Aide pour le code et les textes en français", "Prend en charge l’arabe et l’arabe tchadien"],
   },
   {
     name: "Toumaï 5",
     role: "Réflexion — raisonnement profond",
-    desc: "Pour les problèmes qui demandent de la rigueur : mathématiques, planification, analyse, décisions complexes. Toumaï 5 prend le temps de réfléchir avant de répondre.",
-    points: ["Raisonnement étape par étape", "Meilleure fiabilité sur les tâches complexes", "Sélectionnable dans le chat via le sélecteur de modèle"],
+    desc: "Pour les questions qui demandent davantage de raisonnement : mathématiques, planification ou analyse. Prenez le temps de vérifier la réponse, surtout lorsqu’une décision a des conséquences importantes.",
+    points: ["Étapes de raisonnement quand elles sont utiles", "Adapté aux demandes plus longues ou complexes", "Choix possible depuis le sélecteur de modèle"],
   },
   {
     name: "Moteurs spécialisés",
@@ -39,9 +39,9 @@ export default function ModelsPage() {
   return (
     <LegalLayout title="Les modèles Toumaï AI">
       <p>
-        Nommés d&apos;après le patrimoine tchadien — Sao, la civilisation ; Toumaï, le plus ancien
-        hominidé connu — nos modèles sont choisis et orchestrés pour offrir la meilleure
-        intelligence possible en français, en arabe et dans le parler tchadien.
+        Les noms Sao et Toumaï font référence au patrimoine tchadien. Dans le chat, Toumaï AI
+        choisit ou vous laisse choisir un modèle selon la demande. Aucun modèle n&apos;est infaillible :
+        gardez une vérification humaine pour les informations importantes.
       </p>
       <div className="mt-8 space-y-5">
         {MODELS.map((m) => (
@@ -67,7 +67,7 @@ export default function ModelsPage() {
           className="inline-block rounded-full px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
           style={{ background: "var(--primary)" }}
         >
-          Essayer les modèles gratuitement
+          Ouvrir le chat
         </Link>
       </div>
     </LegalLayout>

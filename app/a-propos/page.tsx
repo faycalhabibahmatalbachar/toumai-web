@@ -5,7 +5,7 @@ import { LegalLayout } from "@/components/LegalLayout";
 export const metadata: Metadata = {
   title: "À propos de Toumaï AI — IA conçue au Tchad",
   description:
-    "Découvrez Toumaï AI, l'assistant d'intelligence artificielle conçu à N'Djamena : sa mission, ses langues, ses capacités et son fondateur.",
+    "Toumaï AI est un assistant d’intelligence artificielle conçu à N’Djamena, pour écrire, chercher, apprendre et travailler dans plusieurs langues.",
   alternates: {
     canonical: "https://toumaiai.com/a-propos",
     languages: { fr: "https://toumaiai.com/a-propos", en: "https://toumaiai.com/en/about", ar: "https://toumaiai.com/ar/about", "x-default": "https://toumaiai.com/a-propos" },
@@ -44,12 +44,30 @@ export default function AboutPage() {
           sans imposer une carte bancaire pour commencer.
         </p>
 
+        <h2>Notre histoire</h2>
+        <p>
+          Toumaï AI est parti d&apos;un constat simple : les outils d&apos;IA les plus connus
+          ne sont pas toujours pensés pour les langues, les usages et les conditions
+          de connexion rencontrés au Tchad. Le projet a donc été construit comme un
+          produit de travail réel : on doit pouvoir poser une question, préparer un
+          message, relire un document ou chercher une information depuis le même
+          espace, puis garder la possibilité de vérifier et de décider soi-même.
+        </p>
+
         <h2>Notre mission</h2>
         <p>
-          Faire de l&apos;intelligence artificielle un outil accessible, concret et
-          compréhensible pour les personnes, les étudiants, les équipes et les
-          entreprises du Tchad et d&apos;Afrique. Cela signifie aussi concevoir pour les
-          langues utilisées ici et pour les conditions réelles de connexion.
+          Rendre l&apos;intelligence artificielle plus accessible aux personnes, aux
+          étudiants, aux équipes et aux entreprises du Tchad et d&apos;Afrique. Cela veut
+          dire concevoir pour les langues utilisées ici, pour les conditions réelles
+          de connexion et pour des tâches qui ont un résultat concret.
+        </p>
+
+        <h2>Notre vision</h2>
+        <p>
+          Nous voulons faire évoluer Toumaï AI en une plateforme capable de réunir
+          conversation, voix, images, recherche et outils connectés, sans perdre la
+          clarté nécessaire à leur utilisation. L&apos;ancrage tchadien fait partie de ce
+          travail ; il n&apos;empêche pas une ambition plus large, africaine et internationale.
         </p>
 
         <h2>Langues et contexte local</h2>
