@@ -17,3 +17,20 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
+
+/login/*
+  X-Robots-Tag: noindex, nofollow
+/register/*
+  X-Robots-Tag: noindex, nofollow
+/forgot/*
+  X-Robots-Tag: noindex, nofollow
+/reset-password/*
+  X-Robots-Tag: noindex, nofollow
+/settings/*
+  X-Robots-Tag: noindex, nofollow
+/delete-account/*
+  X-Robots-Tag: noindex, nofollow
+/usage/*
+  X-Robots-Tag: noindex, nofollow
+/share/*
+  X-Robots-Tag: noindex, nofollow

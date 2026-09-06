@@ -39,6 +39,15 @@ export function LegalLayout({
           {children}
         </div>
         <div className="mt-14 flex flex-wrap gap-4 border-t border-[var(--border)] pt-6 text-sm">
+          <Link href="/a-propos" className="text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]">
+            À propos
+          </Link>
+          <Link href="/contact" className="text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]">
+            Contact
+          </Link>
+          <Link href="/security" className="text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]">
+            Sécurité
+          </Link>
           <Link href="/terms" className="text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]">
             Conditions & politiques
           </Link>

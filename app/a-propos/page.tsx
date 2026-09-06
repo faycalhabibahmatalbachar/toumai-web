@@ -6,7 +6,10 @@ export const metadata: Metadata = {
   title: "À propos de Toumaï AI — IA conçue au Tchad",
   description:
     "Découvrez Toumaï AI, l'assistant d'intelligence artificielle conçu à N'Djamena : sa mission, ses langues, ses capacités et son fondateur.",
-  alternates: { canonical: "https://toumaiai.com/a-propos" },
+  alternates: {
+    canonical: "https://toumaiai.com/a-propos",
+    languages: { fr: "https://toumaiai.com/a-propos", en: "https://toumaiai.com/en/about", ar: "https://toumaiai.com/ar/about", "x-default": "https://toumaiai.com/a-propos" },
+  },
   openGraph: {
     title: "À propos de Toumaï AI",
     description:
@@ -52,8 +55,8 @@ export default function AboutPage() {
         <h2>Langues et contexte local</h2>
         <p>
           Toumaï AI est pensé pour le français, l&apos;arabe et l&apos;arabe tchadien. Le
-          produit s&apos;attache à fournir une expérience utilisable sur le web, sur
-          Android et via WhatsApp, plutôt qu&apos;une démonstration réservée à un seul
+          produit s&apos;attache à fournir une expérience utilisable sur le web et via
+          WhatsApp, plutôt qu&apos;une démonstration réservée à un seul
           environnement technique.
         </p>
 

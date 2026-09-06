@@ -336,22 +336,21 @@ const COLONNES_PIED = [
     ],
   },
   {
-    titre: "Connecteurs",
+    titre: "Ressources",
     liens: [
-      { texte: "Gérer mes connecteurs", href: "/settings?tab=connectors" },
-      { texte: "Paramètres", href: "/settings" },
+      { texte: "Bibliothèque", href: "/library" },
+      { texte: "Presse", href: "/press" },
+      { texte: "Nous contacter", href: "/contact" },
+      { texte: "L’IA au Tchad", href: "/intelligence-artificielle-tchad" },
     ],
   },
   {
-    titre: "Compte & légal",
+    titre: "Entreprise & confiance",
     liens: [
-      { texte: "Créer un compte", href: "/register" },
-      { texte: "Se connecter", href: "/login" },
-      { texte: "Conditions & politiques", href: "/terms" },
-      { texte: "Politique de confidentialité", href: "/privacy" },
-      { texte: "Choix de confidentialité", href: "/privacy-choices" },
       { texte: "À propos de Toumaï AI", href: "/a-propos" },
-      { texte: "Supprimer mon compte", href: "/delete-account" },
+      { texte: "Sécurité", href: "/security" },
+      { texte: "Politique de confidentialité", href: "/privacy" },
+      { texte: "Conditions d’utilisation", href: "/terms" },
     ],
   },
 ];

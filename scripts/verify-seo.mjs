@@ -7,6 +7,12 @@ const pages = [
   ["assistant-ia/index.html", "Assistant IA gratuit", "https://toumaiai.com/assistant-ia/"],
   ["en/index.html", "AI Assistant for Africa", "https://toumaiai.com/en/"],
   ["ar/index.html", "توماي — الذكاء الاصطناعي التشادي", "https://toumaiai.com/ar/"],
+  ["a-propos/index.html", "À propos de Toumaï AI", "https://toumaiai.com/a-propos/"],
+  ["en/about/index.html", "About Toumaï AI", "https://toumaiai.com/en/about/"],
+  ["ar/about/index.html", "عن توماي", "https://toumaiai.com/ar/about/"],
+  ["contact/index.html", "Contact — Toumaï AI", "https://toumaiai.com/contact/"],
+  ["security/index.html", "Sécurité — Toumaï AI", "https://toumaiai.com/security/"],
+  ["press/index.html", "Presse — Toumaï AI", "https://toumaiai.com/press/"],
 ];
 
 const failures = [];
@@ -25,7 +31,7 @@ for (const file of ["robots.txt", "sitemap.xml"]) {
 const robots = existsSync(resolve("out/robots.txt")) ? readFileSync(resolve("out/robots.txt"), "utf8") : "";
 const sitemap = existsSync(resolve("out/sitemap.xml")) ? readFileSync(resolve("out/sitemap.xml"), "utf8") : "";
 if (!robots.includes("Sitemap: https://toumaiai.com/sitemap.xml")) failures.push("robots.txt: sitemap declaration missing");
-for (const url of ["https://toumaiai.com/assistant-ia/", "https://toumaiai.com/en/", "https://toumaiai.com/ar/"]) {
+for (const url of ["https://toumaiai.com/assistant-ia/", "https://toumaiai.com/a-propos/", "https://toumaiai.com/en/about/", "https://toumaiai.com/ar/about/", "https://toumaiai.com/contact/", "https://toumaiai.com/security/", "https://toumaiai.com/press/", "https://toumaiai.com/en/", "https://toumaiai.com/ar/"]) {
   if (!sitemap.includes(url)) failures.push(`sitemap.xml: ${url} missing`);
 }
 if (failures.length) { console.error(failures.join("\n")); process.exit(1); }

@@ -1,0 +1,15 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+export const metadata: Metadata = {
+  title: "عن توماي — مساعد ذكاء اصطناعي من تشاد",
+  description: "تعرّف على توماي: مساعد ذكاء اصطناعي عملي ومتعدد اللغات، صُمم في تشاد للاستخدام اليومي في أفريقيا والعالم.",
+  alternates: { canonical: "https://toumaiai.com/ar/about", languages: { fr: "https://toumaiai.com/a-propos", en: "https://toumaiai.com/en/about", ar: "https://toumaiai.com/ar/about", "x-default": "https://toumaiai.com/a-propos" } },
+  openGraph: { title: "عن توماي", description: "مساعد ذكاء اصطناعي عملي ومتعدد اللغات من تشاد.", url: "https://toumaiai.com/ar/about", locale: "ar_AR", type: "website" },
+};
+
+export default function ArabicAboutPage() {
+  return <div dir="rtl" lang="ar" className="flex min-h-dvh flex-col"><header className="flex select-none items-center justify-between px-4 py-3"><Link href="/ar" className="flex items-center gap-2.5"><Logo size={26} /><span className="text-sm font-semibold">توماي</span></Link><div className="flex items-center gap-2"><ThemeToggle /><Link href="/chat" className="rounded-full px-4 py-2 text-sm font-semibold text-white" style={{ background: "var(--primary)" }}>افتح المحادثة</Link></div></header><main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-20 pt-8"><h1 className="landing-serif text-3xl tracking-tight sm:text-4xl">عن توماي</h1><div className="mt-8 space-y-4 text-[16px] leading-loose text-[var(--text-secondary)]"><p><strong className="text-[var(--text-primary)]">توماي</strong> مساعد ذكاء اصطناعي يُطوَّر في نجامينا، تشاد. يجمع المحادثة والكتابة والبرمجة والصور والصوت والبحث في الويب والاتصال الاختياري بالأدوات في مساحة واحدة عملية.</p><h2 className="landing-serif mt-10 text-xl text-[var(--text-primary)]">مهمّتنا</h2><p>نريد أن يكون الذكاء الاصطناعي متاحًا ومفيدًا للطلاب والمهنيين ورواد الأعمال والمطورين والفرق. اللغة، وإمكانية الدفع، وجودة الاتصال يجب ألا تمنع أحدًا من الاستفادة من أداة نافعة.</p><h2 className="landing-serif mt-10 text-xl text-[var(--text-primary)]">رؤيتنا</h2><p>نبني منصة ذكاء اصطناعي متعددة اللغات والوسائط ومتصلة بالأدوات، تنمو مع احتياجات العمل الحقيقية. تُصمَّم توماي مع تشاد وأفريقيا في الذهن، وتبقى منفتحة على الاستخدام والتعاون عالميًا.</p><h2 className="landing-serif mt-10 text-xl text-[var(--text-primary)]">لماذا اسم توماي؟</h2><p>يشير الاسم إلى توماي، الأحفورة المكتشفة في صحراء جوراب عام ٢٠٠١ والمرتبطة بالإرث العلمي لتشاد. وهو إشارة إلى الفضول والاكتشاف وبناء تقنية متجذرة محليًا ونافعة عالميًا.</p><h2 className="landing-serif mt-10 text-xl text-[var(--text-primary)]">أكثر من روبوت دردشة</h2><p>المحادثة هي البداية وليست كل المنتج. يساعد توماي في الكتابة والترجمة والبحث والصور والصوت والبرمجة، ولا ينفّذ إجراءً حساسًا في الأدوات المتصلة من دون تأكيد.</p><p><Link href="/a-propos" hrefLang="fr" className="underline underline-offset-2">اقرأ بالفرنسية</Link> · <Link href="/en/about" hrefLang="en" className="underline underline-offset-2">Read in English</Link></p></div></main></div>;
+}
