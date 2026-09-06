@@ -9,6 +9,7 @@ export const PUBLIC_SEO_ROUTES = [
   { path: "/ar", changeFrequency: "monthly" as const, priority: 0.9 },
   { path: "/intelligence-artificielle-tchad", changeFrequency: "monthly" as const, priority: 0.9 },
   { path: "/assistant-ia", changeFrequency: "monthly" as const, priority: 0.85 },
+  { path: "/a-propos", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/models", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/library", changeFrequency: "weekly" as const, priority: 0.65 },
   { path: "/privacy", changeFrequency: "yearly" as const, priority: 0.3 },

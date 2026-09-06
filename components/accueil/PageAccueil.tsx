@@ -350,6 +350,7 @@ const COLONNES_PIED = [
       { texte: "Conditions & politiques", href: "/terms" },
       { texte: "Politique de confidentialité", href: "/privacy" },
       { texte: "Choix de confidentialité", href: "/privacy-choices" },
+      { texte: "À propos de Toumaï AI", href: "/a-propos" },
       { texte: "Supprimer mon compte", href: "/delete-account" },
     ],
   },
