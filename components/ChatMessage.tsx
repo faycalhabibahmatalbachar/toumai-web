@@ -663,10 +663,25 @@ export function ChatMessage({
                   const { className, children } = props;
                   const match = /language-(\w+)/.exec(className || "");
                   const isBlock = Boolean(match);
-                  const text = String(children).replace(/\n$/, "");
+                  // `String(undefined)` vaut la chaîne « undefined ».
+                  //
+                  // Observé en production : un modèle ouvre une clôture
+                  // ```python et la referme sans rien mettre dedans. Le bloc
+                  // s'affichait avec le mot `undefined` pour tout contenu,
+                  // portait un bouton « Exécuter », et Pyodide faisait ce
+                  // qu'on lui demandait — `NameError: name 'undefined' is not
+                  // defined`, à la place des messages demandés.
+                  const text =
+                    children === undefined || children === null
+                      ? ""
+                      : String(children).replace(/\n$/, "");
                   if (!isBlock) {
                     return <code className={className}>{children}</code>;
                   }
+                  // UN BLOC VIDE N'APPREND RIEN À PERSONNE : il ne doit pas
+                  // exister. Le rendre `null` le fait disparaître de la
+                  // réponse, plutôt que d'y laisser un cadre creux.
+                  if (!text.trim()) return null;
                   return <CodeBlock language={match![1]} code={text} />;
                 },
                 img(props) {

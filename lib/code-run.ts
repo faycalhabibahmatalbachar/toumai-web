@@ -75,7 +75,10 @@ export function estUnAppelDOutil(code: string): boolean {
 
 export function isConsoleRunnable(language: string, code = ""): boolean {
   const l = (language || "").toLowerCase();
-  if (code && estUnAppelDOutil(code)) return false;
+  // Rien à exécuter : pas de bouton. La seconde barrière contre le bloc vide,
+  // au cas où un chemin de rendu laisserait passer ce que ChatMessage écarte.
+  if (!code.trim() || code.trim() === "undefined") return false;
+  if (estUnAppelDOutil(code)) return false;
   return isBrowserPython(l) || CONSOLE_LANGS.has(l);
 }
 
