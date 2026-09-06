@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { CookieConsent } from "@/components/CookieConsent";
 import { AnalyticsInit } from "@/components/AnalyticsInit";
+import { LOCALE_ALTERNATES } from "./seo";
 
 // Applique le thème sauvegardé AVANT le premier rendu — évite un flash du
 // mauvais thème (dark forcé puis bascule vers light) au chargement.
@@ -88,7 +89,7 @@ export const metadata: Metadata = {
     "Faycal Habib Ahmat",
   ],
   metadataBase: new URL("https://toumaiai.com"),
-  alternates: { canonical: "https://toumaiai.com" },
+  alternates: { canonical: "https://toumaiai.com", languages: LOCALE_ALTERNATES },
   robots: { index: true, follow: true },
   openGraph: {
     title: "Toumaï AI — L'assistant IA tchadien",

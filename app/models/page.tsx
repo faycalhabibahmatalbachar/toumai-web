@@ -3,9 +3,15 @@ import Link from "next/link";
 import { LegalLayout } from "@/components/LegalLayout";
 
 export const metadata: Metadata = {
-  title: "Modèles",
+  title: "Modèles IA — Sao 4 et Toumaï 5",
   description:
     "La famille de modèles Toumaï AI : Sao 4 pour le quotidien et le code, Toumaï 5 pour le raisonnement profond.",
+  alternates: { canonical: "https://toumaiai.com/models" },
+  openGraph: {
+    title: "Modèles IA — Sao 4 et Toumaï 5 | Toumaï AI",
+    description: "Découvrez les modèles Toumaï AI pour le chat, le code, l'analyse, la voix et les images.",
+    url: "https://toumaiai.com/models",
+  },
 };
 
 const MODELS = [
