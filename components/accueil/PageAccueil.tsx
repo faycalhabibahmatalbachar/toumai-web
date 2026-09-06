@@ -49,6 +49,7 @@ import { API_BASE } from "@/lib/config";
 import { Logo } from "@/components/Logo";
 import { CONTACTS, RESEAUX } from "@/components/ReseauxSociaux";
 import { useAuth } from "@/lib/auth-context";
+import { checkoutUrl, registerUrl } from "@/lib/plan-catalog";
 
 import "@/app/toumai-accueil.css";
 
@@ -237,7 +238,7 @@ type Plan = {
 
 const PLANS_DE_REPLI: Plan[] = [
   {
-    code: "gratuit",
+    code: "decouverte",
     nom: "Découverte",
     prix_xaf: 0,
     periode: "aucune",
@@ -249,7 +250,7 @@ const PLANS_DE_REPLI: Plan[] = [
       "1 connecteur",
       "50 Mo de fichiers",
     ],
-    action: { texte: "Votre plan actuel", href: "/register" },
+    action: { texte: "Commencer gratuitement", href: "/register" },
     ton: "sable",
     actuel: true,
   },
@@ -267,11 +268,11 @@ const PLANS_DE_REPLI: Plan[] = [
       "500 messages WhatsApp par mois",
       "1 Go de fichiers",
     ],
-    action: { texte: "Passer à Essentiel", href: "/register?plan=essentiel" },
+    action: { texte: "Passer à Essentiel", href: registerUrl("essentiel") },
     ton: "ambre",
   },
   {
-    code: "pro",
+    code: "toumai_5",
     nom: "Toumaï 5",
     prix_xaf: 9000,
     periode: "mois",
@@ -284,7 +285,7 @@ const PLANS_DE_REPLI: Plan[] = [
       "Connecteurs illimités, 30 automatisations",
       "10 Go de fichiers",
     ],
-    action: { texte: "Passer à Toumaï 5", href: "/register?plan=pro" },
+    action: { texte: "Passer à Toumaï 5", href: registerUrl("toumai_5") },
     ton: "terracotta",
     mis_en_avant: true,
   },
@@ -662,6 +663,8 @@ function ContactFondateur() {
 function SectionTarifs() {
   const [plans, setPlans] = useState<Plan[]>(PLANS_DE_REPLI);
   const [paiementOuvert, setPaiementOuvert] = useState(false);
+  const { session } = useAuth();
+  const compteConnecte = Boolean(session && !session.is_guest);
 
   useEffect(() => {
     let vivant = true;
@@ -671,7 +674,7 @@ function SectionTarifs() {
         const reponse = await fetch(`${API_BASE}/abonnements/plans`);
         if (!reponse.ok) return;
         const charge = await reponse.json();
-        const distants: { code: string; nom: string; prix_xaf: number; periode: string }[] =
+        const distants: { id?: string; code: string; nom: string; public_name?: string; prix_xaf: number; periode: string }[] =
           charge?.data?.plans ?? [];
         if (!vivant || distants.length === 0) return;
 
@@ -680,9 +683,9 @@ function SectionTarifs() {
         // parce qu'elles sont rédigées pour être lues.
         setPlans((actuels) =>
           actuels.map((local) => {
-            const distant = distants.find((d) => d.code === local.code);
+            const distant = distants.find((d) => (d.id ?? d.code) === local.code);
             return distant
-              ? { ...local, nom: distant.nom, prix_xaf: distant.prix_xaf,
+              ? { ...local, nom: distant.public_name ?? distant.nom, prix_xaf: distant.prix_xaf,
                   periode: distant.periode }
               : local;
           }),
@@ -767,11 +770,12 @@ function SectionTarifs() {
                 {plan.action.texte}
               </a>
             ) : (
-              // Le libellé ne dépend plus de l'état du paiement. Le lien mène à
-              // la création de compte avec le plan retenu, ce qui est la
-              // première étape réelle, que la carte soit branchée ou non. La
-              // ligne sous la grille dit où en est l'encaissement.
-              <Link className="button button-full price-action" href={plan.action.href}>
+              <Link
+                className="button button-full price-action"
+                href={paiementOuvert && compteConnecte
+                  ? checkoutUrl(plan.code === "toumai_5" ? "toumai_5" : "essentiel")
+                  : plan.action.href}
+              >
                 {plan.action.texte}
               </Link>
             )}

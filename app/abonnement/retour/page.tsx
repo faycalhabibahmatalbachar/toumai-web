@@ -38,7 +38,7 @@ import { Logo } from "@/components/Logo";
 const PAS_MS = 2000;
 const ESSAIS_MAX = 30;
 
-type Etat = "attente" | "success" | "failed" | "expired" | "introuvable";
+type Etat = "attente" | "success" | "failed" | "cancelled" | "expired" | "introuvable";
 
 function Contenu() {
   const parametres = useSearchParams();
@@ -46,6 +46,8 @@ function Contenu() {
 
   const [etat, setEtat] = useState<Etat>("attente");
   const [plan, setPlan] = useState<string>("");
+  const [montant, setMontant] = useState<number | null>(null);
+  const [devise, setDevise] = useState("XAF");
   const [essais, setEssais] = useState(0);
   const arrete = useRef(false);
 
@@ -67,7 +69,9 @@ function Contenu() {
       const charge = await reponse.json();
       const statut = charge?.data?.statut as string | undefined;
       if (charge?.data?.plan_code) setPlan(charge.data.plan_code);
-      if (statut === "success" || statut === "failed" || statut === "expired") {
+      if (typeof charge?.data?.montant_xaf === "number") setMontant(charge.data.montant_xaf);
+      if (charge?.data?.devise) setDevise(charge.data.devise);
+      if (statut === "success" || statut === "failed" || statut === "cancelled" || statut === "expired") {
         setEtat(statut);
         return true;
       }
@@ -128,9 +132,9 @@ function Contenu() {
 
       {etat === "success" && (
         <>
-          <h1 className="text-2xl font-semibold">Paiement confirmé.</h1>
+          <h1 className="text-2xl font-semibold">C’est bon, votre paiement est confirmé.</h1>
           <p className="text-sm opacity-70">
-            Votre abonnement {plan ? `« ${plan} » ` : ""}est actif. Bonne route.
+            Votre abonnement {plan ? `« ${plan} » ` : ""}est actif{montant ? ` — ${montant.toLocaleString("fr-FR")} ${devise}` : ""}.
           </p>
           <Link href="/chat" className="tm-btn tm-btn-primary">
             Ouvrir Toumaï
@@ -144,6 +148,18 @@ function Contenu() {
           <p className="text-sm opacity-70">
             Rien n’a été débité. Vous pouvez réessayer, ou nous écrire si votre
             banque vous dit le contraire.
+          </p>
+          <Link href="/#tarifs" className="tm-btn tm-btn-primary">
+            Revenir aux offres
+          </Link>
+        </>
+      )}
+
+      {etat === "cancelled" && (
+        <>
+          <h1 className="text-2xl font-semibold">Paiement annulé.</h1>
+          <p className="text-sm opacity-70">
+            Aucun changement n’a été apporté à votre abonnement.
           </p>
           <Link href="/#tarifs" className="tm-btn tm-btn-primary">
             Revenir aux offres

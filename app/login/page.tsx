@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Logo } from "@/components/Logo";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
+import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,14 +23,20 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [planChoisi, setPlanChoisi] = useState<"essentiel" | "toumai_5" | null>(null);
   const turnstile = useRef<TurnstilePoignee | null>(null);
 
   // Arrivée depuis une session expirée (voir session-guard).
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("expired")) {
+    const parametres = new URLSearchParams(window.location.search);
+    if (parametres.get("expired")) {
       setError("Votre session a expiré — reconnectez-vous pour continuer.");
     }
+    const plan = publicPlanId(parametres.get("plan"));
+    setPlanChoisi(plan === "essentiel" || plan === "toumai_5" ? plan : null);
   }, []);
+
+  const destination = planChoisi ? checkoutUrl(planChoisi) : "/chat";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +50,7 @@ export default function LoginPage() {
         setDefiMfa(defi.mfaPendingToken);
         return;
       }
-      router.push("/chat");
+      router.replace(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de connexion");
       // Un jeton Turnstile ne sert qu'une fois : sans remise à zéro, la
@@ -61,7 +68,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await finirAvecCode(defiMfa, codeMfa);
-      router.push("/chat");
+      router.replace(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Code invalide");
       setCodeMfa("");
@@ -75,7 +82,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await loginWithGoogle(idToken);
-      router.push("/chat");
+      router.replace(destination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de connexion Google");
     } finally {
@@ -161,9 +168,14 @@ export default function LoginPage() {
           <Logo size={44} />
         </div>
         <h1 className="mb-2 text-center text-2xl font-semibold">Content de vous revoir</h1>
-        <p className="mb-8 text-center text-sm text-[var(--text-secondary)]">
+        <p className="mb-5 text-center text-sm text-[var(--text-secondary)]">
           Connectez-vous pour retrouver vos conversations et préférences.
         </p>
+        {planChoisi && (
+          <p className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-center text-sm">
+            Reprenez votre choix : <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA par mois.
+          </p>
+        )}
 
         <div className="mb-5">
           <GoogleSignInButton onCredential={onGoogleCredential} />
@@ -209,17 +221,19 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <button
-          onClick={tryGuest}
-          disabled={loading}
-          className="mt-3 w-full rounded-full border border-[var(--border)] py-3 text-sm font-semibold transition hover:border-[var(--primary)] disabled:opacity-50"
-        >
-          Continuer sans compte
-        </button>
+        {!planChoisi && (
+          <button
+            onClick={tryGuest}
+            disabled={loading}
+            className="mt-3 w-full rounded-full border border-[var(--border)] py-3 text-sm font-semibold transition hover:border-[var(--primary)] disabled:opacity-50"
+          >
+            Continuer sans compte
+          </button>
+        )}
 
         <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
           Pas encore de compte ?{" "}
-          <Link href="/register" className="font-semibold" style={{ color: "var(--primary)" }}>
+          <Link href={planChoisi ? `/register?plan=${planChoisi}` : "/register"} className="font-semibold" style={{ color: "var(--primary)" }}>
             Créer un compte
           </Link>
         </p>
