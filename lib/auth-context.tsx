@@ -13,7 +13,6 @@ import {
   SESSION_STORAGE_KEY,
   clearSession,
   ensureFreshSession,
-  guestLogin,
   loadSession,
   login as apiLogin,
   loginAvecCode as apiLoginAvecCode,
@@ -28,7 +27,6 @@ import { registerDeviceOnce } from "./device-fingerprint";
 interface AuthState {
   session: TokenPayload | null;
   loading: boolean;
-  loginAsGuest: () => Promise<void>;
   /** Rend `{ mfaPendingToken }` quand un second facteur est exigé — la
    *  session n'est PAS ouverte dans ce cas —, `null` quand elle l'est. */
   loginWithPassword: (
@@ -98,12 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const loginAsGuest = useCallback(async () => {
-    const s = await guestLogin();
-    setSession(s);
-    void registerDeviceOnce();
-  }, []);
-
   /** Connexion par mot de passe.
    *
    * Rend le jeton d'attente quand un second facteur est exigé — et n'ouvre
@@ -166,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, loginAsGuest, loginWithPassword, finirAvecCode, loginWithGoogle, registerAccount, logout }}
+      value={{ session, loading, loginWithPassword, finirAvecCode, loginWithGoogle, registerAccount, logout }}
     >
       {children}
     </AuthContext.Provider>

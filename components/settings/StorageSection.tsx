@@ -34,7 +34,7 @@ import { Panel, Row } from "./Rows";
  */
 export function StorageSection() {
   const { session } = useAuth();
-  const invite = !session || session.is_guest;
+  const invite = !session;
   const [usage, setUsage] = useState<UsageStockage | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [aVider, setAVider] = useState<string | null>(null);

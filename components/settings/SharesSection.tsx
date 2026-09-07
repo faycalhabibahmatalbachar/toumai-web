@@ -22,7 +22,7 @@ import { Panel, Row } from "./Rows";
  */
 export function SharesSection() {
   const { session } = useAuth();
-  const invite = !session || session.is_guest;
+  const invite = !session;
   const [liens, setLiens] = useState<ShareEntry[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [copie, setCopie] = useState<string | null>(null);

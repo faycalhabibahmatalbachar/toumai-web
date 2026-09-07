@@ -1,0 +1,6 @@
+[     677ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8788/login/__next.login.__PAGE__.txt?next=%2Frecu%3Fref%3Dverification-route&_rsc=ubCQGQ5oVIE_qZxH:0
+[     702ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8788/contact/__next.contact.__PAGE__.txt?_rsc=S21og09z45biiCJW:0
+[     728ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8788/security/__next.security.__PAGE__.txt?_rsc=03sKKlB8ojxV-Q2N:0
+[     760ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8788/terms/__next.terms.__PAGE__.txt?_rsc=F14y1uwapZQIv6f2:0
+[     794ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8788/privacy/__next.privacy.__PAGE__.txt?_rsc=m_8WcT_YbBpVfbra:0
+[    3846ms] [WARNING] The resource http://localhost:8788/_next/static/chunks/37c1v5vp4zkfb.css was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:8788/recu/verification-route/:0

@@ -1,0 +1,367 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - link "Aller au contenu" [ref=e5] [cursor=pointer]:
+      - /url: "#contenu"
+    - banner [ref=e6]:
+      - generic [ref=e7]:
+        - link "Toumaï AI, recharger la page d’accueil" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Toumaï AI" [ref=e9]
+          - generic [ref=e10]:
+            - text: Toumaï
+            - generic [ref=e11]: AI
+        - navigation "Navigation principale" [ref=e12]:
+          - link "Découvrir Toumaï" [ref=e13] [cursor=pointer]:
+            - /url: "#capacites"
+          - link "Plateforme" [ref=e14] [cursor=pointer]:
+            - /url: "#plateforme"
+          - link "Solutions" [ref=e15] [cursor=pointer]:
+            - /url: "#solutions"
+          - link "Tarifs" [ref=e16] [cursor=pointer]:
+            - /url: "#tarifs"
+          - link "Fondateur" [ref=e17] [cursor=pointer]:
+            - /url: "#fondateur"
+        - generic [ref=e18]:
+          - link "Connexion" [ref=e19] [cursor=pointer]:
+            - /url: /login/
+          - link "Essayer Toumaï" [ref=e20] [cursor=pointer]:
+            - /url: /chat/
+      - generic [ref=e22]:
+        - generic [ref=e23]: Produit
+        - link "Explorer les capacités" [ref=e24] [cursor=pointer]:
+          - /url: "#capacites"
+          - text: Explorer les capacités
+          - generic [aria-hidden] [ref=e25]: ↓
+    - main [ref=e26]:
+      - region [ref=e27]:
+        - generic [ref=e28]:
+          - paragraph [ref=e29]: Toumaï AI, un assistant pour le travail de tous les jours
+          - heading "Posez une question. Écrivez, cherchez, avancez." [level=1] [ref=e30]: Posez une question.Écrivez, cherchez, avancez.
+          - paragraph [ref=e31]: Toumaï AI réunit le chat, la rédaction, la recherche web, les images et la voix. Commencez par ce que vous avez à faire ; ajustez la réponse avec vos propres mots.
+          - generic [ref=e32]:
+            - generic [ref=e33]: Votre demande à Toumaï
+            - textbox "Votre demande à Toumaï" [ref=e34]:
+              - /placeholder: Que voulez-vous faire aujourd’hui ?
+            - button "Demander" [ref=e35] [cursor=pointer]: Demander ↗
+          - generic "Exemples d’utilisation" [ref=e36]:
+            - button "Préparer un texte" [ref=e37] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e38]: ✎
+              - text: Préparer un texte
+            - button "Comprendre" [ref=e39] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e40]: ▤
+              - text: Comprendre
+            - button "Trouver une idée" [ref=e41] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e42]: ◇
+              - text: Trouver une idée
+        - generic "Portrait original de Toumaï en réflexion" [ref=e43]:
+          - img "Portrait illustré d’un jeune homme sahélien qui réfléchit, entouré de trois fragments représentant l’itération" [ref=e45]
+      - region "Principes de Toumaï AI" [ref=e46]:
+        - generic [ref=e47]:
+          - generic [ref=e48]: Réflexion
+          - generic [ref=e49]: Mémoire
+          - generic [ref=e50]: Anticipation
+          - generic [ref=e51]: Autocorrection
+          - generic [ref=e52]: Action
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - paragraph [ref=e56]: Deux modèles
+          - heading "L’un rassemble. L’autre révèle." [level=2] [ref=e57]
+          - paragraph [ref=e58]: "Sao 4 reconstruit à partir de fragments : rapide, économe, taillé pour le quotidien. Toumaï 5 prend le temps de voir plus loin."
+        - generic [ref=e59]:
+          - figure "Sao 4 Reconstruit à partir de fragments." [ref=e60]:
+            - iframe [ref=e62]
+            - generic [ref=e63]:
+              - strong [ref=e64]: Sao 4
+              - generic [ref=e65]: Reconstruit à partir de fragments.
+          - figure "Toumaï 5 Prend le temps de voir plus loin." [ref=e66]:
+            - generic "Le vent soulève des feuilles et révèle le nom Toumaï 5" [ref=e68]
+            - generic [ref=e69]:
+              - strong [ref=e70]: Toumaï 5
+              - generic [ref=e71]: Prend le temps de voir plus loin.
+        - paragraph [ref=e72]: Cliquez sur une image pour la rejouer.
+      - region "Capacités animées de Toumaï" [ref=e73]:
+        - article [ref=e74]:
+          - generic [ref=e75]:
+            - generic [ref=e76]: "01"
+            - paragraph [ref=e77]: Raisonnement concurrentiel
+            - heading "Chaque décision tient compte de l’adversaire." [level=2] [ref=e78]
+            - paragraph [ref=e79]: Deux agents observent les coups, ferment les ouvertures dangereuses et construisent leur propre stratégie. L’un finit par gagner, sans que l’autre lui offre la victoire.
+            - list [ref=e80]:
+              - listitem [ref=e81]: Analyse de la situation actuelle
+              - listitem [ref=e82]: Blocage des risques immédiats
+              - listitem [ref=e83]: Choix du meilleur coup disponible
+          - iframe [ref=e85]
+        - article [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e88]: "02"
+            - paragraph [ref=e89]: Autocorrection visible
+            - heading "Une erreur devient une information utile." [level=2] [ref=e90]
+            - paragraph [ref=e91]: Pour les trois premières pièces, Toumaï teste une empreinte, détecte l’incompatibilité puis recommence au bon endroit. Une fois la logique comprise, les pièces restantes sont placées directement.
+            - list [ref=e92]:
+              - listitem [ref=e93]: Trois erreurs réellement testées
+              - listitem [ref=e94]: Correction après chaque incompatibilité
+              - listitem [ref=e95]: Apprentissage réutilisé pour la suite
+          - iframe [ref=e97]
+        - article [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e100]: "03"
+            - paragraph [ref=e101]: Navigation adaptative
+            - heading "Changer de route sans perdre l’objectif." [level=2] [ref=e102]
+            - paragraph [ref=e103]: Toumaï explore le parcours, reconnaît les impasses et réoriente son raisonnement jusqu’à construire un chemin fiable vers la sortie.
+            - list [ref=e104]:
+              - listitem [ref=e105]: Détection des voies sans issue
+              - listitem [ref=e106]: Nouvelle stratégie en temps réel
+              - listitem [ref=e107]: Progression conservée malgré les détours
+          - iframe [ref=e109]
+        - article [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e112]: "04"
+            - paragraph [ref=e113]: Anticipation à grande échelle
+            - heading "Projeter plusieurs coups avant d’agir." [level=2] [ref=e114]
+            - paragraph [ref=e115]: Sur un terrain plus vaste, chaque main répond à l’autre, protège ses lignes et prépare une combinaison gagnante. Chaque décision se lit sur le plateau.
+            - list [ref=e116]:
+              - listitem [ref=e117]: Lecture de plusieurs scénarios possibles
+              - listitem [ref=e118]: Réponse directe aux menaces concurrentes
+              - listitem [ref=e119]: Planification jusqu’au coup gagnant
+          - iframe [ref=e121]
+        - article [ref=e122]:
+          - generic [ref=e123]:
+            - generic [ref=e124]: "05"
+            - paragraph [ref=e125]: Travail réel, accord demandé
+            - heading "Il prépare tout. Vous décidez d’envoyer." [level=2] [ref=e126]
+            - paragraph [ref=e127]: "Un rendez-vous à décaler, une facture, un devis : Toumaï ouvre le courrier, comprend la demande et écrit la réponse. Puis il s’arrête et demande. Rien ne part avant que vous ayez appuyé sur Envoyer."
+            - list [ref=e128]:
+              - listitem [ref=e129]: Trois courriers lus, compris et répondus
+              - listitem [ref=e130]: Une confirmation obligatoire avant chaque envoi
+              - listitem [ref=e131]: Le même garde-fou sur le mail, WhatsApp et l’agenda
+          - iframe [ref=e133]
+      - generic [ref=e135]:
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - paragraph [ref=e138]: Dans votre quotidien
+            - heading "Des situations ordinaires, un point de départ utile." [level=2] [ref=e139]
+          - paragraph [ref=e140]: "Une question, un document, une tâche à organiser : dites ce que vous cherchez. La réponse reste une piste à vérifier, pas une décision à votre place."
+        - generic [ref=e141]:
+          - article [ref=e142]:
+            - generic [ref=e143]: A
+            - heading "Relire un cours ou débloquer une notion" [level=3] [ref=e144]
+            - paragraph [ref=e145]: Vous avez un chapitre dense ou une question qui reste floue ? Demandez une explication, un résumé ou quelques questions pour réviser.
+            - link "Poser une question" [ref=e146] [cursor=pointer]:
+              - /url: /chat/
+              - text: Poser une question ↗
+          - article [ref=e147]:
+            - generic [ref=e148]: B
+            - heading "Préparer un texte sans partir d’une page blanche" [level=3] [ref=e149]
+            - paragraph [ref=e150]: Donnez le contexte, puis demandez un plan, un premier brouillon ou une relecture. Vous gardez le dernier mot sur ce qui est envoyé.
+            - link "Préparer un brouillon" [ref=e151] [cursor=pointer]:
+              - /url: /chat/
+              - text: Préparer un brouillon ↗
+          - article [ref=e152]:
+            - generic [ref=e153]: C
+            - heading "Faire avancer une tâche par étapes" [level=3] [ref=e154]
+            - paragraph [ref=e155]: Décrivez l’objectif et les contraintes. Toumaï peut proposer un ordre de travail, des points à vérifier et une première liste d’actions.
+            - link "Organiser une tâche" [ref=e156] [cursor=pointer]:
+              - /url: /chat/
+              - text: Organiser une tâche ↗
+      - generic [ref=e157]:
+        - generic [ref=e158]:
+          - paragraph [ref=e159]: Toumaï pour les organisations
+          - heading "Un espace commun pour préparer, chercher et relire." [level=2] [ref=e160]
+          - paragraph [ref=e161]: Pour une équipe, une école ou une organisation, Toumaï peut servir à préparer des textes, explorer des informations et garder le contexte d’un travail en cours.
+          - link "Parler à notre équipe" [ref=e162] [cursor=pointer]:
+            - /url: mailto:contact@toumaiai.com
+        - generic "Principes pour les organisations" [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]: "01"
+            - strong [ref=e166]: Contrôle humain
+            - paragraph [ref=e167]: Les décisions importantes restent sous votre supervision.
+          - generic [ref=e168]:
+            - generic [ref=e169]: "02"
+            - strong [ref=e170]: Contexte utile
+            - paragraph [ref=e171]: Toumaï suit le fil du travail au lieu de repartir de zéro.
+          - generic [ref=e172]:
+            - generic [ref=e173]: "03"
+            - strong [ref=e174]: Expérience simple
+            - paragraph [ref=e175]: Des outils regroupés au même endroit, sans masquer ce qui se passe.
+      - generic [ref=e176]:
+        - generic [ref=e177]:
+          - generic [ref=e178]:
+            - paragraph [ref=e179]: Des offres lisibles
+            - heading "Commencez gratuitement. Payez quand vous en avez besoin." [level=2] [ref=e180]
+          - paragraph [ref=e181]: Les prix sont en francs CFA, sans engagement. Vous changez de plan ou vous arrêtez quand vous voulez.
+        - generic [ref=e182]:
+          - article [ref=e183]:
+            - paragraph [ref=e184]: Découverte
+            - paragraph [ref=e185]:
+              - generic [ref=e186]: Gratuit
+            - paragraph [ref=e187]: Pour essayer Toumaï et faire vos premières tâches.
+            - list [ref=e188]:
+              - listitem [ref=e189]: 20 messages par jour
+              - listitem [ref=e190]: 5 images par mois
+              - listitem [ref=e191]: 3 documents analysés par mois
+              - listitem [ref=e192]: 1 connecteur
+              - listitem [ref=e193]: 50 Mo de fichiers
+            - generic: Commencer gratuitement
+          - article [ref=e194]:
+            - paragraph [ref=e195]: Essentiel
+            - paragraph [ref=e196]:
+              - generic [ref=e197]: 3 000
+              - generic [ref=e198]: FCFA par mois
+            - paragraph [ref=e199]: Pour un usage quotidien, avec la voix et les connecteurs.
+            - list [ref=e200]:
+              - listitem [ref=e201]: 200 messages par jour
+              - listitem [ref=e202]: 60 images et 40 documents par mois
+              - listitem [ref=e203]: 30 min de voix par mois
+              - listitem [ref=e204]: 5 connecteurs, 5 automatisations
+              - listitem [ref=e205]: 500 messages WhatsApp par mois
+              - listitem [ref=e206]: 1 Go de fichiers
+            - link "Passer à Essentiel" [ref=e207] [cursor=pointer]:
+              - /url: /register/?plan=essentiel
+          - article [ref=e208]:
+            - paragraph [ref=e209]: Toumaï 5
+            - paragraph [ref=e210]:
+              - generic [ref=e211]: 9 000
+              - generic [ref=e212]: FCFA par mois
+            - paragraph [ref=e213]: Messages illimités, l’agent navigateur, tout le raisonnement.
+            - list [ref=e214]:
+              - listitem [ref=e215]: Messages et documents illimités
+              - listitem [ref=e216]: 300 images par mois
+              - listitem [ref=e217]: 2 h 30 de voix par mois
+              - listitem [ref=e218]: 200 tâches de l’agent navigateur
+              - listitem [ref=e219]: Connecteurs illimités, 30 automatisations
+              - listitem [ref=e220]: 10 Go de fichiers
+            - link "Passer à Toumaï 5" [ref=e221] [cursor=pointer]:
+              - /url: /register/?plan=toumai_5
+          - article [ref=e222]:
+            - paragraph [ref=e223]: Entreprise
+            - paragraph [ref=e224]:
+              - generic [ref=e225]: Sur devis
+            - paragraph [ref=e226]: Pour une équipe, une école, une administration.
+            - list [ref=e227]:
+              - listitem [ref=e228]: Tout illimité
+              - listitem [ref=e229]: Comptes et rôles gérés
+              - listitem [ref=e230]: Facturation sur devis
+              - listitem [ref=e231]: Accompagnement au déploiement
+            - link "Demander un devis" [ref=e232] [cursor=pointer]:
+              - /url: mailto:contact@toumaiai.com?subject=Toumai%20AI%20:%20offre%20Entreprise
+        - paragraph [ref=e233]: "Le paiement en ligne ouvre bientôt. Créez votre compte : vous garderez vos conversations."
+      - generic [ref=e235]:
+        - figure [ref=e236]:
+          - img "Faycal Habib Ahmat, fondateur et CEO de Toumaï AI" [ref=e237]
+        - generic [ref=e238]:
+          - paragraph [ref=e239]: Fondateur & CEO
+          - heading "Derrière ce logiciel, il y a quelqu’un à qui parler." [level=2] [ref=e240]
+          - paragraph [ref=e241]: Je m’appelle Faycal. J’ai construit Toumaï pour qu’un Tchadien puisse demander de l’aide à une machine dans sa langue, depuis son téléphone, sans attendre que quelqu’un ailleurs y pense pour lui.
+          - paragraph [ref=e242]: "Ce qui a commencé dans une chambre à N’Djaména tourne aujourd’hui chez des gens que je ne connais pas. C’est la plus belle chose qui me soit arrivée, et la plus exigeante : quand vous confiez votre travail à Toumaï, vous me faites confiance à moi."
+          - paragraph [ref=e243]: Alors écrivez-moi. Une question, une idée, un reproche. Je lis tout, et je réponds.
+          - generic [ref=e244]:
+            - strong [ref=e245]: Faycal Habib Ahmat
+            - text: Fondateur & CEO, Toumaï AI
+          - generic [ref=e247]:
+            - link "Écrire sur WhatsApp" [ref=e248] [cursor=pointer]:
+              - /url: https://wa.me/23591912191
+            - link "contact@toumaiai.com" [ref=e249] [cursor=pointer]:
+              - /url: mailto:contact@toumaiai.com
+            - button "Ou remplir un formulaire" [ref=e250] [cursor=pointer]
+      - generic [ref=e252]:
+        - paragraph [ref=e253]: Essayez avec une tâche réelle
+        - heading "Commencez par une question, un texte ou un document." [level=2] [ref=e254]
+        - generic [ref=e255]:
+          - generic [ref=e256]: Demander à Toumaï
+          - textbox "Demander à Toumaï" [ref=e257]:
+            - /placeholder: Écrivez ce que vous voulez préparer…
+          - button "Envoyer à Toumaï" [ref=e258] [cursor=pointer]: ↗
+    - contentinfo [ref=e259]:
+      - link "Toumaï AI, recharger la page d’accueil" [ref=e261] [cursor=pointer]:
+        - /url: /
+        - img "Toumaï AI" [ref=e262]
+        - generic [ref=e263]:
+          - text: Toumaï
+          - generic [ref=e264]: AI
+      - generic [ref=e265]:
+        - generic [ref=e266]:
+          - strong [ref=e267]: Produit
+          - link "Chat" [ref=e268] [cursor=pointer]:
+            - /url: /chat/
+          - link "Capacités" [ref=e269] [cursor=pointer]:
+            - /url: "#capacites"
+          - link "Bibliothèque" [ref=e270] [cursor=pointer]:
+            - /url: /library/
+          - link "Agent Navigateur" [ref=e271] [cursor=pointer]:
+            - /url: /agent/
+          - link "Tableau de bord WhatsApp" [ref=e272] [cursor=pointer]:
+            - /url: /whatsapp/
+        - generic [ref=e273]:
+          - strong [ref=e274]: Modèles
+          - link "Sao 4 & Toumaï 5" [ref=e275] [cursor=pointer]:
+            - /url: /models/
+          - link "Assistant IA" [ref=e276] [cursor=pointer]:
+            - /url: /assistant-ia/
+          - link "L’IA au Tchad" [ref=e277] [cursor=pointer]:
+            - /url: /intelligence-artificielle-tchad/
+          - link "النسخة العربية" [ref=e278] [cursor=pointer]:
+            - /url: /ar/
+          - link "GitHub" [ref=e279] [cursor=pointer]:
+            - /url: https://github.com/Toumai-AI
+        - generic [ref=e280]:
+          - strong [ref=e281]: Ressources
+          - link "Bibliothèque" [ref=e282] [cursor=pointer]:
+            - /url: /library/
+          - link "Presse" [ref=e283] [cursor=pointer]:
+            - /url: /press/
+          - link "Nous contacter" [ref=e284] [cursor=pointer]:
+            - /url: /contact/
+          - link "L’IA au Tchad" [ref=e285] [cursor=pointer]:
+            - /url: /intelligence-artificielle-tchad/
+        - generic [ref=e286]:
+          - strong [ref=e287]: Entreprise & confiance
+          - link "À propos de Toumaï AI" [ref=e288] [cursor=pointer]:
+            - /url: /a-propos/
+          - link "Sécurité" [ref=e289] [cursor=pointer]:
+            - /url: /security/
+          - link "Politique de confidentialité" [ref=e290] [cursor=pointer]:
+            - /url: /privacy/
+          - link "Conditions d’utilisation" [ref=e291] [cursor=pointer]:
+            - /url: /terms/
+      - generic [ref=e292]:
+        - link "Téléphone +235 68 66 37 37" [ref=e293] [cursor=pointer]:
+          - /url: tel:+23568663737
+          - generic [ref=e297]:
+            - generic [ref=e298]: Téléphone
+            - strong [ref=e299]: +235 68 66 37 37
+        - link "WhatsApp +235 91 91 21 91" [ref=e300] [cursor=pointer]:
+          - /url: https://wa.me/23591912191
+          - generic [ref=e304]:
+            - generic [ref=e305]: WhatsApp
+            - strong [ref=e306]: +235 91 91 21 91
+        - link "E-mail contact@toumaiai.com" [ref=e307] [cursor=pointer]:
+          - /url: mailto:contact@toumaiai.com
+          - generic [ref=e312]:
+            - generic [ref=e313]: E-mail
+            - strong [ref=e314]: contact@toumaiai.com
+      - generic [ref=e315]:
+        - generic [ref=e316]: © 2026 Toumaï AI. Tous droits réservés.
+        - generic [ref=e317]:
+          - link "Facebook" [ref=e318] [cursor=pointer]:
+            - /url: https://www.facebook.com/profile.php?id=61591724459792
+          - link "Instagram" [ref=e321] [cursor=pointer]:
+            - /url: https://www.instagram.com/toumaiai/
+          - link "TikTok" [ref=e326] [cursor=pointer]:
+            - /url: https://www.tiktok.com/@toumaiai
+          - link "X (Twitter)" [ref=e329] [cursor=pointer]:
+            - /url: https://x.com/ToumaiAI
+          - link "LinkedIn" [ref=e332] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/toumai-ai
+          - link "GitHub" [ref=e335] [cursor=pointer]:
+            - /url: https://github.com/Toumai-AI
+  - alert [ref=e338]
+  - dialog "Consentement aux cookies" [ref=e339]:
+    - generic [ref=e340]:
+      - paragraph [ref=e341]:
+        - text: Nous utilisons uniquement des mesures d'audience respectueuses de la vie privée (aucune revente de données, aucun ciblage publicitaire). Voir notre
+        - link "politique de confidentialité" [ref=e342] [cursor=pointer]:
+          - /url: /privacy/
+        - text: .
+      - generic [ref=e343]:
+        - button "Refuser" [ref=e344]
+        - button "Accepter" [ref=e345]

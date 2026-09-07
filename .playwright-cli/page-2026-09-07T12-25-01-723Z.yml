@@ -1,0 +1,66 @@
+- generic [ref=f51e2]:
+  - banner [ref=f51e3]:
+    - link "Toumaï AI Toumaï AI Intelligence artificielle" [ref=f51e4] [cursor=pointer]:
+      - /url: /
+      - img "Toumaï AI" [ref=f51e5]
+      - generic [ref=f51e6]:
+        - text: Toumaï AI
+        - generic [ref=f51e7]: Intelligence artificielle
+    - link "Besoin d’aide ? ↗" [ref=f51e8] [cursor=pointer]:
+      - /url: /contact/
+  - main [ref=f51e9]:
+    - generic [ref=f51e10]:
+      - link "← Retour aux offres" [ref=f51e11] [cursor=pointer]:
+        - /url: /#tarifs
+      - list "Étapes de votre abonnement" [ref=f51e12]:
+        - listitem [ref=f51e13]:
+          - generic [ref=f51e14]: "1"
+          - text: Compte
+        - listitem [ref=f51e15]:
+          - generic [ref=f51e16]: "2"
+          - text: Paiement
+        - listitem [ref=f51e17]:
+          - generic [ref=f51e18]: "3"
+          - text: Confirmation
+    - generic [ref=f51e19]:
+      - generic [ref=f51e20]:
+        - paragraph [ref=f51e21]: Votre espace Toumaï AI
+        - heading "Vos idées méritent un espace." [level=1] [ref=f51e22]
+        - paragraph [ref=f51e23]: Écrivez, cherchez, créez. Retrouvez vos conversations et vos outils dans un seul espace.
+      - generic [ref=f51e25]:
+        - img "Toumaï AI" [ref=f51e27]
+        - heading "Créez votre compte" [level=1] [ref=f51e28]
+        - paragraph [ref=f51e29]: Vous recevrez des réponses plus riches et pourrez importer des fichiers, générer des images, et bien plus encore.
+        - generic [ref=f51e30]: OU
+        - generic [ref=f51e33]:
+          - textbox "Nom" [ref=f51e34]
+          - textbox "Adresse e-mail" [ref=f51e35]
+          - textbox "Mot de passe" [ref=f51e36]:
+            - /placeholder: Mot de passe (8+ caractères)
+          - generic [ref=f51e37]:
+            - checkbox "J'accepte les conditions générales et la politique de confidentialité." [ref=f51e38]
+            - generic [ref=f51e39]:
+              - text: J'accepte les
+              - link "conditions générales" [ref=f51e40] [cursor=pointer]:
+                - /url: /terms/
+              - text: et la
+              - link "politique de confidentialité" [ref=f51e41] [cursor=pointer]:
+                - /url: /privacy/
+              - text: .
+          - button "Continuer" [disabled] [ref=f51e42]
+        - button "Continuer sans compte" [ref=f51e43]
+        - paragraph [ref=f51e44]:
+          - text: Déjà un compte ?
+          - link "Se connecter" [ref=f51e45] [cursor=pointer]:
+            - /url: /login/
+  - contentinfo [ref=f51e46]:
+    - generic [ref=f51e47]: Toumaï AI · À vos côtés, à chaque étape.
+    - navigation "Informations de facturation" [ref=f51e48]:
+      - link "Confidentialité" [ref=f51e49] [cursor=pointer]:
+        - /url: /privacy/
+      - link "Conditions" [ref=f51e50] [cursor=pointer]:
+        - /url: /terms/
+      - link "Sécurité" [ref=f51e51] [cursor=pointer]:
+        - /url: /security/
+      - link "Contact" [ref=f51e52] [cursor=pointer]:
+        - /url: /contact/

@@ -35,7 +35,7 @@ import { CxSwitch, Panel, Row } from "./Rows";
  */
 export function MemorySection() {
   const { session } = useAuth();
-  const invite = !session || session.is_guest;
+  const invite = !session;
 
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   const [resume, setResume] = useState<MemoireResume | null>(null);

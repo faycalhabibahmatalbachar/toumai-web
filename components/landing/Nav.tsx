@@ -41,7 +41,7 @@ const SECTION_IDS: readonly string[] = SECTIONS.map((s) => s.id);
 export function Nav() {
   const { session, logout } = useAuth();
   const { t } = useLang();
-  const authed = Boolean(session && !session.is_guest);
+  const authed = Boolean(session);
 
   const [stuck, setStuck] = useState(false);
   const [progress, setProgress] = useState(0);

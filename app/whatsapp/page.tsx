@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useExigerCompte } from "@/hooks/useExigerCompte";
 import {
   getWaActivity,
   getWhatsAppStatus,
@@ -59,16 +60,11 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 export default function WhatsAppDashboardPage() {
-  const { session, loading, loginAsGuest } = useAuth();
-  const guestAttempted = useRef(false);
+  const { session, loading } = useAuth();
+  useExigerCompte();
   const [days, setDays] = useState(30);
   const [category, setCategory] = useState("");
 
-  useEffect(() => {
-    if (loading || session || guestAttempted.current) return;
-    guestAttempted.current = true;
-    loginAsGuest().catch(() => {});
-  }, [loading, session, loginAsGuest]);
 
   // Cache persistant : la page rend immédiatement les dernières données
   // connues (statut + journal) et revalide en arrière-plan — plus de

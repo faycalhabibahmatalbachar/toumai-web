@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - main [ref=e5]:
+    - img "Toumaï AI" [ref=e6]
+    - heading "Nous ne retrouvons pas ce paiement." [level=1] [ref=e7]
+    - paragraph [ref=e8]: "Si votre banque vous a débité, écrivez-nous : nous avons la trace de chaque transaction et nous la retrouverons."
+    - link "Nous écrire" [ref=e9] [cursor=pointer]:
+      - /url: mailto:contact@toumaiai.com
+  - dialog "Consentement aux cookies" [ref=e10]:
+    - generic [ref=e11]:
+      - paragraph [ref=e12]:
+        - text: Nous utilisons uniquement des mesures d'audience respectueuses de la vie privée (aucune revente de données, aucun ciblage publicitaire). Voir notre
+        - link "politique de confidentialité" [ref=e13] [cursor=pointer]:
+          - /url: /privacy/
+        - text: .
+      - generic [ref=e14]:
+        - button "Refuser" [ref=e15]
+        - button "Accepter" [ref=e16]

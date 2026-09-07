@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useExigerCompte } from "@/hooks/useExigerCompte";
 import {
   deleteFile,
   fileUrl,
@@ -66,7 +67,8 @@ function grouper<T extends { f: { folder?: string | null } }>(
 }
 
 export default function LibraryPage() {
-  const { session, loading, loginAsGuest } = useAuth();
+  const { session, loading } = useAuth();
+  useExigerCompte();
   const [generated, setGenerated] = useState<GeneratedFile[]>([]);
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
   const [chatImages, setChatImages] = useState<LibraryImage[]>([]);
@@ -74,13 +76,7 @@ export default function LibraryPage() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const guestAttempted = useRef(false);
 
-  useEffect(() => {
-    if (loading || session || guestAttempted.current) return;
-    guestAttempted.current = true;
-    loginAsGuest().catch(() => {});
-  }, [loading, session, loginAsGuest]);
 
   useEffect(() => {
     if (!session) return;

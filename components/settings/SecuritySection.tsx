@@ -30,7 +30,7 @@ export function SecuritySection() {
   /** Une session invitée n'a pas de mot de passe — donc rien à protéger par
    *  un second facteur. Lui proposer d'activer la 2FA la ferait échouer sur
    *  une erreur serveur au lieu de dire la vérité en une phrase. */
-  const invite = !session || session.is_guest;
+  const invite = !session;
   const [etat, setEtat] = useState<MfaEtat | null>(null);
   const [enrolement, setEnrolement] = useState<MfaEnrolement | null>(null);
   const [code, setCode] = useState("");

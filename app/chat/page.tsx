@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { streamChat, type HistoryTurn } from "@/lib/chat-stream";
 import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/chat-api";
 import { getProfile, prenomAffichable } from "@/lib/user-api";
@@ -128,7 +129,8 @@ function timeGreeting(): string {
 }
 
 export default function ChatPage() {
-  const { session, loading, loginAsGuest } = useAuth();
+  const { session, loading } = useAuth();
+  useExigerCompte();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -218,7 +220,6 @@ export default function ChatPage() {
    * l'écran d'accueil, et que la retrouver dans le champ obligerait à
    * appuyer une seconde fois sur Entrée pour la même phrase. */
   const QUESTION_ACCUEIL = "toumai:question";
-  const guestAttempted = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const lastUserMessageRef = useRef<string>("");
   const stickToBottomRef = useRef(true);
@@ -395,7 +396,7 @@ export default function ChatPage() {
     if (name) setFirstName(name);
   });
   useEffect(() => {
-    if (!session || session.is_guest) return;
+    if (!session) return;
     getProfile()
       .then((p) => {
         cacheWrite("user:profile", p);
@@ -419,12 +420,6 @@ export default function ChatPage() {
       .catch(() => {});
   }, [session]);
 
-  // Connexion invité automatique — parité avec "Essayer sans compte" du mobile.
-  useEffect(() => {
-    if (loading || session || guestAttempted.current) return;
-    guestAttempted.current = true;
-    loginAsGuest().catch(() => setError("Impossible de démarrer une session."));
-  }, [loading, session, loginAsGuest]);
 
   // Ouverture directe d'une conversation par son URL (/chat?c=<id>).
   useEffect(() => {

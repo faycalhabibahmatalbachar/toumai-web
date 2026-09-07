@@ -1,0 +1,6 @@
+.next/dev/types/validator.ts(24,44): error TS2344: Type 'Route' does not satisfy the constraint 'LayoutRoutes'.
+  Type 'import("C:/Users/hp/Desktop/Projects/chadgpt-web/.next/dev/types/routes").LayoutRoutes' is not assignable to type 'import("C:/Users/hp/Desktop/Projects/chadgpt-web/.next/types/routes").LayoutRoutes'.
+    Type '"/recu"' is not assignable to type 'LayoutRoutes'.
+.next/dev/types/validator.ts(24,75): error TS2344: Type 'Route' does not satisfy the constraint 'LayoutRoutes'.
+  Type 'import("C:/Users/hp/Desktop/Projects/chadgpt-web/.next/dev/types/routes").LayoutRoutes' is not assignable to type 'import("C:/Users/hp/Desktop/Projects/chadgpt-web/.next/types/routes").LayoutRoutes'.
+    Type '"/recu"' is not assignable to type 'LayoutRoutes'.

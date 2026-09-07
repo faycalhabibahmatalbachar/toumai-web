@@ -6,10 +6,14 @@ import { useAuth } from "@/lib/auth-context";
 import { http } from "@/lib/http";
 import { PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 import { BillingShell, BillingLoading, PriceDisplay } from "@/components/billing/BillingUI";
+import { PaymentHistory } from "@/components/billing/PaymentHistory";
+import { AccountQuotas } from "@/components/billing/AccountQuotas";
+import type { AccountQuota } from "@/lib/payment-types";
 
 type Billing = {
   plan: { code: string; nom: string; prix_xaf: number };
   abonnement: { actif: boolean; debut_le: string | null; fin_le: string | null };
+  quotas?: Record<string, AccountQuota>;
 };
 
 function AccountBilling() {
@@ -29,9 +33,9 @@ function AccountBilling() {
   const {plan, abonnement} = result.data;
   const planId = publicPlanId(plan.code);
   const planName = planId ? PLAN_CATALOG[planId].publicName : plan.nom;
-  return <div className="billing-grid">
+  return <><div><p className="billing-kicker">Votre compte Toumaï AI</p><h1>Plan et facturation</h1><p className="billing-muted">Votre offre, votre utilisation et vos paiements, au même endroit.</p></div><div className="billing-grid">
     <section className="billing-card">
-      <p className="billing-kicker">Plan et facturation</p><h1>{planName}</h1>
+      <p className="billing-kicker">Votre offre actuelle</p><h2>{planName}</h2>
       <PriceDisplay amount={plan.prix_xaf} />
       <p className="billing-muted">{plan.prix_xaf > 0 ? "XAF · tarif du catalogue pour 30 jours" : "Votre offre gratuite"}</p>
       <dl className="billing-summary">
@@ -46,10 +50,10 @@ function AccountBilling() {
       <p className="billing-muted">Le renouvellement est manuel. Aucun prochain prélèvement automatique n’est programmé. Pour changer d’offre, consultez les tarifs et vérifiez votre commande avant de payer.</p>
       <div className="billing-actions"><Link className="billing-button billing-button-primary" href="/#tarifs">Voir les offres</Link><Link className="billing-button" href="/contact">Une question sur votre paiement ?</Link></div>
     </section>
-  </div>;
+  </div><AccountQuotas quotas={result.data.quotas}/><PaymentHistory/></>;
 }
 
 export default function BillingPage() {
   const {session, loading} = useAuth();
-  return <BillingShell>{loading ? <BillingLoading /> : !session || session.is_guest ? <section className="billing-card"><p className="billing-kicker">Votre compte</p><h1>Plan et facturation</h1><p className="billing-muted">Connectez-vous pour retrouver votre offre et sa période de validité.</p><div className="billing-actions"><Link href="/login?next=%2Fbilling" className="billing-button billing-button-primary">Se connecter</Link></div></section> : <AccountBilling key={session.user_id} />}</BillingShell>;
+  return <BillingShell>{loading ? <BillingLoading /> : !session ? <section className="billing-card"><p className="billing-kicker">Votre compte</p><h1>Plan et facturation</h1><p className="billing-muted">Connectez-vous pour retrouver votre offre et sa période de validité.</p><div className="billing-actions"><Link href="/login?next=%2Fbilling" className="billing-button billing-button-primary">Se connecter</Link></div></section> : <AccountBilling key={session.user_id} />}</BillingShell>;
 }

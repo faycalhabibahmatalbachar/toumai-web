@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { getProfile, type UserProfile, nomAffichable } from "@/lib/user-api";
 import { cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -163,19 +164,14 @@ const LEGACY_TABS: Record<string, Section> = {
 };
 
 export default function SettingsPage() {
-  const { session, loading, loginAsGuest } = useAuth();
+  const { session, loading } = useAuth();
+  useExigerCompte();
   const [section, setSection] = useState<Section>("general");
   // Profil seedé depuis le cache (hydration-safe, avant peinture) : la carte
   // identité s'affiche immédiatement pendant la revalidation en arrière-plan.
   const [profile, setProfile] = useState<UserProfile | null>(null);
   useCacheSeed<UserProfile>("user:profile", setProfile);
-  const guestAttempted = useRef(false);
 
-  useEffect(() => {
-    if (loading || session || guestAttempted.current) return;
-    guestAttempted.current = true;
-    loginAsGuest().catch(() => {});
-  }, [loading, session, loginAsGuest]);
 
   useEffect(() => {
     if (!session) return;
@@ -197,16 +193,14 @@ export default function SettingsPage() {
     if (target) setSection(target);
   }, []);
 
-  const isGuest = !session || session.is_guest;
+  const isGuest = !session;
   const current = ALL_SECTIONS.find((s) => s.id === section) ?? ALL_SECTIONS[0];
 
   const displayName = !session
     ? "Connexion…"
-    : session.is_guest
-      ? "Session invité"
-      : profile
-        ? nomAffichable(profile.full_name) || "Mon compte"
-        : "Connexion…";
+    : profile
+      ? nomAffichable(profile.full_name) || "Mon compte"
+      : "Connexion…";
 
   function NavItem({ s }: { s: SectionDef }) {
     const active = section === s.id;

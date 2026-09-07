@@ -1,0 +1,26 @@
+- generic [active] [ref=f16e1]:
+  - generic [ref=f16e2]:
+    - banner [ref=f16e3]:
+      - link "Toumaï AI Toumaï AI" [ref=f16e4] [cursor=pointer]:
+        - /url: /
+        - img "Toumaï AI" [ref=f16e5]
+        - generic [ref=f16e6]: Toumaï AI
+      - link "Besoin d’aide ?" [ref=f16e7] [cursor=pointer]:
+        - /url: /contact/
+    - main [ref=f16e8]:
+      - status [ref=f16e9]:
+        - paragraph [ref=f16e10]: Un instant
+        - heading "Nous préparons les informations." [level=1] [ref=f16e11]
+        - text: Chargement en cours…
+    - contentinfo [ref=f16e14]:
+      - generic [ref=f16e15]: Toumaï AI · À vos côtés, à chaque étape.
+      - navigation "Informations de facturation" [ref=f16e16]:
+        - link "Confidentialité" [ref=f16e17] [cursor=pointer]:
+          - /url: /privacy/
+        - link "Conditions" [ref=f16e18] [cursor=pointer]:
+          - /url: /terms/
+        - link "Sécurité" [ref=f16e19] [cursor=pointer]:
+          - /url: /security/
+        - link "Contact" [ref=f16e20] [cursor=pointer]:
+          - /url: /contact/
+  - button "Open Next.js Dev Tools" [ref=f16e26] [cursor=pointer]

@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Logo } from "@/components/Logo";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
-import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
+import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
+
+import { AuthShell } from "@/components/billing/AuthShell";
+import { safeAccountReturn } from "@/lib/payment-navigation";
+
+import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginWithPassword, finirAvecCode, loginWithGoogle, loginAsGuest } = useAuth();
+  const { loginWithPassword, finirAvecCode, loginWithGoogle } = useAuth();
   /** Le jeton d'attente quand un second facteur est exigé.
    *
    * Tant qu'il est posé, l'écran demande le code et RIEN d'autre : aucune
@@ -23,22 +28,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [planChoisi, setPlanChoisi] = useState<"essentiel" | "toumai_5" | null>(null);
-  const [retourFacturation, setRetourFacturation] = useState(false);
+  const planChoisi = usePaymentPlan();
+  const location = usePaymentLocation();
+  const parametres = new URLSearchParams(location.split("?")[1]);
+  const retourCompte = safeAccountReturn(parametres.get("next"));
   const turnstile = useRef<TurnstilePoignee | null>(null);
 
   // Arrivée depuis une session expirée (voir session-guard).
-  useEffect(() => {
-    const parametres = new URLSearchParams(window.location.search);
-    setRetourFacturation(parametres.get("next") === "/billing");
-    if (parametres.get("expired")) {
-      setError("Votre session a expiré — reconnectez-vous pour continuer.");
-    }
-    const plan = publicPlanId(parametres.get("plan"));
-    setPlanChoisi(plan === "essentiel" || plan === "toumai_5" ? plan : null);
-  }, []);
-
-  const destination = planChoisi ? checkoutUrl(planChoisi) : retourFacturation ? "/billing" : "/chat";
+  const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,19 +89,6 @@ export default function LoginPage() {
     }
   }
 
-  async function tryGuest() {
-    setLoading(true);
-    setError(null);
-    try {
-      await loginAsGuest();
-      router.push("/chat");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // ── LE SECOND FACTEUR PREND TOUT L'ÉCRAN ────────────────────────────────
   //
   // Un écran séparé, et non un champ ajouté sous le mot de passe : à ce
@@ -112,8 +96,8 @@ export default function LoginPage() {
   // laisser visible inviterait à le retaper, et à croire qu'il a échoué.
   if (defiMfa) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6 py-16">
-        <div className="w-full max-w-sm">
+      <AuthShell planId={planChoisi}>
+        <div className="w-full">
           <div className="mb-6 flex justify-center">
             <Logo size={44} />
           </div>
@@ -136,7 +120,7 @@ export default function LoginPage() {
               onChange={(e) => setCodeMfa(e.target.value)}
               className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-center text-lg tracking-[0.2em] outline-none focus:border-[var(--primary)]"
             />
-            {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
+            {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
             <button
               type="submit"
               disabled={loading || !codeMfa.trim()}
@@ -159,13 +143,13 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm">
+    <AuthShell planId={planChoisi}>
+      <div className="w-full">
         <div className="mb-6 flex justify-center">
           <Logo size={44} />
         </div>
@@ -173,9 +157,10 @@ export default function LoginPage() {
         <p className="mb-5 text-center text-sm text-[var(--text-secondary)]">
           Connectez-vous pour retrouver vos conversations et préférences.
         </p>
+        {parametres.has("expired") && <p role="status" className="billing-notice">Votre session a expiré — reconnectez-vous pour continuer.</p>}
         {planChoisi && (
-          <p className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-center text-sm">
-            Reprenez votre choix : <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA par mois.
+          <p className="billing-chosen-plan">
+            Reprenez votre choix : <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA / 30 jours.
           </p>
         )}
 
@@ -193,13 +178,13 @@ export default function LoginPage() {
           <input
             type="email"
             required
-            placeholder="Adresse e-mail"
+            aria-label="Adresse e-mail" autoComplete="email" placeholder="Adresse e-mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
           />
           <input
-            type="password"
+            type="password" aria-label="Mot de passe" autoComplete="current-password"
             required
             placeholder="Mot de passe"
             value={password}
@@ -211,7 +196,7 @@ export default function LoginPage() {
               Mot de passe oublié ?
             </Link>
           </p>
-          {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
+          {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
           <Turnstile onToken={setTurnstileToken} poignee={turnstile} />
           <button
             type="submit"
@@ -223,15 +208,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {!planChoisi && (
-          <button
-            onClick={tryGuest}
-            disabled={loading}
-            className="mt-3 w-full rounded-full border border-[var(--border)] py-3 text-sm font-semibold transition hover:border-[var(--primary)] disabled:opacity-50"
-          >
-            Continuer sans compte
-          </button>
-        )}
 
         <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
           Pas encore de compte ?{" "}
@@ -240,6 +216,6 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

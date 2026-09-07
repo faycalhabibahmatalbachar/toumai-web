@@ -664,7 +664,7 @@ function SectionTarifs() {
   const [plans, setPlans] = useState<Plan[]>(PLANS_DE_REPLI);
   const [paiementOuvert, setPaiementOuvert] = useState(false);
   const { session } = useAuth();
-  const compteConnecte = Boolean(session && !session.is_guest);
+  const compteConnecte = Boolean(session);
 
   useEffect(() => {
     let vivant = true;
@@ -869,7 +869,7 @@ export function PageAccueil() {
 
   /** Un invité n'est pas connecté : lui proposer « Déconnexion » n'aurait
    *  aucun sens. Même règle que la barre du reste du site. */
-  const connecte = Boolean(session && !session.is_guest);
+  const connecte = Boolean(session);
 
   /** Le clic sur la marque recharge la page au lieu de sauter à l'ancre.
    *  Le `href` reste « / » : clic milieu, ouverture dans un onglet et

@@ -9,6 +9,10 @@
 /automations    /    301
 /automations/*  /    301
 
+# Route privée : seul le shell est statique, la transaction exige une session API.
+/recu/:reference/  /recu/  200
+/recu/:reference   /recu/  200
+
 # Une seule adresse fait autorite. Servi sur deux noms, le meme contenu se
 # divise en deux pages concurrentes aux yeux des moteurs.
 https://www.toumaiai.com/*  https://toumaiai.com/:splat  301

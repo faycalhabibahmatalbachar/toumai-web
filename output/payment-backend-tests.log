@@ -1,0 +1,84 @@
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 11%]
+........................................................................ [ 15%]
+........................................................................ [ 19%]
+........................................................................ [ 23%]
+........................................................................ [ 27%]
+.......................................F................................ [ 31%]
+........................................................................ [ 35%]
+........................................................................ [ 39%]
+........................................................................ [ 43%]
+........................................................................ [ 47%]
+........................................................................ [ 51%]
+........................................................................ [ 55%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 67%]
+........................................................................ [ 71%]
+........................................................................ [ 75%]
+.................................................ssssss....s............ [ 79%]
+........................................................................ [ 83%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+.................                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_bout_en_bout_avec_une_vraie_synthese __________________
+
+client = <starlette.testclient.TestClient object at 0x000001BE4D15E490>
+
+    @pytest.mark.network
+    def test_bout_en_bout_avec_une_vraie_synthese(client):
+        """Cha\xeene compl\xe8te, sans rien simuler : HTTP \u2192 d\xe9tection \u2192 conversion en
+        \xe9criture arabe \u2192 Edge-TTS \u2192 MP3 renvoy\xe9 segment par segment.
+    
+        C'est le seul test qui aurait attrap� la panne de production : le module de
+        translitt�ration y est r�ellement import�, et non remplac� par un double.
+    
+        Ignor� sans r�seau � Edge-TTS appelle Microsoft.
+        """
+        import base64 as b64mod
+    
+        reponse = client.post(
+            "/voice/synthesize/stream?format=ndjson",
+            json={
+                "text": "Salaam aleekum ya sadiig. Kef halak al-yoom?",
+                "language": "auto",
+                "voice": "shu:saoudien",
+            },
+        )
+        if reponse.status_code != 200:
+            pytest.skip(f"synth�se indisponible ({reponse.status_code})")
+    
+        lignes = [json.loads(l) for l in reponse.text.splitlines() if l.strip()]
+        assert lignes, "aucun segment re�u"
+        for segment in lignes:
+            # Le texte parl� doit �tre en �criture arabe : s'il reste du latin,
+            # c'est que la conversion a �t� saut�e � exactement le sympt�me de la
+            # panne silencieuse.
+            assert not any("a" <= c.lower() <= "z" for c in segment["text"]), segment
+>           assert segment["mime_type"] == "audio/mpeg"
+E           AssertionError: assert '' == 'audio/mpeg'
+E             
+E             - audio/mpeg
+
+tests\test_chadian_voice.py:575: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.tts_service:tts_service.py:1493 segment 0 non synth�tis� : Aucun service TTS op�rationnel (gemini / cartesia / voxcpm / edge / kokoro / elevenlabs / openai). V�rifiez GEMINI_API_KEY, CARTESIA_API_KEY, VOXCPM_HF_SPACE_URL, edge-tts (EDGE_TTS_ENABLED), KOKORO_TTS_URL, ou cl�s payantes.
+WARNING  services.tts_service:tts_service.py:1493 segment 1 non synth�tis� : Aucun service TTS op�rationnel (gemini / cartesia / voxcpm / edge / kokoro / elevenlabs / openai). V�rifiez GEMINI_API_KEY, CARTESIA_API_KEY, VOXCPM_HF_SPACE_URL, edge-tts (EDGE_TTS_ENABLED), KOKORO_TTS_URL, ou cl�s payantes.
+============================== warnings summary ===============================
+tests/test_admin_session_ttl.py::test_le_jeton_admin_dure_ce_qui_est_annonce
+tests/test_admin_session_ttl.py::test_la_duree_admin_ne_retombe_pas_sur_le_defaut_utilisateur
+  C:\Users\hp\AppData\Local\Programs\Python\Python314\Lib\site-packages\jose\jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+tests/test_chadian_voice.py::test_endpoint_stream_renvoie_du_ndjson
+  C:\Users\hp\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_chadian_voice.py::test_bout_en_bout_avec_une_vraie_synthese
+1 failed, 1809 passed, 7 skipped, 3 warnings in 119.53s (0:01:59)

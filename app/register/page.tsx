@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Logo } from "@/components/Logo";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
-import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
+import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
+
+import { AuthShell } from "@/components/billing/AuthShell";
+import { usePaymentPlan } from "@/hooks/use-payment-navigation";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { registerAccount, loginWithGoogle, loginAsGuest } = useAuth();
+  const { registerAccount, loginWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,13 +23,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [planChoisi, setPlanChoisi] = useState<"essentiel" | "toumai_5" | null>(null);
+  const planChoisi = usePaymentPlan();
   const turnstile = useRef<TurnstilePoignee | null>(null);
-
-  useEffect(() => {
-    const plan = publicPlanId(new URLSearchParams(window.location.search).get("plan"));
-    setPlanChoisi(plan === "essentiel" || plan === "toumai_5" ? plan : null);
-  }, []);
 
   const destination = planChoisi ? checkoutUrl(planChoisi) : "/chat";
 
@@ -75,22 +73,9 @@ export default function RegisterPage() {
     }
   }
 
-  async function tryGuest() {
-    setLoading(true);
-    setError(null);
-    try {
-      await loginAsGuest();
-      router.push("/chat");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm">
+    <AuthShell planId={planChoisi} register>
+      <div className="w-full">
         <div className="mb-6 flex justify-center">
           <Logo size={44} />
         </div>
@@ -100,8 +85,8 @@ export default function RegisterPage() {
           fichiers, générer des images, et bien plus encore.
         </p>
         {planChoisi && (
-          <p className="mb-5 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-center text-sm">
-            Vous avez choisi <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA par mois. Créez votre compte pour continuer.
+          <p className="billing-chosen-plan">
+            Vous avez choisi <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA / 30 jours. Créez votre compte pour continuer.
           </p>
         )}
 
@@ -119,7 +104,7 @@ export default function RegisterPage() {
           <input
             type="text"
             required
-            placeholder="Nom"
+            aria-label="Nom" autoComplete="name" placeholder="Nom"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
@@ -127,13 +112,13 @@ export default function RegisterPage() {
           <input
             type="email"
             required
-            placeholder="Adresse e-mail"
+            aria-label="Adresse e-mail" autoComplete="email" placeholder="Adresse e-mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
           />
           <input
-            type="password"
+            type="password" aria-label="Mot de passe" autoComplete="new-password"
             required
             placeholder="Mot de passe (8+ caractères)"
             value={password}
@@ -159,8 +144,8 @@ export default function RegisterPage() {
               .
             </span>
           </label>
-          {error && <p className="px-2 text-sm text-[var(--error)]">{error}</p>}
-          {info && <p className="px-2 text-sm text-[var(--success)]">{info}</p>}
+          {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
+          {info && <p role="status" className="px-2 text-sm text-[var(--success)]">{info}</p>}
           <Turnstile onToken={setTurnstileToken} poignee={turnstile} />
           <button
             type="submit"
@@ -172,15 +157,6 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {!planChoisi && (
-          <button
-            onClick={tryGuest}
-            disabled={loading}
-            className="mt-3 w-full rounded-full border border-[var(--border)] py-3 text-sm font-semibold transition hover:border-[var(--primary)] disabled:opacity-50"
-          >
-            Continuer sans compte
-          </button>
-        )}
 
         <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
           Déjà un compte ?{" "}
@@ -189,6 +165,6 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

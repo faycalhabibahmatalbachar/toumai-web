@@ -27,7 +27,7 @@ import { Panel, Row } from "./Rows";
  */
 export function SessionsSection() {
   const { session, logout } = useAuth();
-  const invite = !session || session.is_guest;
+  const invite = !session;
 
   const [appareils, setAppareils] = useState<AppareilSession[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);

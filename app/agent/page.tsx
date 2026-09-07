@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useExigerCompte } from "@/hooks/useExigerCompte";
 import {
   cancelTask,
   confirmTask,
@@ -24,8 +25,8 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function AgentPage() {
-  const { session, loading, loginAsGuest } = useAuth();
-  const guestAttempted = useRef(false);
+  const { session, loading } = useAuth();
+  useExigerCompte();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [goal, setGoal] = useState("");
   const [task, setTask] = useState<BrowserTask | null>(null);
@@ -33,11 +34,6 @@ export default function AgentPage() {
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    if (loading || session || guestAttempted.current) return;
-    guestAttempted.current = true;
-    loginAsGuest().catch(() => {});
-  }, [loading, session, loginAsGuest]);
 
   useEffect(() => {
     if (!session) return;

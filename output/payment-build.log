@@ -1,0 +1,59 @@
+
+> chadgpt-web@0.1.0 build
+> next build
+
+▲ Next.js 16.2.10 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 10.3s
+  Running TypeScript ...
+  Finished TypeScript in 17.3s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/37) ...
+  Generating static pages using 7 workers (9/37) 
+  Generating static pages using 7 workers (18/37) 
+  Generating static pages using 7 workers (27/37) 
+✓ Generating static pages using 7 workers (37/37) in 2.0s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /a-propos
+├ ○ /abonnement/retour
+├ ○ /accueil
+├ ○ /agent
+├ ○ /ar
+├ ○ /ar/about
+├ ○ /assistant-ia
+├ ○ /billing
+├ ○ /chat
+├ ○ /checkout
+├ ○ /contact
+├ ○ /delete-account
+├ ○ /en
+├ ○ /en/about
+├ ○ /forgot
+├ ○ /intelligence-artificielle-tchad
+├ ○ /library
+├ ○ /login
+├ ○ /models
+├ ○ /press
+├ ○ /privacy
+├ ○ /privacy-choices
+├ ○ /recu
+├ ○ /register
+├ ○ /reset-password
+├ ○ /robots.txt
+├ ○ /security
+├ ○ /settings
+├ ○ /share
+├ ○ /site
+├ ○ /sitemap.xml
+├ ○ /terms
+├ ○ /usage
+└ ○ /whatsapp
+
+
+○  (Static)  prerendered as static content
+

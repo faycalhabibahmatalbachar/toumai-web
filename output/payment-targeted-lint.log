@@ -1,0 +1,57 @@
+
+C:\Users\hp\Desktop\Projects\chadgpt-web\app\login\page.tsx
+  36:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\hp\Desktop\Projects\chadgpt-web\app\login\page.tsx:36:5
+  34 |   useEffect(() => {
+  35 |     const parametres = new URLSearchParams(window.location.search);
+> 36 |     setRetourCompte(safeAccountReturn(parametres.get("next")));
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |     if (parametres.get("expired")) {
+  38 |       setError("Votre session a expiré — reconnectez-vous pour continuer.");
+  39 |     }  react-hooks/set-state-in-effect
+
+C:\Users\hp\Desktop\Projects\chadgpt-web\app\recu\page.tsx
+  38:16  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\hp\Desktop\Projects\chadgpt-web\app\recu\page.tsx:38:16
+  36 |     // Cloudflare serves the static /recu/ shell for /recu/:reference/.
+  37 |     const match = window.location.pathname.match(/^\/recu\/([A-Za-z0-9_-]+)\/?$/);
+> 38 |     if (match) setPathReference(match[1]);
+     |                ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  39 |   }, []);
+  40 |   const reference = pathReference || params.get("ref") || "";
+  41 |   if (loading) return <BillingLoading/>;  react-hooks/set-state-in-effect
+
+C:\Users\hp\Desktop\Projects\chadgpt-web\app\register\page.tsx
+  31:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\hp\Desktop\Projects\chadgpt-web\app\register\page.tsx:31:5
+  29 |   useEffect(() => {
+  30 |     const plan = selectedPaymentPlan(new URLSearchParams(window.location.search));
+> 31 |     setPlanChoisi(plan === "essentiel" || plan === "toumai_5" ? plan : null);
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |   }, []);
+  33 |
+  34 |   const destination = planChoisi ? checkoutUrl(planChoisi) : "/chat";  react-hooks/set-state-in-effect
+
+✖ 3 problems (3 errors, 0 warnings)
+

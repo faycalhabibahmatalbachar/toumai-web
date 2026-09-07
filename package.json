@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/verify-payment.mjs && node scripts/verify-seo.mjs",
     "test:seo": "node scripts/verify-seo.mjs"
   },
   "dependencies": {

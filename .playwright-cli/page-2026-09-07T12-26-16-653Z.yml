@@ -1,0 +1,85 @@
+- generic [active] [ref=f51e1]:
+  - alert [ref=f51e95]
+  - generic [ref=f51e103]:
+    - banner [ref=f51e104]:
+      - link "Toumaï AI Toumaï AI Intelligence artificielle" [ref=f51e105] [cursor=pointer]:
+        - /url: /
+        - img "Toumaï AI" [ref=f51e106]
+        - generic [ref=f51e107]:
+          - text: Toumaï AI
+          - generic [ref=f51e108]: Intelligence artificielle
+      - link "Besoin d’aide ? ↗" [ref=f51e109] [cursor=pointer]:
+        - /url: /contact/
+    - main [ref=f51e110]:
+      - generic [ref=f51e111]:
+        - link "← Retour aux offres" [ref=f51e112] [cursor=pointer]:
+          - /url: /#tarifs
+        - list "Étapes de votre abonnement" [ref=f51e113]:
+          - listitem [ref=f51e114]:
+            - generic [ref=f51e115]: "1"
+            - text: Compte
+          - listitem [ref=f51e116]:
+            - generic [ref=f51e117]: "2"
+            - text: Paiement
+          - listitem [ref=f51e118]:
+            - generic [ref=f51e119]: "3"
+            - text: Confirmation
+      - generic [ref=f51e120]:
+        - generic [ref=f51e121]:
+          - paragraph [ref=f51e122]: Votre espace Toumaï AI
+          - heading "Votre prochaine étape commence ici." [level=1] [ref=f51e123]
+          - paragraph [ref=f51e124]: Connectez-vous pour retrouver votre offre et continuer vers le paiement sécurisé.
+          - generic [ref=f51e125]:
+            - generic [ref=f51e126]:
+              - generic [ref=f51e127]:
+                - paragraph [ref=f51e128]: Votre offre
+                - heading "Essentiel" [level=2] [ref=f51e129]
+                - paragraph [ref=f51e130]: Pour votre quotidien, avec la voix et les connecteurs.
+              - generic [ref=f51e131]:
+                - generic [ref=f51e132]: 3 000 FCFA
+                - paragraph [ref=f51e133]: pour 30 jours
+            - list [ref=f51e134]:
+              - listitem [ref=f51e135]: ✓ 200 messages par jour
+              - listitem [ref=f51e136]: ✓ 60 images par mois
+              - listitem [ref=f51e137]: ✓ 40 documents par mois
+              - listitem [ref=f51e138]: ✓ 30 minutes de voix par mois
+              - listitem [ref=f51e139]: ✓ 5 connecteurs
+              - listitem [ref=f51e140]: ✓ 5 automatisations
+              - listitem [ref=f51e141]: ✓ 500 messages WhatsApp par mois
+              - listitem [ref=f51e142]: ✓ 1 Go de fichiers
+            - paragraph [ref=f51e143]: 30 jours d’utilisation, renouvellement manuel, sans prélèvement automatique.
+        - generic [ref=f51e145]:
+          - img "Toumaï AI" [ref=f51e147]
+          - heading "Content de vous revoir" [level=1] [ref=f51e148]
+          - paragraph [ref=f51e149]: Connectez-vous pour retrouver vos conversations et préférences.
+          - paragraph [ref=f51e150]:
+            - text: "Reprenez votre choix :"
+            - strong [ref=f51e151]: Essentiel
+            - text: — 3 000 FCFA / 30 jours.
+          - generic [ref=f51e155]:
+            - button "Continuer avec Google. S'ouvre dans un nouvel onglet." [ref=f51e157] [cursor=pointer]:
+              - generic [ref=f51e159]: Continuer avec Google
+            - iframe
+          - generic [ref=f51e169]: OU
+          - generic [ref=f51e172]:
+            - textbox "Adresse e-mail" [ref=f51e173]
+            - textbox "Mot de passe" [ref=f51e174]
+            - paragraph [ref=f51e175]:
+              - link "Mot de passe oublié ?" [ref=f51e176] [cursor=pointer]:
+                - /url: /forgot/
+            - button "Continuer" [ref=f51e177]
+          - paragraph [ref=f51e178]:
+            - text: Pas encore de compte ?
+            - link "Créer un compte" [ref=f51e179] [cursor=pointer]:
+              - /url: /register/?plan=essentiel
+    - contentinfo [ref=f51e180]:
+      - generic [ref=f51e181]: Toumaï AI · À vos côtés, à chaque étape.
+      - navigation "Informations de facturation" [ref=f51e182]:
+        - link "Confidentialité" [ref=f51e183] [cursor=pointer]:
+          - /url: /privacy/
+        - link "Conditions" [ref=f51e184] [cursor=pointer]:
+          - /url: /terms/
+        - link "Sécurité" [ref=f51e185] [cursor=pointer]:
+          - /url: /security/
+        - link "Contact" [ref=f51e186] [cursor=pointer]:
+          - /url: /contact/

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Logo } from "@/components/Logo";
+import { PlanPanel } from "@/components/billing/PlanPanel";
+import { selectedPaymentPlan } from "@/lib/payment-navigation";
 import { BillingShell, BillingLoading, PriceDisplay } from "@/components/billing/BillingUI";
 import { authFetch } from "@/lib/http";
 import { useAuth } from "@/lib/auth-context";
@@ -31,7 +33,8 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (authLoading || !planPayant) return;
-    if (!session || session.is_guest) {
+    selectedPaymentPlan(new URLSearchParams(`plan=${planId}`));
+    if (!session) {
       router.replace(registerUrl(planId as PublicPlanId));
       return;
     }
@@ -64,7 +67,7 @@ function CheckoutContent() {
         headers: { "Content-Type": "application/json" },
         // Le navigateur envoie l'identifiant public seulement. Le backend
         // résout lui-même le code DB, le montant XAF et l'adresse du compte.
-        body: JSON.stringify({ plan_code: plan.id }),
+        body: JSON.stringify({ plan_id: plan.id }),
       });
       const charge = await response.json().catch(() => ({}));
       if (!response.ok || charge?.success === false || !charge?.data?.url_paiement) {
@@ -83,13 +86,14 @@ function CheckoutContent() {
   }
 
   return (
-    <section className="billing-card billing-state">
-      <Logo size={44} />
-      <p className="mt-6 text-sm text-[var(--text-secondary)]">Votre choix</p>
-      <h1 className="mt-1 text-3xl font-semibold">{plan.publicName}</h1>
+    <><div><p className="billing-kicker">Abonnement Toumaï AI</p><h1>Vérifiez votre offre avant de payer.</h1><p className="billing-muted">Votre plan, ses avantages et le montant à régler. Tout est ici.</p></div><div className="billing-grid">
+      <PlanPanel planId={plan.id} amount={prixServeur} />
+      <section className="billing-card billing-checkout-summary">
+      <h2>Votre abonnement</h2>
+      <dl className="billing-summary"><div><dt>Plan</dt><dd>{plan.publicName}</dd></div><div><dt>Durée</dt><dd>30 jours</dd></div><div><dt>Devise</dt><dd>XAF · Franc CFA</dd></div></dl>
+      <p className="billing-kicker">Total à régler</p>
       {prixErreur ? <div role="alert"><p>Le tarif ne peut pas être vérifié pour le moment.</p><button className="billing-button" onClick={() => window.location.reload()}>Réessayer</button></div> : prixServeur !== null ? <PriceDisplay amount={prixServeur}/> : <p role="status">Chargement du prix…</p>}
       <p className="billing-muted">XAF · accès pendant 30 jours · renouvellement manuel</p>
-      <ul className="billing-features">{plan.quotas.map(q => <li key={q}>{q}</li>)}</ul>
       <p className="mt-3 max-w-md text-sm text-[var(--text-secondary)]">
         Vérifiez votre offre, puis continuez vers Moneroo pour le paiement.
       </p>
@@ -108,8 +112,9 @@ function CheckoutContent() {
         </div>
       )}
       {erreur && <p role="alert" className="mt-5 text-sm text-[var(--error)]">{erreur}</p>}
-      <Link href="/#tarifs" className="mt-8 text-sm underline underline-offset-4">Revenir aux offres</Link>
-    </section>
+      <p className="billing-moneroo">Paiement sécurisé via Moneroo</p>
+      <p className="billing-muted text-xs">Votre plan sera activé après confirmation du paiement. Sans prélèvement automatique.</p>
+    </section></div></>
   );
 }
 
@@ -118,5 +123,5 @@ function EtatSimple({ titre, texte }: { titre: string; texte: string }) {
 }
 
 export default function CheckoutPage() {
-  return <BillingShell><Suspense fallback={<BillingLoading />}><CheckoutContent /></Suspense></BillingShell>;
+  return <BillingShell step="checkout"><Suspense fallback={<BillingLoading />}><CheckoutContent /></Suspense></BillingShell>;
 }

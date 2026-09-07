@@ -1,0 +1,94 @@
+- generic [active] [ref=f72e1]:
+  - generic [ref=f72e2]:
+    - banner [ref=f72e3]:
+      - link "Toumaï AI Toumaï AI Intelligence artificielle" [ref=f72e4] [cursor=pointer]:
+        - /url: /
+        - img "Toumaï AI" [ref=f72e5]
+        - generic [ref=f72e6]:
+          - text: Toumaï AI
+          - generic [ref=f72e7]: Intelligence artificielle
+      - link "Besoin d’aide ? ↗" [ref=f72e8] [cursor=pointer]:
+        - /url: /contact/
+    - main [ref=f72e9]:
+      - generic [ref=f72e10]:
+        - link "← Retour aux offres" [ref=f72e11] [cursor=pointer]:
+          - /url: /#tarifs
+        - list "Étapes de votre abonnement" [ref=f72e12]:
+          - listitem [ref=f72e13]:
+            - generic [ref=f72e14]: "1"
+            - text: Compte
+          - listitem [ref=f72e15]:
+            - generic [ref=f72e16]: "2"
+            - text: Paiement
+          - listitem [ref=f72e17]:
+            - generic [ref=f72e18]: "3"
+            - text: Confirmation
+      - generic [ref=f72e19]:
+        - generic [ref=f72e20]:
+          - paragraph [ref=f72e21]: Votre espace Toumaï AI
+          - heading "Votre prochaine étape commence ici." [level=1] [ref=f72e22]
+          - paragraph [ref=f72e23]: Créez votre compte pour retrouver votre offre et continuer vers le paiement sécurisé.
+          - generic [ref=f72e24]:
+            - generic [ref=f72e25]:
+              - generic [ref=f72e26]:
+                - paragraph [ref=f72e27]: Votre offre
+                - heading "Toumaï 5" [level=2] [ref=f72e28]
+                - paragraph [ref=f72e29]: Pour aller plus loin, avec le raisonnement et l’agent navigateur.
+              - generic [ref=f72e30]:
+                - generic [ref=f72e31]: 9 000 FCFA
+                - paragraph [ref=f72e32]: pour 30 jours
+            - list [ref=f72e33]:
+              - listitem [ref=f72e34]: ✓ Messages illimités
+              - listitem [ref=f72e35]: ✓ Documents illimités
+              - listitem [ref=f72e36]: ✓ 300 images par mois
+              - listitem [ref=f72e37]: ✓ 2 h 30 de voix par mois
+              - listitem [ref=f72e38]: ✓ 200 tâches Agent Navigateur
+              - listitem [ref=f72e39]: ✓ Connecteurs illimités
+              - listitem [ref=f72e40]: ✓ 30 automatisations
+              - listitem [ref=f72e41]: ✓ 10 Go de fichiers
+            - paragraph [ref=f72e42]: 30 jours d’utilisation, renouvellement manuel, sans prélèvement automatique.
+        - generic [ref=f72e44]:
+          - img "Toumaï AI" [ref=f72e46]
+          - heading "Créez votre compte" [level=1] [ref=f72e47]
+          - paragraph [ref=f72e48]: Vous recevrez des réponses plus riches et pourrez importer des fichiers, générer des images, et bien plus encore.
+          - paragraph [ref=f72e49]:
+            - text: Vous avez choisi
+            - strong [ref=f72e50]: Toumaï 5
+            - text: — 9 000 FCFA / 30 jours. Créez votre compte pour continuer.
+          - generic [ref=f72e54]:
+            - button "Continuer avec Google. S'ouvre dans un nouvel onglet." [ref=f72e56] [cursor=pointer]:
+              - generic [ref=f72e58]: Continuer avec Google
+            - iframe
+          - generic [ref=f72e68]: OU
+          - generic [ref=f72e71]:
+            - textbox "Nom" [ref=f72e72]
+            - textbox "Adresse e-mail" [ref=f72e73]
+            - textbox "Mot de passe" [ref=f72e74]:
+              - /placeholder: Mot de passe (8+ caractères)
+            - generic [ref=f72e75]:
+              - checkbox "J'accepte les conditions générales et la politique de confidentialité." [ref=f72e76]
+              - generic [ref=f72e77]:
+                - text: J'accepte les
+                - link "conditions générales" [ref=f72e78] [cursor=pointer]:
+                  - /url: /terms/
+                - text: et la
+                - link "politique de confidentialité" [ref=f72e79] [cursor=pointer]:
+                  - /url: /privacy/
+                - text: .
+            - button "Continuer" [disabled] [ref=f72e80]
+          - paragraph [ref=f72e81]:
+            - text: Déjà un compte ?
+            - link "Se connecter" [ref=f72e82] [cursor=pointer]:
+              - /url: /login/?plan=toumai_5
+    - contentinfo [ref=f72e83]:
+      - generic [ref=f72e84]: Toumaï AI · À vos côtés, à chaque étape.
+      - navigation "Informations de facturation" [ref=f72e85]:
+        - link "Confidentialité" [ref=f72e86] [cursor=pointer]:
+          - /url: /privacy/
+        - link "Conditions" [ref=f72e87] [cursor=pointer]:
+          - /url: /terms/
+        - link "Sécurité" [ref=f72e88] [cursor=pointer]:
+          - /url: /security/
+        - link "Contact" [ref=f72e89] [cursor=pointer]:
+          - /url: /contact/
+  - alert [ref=f72e90]

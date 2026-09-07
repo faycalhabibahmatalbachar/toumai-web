@@ -11,7 +11,7 @@ export function Navbar() {
   const { session, logout } = useAuth();
   // Une session invité n'est PAS un utilisateur connecté : on lui propose
   // Connexion / Inscription, jamais « Déconnexion ».
-  const authed = Boolean(session && !session.is_guest);
+  const authed = Boolean(session);
 
   return (
     <header

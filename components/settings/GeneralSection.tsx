@@ -21,7 +21,7 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 export function GeneralSection() {
   const { session, logout } = useAuth();
-  const isGuest = Boolean(session?.is_guest);
+  const isGuest = false;
   // Seed depuis le cache persistant : la section s'affiche instantanément,
   // puis se revalide en arrière-plan.
   const [profile, setProfile] = useState<UserProfile | null>(() =>
@@ -29,7 +29,7 @@ export function GeneralSection() {
   );
   const [usage, setUsage] = useState<UsageStats | null>(() => cacheSeed<UsageStats>("user:usage"));
   const [name, setName] = useState(() =>
-    session?.is_guest ? "" : (cacheSeed<UserProfile>("user:profile")?.full_name ?? ""),
+    (cacheSeed<UserProfile>("user:profile")?.full_name ?? ""),
   );
   const [loading, setLoading] = useState(profile === null);
   const [savingName, setSavingName] = useState(false);
@@ -43,7 +43,7 @@ export function GeneralSection() {
       .then(([p, u]) => {
         setProfile(p);
         cacheWrite("user:profile", p);
-        setName(session?.is_guest ? "" : (p.full_name ?? ""));
+        setName((p.full_name ?? ""));
         setUsage(u);
         cacheWrite("user:usage", u);
       })

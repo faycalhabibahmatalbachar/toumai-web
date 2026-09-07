@@ -25,13 +25,13 @@
  * lui, et que nous avons besoin du nôtre.
  */
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { API_BASE } from "@/lib/config";
-import { authHeaders } from "@/lib/api";
-import { Logo } from "@/components/Logo";
+import { authFetch } from "@/lib/http";
+import { useAuth } from "@/lib/auth-context";
+import { clearPaymentPlan } from "@/lib/payment-navigation";
 import { BillingShell, BillingLoading, StatusBadge } from "@/components/billing/BillingUI";
 import { PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 
@@ -53,24 +53,22 @@ function Contenu() {
   const [essais, setEssais] = useState(0);
   const [relance, setRelance] = useState(0);
   const [date, setDate] = useState("");
-  const arrete = useRef(false);
 
-  const interroger = useCallback(async () => {
+
+  const interroger = useCallback(async (signal: AbortSignal) => {
     if (!reference) {
       setEtat("introuvable");
       return true;
     }
     try {
-      const reponse = await fetch(
-        `${API_BASE}/paiements/intention/${encodeURIComponent(reference)}`,
-        { headers: authHeaders() },
-      );
+      const reponse = await authFetch(`/paiements/intention/${encodeURIComponent(reference)}`, { signal });
       if (reponse.status === 404) {
         setEtat("introuvable");
         return true;
       }
       if (!reponse.ok) return false;
       const charge = await reponse.json();
+      if (signal.aborted) return true;
       const statut = charge?.data?.statut as string | undefined;
       if (charge?.data?.plan_code) {
         const id = publicPlanId(charge.data.plan_code);
@@ -81,6 +79,7 @@ function Contenu() {
       if (charge?.data?.devise) setDevise(charge.data.devise);
       if (statut === "success" || statut === "failed" || statut === "cancelled" || statut === "expired") {
         setEtat(statut);
+        if (statut === "success") clearPaymentPlan();
         return true;
       }
       return false;
@@ -91,26 +90,26 @@ function Contenu() {
   }, [reference]);
 
   useEffect(() => {
-    arrete.current = false;
+    const controller = new AbortController();
 
     (async () => {
       for (let i = 0; i < ESSAIS_MAX; i += 1) {
-        if (arrete.current) return;
-        const fini = await interroger();
-        if (fini || arrete.current) return;
+        if (controller.signal.aborted) return;
+        const fini = await interroger(controller.signal);
+        if (fini || controller.signal.aborted) return;
         setEssais(i + 1);
         await new Promise((r) => setTimeout(r, PAS_MS));
       }
     })();
 
     return () => {
-      arrete.current = true;
+      controller.abort();
     };
   }, [interroger, relance]);
 
   return (
-    <section className="billing-card billing-state">
-      <Logo size={44} />
+    <section className="billing-card billing-state" data-status={etat} aria-live="polite">
+      <div className="billing-state-icon" aria-hidden="true">{etat === "success" ? "✓" : etat === "failed" ? "!" : etat === "cancelled" ? "—" : "···"}</div>
       <div className="mt-6"><StatusBadge status={etat === "attente" ? (essais >= ESSAIS_MAX ? "pending" : "verifying") : etat}/></div>
 
       {etat === "attente" && (
@@ -121,7 +120,7 @@ function Contenu() {
           </p>
           <div
             className="h-1 w-48 overflow-hidden rounded-full"
-            style={{ background: "var(--tm-line)" }}
+            style={{ background: "var(--border)" }}
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={ESSAIS_MAX}
@@ -131,7 +130,7 @@ function Contenu() {
               className="h-full rounded-full transition-[width] duration-500"
               style={{
                 width: `${Math.min(100, (essais / ESSAIS_MAX) * 100)}%`,
-                background: "var(--tm-accent, #d97857)",
+                background: "var(--primary)",
               }}
             />
           </div>
@@ -143,7 +142,7 @@ function Contenu() {
         <>
           <h1 className="text-2xl font-semibold">C’est bon, votre paiement est confirmé.</h1>
           <p className="text-sm opacity-70">
-            Votre abonnement {plan ? `« ${plan} » ` : ""}est actif{montant ? ` — ${montant.toLocaleString("fr-FR")} ${devise}` : ""}.
+            Le paiement {plan ? `de votre offre « ${plan} » ` : ""}est confirmé{montant ? ` — ${montant.toLocaleString("fr-FR")} ${devise}` : ""}.
           </p>
           <Link href="/chat" className="tm-btn tm-btn-primary">
             Ouvrir Toumaï
@@ -201,17 +200,25 @@ function Contenu() {
           </a>
         </>
       )}
+      {etat === "success" && <div className="billing-actions"><Link className="billing-button" href="/billing">Voir mon abonnement</Link><a className="billing-button" href={`/recu/${encodeURIComponent(reference)}/`}>Consulter le reçu</a></div>}
       {reference && <dl className="billing-summary"><div><dt>Référence</dt><dd>{reference}</dd></div>{date && <div><dt>Demande créée le</dt><dd>{new Date(date).toLocaleString("fr-FR")}</dd></div>}</dl>}
     </section>
   );
 }
 
 export default function PageRetourPaiement() {
+  const {session, loading} = useAuth();
   // `useSearchParams` impose une frontière de suspension dans une page
   // exportée en statique. Sans elle, la compilation échoue.
   return (
-    <BillingShell><Suspense fallback={<BillingLoading/>}>
-      <Contenu />
+    <BillingShell step="return"><Suspense fallback={<BillingLoading/>}>
+      {loading ? <BillingLoading /> : !session ? <ReturnLogin /> : <Contenu key={session.user_id} />}
     </Suspense></BillingShell>
   );
+}
+
+function ReturnLogin() {
+  const params = useSearchParams();
+  const next = `/abonnement/retour?ref=${encodeURIComponent(params.get("ref") ?? "")}`;
+  return <section className="billing-card billing-state"><h1>Retrouvez votre paiement.</h1><p className="billing-muted">Connectez-vous au compte utilisé pour cet abonnement.</p><Link className="billing-button billing-button-primary" href={`/login?next=${encodeURIComponent(next)}`}>Se connecter</Link></section>;
 }

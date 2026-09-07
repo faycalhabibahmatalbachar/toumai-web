@@ -1,0 +1,44 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e338]
+  - generic [ref=e347]:
+    - img "Toumaï AI" [ref=e349]
+    - heading "Créez votre compte" [level=1] [ref=e350]
+    - paragraph [ref=e351]: Vous recevrez des réponses plus riches et pourrez importer des fichiers, générer des images, et bien plus encore.
+    - paragraph [ref=e352]:
+      - text: Vous avez choisi
+      - strong [ref=e353]: Toumaï 5
+      - text: — 9 000 FCFA par mois. Créez votre compte pour continuer.
+    - generic [ref=e357]:
+      - button "Continuer avec Google. S'ouvre dans un nouvel onglet." [ref=e359] [cursor=pointer]:
+        - generic [ref=e361]: Continuer avec Google
+      - iframe
+    - generic [ref=e371]: OU
+    - generic [ref=e374]:
+      - textbox "Nom" [ref=e375]
+      - textbox "Adresse e-mail" [ref=e376]
+      - textbox "Mot de passe (8+ caractères)" [ref=e377]
+      - generic [ref=e378]:
+        - checkbox "J'accepte les conditions générales et la politique de confidentialité." [ref=e379]
+        - generic [ref=e380]:
+          - text: J'accepte les
+          - link "conditions générales" [ref=e381] [cursor=pointer]:
+            - /url: /terms/
+          - text: et la
+          - link "politique de confidentialité" [ref=e382] [cursor=pointer]:
+            - /url: /privacy/
+          - text: .
+      - button "Continuer" [disabled] [ref=e386]
+    - paragraph [ref=e387]:
+      - text: Déjà un compte ?
+      - link "Se connecter" [ref=e388] [cursor=pointer]:
+        - /url: /login/?plan=toumai_5
+  - dialog "Consentement aux cookies" [ref=e339]:
+    - generic [ref=e340]:
+      - paragraph [ref=e341]:
+        - text: Nous utilisons uniquement des mesures d'audience respectueuses de la vie privée (aucune revente de données, aucun ciblage publicitaire). Voir notre
+        - link "politique de confidentialité" [ref=e342] [cursor=pointer]:
+          - /url: /privacy/
+        - text: .
+      - generic [ref=e343]:
+        - button "Refuser" [ref=e344]
+        - button "Accepter" [ref=e345]

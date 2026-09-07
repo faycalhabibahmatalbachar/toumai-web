@@ -21,7 +21,20 @@ export function loadSession(): TokenPayload | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as TokenPayload) : null;
+    if (!raw) return null;
+    const session = JSON.parse(raw) as TokenPayload;
+    // L'ESSAI SANS COMPTE A ÉTÉ RETIRÉ le 07/09/2026.
+    //
+    // Des navigateurs portent encore une session invité dans leur stockage
+    // local. Le serveur la refuse désormais (403), mais si on la rendait ici
+    // l'écran se croirait connecté : il afficherait le chat, puis une erreur
+    // à chaque envoi. On l'efface, et la page envoie vers la connexion comme
+    // pour n'importe quel visiteur.
+    if (session?.is_guest) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return session;
   } catch {
     return null;
   }
@@ -79,17 +92,6 @@ async function request<T>(
     throw new Error(body.message || `Erreur ${res.status}`);
   }
   return body;
-}
-
-export async function guestLogin(): Promise<TokenPayload> {
-  const res = await request<TokenPayload>("/auth/guest", { method: "POST" });
-  if (!res.data) throw new Error("Réponse invalide du serveur");
-  // Le backend n'inclut pas toujours is_guest dans sa réponse — sans ce flag,
-  // toute l'UI traitait l'invité comme un compte réel (nom « guest-<uuid> »
-  // affiché, redirection /login?expired au lieu d'une reconnexion invitée…).
-  const payload: TokenPayload = { ...res.data, is_guest: true };
-  saveSession(payload);
-  return payload;
 }
 
 /** Le mot de passe est bon, mais un second facteur est attendu.
