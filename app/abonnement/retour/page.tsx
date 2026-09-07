@@ -40,7 +40,7 @@ import { PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 const PAS_MS = 2000;
 const ESSAIS_MAX = 30;
 
-type Etat = "attente" | "success" | "failed" | "cancelled" | "expired" | "introuvable";
+type Etat = "attente" | "success" | "test_success" | "failed" | "cancelled" | "expired" | "introuvable";
 
 function Contenu() {
   const parametres = useSearchParams();
@@ -77,7 +77,7 @@ function Contenu() {
       if (charge?.data?.cree_le) setDate(charge.data.cree_le);
       if (typeof charge?.data?.montant_xaf === "number") setMontant(charge.data.montant_xaf);
       if (charge?.data?.devise) setDevise(charge.data.devise);
-      if (statut === "success" || statut === "failed" || statut === "cancelled" || statut === "expired") {
+      if (statut === "success" || statut === "test_success" || statut === "failed" || statut === "cancelled" || statut === "expired") {
         setEtat(statut);
         if (statut === "success") clearPaymentPlan();
         return true;
@@ -147,6 +147,14 @@ function Contenu() {
           <Link href="/chat" className="tm-btn tm-btn-primary">
             Ouvrir Toumaï
           </Link>
+        </>
+      )}
+
+      {etat === "test_success" && (
+        <>
+          <h1 className="text-2xl font-semibold">Le parcours de test a réussi.</h1>
+          <p className="text-sm opacity-70">Moneroo a confirmé la simulation. Aucun paiement réel n’a été reçu, aucun reçu commercial n’est émis et votre abonnement n’a pas été modifié.</p>
+          <Link href="/billing" className="tm-btn tm-btn-primary">Voir ma facturation</Link>
         </>
       )}
 

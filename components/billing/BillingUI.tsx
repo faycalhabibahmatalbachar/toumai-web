@@ -7,7 +7,7 @@ export function BillingShell({ children, step }: { children: ReactNode; step?: "
   return <div className="billing-shell"><header className="billing-header"><Link href="/" className="billing-brand"><Logo size={36} /><span>Toumaï AI<small>Intelligence artificielle</small></span></Link><Link href="/contact">Besoin d’aide ? ↗</Link></header><main className="billing-main"><div className="billing-topline"><Link href="/#tarifs">← Retour aux offres</Link>{step && <ol className="billing-steps" aria-label="Étapes de votre abonnement">{([ ["account", "Compte"], ["checkout", "Paiement"], ["return", "Confirmation"] ] as const).map(([id, name], i) => <li key={id} aria-current={step === id ? "step" : undefined}><span>{i + 1}</span>{name}</li>)}</ol>}</div>{children}</main><footer className="billing-footer"><span>Toumaï AI · À vos côtés, à chaque étape.</span><nav aria-label="Informations de facturation"><Link href="/privacy">Confidentialité</Link><Link href="/terms">Conditions</Link><Link href="/security">Sécurité</Link><Link href="/contact">Contact</Link></nav></footer></div>;
 }
 
-const STATUSES: Record<string, string> = {success:"Confirmé", pending:"En attente", failed:"Non confirmé", cancelled:"Annulé", expired:"Expiré", refunded:"Remboursé", verifying:"Vérification", unavailable:"Indisponible"};
+const STATUSES: Record<string, string> = {success:"Payé", test_success:"Test réussi", pending:"En attente", failed:"Non confirmé", cancelled:"Annulé", expired:"Expiré", refunded:"Remboursé", verifying:"Vérification", unavailable:"Indisponible"};
 export function StatusBadge({ status }: { status: string }) {
   return <span className="billing-badge" data-status={status}>{STATUSES[status] ?? "À vérifier"}</span>;
 }
