@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalLayout title="Conditions & politiques" updated="10 juillet 2026">
+    <LegalLayout title="Conditions & politiques" updated="7 septembre 2026">
       <p>
         Bienvenue sur Toumaï AI. En utilisant le site toumaiai.com, l&apos;application mobile ou
         l&apos;API, vous acceptez les présentes conditions. Toumaï AI est édité par Faycal Habib
@@ -88,21 +88,51 @@ export default function TermsPage() {
         (zéro pour l&apos;offre gratuite), dans la limite du droit applicable.
       </p>
 
-      <h2>8. Application et résiliation</h2>
+      <h2>8. Offres payantes et paiements</h2>
+      <ul>
+        <li>
+          Le prix, la devise, la durée et les capacités incluses sont affichés avant la validation
+          du paiement. Les offres actuelles sont activées pour 30 jours et ne donnent pas lieu à
+          un prélèvement automatique, sauf indication explicite contraire avant l&apos;achat.
+        </li>
+        <li>
+          Le paiement est traité sur la page sécurisée de notre prestataire Moneroo et de la
+          passerelle choisie. Toumaï AI ne reçoit ni ne conserve le numéro complet de votre carte,
+          votre code de sécurité ou votre code de validation bancaire.
+        </li>
+        <li>
+          L&apos;abonnement est activé uniquement après confirmation technique du paiement. Une
+          opération annulée, échouée ou encore en attente n&apos;active pas l&apos;offre. Un test en
+          environnement sandbox ne constitue jamais un paiement réel et ne crée aucun droit
+          commercial.
+        </li>
+        <li>
+          En cas de difficulté, contactez-nous avec la référence Toumaï AI affichée, sans jamais
+          transmettre de données bancaires sensibles. Une demande de remboursement est examinée
+          selon la situation, le service effectivement fourni et le droit applicable.
+        </li>
+      </ul>
+
+      <h2>9. Application et résiliation</h2>
       <p>
         Nous nous réservons le droit de suspendre ou de résilier l&apos;accès de tout compte, ou de
         mettre fin à tout accord tiers portant sur nos modèles ou nos données, en cas de
         manquement aux présentes conditions, à notre politique de confidentialité, ou à tout
         accord écrit distinct — sans préavis lorsque le manquement l&apos;exige.
       </p>
+      <p>
+        À l&apos;expiration d&apos;une offre payante, le compte revient aux capacités disponibles de
+        l&apos;offre gratuite. La fin d&apos;un abonnement ne supprime pas automatiquement vos
+        conversations ou votre compte.
+      </p>
 
-      <h2>9. Modifications</h2>
+      <h2>10. Modifications</h2>
       <p>
         Nous pouvons faire évoluer le service et ces conditions ; les changements notables seront
         annoncés sur le site. La poursuite de l&apos;utilisation vaut acceptation.
       </p>
 
-      <h2>10. Droit applicable</h2>
+      <h2>11. Droit applicable</h2>
       <p>Ces conditions sont régies par le droit tchadien.</p>
     </LegalLayout>
   );

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Politique de confidentialité" updated="10 juillet 2026">
+    <LegalLayout title="Politique de confidentialité" updated="7 septembre 2026">
       <p>
         Votre confiance est notre actif le plus précieux. Cette politique explique quelles données
         Toumaï AI traite, pourquoi, et les contrôles dont vous disposez. Responsable du
@@ -25,6 +25,21 @@ export default function PrivacyPage() {
       <ul>
         <li>Conversations, documents importés, images générées — pour vous fournir le service et votre historique.</li>
         <li>Statistiques d&apos;usage (requêtes, tokens) pour le fonctionnement des quotas.</li>
+      </ul>
+      <h3>Paiements et abonnements</h3>
+      <ul>
+        <li>
+          Référence de transaction, offre choisie, montant, devise, statut, environnement de test
+          ou réel et horodatages nécessaires au suivi du paiement et à l&apos;activation du service.
+        </li>
+        <li>
+          Nom, e-mail, montant, devise et référence transmis à Moneroo pour ouvrir la page de
+          paiement et rapprocher son retour de votre commande.
+        </li>
+        <li>
+          Les données sensibles de l&apos;instrument de paiement sont saisies auprès de Moneroo ou de
+          la passerelle affichée et ne sont pas stockées par Toumaï AI.
+        </li>
       </ul>
       <h3>Connecteurs (optionnels, activés par vous)</h3>
       <ul>
@@ -55,6 +70,11 @@ export default function PrivacyPage() {
         uniquement comme sous-traitants, sous contrat, et ne sont pas autorisés à réutiliser vos
         données à d&apos;autres fins.
       </p>
+      <p>
+        Pour les offres payantes, Moneroo et la passerelle de paiement choisie traitent les
+        informations nécessaires à l&apos;exécution, à la vérification et, le cas échéant, aux
+        obligations réglementaires liées à la transaction.
+      </p>
 
       <h2>4. Partenaires de données et modèles tiers</h2>
       <p>
@@ -73,6 +93,10 @@ export default function PrivacyPage() {
         <li>Conversations et fichiers : conservés tant que votre compte existe, supprimables à tout moment depuis l&apos;interface.</li>
         <li>Sessions invité : purge automatique périodique.</li>
         <li>Jetons de connexion : expirent automatiquement.</li>
+        <li>
+          Références et statuts de paiement : conservés pendant la durée nécessaire au suivi du
+          service, à la prévention de la fraude et au respect des obligations applicables.
+        </li>
       </ul>
 
       <h2>6. Partage de conversations</h2>
