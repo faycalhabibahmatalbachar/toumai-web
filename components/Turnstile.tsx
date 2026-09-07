@@ -25,6 +25,8 @@ declare global {
   }
 }
 
+const DELAI_MAX_MS = 12_000;
+
 const SCRIPT_ID = "cf-turnstile-script";
 const SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -56,9 +58,12 @@ export type TurnstilePoignee = { reinitialiser: () => void };
 
 export function Turnstile({
   onToken,
+  onIndisponible,
   poignee,
 }: {
   onToken: (jeton: string | null) => void;
+  /** Le widget ne produira pas de jeton. Voir DELAI_MAX_MS. */
+  onIndisponible?: () => void;
   poignee?: React.MutableRefObject<TurnstilePoignee | null>;
 }) {
   const conteneur = useRef<HTMLDivElement | null>(null);
@@ -66,12 +71,39 @@ export function Turnstile({
   const rappel = useRef(onToken);
   const [echec, setEchec] = useState(false);
   const idHtml = useId();
+  const signalerIndisponible = useRef(onIndisponible);
 
   rappel.current = onToken;
+  signalerIndisponible.current = onIndisponible;
+
+  /** Au-delà de ce délai sans jeton, on considère que le widget ne viendra pas.
+   *
+   * IL NE SUFFIT PAS D'ÉCOUTER `error-callback`. Mesuré sur toumaiai.com le
+   * 07/09/2026 : `render()` rend un identifiant, ne crée aucune iframe, et
+   * n'appelle jamais aucun rappel — ni succès, ni erreur. Le formulaire
+   * attendait donc un jeton qui n'arrivait pas, et le serveur refusait toute
+   * connexion. Une panne silencieuse est la seule qu'un délai puisse
+   * rattraper.
+   *
+   * Douze secondes : Turnstile répond en moins de deux en temps normal, même
+   * sur un réseau lent, et un défi interactif reste sous les dix.
+   */
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY) return;
     let vivant = true;
+    let recu = false;
+
+    const minuterie = setTimeout(() => {
+      if (!vivant || recu) return;
+      setEchec(true);
+      signalerIndisponible.current?.();
+    }, DELAI_MAX_MS);
+
+    const accuser = (jeton: string | null) => {
+      if (jeton) recu = true;
+      rappel.current(jeton);
+    };
 
     chargerScript()
       .then(() => {
@@ -80,19 +112,32 @@ export function Turnstile({
           sitekey: TURNSTILE_SITE_KEY,
           theme: "auto",
           language: "fr",
-          callback: (jeton: string) => rappel.current(jeton),
+          callback: (jeton: string) => accuser(jeton),
+          // Un jeton expire : on en redemande un, le widget s'en charge.
           "expired-callback": () => rappel.current(null),
-          "error-callback": () => rappel.current(null),
+          "error-callback": () => {
+            rappel.current(null);
+            // Clé de site refusée sur ce domaine, réseau coupé : dans les deux
+            // cas il n'y aura pas de jeton, et attendre ne changera rien.
+            if (vivant) {
+              setEchec(true);
+              signalerIndisponible.current?.();
+            }
+          },
         });
       })
       .catch(() => {
         // Cloudflare injoignable : le serveur laisse alors passer, on ne
         // bloque donc pas le formulaire — mais on le dit.
-        if (vivant) setEchec(true);
+        if (vivant) {
+          setEchec(true);
+          signalerIndisponible.current?.();
+        }
       });
 
     return () => {
       vivant = false;
+      clearTimeout(minuterie);
       if (identifiantWidget.current && window.turnstile) {
         try {
           window.turnstile.remove(identifiantWidget.current);

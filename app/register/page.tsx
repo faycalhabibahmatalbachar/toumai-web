@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Logo } from "@/components/Logo";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
+import { signalerWidgetIndisponible } from "@/lib/api";
 import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
 
 import { AuthShell } from "@/components/billing/AuthShell";
@@ -146,7 +147,11 @@ export default function RegisterPage() {
           </label>
           {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
           {info && <p role="status" className="px-2 text-sm text-[var(--success)]">{info}</p>}
-          <Turnstile onToken={setTurnstileToken} poignee={turnstile} />
+          <Turnstile
+            onToken={setTurnstileToken}
+            onIndisponible={signalerWidgetIndisponible}
+            poignee={turnstile}
+          />
           <button
             type="submit"
             disabled={loading || !acceptedTerms}

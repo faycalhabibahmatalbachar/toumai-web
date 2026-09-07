@@ -76,6 +76,22 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
+/** Le widget anti-robot de cette page a-t-il renoncé ?
+ *
+ * MESURÉ SUR toumaiai.com LE 07/09/2026 : `turnstile.render()` rendait un
+ * identifiant, ne créait aucune iframe, et n'appelait jamais aucun rappel. La
+ * page attendait un jeton qui n'arrivait pas, et le serveur refusait toute
+ * connexion par e-mail — plus personne ne pouvait entrer.
+ *
+ * On le DIT au serveur, plutôt que d'échouer en silence : il laisse passer et
+ * journalise, pour que la clé de site cassée se répare au lieu de se
+ * découvrir par les plaintes. */
+let widgetIndisponible = false;
+
+export function signalerWidgetIndisponible(): void {
+  widgetIndisponible = true;
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
@@ -84,6 +100,9 @@ async function request<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(widgetIndisponible
+        ? { "X-Toumai-Client": "navigateur-sans-widget" }
+        : {}),
       ...(init?.headers ?? {}),
     },
   });
