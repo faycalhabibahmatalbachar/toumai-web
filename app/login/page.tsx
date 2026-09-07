@@ -24,11 +24,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [planChoisi, setPlanChoisi] = useState<"essentiel" | "toumai_5" | null>(null);
+  const [retourFacturation, setRetourFacturation] = useState(false);
   const turnstile = useRef<TurnstilePoignee | null>(null);
 
   // Arrivée depuis une session expirée (voir session-guard).
   useEffect(() => {
     const parametres = new URLSearchParams(window.location.search);
+    setRetourFacturation(parametres.get("next") === "/billing");
     if (parametres.get("expired")) {
       setError("Votre session a expiré — reconnectez-vous pour continuer.");
     }
@@ -36,7 +38,7 @@ export default function LoginPage() {
     setPlanChoisi(plan === "essentiel" || plan === "toumai_5" ? plan : null);
   }, []);
 
-  const destination = planChoisi ? checkoutUrl(planChoisi) : "/chat";
+  const destination = planChoisi ? checkoutUrl(planChoisi) : retourFacturation ? "/billing" : "/chat";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

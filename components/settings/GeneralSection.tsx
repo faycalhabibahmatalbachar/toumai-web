@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   getProfile,
   getUsage,
@@ -133,6 +134,11 @@ export function GeneralSection() {
 
   return (
     <div>
+      <Panel title="Plan et facturation">
+        <Row label="Votre offre Toumaï AI" description="Consultez votre plan, sa période de validité et les offres disponibles.">
+          <Link href="/billing" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4">Gérer mon offre</Link>
+        </Row>
+      </Panel>
       <Panel title="Profil">
         <Row label="Photo de profil" description={isGuest ? "Créez un compte pour personnaliser votre profil." : "Visible dans la barre latérale et l'accueil."}>
           <div className="flex items-center gap-3">

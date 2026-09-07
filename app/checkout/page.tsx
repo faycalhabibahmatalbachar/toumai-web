@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Logo } from "@/components/Logo";
 import { BillingShell, BillingLoading, PriceDisplay } from "@/components/billing/BillingUI";
-import { authHeaders } from "@/lib/api";
+import { authFetch } from "@/lib/http";
 import { useAuth } from "@/lib/auth-context";
 import { API_BASE } from "@/lib/config";
 import { PLAN_CATALOG, publicPlanId, registerUrl, type PublicPlanId } from "@/lib/plan-catalog";
@@ -23,6 +23,8 @@ function CheckoutContent() {
   const [envoi, setEnvoi] = useState(false);
   const [prixServeur, setPrixServeur] = useState<number | null>(null);
   const [sandbox, setSandbox] = useState(false);
+  const verrou = useRef(false);
+  const [prixErreur, setPrixErreur] = useState(false);
 
   const plan = planId && PLAN_CATALOG[planId];
   const planPayant = planId === "essentiel" || planId === "toumai_5";
@@ -36,8 +38,10 @@ function CheckoutContent() {
     let actif = true;
     fetch(`${API_BASE}/abonnements/plans`).then(r => r.json()).then(body => {
       const row = body?.data?.plans?.find((p: {code:string}) => p.code === PLAN_CATALOG[planId as PublicPlanId].backendCode);
-      if (actif && typeof row?.prix_xaf === "number") setPrixServeur(row.prix_xaf);
-    }).catch(() => {});
+      if (!actif) return;
+      if (typeof row?.prix_xaf !== "number" || !Number.isFinite(row.prix_xaf) || row.prix_xaf <= 0) throw new Error("Prix indisponible");
+      setPrixServeur(row.prix_xaf);
+    }).catch(() => { if (actif) setPrixErreur(true); });
     fetch(`${API_BASE}/paiements/etat`)
       .then((r) => r.json())
       .then((charge) => {
@@ -50,13 +54,14 @@ function CheckoutContent() {
   }, [authLoading, planId, planPayant, router, session]);
 
   async function payer() {
-    if (!plan || !planPayant) return;
+    if (!plan || !planPayant || verrou.current || prixServeur === null || prixErreur || etat !== "ready") return;
+    verrou.current = true;
     setEnvoi(true);
     setErreur("");
     try {
-      const response = await fetch(`${API_BASE}/paiements/souscrire`, {
+      const response = await authFetch("/paiements/souscrire", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
+        headers: { "Content-Type": "application/json" },
         // Le navigateur envoie l'identifiant public seulement. Le backend
         // résout lui-même le code DB, le montant XAF et l'adresse du compte.
         body: JSON.stringify({ plan_code: plan.id }),
@@ -69,6 +74,7 @@ function CheckoutContent() {
     } catch (cause) {
       setErreur(cause instanceof Error ? cause.message : "Le paiement ne peut pas être ouvert pour le moment.");
       setEnvoi(false);
+      verrou.current = false;
     }
   }
 
@@ -81,7 +87,7 @@ function CheckoutContent() {
       <Logo size={44} />
       <p className="mt-6 text-sm text-[var(--text-secondary)]">Votre choix</p>
       <h1 className="mt-1 text-3xl font-semibold">{plan.publicName}</h1>
-      {prixServeur !== null ? <PriceDisplay amount={prixServeur}/> : <p role="status">Chargement du prix…</p>}
+      {prixErreur ? <div role="alert"><p>Le tarif ne peut pas être vérifié pour le moment.</p><button className="billing-button" onClick={() => window.location.reload()}>Réessayer</button></div> : prixServeur !== null ? <PriceDisplay amount={prixServeur}/> : <p role="status">Chargement du prix…</p>}
       <p className="billing-muted">XAF · accès pendant 30 jours · renouvellement manuel</p>
       <ul className="billing-features">{plan.quotas.map(q => <li key={q}>{q}</li>)}</ul>
       <p className="mt-3 max-w-md text-sm text-[var(--text-secondary)]">
@@ -91,7 +97,7 @@ function CheckoutContent() {
       {etat === "loading" && <p className="mt-8 text-sm text-[var(--text-secondary)]">Préparation du paiement…</p>}
       {sandbox && <p className="billing-notice">Mode test Moneroo. Les paiements réels ne sont pas encore ouverts. N’utilisez pas de moyen de paiement réel.</p>}
       {etat === "ready" && (
-        <button onClick={payer} disabled={envoi || prixServeur === null} className="billing-button billing-button-primary mt-8">
+        <button onClick={payer} disabled={envoi || prixServeur === null || prixErreur} className="billing-button billing-button-primary mt-8">
           {envoi ? "Ouverture sécurisée…" : `${sandbox ? "Tester" : "Continuer"} — ${prixServeur?.toLocaleString("fr-FR")} FCFA`}
         </button>
       )}
