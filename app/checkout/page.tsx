@@ -203,12 +203,12 @@ function CheckoutContent() {
 
             <section className={styles.formSection}>
               <h2>Paiement</h2>
-              <p className={styles.fieldLabel}>Méthode de paiement</p>
+              <p className={styles.fieldLabel}>{sandbox ? "Moyens prévus après activation" : "Choix du moyen de paiement chez Moneroo"}</p>
               <div className={styles.paymentOptions}>
                 <div className={styles.paymentOption}><CreditCard size={22} /><strong>Carte bancaire</strong><span>Visa · Mastercard</span></div>
                 <div className={styles.paymentOption}><Coins size={22} /><strong>Cryptomonnaie</strong><span>Crypto XAF</span></div>
               </div>
-              {sandbox ? <p className={styles.activationNote}>Activation à venir · simulation uniquement</p> : null}
+              <p className={styles.activationNote}>{sandbox ? "Simulation Moneroo uniquement · carte et crypto non activées" : "Ces encarts ne sélectionnent pas une méthode. Les moyens activés sont proposés sur la page Moneroo."}</p>
             </section>
 
             <p className={styles.legalCopy}>
