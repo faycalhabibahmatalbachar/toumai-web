@@ -1,0 +1,52 @@
+- generic [active] [ref=f23e1]:
+  - generic [ref=f23e2]:
+    - banner [ref=f23e3]:
+      - link "Toumaï AI Toumaï AI Intelligence artificielle" [ref=f23e4] [cursor=pointer]:
+        - /url: /
+        - img "Toumaï AI" [ref=f23e5]
+        - generic [ref=f23e6]:
+          - text: Toumaï AI
+          - generic [ref=f23e7]: Intelligence artificielle
+      - link "Besoin d’aide ? ↗" [ref=f23e8] [cursor=pointer]:
+        - /url: /contact/
+    - main [ref=f23e9]:
+      - generic [ref=f23e10]:
+        - link "← Retour aux offres" [ref=f23e11] [cursor=pointer]:
+          - /url: /#tarifs
+        - list "Étapes de votre abonnement" [ref=f23e12]:
+          - listitem [ref=f23e13]:
+            - generic [ref=f23e14]: "1"
+            - text: Compte
+          - listitem [ref=f23e15]:
+            - generic [ref=f23e16]: "2"
+            - text: Paiement
+          - listitem [ref=f23e17]:
+            - generic [ref=f23e18]: "3"
+            - text: Confirmation
+      - generic [ref=f23e19]:
+        - heading "Retrouvez votre paiement." [level=1] [ref=f23e20]
+        - paragraph [ref=f23e21]: Connectez-vous au compte utilisé pour cet abonnement.
+        - link "Se connecter" [ref=f23e22] [cursor=pointer]:
+          - /url: /login/?next=%2Fabonnement%2Fretour%3Fref%3DTMI-SANDBOX
+    - contentinfo [ref=f23e23]:
+      - generic [ref=f23e24]: Toumaï AI · À vos côtés, à chaque étape.
+      - navigation "Informations de facturation" [ref=f23e25]:
+        - link "Confidentialité" [ref=f23e26] [cursor=pointer]:
+          - /url: /privacy/
+        - link "Conditions" [ref=f23e27] [cursor=pointer]:
+          - /url: /terms/
+        - link "Sécurité" [ref=f23e28] [cursor=pointer]:
+          - /url: /security/
+        - link "Contact" [ref=f23e29] [cursor=pointer]:
+          - /url: /contact/
+  - alert [ref=f23e30]
+  - dialog "Consentement aux cookies" [ref=f23e31]:
+    - generic [ref=f23e32]:
+      - paragraph [ref=f23e33]:
+        - text: Nous utilisons uniquement des mesures d'audience respectueuses de la vie privée (aucune revente de données, aucun ciblage publicitaire). Voir notre
+        - link "politique de confidentialité" [ref=f23e34] [cursor=pointer]:
+          - /url: /privacy/
+        - text: .
+      - generic [ref=f23e35]:
+        - button "Refuser" [ref=f23e36]
+        - button "Accepter" [ref=f23e37]

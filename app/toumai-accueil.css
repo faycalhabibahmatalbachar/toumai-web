@@ -34,7 +34,11 @@
 .tmh * { box-sizing: border-box; }
 
 html:has(.tmh) {
-  scroll-behavior: smooth;
+  /* Pas de `scroll-behavior: smooth` : voir outils/porter_css_accueil.py.
+   * Sur cette page, il empechait le saut d'ancre de se produire du tout,
+   * et un defilement doux de treize mille pixels ne serait de toute
+   * facon pas un confort. `scroll-padding-top` reste : c'est lui qui
+   * empeche l'en-tete fixe de recouvrir le titre de la section. */
   scroll-padding-top: 7rem;
 }
 
@@ -45,7 +49,10 @@ html:has(.tmh) {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 1rem;
   line-height: 1.6;
-  overflow-x: hidden;
+  /* `clip` et non `hidden` : voir outils/porter_css_accueil.py.
+   * `hidden` sur ce div creerait un second conteneur de defilement, et
+   * toute la navigation par ancres cesserait de fonctionner. */
+  overflow-x: clip;
 }
 
 .tmh a { color: inherit; text-decoration: none; }

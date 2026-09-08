@@ -15,8 +15,20 @@ CE QUE FAIT LA TRANSFORMATION
 ------------------------------
 Chaque sélecteur reçoit `.tmh ` devant. `:root` et `body` deviennent `.tmh`
 lui-même (c'est lui qui porte désormais le fond, la police et les variables),
-`html` devient `html:has(.tmh)` — la seule façon de garder le défilement doux
-sans l'imposer au reste du site. Les déclarations ne sont jamais touchées.
+`html` devient `html:has(.tmh)` — la seule façon d'agir sur l'élément qui
+défile sans l'imposer au reste du site.
+
+DEUX DÉCLARATIONS SONT RÉÉCRITES, ET DEUX SEULEMENT
+----------------------------------------------------
+Le portage ne se contente pas de déplacer des sélecteurs : il change la NATURE
+de deux d'entre eux. `body` devient un `div` ordinaire, `html` devient
+conditionnel. Des déclarations qui étaient justes à leur place d'origine
+deviennent fausses à la nouvelle.
+
+Les deux cas sont documentés au-dessus de leur motif, et ils ont la même
+origine : l'incident du 09/09/2026, où neuf liens de navigation sur onze ne
+faisaient rien. Voir `porter_declarations`, et le contrôle
+`scripts/verifier-defilement-accueil.mjs` qui empêche la panne de revenir.
 """
 
 from __future__ import annotations
@@ -26,6 +38,71 @@ import re
 import sys
 
 RACINE = ".tmh"
+
+
+#: `overflow-x: hidden` ne veut pas dire la même chose sur `body` et sur un div.
+#:
+#: L'INCIDENT DU 09/09/2026. Neuf liens sur onze de la navigation ne faisaient
+#: rien. Un clic sur « Tarifs » posait `#tarifs` dans l'URL, et la page restait
+#: sur le hero : `scrollY` à 0, la section à 8 533 px.
+#:
+#: La maquette déclarait `overflow-x: hidden` sur `body`. Là, c'est inoffensif :
+#: le navigateur propage le débordement de `body` à la zone d'affichage, et
+#: aucun conteneur de défilement n'est créé. Ce portage déplace la déclaration
+#: sur `.tmh`, qui est un `div` ordinaire — et sur un élément ordinaire, la
+#: règle CSS veut que fixer un axe à autre chose que `visible` fasse passer
+#: l'autre axe de `visible` à `auto`. `.tmh` devenait donc un second conteneur
+#: de défilement, haut de 11 849 px dans un `html` de 537 px, dont le contenu
+#: fait exactement sa propre hauteur : il ne peut pas défiler d'un pixel.
+#:
+#: La molette pilotait la fenêtre ; l'ancre visait `.tmh`, qui ne bougeait pas.
+#: `scroll-behavior: smooth` et `scroll-padding-top`, correctement posés sur
+#: `html:has(.tmh)`, s'appliquaient à un élément que la navigation n'utilisait
+#: plus.
+#:
+#: `clip` coupe le débordement comme `hidden`, mais NE CRÉE PAS de conteneur de
+#: défilement — c'est la seule valeur qui accepte de cohabiter avec un
+#: `visible` sur l'autre axe. Le rendu ne change pas d'un pixel ; la navigation
+#: revient.
+_DEBORDEMENT_SUR_LA_RACINE = re.compile(
+    r"(overflow-x\s*:\s*)hidden", re.IGNORECASE
+)
+
+
+#: Le défilement doux empêche le saut d'ancre de se produire.
+#:
+#: Mesuré le 09/09/2026, seconde moitié du même incident. Une fois
+#: `overflow-x` corrigé, les ancres restaient inertes : la page ne bougeait pas
+#: d'un pixel, même vingt secondes après un vrai clic. La même page avec
+#: `scroll-behavior: auto` amène les six sections à 112 px du haut, soit
+#: exactement le `scroll-padding-top: 7rem` demandé.
+#:
+#: Et même là où il fonctionne, un défilement doux de treize mille pixels n'est
+#: pas un confort : c'est plusieurs secondes pendant lesquelles l'écran défile
+#: seul et la personne attend. Les pages longues sautent.
+#:
+#: `scroll-padding-top` est CONSERVÉ : c'est lui qui empêche l'en-tête fixe de
+#: recouvrir le titre de la section où l'on arrive.
+_DEFILEMENT_DOUX = re.compile(
+    r"\s*scroll-behavior\s*:\s*smooth\s*;?", re.IGNORECASE
+)
+
+
+def porter_declarations(selecteur_porte: str, corps: str) -> str:
+    """Corrige ce que le déplacement d'un sélecteur rend faux.
+
+    On ne réécrit JAMAIS une déclaration sur un sélecteur ordinaire. Un
+    `overflow-x: hidden` sur une carte ou une vignette est voulu par la
+    maquette et le reste : c'est seulement sur les deux sélecteurs qui ont
+    changé de nature — `body` devenu un div, `html` devenu conditionnel — que
+    des valeurs changent de sens.
+    """
+    porte = selecteur_porte.strip()
+    if porte == RACINE:
+        return _DEBORDEMENT_SUR_LA_RACINE.sub(r"\1clip", corps)
+    if porte == "html:has(" + RACINE + ")":
+        return _DEFILEMENT_DOUX.sub("", corps)
+    return corps
 
 
 def porter_selecteur(selecteur: str) -> str:
@@ -110,7 +187,10 @@ def porter(css: str) -> str:
         fin_bloc = n if fin_bloc == -1 else fin_bloc
         corps = css[accolade + 1 : fin_bloc]
         espaces = re.match(r"\s*", entete).group(0)
-        sortie.append(espaces + porter_selecteur(entete) + " {" + corps + "}")
+        porte = porter_selecteur(entete)
+        sortie.append(
+            espaces + porte + " {" + porter_declarations(porte, corps) + "}"
+        )
         i = fin_bloc + 1
 
     return "".join(sortie)

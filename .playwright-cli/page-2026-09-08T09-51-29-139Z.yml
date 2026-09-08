@@ -1,0 +1,111 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - main [ref=e5]:
+    - generic [ref=e7]:
+      - link "Toumaï AI Toumaï AI Intelligence artificielle" [ref=e8] [cursor=pointer]:
+        - /url: /
+        - img "Toumaï AI" [ref=e10]
+        - generic [ref=e11]:
+          - generic [ref=e12]: Toumaï AI
+          - generic [ref=e13]: Intelligence artificielle
+      - link "Besoin d’aide ?" [ref=e14] [cursor=pointer]:
+        - /url: /contact/
+    - generic [ref=e19]:
+      - link "Retour aux offres" [ref=e20] [cursor=pointer]:
+        - /url: /#tarifs
+      - generic "Étapes de souscription" [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]: "1"
+          - generic [ref=e26]: Compte
+        - generic [ref=e28]:
+          - generic [ref=e29]: "2"
+          - generic [ref=e30]: Paiement
+        - generic [ref=e32]:
+          - generic [ref=e33]: "3"
+          - generic [ref=e34]: Confirmation
+    - generic [ref=e35]:
+      - generic [ref=e36]: Abonnement Toumaï AI
+      - heading "Vérifiez votre offre avant de payer." [level=1] [ref=e40]
+      - paragraph [ref=e41]: "Tout est résumé ici : votre plan, ce qu’il inclut et le montant à régler. Ensuite, Moneroo prend le relais pour le paiement sécurisé."
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - article [ref=e44]:
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e47]: Votre offre
+              - generic [ref=e48]:
+                - heading "Toumaï 5" [level=2] [ref=e49]
+                - generic [ref=e50]: Le plus complet
+              - paragraph [ref=e51]: Pour les usages avancés, avec plus de raisonnement, d’automatisation et l’agent navigateur.
+            - generic [ref=e52]:
+              - strong [ref=e53]: 9 000 FCFA
+              - generic [ref=e54]: pour 30 jours
+          - generic [ref=e56]:
+            - generic [ref=e57]: Messages illimités
+            - generic [ref=e65]: Documents illimités
+            - generic [ref=e73]: 300 images par mois
+            - generic [ref=e82]: 2 h 30 de voix par mois
+            - generic [ref=e89]: 200 tâches Agent Navigateur
+            - generic [ref=e97]: Connecteurs illimités
+            - generic [ref=e107]: 30 automatisations
+            - generic [ref=e116]: 10 Go de fichiers
+          - generic [ref=e128]:
+            - strong [ref=e129]: 30 jours d’utilisation
+            - generic [ref=e130]: Renouvellement manuel, sans prélèvement automatique.
+        - generic [ref=e131]:
+          - generic [ref=e136]:
+            - strong [ref=e137]: Paiement vérifié
+            - generic [ref=e138]: Le plan n’est activé qu’après confirmation côté serveur.
+          - generic [ref=e144]:
+            - strong [ref=e145]: Données protégées
+            - generic [ref=e146]: Toumaï AI ne conserve pas les informations complètes de paiement.
+      - complementary [ref=e147]:
+        - generic [ref=e149]:
+          - text: Récapitulatif
+          - heading "Votre abonnement" [level=3] [ref=e150]
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - term [ref=e156]: Plan
+            - definition [ref=e157]: Toumaï 5
+          - generic [ref=e158]:
+            - term [ref=e159]: Durée
+            - definition [ref=e160]: 30 jours
+          - generic [ref=e161]:
+            - term [ref=e162]: Devise
+            - definition [ref=e163]: XAF · Franc CFA
+          - generic [ref=e164]:
+            - term [ref=e165]: Renouvellement
+            - definition [ref=e166]: Manuel
+        - generic [ref=e167]:
+          - text: Total à régler
+          - generic [ref=e168]: 9 000 FCFA
+          - generic [ref=e169]: Accès pendant 30 jours, sans prélèvement automatique.
+        - generic [ref=e170]:
+          - generic [ref=e171]: Paiement traité via Moneroo
+          - generic [ref=e172]: Moyens disponibles proposés sur la page sécurisée
+          - paragraph [ref=e173]: Les options de paiement dépendent de la devise, de l’environnement et de la configuration active chez Moneroo.
+        - status [ref=e174]: Préparation du paiement…
+        - generic [ref=e175]: Paiement sécurisé via Moneroo
+    - generic [ref=e180]:
+      - generic [ref=e181]:
+        - strong [ref=e182]: Toumaï AI
+        - generic [ref=e183]: À vos côtés, à chaque étape.
+      - navigation "Liens légaux" [ref=e184]:
+        - link "Confidentialité" [ref=e185] [cursor=pointer]:
+          - /url: /privacy/
+        - link "Conditions" [ref=e186] [cursor=pointer]:
+          - /url: /terms/
+        - link "Sécurité" [ref=e187] [cursor=pointer]:
+          - /url: /security/
+        - link "Contact" [ref=e188] [cursor=pointer]:
+          - /url: /contact/
+  - dialog "Consentement aux cookies" [ref=e189]:
+    - generic [ref=e190]:
+      - paragraph [ref=e191]:
+        - text: Nous utilisons uniquement des mesures d'audience respectueuses de la vie privée (aucune revente de données, aucun ciblage publicitaire). Voir notre
+        - link "politique de confidentialité" [ref=e192] [cursor=pointer]:
+          - /url: /privacy/
+        - text: .
+      - generic [ref=e193]:
+        - button "Refuser" [ref=e194]
+        - button "Accepter" [ref=e195]

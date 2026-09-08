@@ -92,6 +92,14 @@ body {
   background: var(--background);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+
+  /* PLACE RÉSERVÉE AU BANDEAU DE CONSENTEMENT.
+   *
+   * Il est posé en `fixed bottom-0` et recouvrait ce qui se trouvait sous
+   * lui — en 375 px, les deux boutons d'appel du hero. `CookieConsent`
+   * publie sa hauteur réelle ici pendant qu'il est affiché, et la retire en
+   * partant : hors bandeau, cette ligne ne vaut rien du tout. */
+  padding-bottom: var(--hauteur-bandeau-consentement, 0px);
 }
 
 /* Empêche le glisser-déposer natif des liens/images/icônes de l'interface :
