@@ -6,13 +6,9 @@ import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
-  BarChart3,
+  Coins,
   CreditCard,
-  Gauge,
   LockKeyhole,
-  ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
@@ -28,24 +24,6 @@ import styles from "./checkout-premium.module.css";
 
 type PaidPlanId = "essentiel" | "toumai_5";
 type PaymentState = "loading" | "ready" | "unavailable";
-
-const BENEFITS = [
-  {
-    icon: Sparkles,
-    title: "Accès aux meilleurs modèles Toumaï AI",
-    text: "Profitez des capacités avancées selon votre formule.",
-  },
-  {
-    icon: Gauge,
-    title: "Des limites plus élevées",
-    text: "Utilisez Toumaï AI avec davantage de capacité.",
-  },
-  {
-    icon: BarChart3,
-    title: "Conçu pour aller plus loin",
-    text: "Travaillez, créez et automatisez avec plus de possibilités.",
-  },
-] as const;
 
 function isPaidPlan(value: PublicPlanId | null): value is PaidPlanId {
   return value === "essentiel" || value === "toumai_5";
@@ -198,15 +176,6 @@ function CheckoutContent() {
               <div className={styles.totalRow}><dt>Total à payer</dt><dd>{formattedPrice}</dd></div>
             </dl>
 
-            <div className={styles.benefits}>
-              {BENEFITS.map(({ icon: Icon, title, text }) => (
-                <div className={styles.benefit} key={title}>
-                  <span className={styles.benefitIcon}><Icon size={22} strokeWidth={1.8} /></span>
-                  <span><strong>{title}</strong><small>{text}</small></span>
-                </div>
-              ))}
-            </div>
-
             <footer className={styles.leftFooter}>
               <span><LockKeyhole size={13} /> Paiement sécurisé</span>
               <Link href="/terms/">Conditions</Link>
@@ -235,28 +204,12 @@ function CheckoutContent() {
             <section className={styles.formSection}>
               <h2>Paiement</h2>
               <p className={styles.fieldLabel}>Méthode de paiement</p>
-              <div className={styles.paymentMethodBox}>
-                <span className={styles.paymentIcon}><CreditCard size={23} /></span>
-                <span className={styles.paymentCopy}>
-                  <strong>Paiement sécurisé via Moneroo</strong>
-                  <small>Vous serez redirigé vers notre partenaire pour finaliser votre transaction.</small>
-                </span>
-                <BadgeCheck className={styles.verifiedIcon} size={22} />
+              <div className={styles.paymentOptions}>
+                <div className={styles.paymentOption}><CreditCard size={22} /><strong>Carte bancaire</strong><span>Visa · Mastercard</span></div>
+                <div className={styles.paymentOption}><Coins size={22} /><strong>Cryptomonnaie</strong><span>Crypto XAF</span></div>
               </div>
-              <p className={styles.methodHint}>Les moyens disponibles sont proposés par Moneroo selon votre pays et la configuration active.</p>
+              {sandbox ? <p className={styles.activationNote}>Activation à venir · simulation uniquement</p> : null}
             </section>
-
-            {sandbox ? (
-              <div className={styles.sandboxNotice}>
-                <span>T</span>
-                <p><strong>Mode test Moneroo</strong> Aucun débit réel, abonnement commercial ou reçu réel ne sera créé.</p>
-              </div>
-            ) : null}
-
-            <div className={styles.renewalNotice}>
-              <ShieldCheck size={20} />
-              <p><strong>Renouvellement manuel</strong> Cet achat donne accès au plan pendant 30 jours. Aucun prélèvement automatique ne sera effectué.</p>
-            </div>
 
             <p className={styles.legalCopy}>
               En continuant, vous acceptez les <Link href="/terms/">Conditions d’utilisation</Link> et la <Link href="/privacy/">Politique de confidentialité</Link> de Toumaï AI.
