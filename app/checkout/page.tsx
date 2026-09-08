@@ -80,6 +80,16 @@ function CheckoutContent() {
   const checkoutLock = useRef(false);
 
   useEffect(() => {
+    const resetAfterBackNavigation = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      checkoutLock.current = false;
+      setLoading(false);
+    };
+    window.addEventListener("pageshow", resetAfterBackNavigation);
+    return () => window.removeEventListener("pageshow", resetAfterBackNavigation);
+  }, []);
+
+  useEffect(() => {
     if (authLoading || !planId) return;
 
     selectedPaymentPlan(new URLSearchParams(`plan=${planId}`));
