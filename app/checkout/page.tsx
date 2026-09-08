@@ -99,7 +99,7 @@ function CheckoutContent() {
       </p>
 
       {etat === "loading" && <p className="mt-8 text-sm text-[var(--text-secondary)]">Préparation du paiement…</p>}
-      {sandbox && <p className="billing-notice">Mode test Moneroo. Les paiements réels ne sont pas encore ouverts. N’utilisez pas de moyen de paiement réel.</p>}
+      {sandbox && <p className="billing-notice">Mode test Moneroo. La passerelle simulera 100 USD, sans débit réel&nbsp;: le prix commercial reste celui affiché en FCFA. Aucun abonnement ni reçu commercial ne sera créé. N’utilisez pas de moyen de paiement réel.</p>}
       {etat === "ready" && (
         <button onClick={payer} disabled={envoi || prixServeur === null || prixErreur} className="billing-button billing-button-primary mt-8">
           {envoi ? "Ouverture sécurisée…" : `${sandbox ? "Tester" : "Continuer"} — ${prixServeur?.toLocaleString("fr-FR")} FCFA`}
