@@ -49,3 +49,6 @@ next-env.d.ts
 __pycache__/
 *.pyc
 .cache-caveat.ttf
+
+# Fichier parasite cree par une commande de debogage mal fermee.
+innerHeight})
