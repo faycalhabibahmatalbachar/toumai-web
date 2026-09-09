@@ -35,7 +35,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const planChoisi = usePaymentPlan();
+  const planMemorise = usePaymentPlan();
   const location = usePaymentLocation();
   const parametres = new URLSearchParams(location.split("?")[1]);
   const retourCompte = safeAccountReturn(parametres.get("next"));
@@ -43,6 +43,17 @@ export default function LoginPage() {
 
   // Arrivée depuis une session expirée (voir session-guard).
   const sessionExpiree = parametres.has("expired");
+
+  /** UNE SESSION EXPIRÉE N'EST PAS UN PARCOURS D'ACHAT.
+   *
+   * `usePaymentPlan` retombe sur le plan gardé en `sessionStorage` quand
+   * l'adresse n'en porte pas. C'est juste pour une reprise de paiement, mais
+   * il suffisait d'avoir regardé un tarif dans la même session pour que
+   * `/login/?expired=1` se rhabille en tunnel : « Retour aux offres », « Compte
+   * → Paiement → Confirmation », alors qu'on a simplement été déconnecté.
+   *
+   * Le plan reste en mémoire, il n'habille plus cet écran-là. */
+  const planChoisi = sessionExpiree ? null : planMemorise;
   const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
 
   async function submit(e: React.FormEvent) {

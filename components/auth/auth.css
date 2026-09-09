@@ -482,9 +482,12 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  /* Le blanc sur `--primary` (#d97757) ne donne que 3,12:1 : sous le seuil
+   * AA pour un libellé de 15 px. `--primary-dark`, déjà un jeton de la
+   * marque, monte à 4,53:1 sans changer la couleur du produit. */
   color: #fff;
-  background: var(--primary);
-  border: 1px solid var(--primary);
+  background: var(--primary-dark);
+  border: 1px solid var(--primary-dark);
   border-radius: 14px;
   cursor: pointer;
   transition:
@@ -493,8 +496,8 @@
     box-shadow 0.16s ease;
 }
 .auth-bouton:hover:not(:disabled) {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background: color-mix(in srgb, var(--primary-dark) 88%, #000);
+  border-color: color-mix(in srgb, var(--primary-dark) 88%, #000);
   box-shadow: 0 8px 22px -10px color-mix(in srgb, var(--primary) 70%, transparent);
 }
 .auth-bouton:active:not(:disabled) {
@@ -569,11 +572,13 @@
   color: var(--text-tertiary);
 }
 .auth-pied a {
-  color: inherit;
+  /* Le tertiaire tombait à 3,68:1 : lisible pour un ornement, pas pour un
+   * lien qu'on doit pouvoir suivre. */
+  color: var(--text-secondary);
   text-decoration: none;
 }
 .auth-pied a:hover {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   text-decoration: underline;
 }
 
