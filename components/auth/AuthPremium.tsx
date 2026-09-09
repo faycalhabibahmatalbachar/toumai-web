@@ -165,7 +165,7 @@ export function IconeOeil({ ouvert }: { ouvert: boolean }) {
       aria-hidden="true"
     >
       <path
-        d="M2.5 12S6.8 5.5 12 5.5 21.5 12 21.5 12 17.2 18.5 12 18.5 2.5 12 2.5 12 2.5 12z"
+        d="M2.5 12S6.8 5.5 12 5.5 21.5 12 21.5 12 17.2 18.5 12 18.5 2.5 12 2.5 12z"
         strokeLinejoin="round"
       />
       <circle cx="12" cy="12" r="3.1" />
