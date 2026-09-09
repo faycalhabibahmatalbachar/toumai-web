@@ -1,194 +1,45 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LegalLayout } from "@/components/LegalLayout";
-
-/**
- * Page de fond sur l'intelligence artificielle au Tchad.
- *
- * POURQUOI UNE PAGE, ET PAS DES MOTS-CLÉS EN PLUS
- * ------------------------------------------------
- * Google ignore la balise `keywords` depuis 2009. Ce qui se classe, c'est une
- * page qui RÉPOND à la question posée, avec assez de matière pour qu'un
- * lecteur reparte informé. Une page d'atterrissage remplie de variantes du
- * même mot est un « doorway page » — Google les dégrade explicitement.
- *
- * Cette page vise « intelligence artificielle Tchad », « IA tchadienne »,
- * « AI Tchad » en traitant réellement le sujet : ce qui existe, dans quelles
- * langues, ce que ça coûte, et où l'essayer.
- */
+import { EditorialShell, EditorialSection as Section, EditorialFAQ, ProductProof } from "@/components/editorial/Editorial";
+import s from "@/components/editorial/editorial.module.css";
+const url = "https://toumaiai.com/intelligence-artificielle-tchad/";
+const title = "Intelligence artificielle au Tchad — Toumaï AI";
+const description = "Découvrez Toumaï AI, conçu à N’Djamena : rédaction, recherche web, documents et usages multilingues. Une IA tournée vers les réalités du Tchad.";
 export const metadata: Metadata = {
-  title: "Intelligence artificielle au Tchad — Toumaï AI",
-  description:
-    "L'intelligence artificielle au Tchad : Toumaï AI, l'IA tchadienne gratuite qui parle français, arabe et arabe tchadien. Chat, images, WhatsApp, voix. Créée à N'Djamena.",
-  // `hreflang` réciproque : sans lui, les versions française et arabe se
-  // concurrencent au lieu de s'appuyer l'une sur l'autre — les moteurs les
-  // lisent comme deux pages rivales sur le même sujet.
-  alternates: {
-    canonical: "https://toumaiai.com/intelligence-artificielle-tchad",
-    languages: {
-      fr: "https://toumaiai.com/intelligence-artificielle-tchad",
-      ar: "https://toumaiai.com/ar",
-    },
-  },
-  openGraph: {
-    title: "Intelligence artificielle au Tchad — Toumaï AI",
-    description:
-      "L'IA tchadienne gratuite : chat en français et arabe tchadien, images, WhatsApp, voix.",
-    url: "https://toumaiai.com/intelligence-artificielle-tchad",
-    type: "article",
-  },
+ title:{absolute:title}, description, alternates:{canonical:url,languages:{}},
+ openGraph:{title,description,url,type:"website",locale:"fr_FR",images:[{url:"/og-image.png",alt:"Toumaï AI"}]},
+ twitter:{card:"summary_large_image",title,description,images:["/og-image.png"]},
 };
-
-/** Questions réellement posées, et réponses réelles. Le balisage FAQPage les
- * rend éligibles aux résultats enrichis — mais il ne vaut que si les réponses
- * existent aussi dans la page, visibles par le lecteur. C'est le cas. */
-const FAQ = [
-  {
-    q: "Existe-t-il une intelligence artificielle tchadienne ?",
-    r: "Oui. Toumaï AI est un assistant d'intelligence artificielle conçu au Tchad, à N'Djamena, par Faycal Habib Ahmat. Il est accessible gratuitement sur toumaiai.com et sur Android, et comprend le français, l'arabe et l'arabe tchadien.",
-  },
-  {
-    q: "Toumaï AI est-il gratuit ?",
-    r: "Oui. Le chat, la génération d'images, la dictée et le mode vocal sont accessibles gratuitement. Aucune carte bancaire n'est demandée pour commencer.",
-  },
-  {
-    q: "Toumaï AI comprend-il l'arabe tchadien ?",
-    r: "Oui, et c'est sa particularité. La plupart des assistants traitent l'arabe standard ; Toumaï AI est développé avec un corpus d'arabe tchadien (dialecte shuwa) collecté sur place, pour comprendre la langue telle qu'elle se parle réellement au Tchad.",
-  },
-  {
-    q: "Que peut faire Toumaï AI ?",
-    r: "Répondre à des questions, rédiger et corriger des textes, écrire et exécuter du code, générer et analyser des images, transcrire la voix, lire ses réponses à voix haute, chercher sur le web, créer des sites, et se connecter à WhatsApp, à la messagerie et à l'agenda.",
-  },
-  {
-    q: "Faut-il une connexion rapide pour utiliser Toumaï AI ?",
-    r: "Non. L'application est conçue pour les liaisons tchadiennes : elle affiche immédiatement ce qu'elle a déjà en mémoire, mesure la qualité réelle de la connexion, et conserve ce qui est affiché quand le réseau faiblit au lieu de vider l'écran.",
-  },
-  {
-    q: "Quelle différence avec ChatGPT au Tchad ?",
-    r: "Toumaï AI est pensé pour le contexte tchadien : l'arabe tchadien, des liaisons lentes, des connecteurs utiles sur place comme WhatsApp, et un accès gratuit sans carte bancaire — condition d'accès qui exclut beaucoup d'utilisateurs des services internationaux.",
-  },
+const faq = [
+ {q:"Existe-t-il une intelligence artificielle tchadienne ?",r:"Toumaï AI est un assistant conçu à N’Djamena par Faycal Habib Ahmat. Il réunit conversation et outils de travail sur le web. Son ancrage tchadien ne signifie pas que tous ses modèles ou serveurs sont développés ou hébergés au Tchad."},
+ {q:"Toumaï AI est-il gratuit ?",r:"Une offre gratuite permet de commencer sans carte bancaire, avec des limites d’utilisation. Les capacités et quotas varient selon la formule. Consultez les offres à jour sur la page d’accueil ; les paiements payants restent soumis à leur activation."},
+ {q:"Toumaï comprend-il l’arabe tchadien ?",r:"Vous pouvez essayer une demande en arabe tchadien en précisant les expressions locales. La qualité dépend du modèle et de la formulation : faites relire les traductions importantes par un locuteur. Nous ne présentons pas de score de maîtrise ni de corpus d’entraînement non documenté."},
+ {q:"Est-il disponible sur Android ?",r:"Vous pouvez ouvrir toumaiai.com dans le navigateur de votre téléphone Android, sans installation. Cette page ne présente pas de lien vers une application native dont la disponibilité en boutique n’a pas été vérifiée."},
+ {q:"Peut-il rechercher sur le web et analyser des documents ?",r:"Le produit propose la recherche web avec sources et l’analyse de fichiers, selon les outils et quotas disponibles sur votre compte. Vérifiez les sources originales et relisez les chiffres ou citations extraits d’un document."},
+ {q:"Peut-il utiliser WhatsApp ?",r:"Un parcours de connexion WhatsApp existe dans Toumaï AI. Il nécessite de relier votre compte et de vérifier les autorisations. Les actions disponibles dépendent de l’état du connecteur ; consultez la page WhatsApp avant de commencer."},
+ {q:"Faut-il une connexion rapide ?",r:"Une connexion reste nécessaire pour obtenir de nouvelles réponses. Certaines données déjà chargées sont conservées en cache ; le mode vocal mesure la qualité de liaison avec le serveur. Cela ne garantit ni fonctionnement hors ligne ni délai fixe."},
+ {q:"Où sont traitées mes données ?",r:"Le service peut faire intervenir des hébergeurs et des fournisseurs de modèles tiers. Un produit conçu au Tchad n’implique pas un traitement exclusivement au Tchad. Consultez la politique de confidentialité avant d’envoyer des informations sensibles."},
+ {q:"Quelle différence avec ChatGPT au Tchad ?",r:"Toumaï AI met l’accent sur les usages tchadiens, le multilingue, le mobile et les outils réunis dans une même interface. Le choix dépend de votre besoin, de la qualité des réponses et des fonctionnalités disponibles, sans affirmation de supériorité générale sur ChatGPT."},
 ];
-
-const FAQ_LD = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: FAQ.map((f) => ({
-    "@type": "Question",
-    name: f.q,
-    acceptedAnswer: { "@type": "Answer", text: f.r },
-  })),
-});
-
-export default function Page() {
-  return (
-    <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: FAQ_LD }} />
-      <LegalLayout title="L'intelligence artificielle au Tchad">
-        <p>
-          L&apos;intelligence artificielle est arrivée au Tchad par des services
-          conçus ailleurs, en anglais ou en français standard, souvent payants et
-          rarement adaptés aux liaisons dont on dispose réellement à N&apos;Djamena,
-          Moundou ou Abéché. <strong>Toumaï AI</strong> est né de ce constat : une IA
-          tchadienne, gratuite, qui parle les langues du pays et qui fonctionne sur
-          le réseau du pays.
-        </p>
-
-        <h2>Une IA conçue au Tchad</h2>
-        <p>
-          Toumaï AI est développé à N&apos;Djamena par Faycal Habib Ahmat. Son nom
-          vient de <em>Toumaï</em>, l&apos;hominidé découvert dans le désert du
-          Djourab en 2001 — le plus ancien représentant connu de la lignée humaine,
-          et l&apos;un des symboles scientifiques du Tchad.
-        </p>
-        <p>
-          L&apos;assistant est accessible sur le web et sur Android. Il ne demande ni
-          carte bancaire ni abonnement pour commencer — une condition qui, dans un
-          pays où le paiement international reste difficile, décide à elle seule de
-          qui peut utiliser l&apos;outil.
-        </p>
-
-        <h2>Le français, l&apos;arabe, et l&apos;arabe tchadien</h2>
-        <p>
-          C&apos;est la différence de fond avec les assistants internationaux. Le
-          Tchad a deux langues officielles, le français et l&apos;arabe, et une langue
-          véhiculaire parlée par une grande partie de la population :
-          l&apos;<strong>arabe tchadien</strong> (dialecte shuwa), qui n&apos;est ni
-          l&apos;arabe standard ni un simple accent.
-        </p>
-        <p>
-          Toumaï AI est développé avec un corpus d&apos;arabe tchadien collecté sur
-          place — enregistrements, transcriptions, travail lexicographique — pour
-          comprendre la langue telle qu&apos;elle se parle, et pas telle qu&apos;elle
-          s&apos;écrit dans les manuels.
-        </p>
-
-        <h2>Ce que Toumaï AI sait faire</h2>
-        <ul>
-          <li>
-            <strong>Répondre et rédiger</strong> — questions, courriers, résumés,
-            traductions, corrections en français comme en arabe.
-          </li>
-          <li>
-            <strong>Écrire et exécuter du code</strong> — dans une trentaine de
-            langages, avec exécution réelle et console intégrée.
-          </li>
-          <li>
-            <strong>Créer des images</strong>, et analyser celles qu&apos;on lui
-            envoie.
-          </li>
-          <li>
-            <strong>Parler et écouter</strong> — dictée, lecture à voix haute, mode
-            vocal en conversation continue.
-          </li>
-          <li>
-            <strong>Consulter le web</strong> quand la question l&apos;exige, et citer
-            ce qu&apos;il a lu.
-          </li>
-          <li>
-            <strong>Se connecter à vos outils</strong> — WhatsApp, messagerie,
-            agenda — avec une confirmation demandée avant toute action réelle.
-          </li>
-        </ul>
-
-        <h2>Pensé pour le réseau d&apos;ici</h2>
-        <p>
-          Une application qui suppose une fibre optique devient inutilisable sur une
-          connexion mobile tchadienne. Toumaï AI affiche immédiatement ce qu&apos;il a
-          déjà en mémoire, mesure la latence réelle vers ses serveurs plutôt que de
-          se fier à l&apos;icône du téléphone, et garde à l&apos;écran ce qui est déjà
-          chargé quand le réseau faiblit — au lieu de vider la page.
-        </p>
-
-        <h2>Questions fréquentes</h2>
-        <dl className="not-prose mt-4 space-y-5">
-          {FAQ.map((f) => (
-            <div key={f.q}>
-              <dt className="font-semibold text-[var(--text-primary)]">{f.q}</dt>
-              <dd className="mt-1 text-[var(--text-secondary)]">{f.r}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <h2>Essayer</h2>
-        <p>
-          <Link href="/chat" className="font-semibold underline underline-offset-2">
-            Ouvrir Toumaï AI
-          </Link>{" "}
-          — gratuit, sans installation. Vous pouvez aussi consulter{" "}
-          <Link href="/models" className="underline underline-offset-2">
-            la famille de modèles
-          </Link>{" "}
-          ou{" "}
-          <Link href="/privacy" className="underline underline-offset-2">
-            la politique de confidentialité
-          </Link>
-          . هذه الصفحة متاحة أيضًا{" "}
-          <Link href="/ar" hrefLang="ar" className="underline underline-offset-2">
-            بالعربية
-          </Link>
-          .
-        </p>
-      </LegalLayout>
-    </>
-  );
+const schema = {"@context":"https://schema.org","@graph":[
+ {"@type":"WebPage","@id":url,url,name:title,description,inLanguage:"fr",about:{"@id":"https://toumaiai.com/#organisation"}},
+ {"@type":"BreadcrumbList",itemListElement:[{"@type":"ListItem",position:1,name:"Accueil",item:"https://toumaiai.com/"},{"@type":"ListItem",position:2,name:"IA au Tchad",item:url}]},
+ {"@type":"FAQPage",mainEntity:faq.map(({q,r})=>({"@type":"Question",name:q,acceptedAnswer:{"@type":"Answer",text:r}}))}
+]};
+export default function ChadPage() {
+ return <EditorialShell>
+ <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema).replace(/</g,"\\u003c")}}/>
+ <nav aria-label="Fil d’Ariane" className={s.breadcrumb}><Link href="/">Accueil</Link> / IA au Tchad</nav>
+ <section className={s.hero} aria-labelledby="page-title"><div><p className={s.eyebrow}>CONÇU À N’DJAMENA · OUVERT SUR LE MONDE</p><h1 id="page-title">L’intelligence artificielle <em>au Tchad.</em></h1><p className={s.lead}>Un espace pour chercher, comprendre et avancer. Toumaï AI est conçu à N’Djamena, avec les langues, les usages et les réalités du pays en point de départ.</p><div className={s.actions}><Link className={s.primary} href="/chat/">Ouvrir Toumaï ↗</Link><a href="#capacites">Voir ce qu’il peut faire ↓</a></div><p className={s.note}>Sur le web, depuis votre ordinateur ou votre téléphone.</p></div><ProductProof/></section>
+ <div className={s.strip}><span>Une question, plusieurs outils.</span><a href="#capacites">Recherche & documents</a><a href="#langues">Français & arabe</a><a href="#reseau">Une attention au mobile</a></div>
+ <Section id="contexte" label="01 / LE CONTEXTE" title="Pourquoi une IA conçue au Tchad ?"><div className={s.columns}><p className={s.lead}>À N’Djamena, Moundou ou Abéché, le besoin est concret : préparer un cours, relire un courrier, comprendre un document ou répondre à un client.</p><div><p>Le téléphone est souvent le point d’entrée. La connexion peut varier pendant une conversation. Et une demande ne s’exprime pas toujours dans une seule langue.</p><p>Toumaï AI réunit ces usages sans exiger de carte bancaire pour découvrir l’offre gratuite. Les moyens de paiement payants restent soumis à leur activation. L’ambition est locale dans son attention aux besoins, et internationale dans les usages.</p></div></div></Section>
+ <Section id="capacites" label="02 / LE PRODUIT" title="De la question au travail accompli."><div className={s.capabilities}><article className={s.feature}><p className={s.eyebrow}>COMPRENDRE</p><h3>Chat, recherche & documents</h3><p>Posez une question, demandez une recherche sourcée ou travaillez à partir d’un fichier. Revenez au document et aux sources pour vérifier la réponse.</p><Link href="/chat/">Commencer une conversation ↗</Link></article><div className={s.rows}>{[["Créer","Rédaction, code, images : donnez un objectif, puis affinez le résultat. Testez le code et relisez les contenus avant usage."],["Échanger","Dictée et voix permettent d’alterner entre texte et oral, selon les capacités disponibles sur votre compte."],["Relier vos outils","WhatsApp, connecteurs et agents prolongent la conversation vers des actions. Une connexion et les autorisations adaptées sont nécessaires."]].map(([t,d])=><article key={t}><h3>{t}</h3><p>{d}</p></article>)}</div></div><p className={s.note}>Selon le modèle, la formule et l’état des connecteurs. <Link href="/models/">Explorer les modèles</Link> · <Link href="/whatsapp/">Comprendre WhatsApp</Link></p></Section>
+ <Section id="langues" label="03 / LES LANGUES" title="Votre idée, dans vos mots."><div className={s.languages}><article><span>FR</span><h3>Français</h3><p>Rédiger un courrier, expliquer un cours, structurer une idée.</p><blockquote>« Aide-moi à rendre ce message plus clair. »</blockquote></article><article lang="ar" dir="rtl"><span>AR</span><h3>العربية</h3><p>اطلب شرحًا أو ملخصًا، وراجع التفاصيل المهمة.</p><blockquote>« ساعدني في صياغة هذه الرسالة بوضوح. »</blockquote></article><article><span>TD</span><h3>Arabe tchadien</h3><p>Précisez le contexte et les expressions locales. Les variantes et transcriptions peuvent demander des reformulations.</p><small>Pas de niveau de maîtrise chiffré sans évaluation publiée.</small></article></div><p className={s.note}>Exemples de demandes, pas résultats d’un benchmark. <Link href="/ar/" hrefLang="ar">Découvrir la présentation en arabe ↗</Link></p></Section>
+ <Section id="reseau" label="04 / LA CONNECTIVITÉ" title="Pensé pour le réseau d’ici."><div className={s.network}><div><h3>Ce qui est chargé ne doit pas disparaître au premier ralentissement.</h3><p>Le cache conserve certaines données déjà consultées et les actualise en arrière-plan. Le mode vocal mesure la liaison vers le serveur pour signaler une connexion dégradée.</p><p>Une nouvelle réponse, un fichier à envoyer ou une recherche web nécessitent toujours le réseau. Les images et la voix peuvent être plus exigeantes que le texte.</p></div><ol><li><strong>Consulter</strong><span>Réutiliser les données mises en cache.</span></li><li><strong>Actualiser</strong><span>Récupérer les données récentes quand la connexion le permet.</span></li><li><strong>Rester informé</strong><span>Signaler la qualité de liaison en mode vocal.</span></li></ol></div></Section>
+ <Section id="confiance" label="05 / LE CONTRÔLE" title="Vous gardez le contrôle."><div className={s.columns}><p className={s.lead}>Une réponse est un point de départ. Une action engage votre compte.</p><div><p>Relisez les réponses, vérifiez les sources et examinez les confirmations avant les actions sensibles des connecteurs, comme un envoi de message. Vérifiez le cadre d’utilisation avant de partager des données confidentielles.</p><div className={s.actions}><Link href="/privacy/">Confidentialité ↗</Link><Link href="/security/">Sécurité ↗</Link><Link href="/terms/">Conditions ↗</Link></div></div></div></Section>
+ <Section id="origine" label="06 / L’ORIGINE" title="Un projet ancré à N’Djamena."><div className={s.columns}><p>Toumaï AI est développé par Faycal Habib Ahmat. Le projet porte une attention particulière aux usages au Tchad et à la place des langues dans l’intelligence artificielle en Afrique.</p><p>Le nom Toumaï renvoie à un symbole scientifique associé au Tchad. Découvrez <Link href="/a-propos/">l’histoire du projet</Link>, sans confondre cette identité avec une preuve de performance technique.</p></div></Section>
+ <EditorialFAQ items={faq}/>
+ <section className={s.final}><p className={s.eyebrow}>À VOUS D’ESSAYER</p><h2>Commencez par une vraie question.</h2><p>Un cours à comprendre. Un texte à améliorer. Une idée à explorer.</p><Link className={s.primary} href="/chat/">Ouvrir Toumaï ↗</Link></section>
+ </EditorialShell>;
 }
+
