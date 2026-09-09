@@ -35,7 +35,8 @@ export function LegalLayout({
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Link
-            href="/chat"
+            href="/chat/"
+            prefetch={false}
             className="rounded-full px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             style={{ background: "var(--primary)" }}
           >
