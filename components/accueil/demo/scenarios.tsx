@@ -149,8 +149,8 @@ export const SCENARIOS: Scenario[] = [
         ],
         duree: 1800,
       },
-      { type: "confirmation", action: "Envoyer un message WhatsApp à Mahamat", duree: 3400 },
-      { type: "confirme", action: "Envoyer un message WhatsApp à Mahamat", duree: 2600 },
+      { type: "confirmation", action: "Message WhatsApp à Mahamat", duree: 3400 },
+      { type: "confirme", action: "Message WhatsApp à Mahamat", duree: 2600 },
     ],
   },
   {

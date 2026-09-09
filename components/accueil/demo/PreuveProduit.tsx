@@ -35,8 +35,8 @@ export function PreuveProduit() {
       <div className="preuve-intro">
         <h2 id="preuve-titre">Voici ce que ça donne.</h2>
         <p>
-          Trois demandes ordinaires, telles qu’elles se passent dans Toumaï. Ce que
-          vous voyez ici est l’interface réelle.
+          Trois exemples de ce que vous pouvez demander à Toumaï, reproduits ici tels
+          qu’ils se déroulent dans l’application.
         </p>
       </div>
 

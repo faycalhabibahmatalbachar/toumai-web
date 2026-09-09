@@ -191,8 +191,20 @@ export function RangeeSources({ sources }: { sources: Source[] }) {
 /* ── La confirmation ───────────────────────────────────────────────────────
  *
  * C'est la pièce qui porte l'argument du produit : Toumaï prépare, la personne
- * décide. Reproduite au mot près de `ToolConfirmCard` — « Action en attente de
- * confirmation », puis « … — cette action sera réellement exécutée. » */
+ * décide, l'action part ensuite.
+ *
+ * ELLE NE DIT PAS TOUT À FAIT CE QUE DIT LE PRODUIT, ET C'EST VOULU.
+ *
+ * Dans l'application, `ToolConfirmCard` annonce « cette action sera réellement
+ * exécutée » — et c'est exact : le bouton envoie. Recopiée telle quelle sur une
+ * page publique, la phrase promet ce qu'une reproduction ne peut pas tenir, et
+ * quelqu'un pourrait cliquer en croyant écrire à un vrai contact.
+ *
+ * On garde donc le mécanisme, l'intitulé, la mise en page et les deux boutons.
+ * On change la seule phrase qui se lisait comme un déclencheur : elle décrit
+ * maintenant la RÈGLE du produit au lieu d'annoncer une exécution imminente.
+ * Le bouton est un `span` — il n'a jamais rien déclenché, et il ne doit pas
+ * donner à penser le contraire. */
 export function CarteConfirmation({
   action,
   confirme = false,
@@ -204,26 +216,30 @@ export function CarteConfirmation({
     <div className="mt-3 max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
       <div className="px-4 pb-3 pt-3.5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-          Action en attente de confirmation
+          Action nécessitant votre confirmation
         </p>
         <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-          {action} — cette action sera réellement exécutée.
+          {action}. Dans Toumaï AI, aucun message ne part avant votre validation.
         </p>
       </div>
       <div className="flex items-center gap-2 border-t border-[var(--border)] px-4 py-3">
         {confirme ? (
           <span className="text-xs text-[var(--text-secondary)]">
-            Envoyé. La conversation a été mise à jour.
+            Après confirmation : le message part, et la conversation se met à jour.
           </span>
         ) : (
           <>
             <span
+              aria-hidden="true"
               className="rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white"
               style={{ background: "var(--primary)" }}
             >
               Confirmer
             </span>
-            <span className="rounded-lg border border-[var(--border)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)]">
+            <span
+              aria-hidden="true"
+              className="rounded-lg border border-[var(--border)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
+            >
               Annuler
             </span>
           </>
