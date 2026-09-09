@@ -1,26 +1,10 @@
 /**
- * L'ÉCRAN DE CONNEXION — LA STRUCTURE.
+ * Écran d'authentification Toumaï AI.
  *
- * POURQUOI PAS `AuthShell`
- * -------------------------
- * `AuthShell` habille le tunnel de paiement : « Retour aux offres » en haut,
- * « Compte → Paiement → Confirmation » à côté, et le formulaire dans une carte
- * posée au milieu d'un grand vide. Quand on arrive d'un tarif, ce décor est
- * juste : il dit où l'on est et ce qui reste à faire. Quand on vient
- * simplement se reconnecter, il annonce une transaction qui n'aura pas lieu.
- *
- * Les deux coexistent donc, et `app/login/page.tsx` choisit : un plan en
- * cours → `AuthShell` ; une connexion ordinaire → celui-ci.
- *
- * CE QUE MONTRE LA MOITIÉ GAUCHE
- * -------------------------------
- * Une conversation Toumaï figée, construite avec les pièces de
- * `components/accueil/demo/primitives.tsx` — les mêmes que la page d'accueil,
- * relevées dans `ChatMessage.tsx`. Rien n'y bouge et rien n'appelle le réseau :
- * sur un écran de connexion, une animation détourne l'attention du seul geste
- * qu'on est venu faire.
- *
- * C'est une reproduction, et le libellé accessible le dit.
+ * La connexion ordinaire utilise une composition produit dédiée plutôt que le
+ * décor du tunnel de paiement. La moitié gauche reste volontairement statique
+ * pour cette première version : aucune animation décorative, aucun appel
+ * réseau, uniquement une reproduction lisible de l'expérience Toumaï AI.
  */
 
 import Link from "next/link";
@@ -38,8 +22,6 @@ import {
 
 import "./auth.css";
 
-/** Les capacités nommées sous la fenêtre. Chacune existe réellement dans le
- *  produit et se retrouve dans les offres. */
 const CAPACITES = [
   "Conversation",
   "Recherche web",
@@ -51,7 +33,7 @@ const CAPACITES = [
 
 function MarqueToumai({ className = "auth-marque" }: { className?: string }) {
   return (
-    <Link href="/" className={className}>
+    <Link href="/" className={className} aria-label="Retour à l'accueil Toumaï AI">
       <Logo size={34} />
       <span>
         Toumaï AI
@@ -64,18 +46,19 @@ function MarqueToumai({ className = "auth-marque" }: { className?: string }) {
 function Vitrine() {
   return (
     <div className="auth-fenetre">
-      <FenetreProduit label="Exemple de conversation dans Toumaï AI">
+      <FenetreProduit label="Aperçu statique d'une conversation Toumaï AI">
         <div className="space-y-4">
           <BulleUtilisateur>
-            Vois ce qu’écrit Mahamat sur WhatsApp, vérifie l’horaire, et prépare la
-            réponse.
+            Vérifie les informations utiles sur le web, résume-les et prépare une
+            réponse pour Mahamat sur WhatsApp.
           </BulleUtilisateur>
 
           <div>
             <SignatureToumai />
-            <LigneActivite libelle="Lecture de la conversation, puis du web" />
+            <LigneActivite libelle="Recherche web et préparation de la réponse" />
             <ReponseToumai>
-              La formation de samedi est maintenue : 9 h, salle B.
+              J’ai rassemblé les éléments utiles. La réponse WhatsApp est prête et
+              attend votre validation avant l’envoi.
             </ReponseToumai>
             <CarteConfirmation action="Réponse WhatsApp à Mahamat" confirme />
           </div>
@@ -85,11 +68,6 @@ function Vitrine() {
   );
 }
 
-/**
- * @param titre     Le grand titre de la colonne de droite.
- * @param intro     La ligne sous le titre.
- * @param children  Le contenu du formulaire.
- */
 export function AuthPremium({
   titre,
   intro,
@@ -106,23 +84,24 @@ export function AuthPremium({
 
         <div className="auth-vitrine-texte">
           <h1 id="auth-vitrine-titre">
-            Une intelligence qui travaille <em>avec vous</em>.
+            Demandez. Toumaï fait le travail, <em>vous gardez la main</em>.
           </h1>
           <p className="auth-argument">
-            Tout part du même endroit, et rien d’irréversible ne se fait sans vous.
+            Recherchez, travaillez vos documents, créez et utilisez vos connecteurs
+            depuis un seul espace.
           </p>
         </div>
 
         <Vitrine />
 
-        <ul className="auth-capacites">
-          {CAPACITES.map((c) => (
-            <li key={c}>{c}</li>
+        <ul className="auth-capacites" aria-label="Capacités disponibles dans Toumaï AI">
+          {CAPACITES.map((capacite) => (
+            <li key={capacite}>{capacite}</li>
           ))}
         </ul>
       </section>
 
-      <section className="auth-panneau">
+      <section className="auth-panneau" aria-label="Connexion à Toumaï AI">
         <div className="auth-panneau-corps">
           <MarqueToumai className="auth-marque auth-marque-panneau" />
           <h1>{titre}</h1>
@@ -140,11 +119,17 @@ export function AuthPremium({
   );
 }
 
-/* ── Petites icônes du formulaire ────────────────────────────────────────── */
-
 export function IconeInfo() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 11v5M12 7.6v.1" strokeLinecap="round" />
     </svg>
@@ -153,7 +138,15 @@ export function IconeInfo() {
 
 export function IconeAlerte() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
       <path d="M12 4.5 2.8 20h18.4L12 4.5z" strokeLinejoin="round" />
       <path d="M12 10v4.2M12 17.3v.1" strokeLinecap="round" />
     </svg>
@@ -162,8 +155,19 @@ export function IconeAlerte() {
 
 export function IconeOeil({ ouvert }: { ouvert: boolean }) {
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="M2.5 12S6.8 5.5 12 5.5 21.5 12 21.5 12 17.2 18.5 12 18.5 2.5 12 2.5 12z" strokeLinejoin="round" />
+    <svg
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
+      <path
+        d="M2.5 12S6.8 5.5 12 5.5 21.5 12 21.5 12 17.2 18.5 12 18.5 2.5 12 2.5 12 2.5 12z"
+        strokeLinejoin="round"
+      />
       <circle cx="12" cy="12" r="3.1" />
       {!ouvert && <path d="M4 20 20 4" strokeLinecap="round" />}
     </svg>
