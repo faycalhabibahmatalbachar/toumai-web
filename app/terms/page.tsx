@@ -4,11 +4,14 @@ import { LegalLayout } from "@/components/LegalLayout";
 export const metadata: Metadata = {
   title: "Conditions & politiques",
   description: "Conditions d'utilisation de Toumaï AI — l'assistant IA tchadien.",
+  alternates: { canonical: "https://toumaiai.com/terms/", languages: {} },
+  openGraph: { title: "Conditions d’utilisation — Toumaï AI", url: "https://toumaiai.com/terms/", locale: "fr_FR", images: ["/og-image.png"] },
+  twitter: { card: "summary_large_image", title: "Conditions d’utilisation — Toumaï AI", images: ["/og-image.png"] },
 };
 
 export default function TermsPage() {
   return (
-    <LegalLayout title="Conditions & politiques" updated="7 septembre 2026">
+    <LegalLayout title="Conditions & politiques" updated="9 septembre 2026" toc path="/terms/">
       <p>
         Bienvenue sur Toumaï AI. En utilisant le site toumaiai.com, l&apos;application mobile ou
         l&apos;API, vous acceptez les présentes conditions. Toumaï AI est édité par Faycal Habib
@@ -21,7 +24,8 @@ export default function TermsPage() {
         Toumaï AI est un assistant d&apos;intelligence artificielle : conversation, génération
         d&apos;images et de documents, mode vocal, recherche web, agent de navigation, et
         connecteurs optionnels (WhatsApp, e-mail, Google Agenda). Certaines fonctionnalités
-        nécessitent un compte ; d&apos;autres sont accessibles en session invité.
+        nécessitent un compte. La disponibilité dépend de la formule, des autorisations et de
+        l&apos;état des intégrations ; cette liste ne garantit pas un accès invité à chacune.
       </p>
 
       <h2>2. Votre compte</h2>
@@ -42,28 +46,30 @@ export default function TermsPage() {
         <li>tenter de contourner les limitations techniques ou de sécurité du service.</li>
       </ul>
       <p>
-        Les connecteurs agissent sur VOS comptes, en votre nom et sous votre contrôle : chaque
-        action sensible demande votre confirmation explicite, et vous pouvez restreindre chaque
-        capacité dans Paramètres → Connecteurs.
+        Les connecteurs agissent sur vos comptes avec les autorisations accordées. Vérifiez les
+        destinataires et les confirmations proposées. Une tâche automatisée peut s&apos;exécuter
+        ultérieurement : ne présumez pas une nouvelle confirmation à chaque exécution.
       </p>
 
       <h2>4. Contenus générés</h2>
       <p>
         Les réponses de l&apos;IA peuvent contenir des erreurs — vérifiez les informations
-        importantes. Vous conservez les droits sur les contenus que vous soumettez ; les images et
-        documents générés pour vous sont utilisables librement, y compris commercialement, sous
-        votre responsabilité.
+        importantes. Vous conservez les droits que vous détenez sur les contenus soumis. Les
+        résultats peuvent être similaires à ceux obtenus par d&apos;autres utilisateurs. Leur
+        exploitation commerciale dépend des droits de tiers, des licences et du droit applicable ;
+        la génération ne garantit ni exclusivité ni absence de contrefaçon.
       </p>
 
       <h2>5. Propriété intellectuelle et modèles</h2>
       <p>
-        Les modèles, poids, architectures, données d&apos;entraînement propriétaires, code source
-        et marques de Toumaï AI (« Sao », « Toumaï », le nom et le logo Toumaï AI) sont la
-        propriété exclusive de Toumaï AI. Aucune disposition des présentes conditions ne vous
-        accorde de licence sur ces éléments au-delà de l&apos;usage du service tel que fourni.
+        Toumaï AI ne revendique des droits que sur les éléments qu&apos;elle détient effectivement.
+        Les composants open source, modèles tiers, poids et architectures restent soumis aux
+        droits de leurs titulaires et à leurs licences. Le nom commercial d&apos;une formule ne
+        prouve pas la propriété du modèle sous-jacent. L&apos;accès au service ne transfère pas
+        la propriété du code, des marques ou des modèles.
       </p>
       <p>
-        Toute utilisation de nos modèles par un tiers — partenaire technique, fournisseur de
+        Sous réserve des licences tierces applicables, toute utilisation de nos éléments propriétaires par un tiers — partenaire technique, fournisseur de
         données, organisation de recherche ou autre — en dehors de l&apos;usage normal du service,
         y compris le fine-tuning, la redistribution, l&apos;intégration dans un produit tiers ou
         l&apos;accès aux poids du modèle, nécessite un accord écrit distinct et préalable avec
@@ -78,7 +84,7 @@ export default function TermsPage() {
       <p>
         Vous pouvez publier une conversation via un lien de partage (secret ou public). Vous en
         choisissez la visibilité et l&apos;anonymat, et pouvez révoquer le lien à tout moment —
-        la page devient alors inaccessible.
+        le lien cesse de donner accès au service. Les copies déjà réalisées ne sont pas effacées.
       </p>
 
       <h2>7. Disponibilité et responsabilité</h2>
@@ -93,7 +99,8 @@ export default function TermsPage() {
         <li>
           Le prix, la devise, la durée et les capacités incluses sont affichés avant la validation
           du paiement. Les offres actuelles sont activées pour 30 jours et ne donnent pas lieu à
-          un prélèvement automatique, sauf indication explicite contraire avant l&apos;achat.
+          un prélèvement automatique. Essentiel : 3 000 FCFA pour 30 jours ; Toumaï 5 :
+          9 000 FCFA pour 30 jours. Le renouvellement est manuel.
         </li>
         <li>
           Le paiement est traité sur la page sécurisée de notre prestataire Moneroo et de la

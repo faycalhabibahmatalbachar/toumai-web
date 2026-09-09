@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const pages = [
+  ["privacy/index.html", "Politique de confidentialité", "https://toumaiai.com/privacy/"],
+  ["terms/index.html", "Conditions &amp; politiques", "https://toumaiai.com/terms/"],
   ["intelligence-artificielle-tchad/index.html", "Intelligence artificielle au Tchad — Toumaï AI", "https://toumaiai.com/intelligence-artificielle-tchad/"],
   ["index.html", "Toumaï AI — Assistant IA", "https://toumaiai.com/"],
   ["models/index.html", "Modèles IA", "https://toumaiai.com/models/"],

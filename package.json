@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/verify-payment.mjs && node scripts/verify-seo.mjs && node scripts/verifier-defilement-accueil.mjs && node scripts/verifier-garde-outil.mjs && node scripts/verifier-demo-accueil.mjs",
-    "test:seo": "node scripts/verify-seo.mjs && node scripts/verify-chad-editorial.mjs && node scripts/verify-editorial-pages.mjs"
+    "test:seo": "node scripts/verify-seo.mjs && node scripts/verify-chad-editorial.mjs && node scripts/verify-editorial-pages.mjs && node scripts/verify-policy-pages.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
