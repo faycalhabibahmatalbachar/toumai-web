@@ -35,15 +35,34 @@ const SCRIPT_ID = "google-identity-services";
 
 export function GoogleSignInButton({
   onCredential,
-  width = 240,
+  width = 400,
   locale,
 }: {
   onCredential: (idToken: string) => void;
+  /** Largeur maximale. Le bouton se réduit automatiquement à la largeur disponible. */
   width?: number;
   locale?: string;
 }) {
+  const hostRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [renderWidth, setRenderWidth] = useState(Math.min(width, 400));
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const syncWidth = () => {
+      const available = Math.floor(host.getBoundingClientRect().width);
+      if (!available) return;
+      setRenderWidth(Math.max(200, Math.min(width, 400, available)));
+    };
+
+    syncWidth();
+    const observer = new ResizeObserver(syncWidth);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [width]);
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
@@ -59,7 +78,7 @@ export function GoogleSignInButton({
         theme: "filled_black",
         size: "large",
         shape: "rectangular",
-        width,
+        width: renderWidth,
         text: "continue_with",
         locale,
       });
@@ -82,12 +101,12 @@ export function GoogleSignInButton({
     script.defer = true;
     script.onload = init;
     document.body.appendChild(script);
-  }, [locale, onCredential, width]);
+  }, [locale, onCredential, renderWidth]);
 
   if (!GOOGLE_CLIENT_ID) return null;
 
   return (
-    <div className="flex w-full justify-center">
+    <div ref={hostRef} className="flex w-full justify-center">
       <div ref={containerRef} aria-busy={!ready} />
     </div>
   );
