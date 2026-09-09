@@ -226,3 +226,248 @@
     font-size: clamp(2.5rem, 9vw, 3.4rem);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PHASE 3 — le milieu de page rejoint le haut.
+ *
+ * Un principe, emprunté au skill `frontend-design` : « spend your boldness in
+ * one place ». La hardiesse est dépensée dans la fenêtre du produit. Tout ce
+ * qui suit est délibérément calme — des lignes, des filets, presque pas de
+ * cartes, aucune ombre. C'est ce qui laisse le regard s'arrêter là où il faut.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+.tmh .plateforme,
+.tmh .connecteurs,
+.tmh .agent,
+.tmh .confiance {
+  padding-block: clamp(4rem, 7vw, 6rem);
+  border-top: 1px solid var(--line);
+}
+
+.tmh .plateforme h2,
+.tmh .connecteurs h2,
+.tmh .agent h2,
+.tmh .confiance h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -.03em;
+  line-height: 1.05;
+  /* Un cran sous les titres de la maquette : l'audit relevait des titres à
+   * quatre lignes qui mangeaient l'écran. */
+  font-size: clamp(1.95rem, 3.2vw, 2.85rem);
+  max-width: 20ch;
+}
+
+.tmh .plateforme-entete p,
+.tmh .connecteurs-entete p {
+  margin: 1rem 0 0;
+  max-width: 46ch;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.62;
+}
+
+/* ── La plateforme : une liste dense, pas neuf cartes ───────────────────── */
+
+.tmh .plateforme-liste {
+  list-style: none;
+  margin: 2.6rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 clamp(1.5rem, 3vw, 3rem);
+}
+
+.tmh .plateforme-liste li {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  padding: 1.05rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.tmh .plateforme-nom {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -.005em;
+}
+
+.tmh .plateforme-texte {
+  color: var(--muted);
+  font-size: .93rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .tmh .plateforme-liste { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .tmh .plateforme-liste { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Les connecteurs ────────────────────────────────────────────────────── */
+
+.tmh .connecteurs-liste {
+  list-style: none;
+  margin: 2.4rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+
+.tmh .connecteurs-liste li {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--terracotta);
+}
+
+.tmh .connecteur-nom { font-size: 1.05rem; font-weight: 600; }
+.tmh .connecteur-texte { color: var(--muted); font-size: .95rem; line-height: 1.55; }
+
+/* Le seul endroit de la page où une numérotation dit quelque chose : c'est un
+ * vrai processus, dans l'ordre, et l'ordre compte. */
+.tmh .connecteurs-etapes {
+  list-style: none;
+  margin: clamp(2.5rem, 5vw, 3.5rem) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+
+.tmh .connecteurs-etapes li {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.tmh .etape-numero {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+  color: var(--terracotta);
+  line-height: 1;
+}
+
+.tmh .etape-titre { font-weight: 600; font-size: .98rem; margin-top: .35rem; }
+.tmh .etape-texte { color: var(--muted); font-size: .9rem; line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .tmh .connecteurs-liste,
+  .tmh .connecteurs-etapes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .tmh .connecteurs-liste { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── L'agent navigateur ─────────────────────────────────────────────────── */
+
+.tmh .agent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: start;
+}
+
+.tmh .agent-copy p {
+  margin: 1.05rem 0 0;
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.62;
+}
+
+.tmh .agent-note { font-size: .95rem !important; }
+
+.tmh .agent-lien {
+  display: inline-flex;
+  margin-top: 1.5rem;
+  border-bottom: 1px solid var(--terracotta);
+  padding-bottom: .12rem;
+  font-size: .98rem;
+  font-weight: 600;
+}
+
+/* La boucle : chaque étape sur sa ligne, reliées par un filet vertical. Elle
+ * se lit de haut en bas parce que c'est ainsi qu'elle se déroule. */
+.tmh .agent-boucle {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1.4rem;
+  border-left: 1px solid var(--line);
+}
+
+.tmh .agent-boucle li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .85rem 0;
+}
+
+.tmh .agent-boucle li::before {
+  content: "";
+  position: absolute;
+  left: calc(-1.4rem - 4px);
+  top: 1.25rem;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.tmh .agent-boucle .agent-fin::before { background: var(--terracotta); }
+
+.tmh .agent-etiquette {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--terracotta-deep);
+}
+
+.tmh .agent-texte { color: var(--muted); font-size: .95rem; line-height: 1.55; }
+
+@media (max-width: 900px) {
+  .tmh .agent { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── La confiance ───────────────────────────────────────────────────────── */
+
+.tmh .confiance-liste {
+  list-style: none;
+  margin: 2.4rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+}
+
+.tmh .confiance-liste li {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.tmh .confiance-titre { font-weight: 600; font-size: 1rem; }
+.tmh .confiance-texte { color: var(--muted); font-size: .93rem; line-height: 1.55; }
+
+.tmh .confiance-liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: clamp(2rem, 4vw, 3rem) 0 0;
+  font-size: .95rem;
+}
+
+.tmh .confiance-liens a { border-bottom: 1px solid var(--line); padding-bottom: .1rem; }
+.tmh .confiance-liens a:hover { border-color: var(--ink); }
+
+@media (max-width: 640px) {
+  .tmh .confiance-liste { grid-template-columns: minmax(0, 1fr); }
+}

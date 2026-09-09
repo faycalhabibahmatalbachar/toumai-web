@@ -56,6 +56,12 @@ import "@/app/accueil-preuve.css";
 
 import { DemoToumai } from "./demo/DemoToumai";
 import { PreuveProduit } from "./demo/PreuveProduit";
+import {
+  AgentNavigateur,
+  Confiance,
+  Connecteurs,
+  Plateforme,
+} from "./Plateforme";
 import { SCENARIO_HERO } from "./demo/scenarios";
 
 /** Où vit la question posée depuis l'accueil, lue ensuite par `/chat`. */
@@ -88,24 +94,24 @@ const RACCOURCIS = [
  * disait la même chose que le Puissance 4 — il réfléchit avant d'agir — en
  * moins démonstratif. Son fichier reste dans l'historique du dépôt.
  */
+/** LA SEULE DÉMONSTRATION ABSTRAITE QUI RESTE.
+ *
+ * Il y en avait cinq — morpion, puzzle, labyrinthe, puissance 4, boîte mail —
+ * et elles occupaient la moitié de la page d'accueil. Elles sont belles, et un
+ * visiteur en repartait sans avoir vu Toumaï une seule fois. Depuis la
+ * Phase 2, le produit se montre lui-même : ces animations n'ont plus à porter
+ * la preuve, seulement une idée.
+ *
+ * On garde l'autocorrection parce qu'elle énonce la chose la moins évidente du
+ * produit — une erreur n'est pas un échec, c'est une information. Les quatre
+ * autres disaient « il raisonne », ce que la démonstration de recherche montre
+ * désormais mieux qu'un morpion.
+ *
+ * Les scènes retirées ne sont pas supprimées du dépôt : elles vivent toujours
+ * dans `public/animations/`, et remettre une entrée ici suffit à en rappeler
+ * une. */
 const CAPACITES = [
-  {
-    sequence: "01",
-    kicker: "Raisonnement concurrentiel",
-    titre: "Chaque décision tient compte de l’adversaire.",
-    texte:
-      "Deux agents observent les coups, ferment les ouvertures dangereuses et construisent leur propre stratégie. L’un finit par gagner, sans que l’autre lui offre la victoire.",
-    points: [
-      "Analyse de la situation actuelle",
-      "Blocage des risques immédiats",
-      "Choix du meilleur coup disponible",
-    ],
-    fichier: "03-morpion-strategique.html",
-    resume: "Deux mains jouent une partie stratégique de morpion",
-    inverse: false,
-    grande: false,
-  },
-  {
+{
     sequence: "02",
     kicker: "Autocorrection visible",
     titre: "Une erreur devient une information utile.",
@@ -122,87 +128,19 @@ const CAPACITES = [
     inverse: true,
     grande: false,
   },
-  {
-    sequence: "03",
-    kicker: "Navigation adaptative",
-    titre: "Changer de route sans perdre l’objectif.",
-    texte:
-      "Toumaï explore le parcours, reconnaît les impasses et réoriente son raisonnement jusqu’à construire un chemin fiable vers la sortie.",
-    points: [
-      "Détection des voies sans issue",
-      "Nouvelle stratégie en temps réel",
-      "Progression conservée malgré les détours",
-    ],
-    fichier: "02-labyrinthe-adaptatif.html",
-    resume: "Toumaï explore un labyrinthe, détecte les impasses et adapte sa trajectoire",
-    inverse: false,
-    grande: false,
-  },
-  {
-    sequence: "04",
-    kicker: "Anticipation à grande échelle",
-    titre: "Projeter plusieurs coups avant d’agir.",
-    texte:
-      "Sur un terrain plus vaste, chaque main répond à l’autre, protège ses lignes et prépare une combinaison gagnante. Chaque décision se lit sur le plateau.",
-    points: [
-      "Lecture de plusieurs scénarios possibles",
-      "Réponse directe aux menaces concurrentes",
-      "Planification jusqu’au coup gagnant",
-    ],
-    fichier: "05-puissance-quatre.html",
-    resume: "Deux mains s’affrontent intelligemment sur un grand plateau de Puissance 4",
-    inverse: true,
-    grande: false,
-  },
-  {
-    sequence: "05",
-    kicker: "Travail réel, accord demandé",
-    titre: "Il prépare tout. Vous décidez d’envoyer.",
-    texte:
-      "Un rendez-vous à décaler, une facture, un devis : Toumaï ouvre le courrier, comprend la demande et écrit la réponse. Puis il s’arrête et demande. Rien ne part avant que vous ayez appuyé sur Envoyer.",
-    points: [
-      "Trois courriers lus, compris et répondus",
-      "Une confirmation obligatoire avant chaque envoi",
-      "Le même garde-fou sur le mail, WhatsApp et l’agenda",
-    ],
-    fichier: "06-boite-mail.html",
-    resume:
-      "Une main vide une boîte de courrier : pour chacune des trois lettres, elle lit la question, écrit la réponse à la main, puis appuie sur « Envoyer » et un avion de papier s’envole",
-    inverse: false,
-    grande: true,
-  },
 ];
 
-const SOLUTIONS = [
-  {
-    index: "A",
-    titre: "Relire un cours ou débloquer une notion",
-    texte:
-      "Vous avez un chapitre dense ou une question qui reste floue ? Demandez une explication, un résumé ou quelques questions pour réviser.",
-    action: "Poser une question",
-  },
-  {
-    index: "B",
-    titre: "Préparer un texte sans partir d’une page blanche",
-    texte:
-      "Donnez le contexte, puis demandez un plan, un premier brouillon ou une relecture. Vous gardez le dernier mot sur ce qui est envoyé.",
-    action: "Préparer un brouillon",
-  },
-  {
-    index: "C",
-    titre: "Faire avancer une tâche par étapes",
-    texte:
-      "Décrivez l’objectif et les contraintes. Toumaï peut proposer un ordre de travail, des points à vérifier et une première liste d’actions.",
-    action: "Organiser une tâche",
-  },
-];
-
+/** QUATRE ENTRÉES, ET CHACUNE MÈNE QUELQUE PART D'UTILE.
+ *
+ * Il y en avait cinq, dont deux vers des sections qui n'existent plus —
+ * « Solutions » racontait en texte les trois cas que la démonstration montre
+ * désormais. Une navigation où l'on doit deviner ce qu'on trouvera derrière
+ * chaque mot est une navigation qu'on n'utilise pas. */
 const LIENS_NAV = [
-  { href: "#capacites", texte: "Découvrir Toumaï" },
+  { href: "#demonstration", texte: "Démonstration" },
   { href: "#plateforme", texte: "Plateforme" },
-  { href: "#solutions", texte: "Solutions" },
   { href: "#tarifs", texte: "Tarifs" },
-  { href: "#fondateur", texte: "Fondateur" },
+  { href: "#entreprise", texte: "Entreprise" },
 ];
 
 
@@ -470,10 +408,9 @@ function SectionVent() {
   }, []);
 
   return (
-    <section className="vent" id="plateforme">
+    <section className="vent" id="modeles">
       <div className="shell">
         <div className="vent-entete">
-          <p className="section-kicker">Deux modèles</p>
           <h2>L’un rassemble. L’autre révèle.</h2>
           <p className="vent-texte">
             Sao 4 reconstruit à partir de fragments : rapide, économe, taillé
@@ -721,7 +658,6 @@ function SectionTarifs() {
     <section className="pricing shell" id="tarifs">
       <div className="section-heading pricing-heading">
         <div>
-          <p className="section-kicker">Des offres lisibles</p>
           <h2>Commencez gratuitement. Payez quand vous en avez besoin.</h2>
         </div>
         <p>
@@ -946,6 +882,11 @@ export function PageAccueil() {
 
       <header className="site-header" id="top">
         <div className="primary-nav shell">
+          {/* UN VRAI RECHARGEMENT, ET C'EST VOULU.
+              `<Link>` ferait une navigation cliente, qui ne fait rien quand on
+              est déjà sur l'accueil — or c'est précisément le geste de
+              quelqu'un qui veut repartir de zéro. L'`aria-label` l'annonce. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             className="brand"
             href="/"
@@ -1040,9 +981,7 @@ export function PageAccueil() {
         <div className="product-bar">
           <div className="shell product-bar-inner">
             <span>Produit</span>
-            <a href="#capacites">
-              Explorer les capacités <span aria-hidden="true">↓</span>
-            </a>
+            <a href="#demonstration">Voir Toumaï à l’œuvre</a>
           </div>
         </div>
       </header>
@@ -1077,7 +1016,7 @@ export function PageAccueil() {
                 onChange={(e) => setQuestionHero(e.target.value)}
               />
               <button type="submit">
-                Demander <span aria-hidden="true">↗</span>
+                Demander
               </button>
             </form>
 
@@ -1115,16 +1054,6 @@ export function PageAccueil() {
 
         <PreuveProduit />
 
-        <section className="principles" aria-label="Principes de Toumaï AI">
-          <div className="shell principles-inner">
-            <span>Réflexion</span>
-            <span>Mémoire</span>
-            <span>Anticipation</span>
-            <span>Autocorrection</span>
-            <span>Action</span>
-          </div>
-        </section>
-
         <SectionVent />
 
         <section className="capability-list" id="capacites" aria-label="Capacités animées de Toumaï">
@@ -1141,8 +1070,6 @@ export function PageAccueil() {
                 .join(" ")}
             >
               <div className="capability-copy">
-                <span className="sequence">{c.sequence}</span>
-                <p className="section-kicker">{c.kicker}</p>
                 <h2>{c.titre}</h2>
                 <p>{c.texte}</p>
                 <ul className="feature-points">
@@ -1180,37 +1107,14 @@ export function PageAccueil() {
           ))}
         </section>
 
-        <section className="solutions-section" id="solutions">
-          <div className="shell">
-            <div className="section-heading">
-              <div>
-                <p className="section-kicker">Dans votre quotidien</p>
-                <h2>Des situations ordinaires, un point de départ utile.</h2>
-              </div>
-              <p>
-                Une question, un document, une tâche à organiser : dites ce que vous cherchez.
-                La réponse reste une piste à vérifier, pas une décision à votre place.
-              </p>
-            </div>
+        <Plateforme />
 
-            <div className="solution-grid">
-              {SOLUTIONS.map((s) => (
-                <article key={s.index}>
-                  <span className="solution-index">{s.index}</span>
-                  <h3>{s.titre}</h3>
-                  <p>{s.texte}</p>
-                  <Link href="/chat">
-                    {s.action} <span aria-hidden="true">↗</span>
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+        <Connecteurs />
+
+        <AgentNavigateur />
 
         <section className="enterprise shell" id="entreprise">
           <div className="enterprise-copy">
-            <p className="section-kicker">Toumaï pour les organisations</p>
             <h2>Un espace commun pour préparer, chercher et relire.</h2>
             <p>
               Pour une équipe, une école ou une organisation, Toumaï peut servir à préparer des
@@ -1259,6 +1163,8 @@ export function PageAccueil() {
           * sortante est dans le produit — c'est la cinquième démonstration de
           * cette page. Le numéro est dans le pied de page. Le lieu est dans le
           * copyright. Rien qu'on ne puisse contrôler en trente secondes. */}
+        <Confiance />
+
         <section className="fondateur" id="fondateur">
           <div className="shell fondateur-inner">
             <figure className="fondateur-portrait">
@@ -1273,7 +1179,6 @@ export function PageAccueil() {
             </figure>
 
             <div className="fondateur-mot">
-              <p className="section-kicker">Fondateur &amp; CEO</p>
               <h2>Derrière ce logiciel, il y a quelqu’un à qui parler.</h2>
               <p className="fondateur-texte">
                 Je m’appelle Faycal. J’ai construit Toumaï pour qu’un Tchadien
@@ -1304,7 +1209,6 @@ export function PageAccueil() {
 
         <section className="final-cta">
           <div className="shell final-cta-inner">
-            <p className="section-kicker">Essayez avec une tâche réelle</p>
             <h2>
               Commencez par une question, un texte ou un document.
             </h2>
@@ -1327,7 +1231,7 @@ export function PageAccueil() {
                 onChange={(e) => setQuestionFinale(e.target.value)}
               />
               <button type="submit" aria-label="Envoyer à Toumaï">
-                ↗
+                
               </button>
             </form>
           </div>
@@ -1336,6 +1240,7 @@ export function PageAccueil() {
 
       <footer className="site-footer">
         <div className="shell footer-top">
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a
             className="brand footer-brand"
             href="/"
