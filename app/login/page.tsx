@@ -19,6 +19,159 @@ import {
 import { messageAuth } from "@/components/auth/messages";
 import { safeAccountReturn } from "@/lib/payment-navigation";
 import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
+import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
+
+const COPY: Record<Lang, {
+  title: string;
+  welcome: string;
+  email: string;
+  emailPlaceholder: string;
+  password: string;
+  passwordPlaceholder: string;
+  forgot: string;
+  showPassword: string;
+  hidePassword: string;
+  submit: string;
+  submitting: string;
+  continueWith: string;
+  github: string;
+  githubUnavailable: string;
+  noAccount: string;
+  createAccount: string;
+  expiredTitle: string;
+  expiredBody: string;
+  loginError: string;
+  googleError: string;
+  verificationTitle: string;
+  verificationIntro: string;
+  verificationCode: string;
+  verificationPlaceholder: string;
+  verify: string;
+  verifying: string;
+  invalidCode: string;
+  back: string;
+}> = {
+  fr: {
+    title: "Connexion",
+    welcome: "Bienvenue de retour.",
+    email: "Adresse e-mail",
+    emailPlaceholder: "votre@email.com",
+    password: "Mot de passe",
+    passwordPlaceholder: "Votre mot de passe",
+    forgot: "Mot de passe oublié ?",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
+    submit: "Se connecter",
+    submitting: "Connexion…",
+    continueWith: "Ou continuer avec",
+    github: "Continuer avec GitHub",
+    githubUnavailable: "La connexion GitHub sera disponible dès que le fournisseur OAuth GitHub sera configuré côté serveur.",
+    noAccount: "Vous n’avez pas encore de compte ?",
+    createAccount: "Créer un compte",
+    expiredTitle: "Votre session a expiré.",
+    expiredBody: "Reconnectez-vous pour continuer.",
+    loginError: "Échec de connexion.",
+    googleError: "Échec de connexion Google.",
+    verificationTitle: "Vérification",
+    verificationIntro: "Saisissez le code à six chiffres de votre application d’authentification.",
+    verificationCode: "Code de vérification",
+    verificationPlaceholder: "123456",
+    verify: "Continuer",
+    verifying: "Vérification…",
+    invalidCode: "Code invalide.",
+    back: "Revenir à la connexion",
+  },
+  "ar-td": {
+    title: "الدخول",
+    welcome: "أهلاً برجعتك.",
+    email: "الإيميل",
+    emailPlaceholder: "name@email.com",
+    password: "كلمة المرور",
+    passwordPlaceholder: "اكتب كلمة المرور",
+    forgot: "نسيت كلمة المرور؟",
+    showPassword: "ورّيني كلمة المرور",
+    hidePassword: "خبّي كلمة المرور",
+    submit: "ادخل",
+    submitting: "جاري الدخول…",
+    continueWith: "أو واصل بـ",
+    github: "واصل بـ GitHub",
+    githubUnavailable: "الدخول بـ GitHub حيشتغل بعد ما نجهّز OAuth في السيرفر.",
+    noAccount: "ما عندك حساب؟",
+    createAccount: "اعمل حساب",
+    expiredTitle: "الجلسة خلصت.",
+    expiredBody: "ادخل من جديد عشان تواصل.",
+    loginError: "الدخول ما تم.",
+    googleError: "الدخول بـ Google ما تم.",
+    verificationTitle: "التأكيد",
+    verificationIntro: "اكتب الكود المكوّن من ستة أرقام من تطبيق التحقق.",
+    verificationCode: "كود التحقق",
+    verificationPlaceholder: "123456",
+    verify: "واصل",
+    verifying: "جاري التحقق…",
+    invalidCode: "الكود ما صحيح.",
+    back: "ارجع للدخول",
+  },
+  ar: {
+    title: "تسجيل الدخول",
+    welcome: "مرحبًا بعودتك.",
+    email: "البريد الإلكتروني",
+    emailPlaceholder: "name@email.com",
+    password: "كلمة المرور",
+    passwordPlaceholder: "أدخل كلمة المرور",
+    forgot: "نسيت كلمة المرور؟",
+    showPassword: "إظهار كلمة المرور",
+    hidePassword: "إخفاء كلمة المرور",
+    submit: "تسجيل الدخول",
+    submitting: "جارٍ تسجيل الدخول…",
+    continueWith: "أو تابع باستخدام",
+    github: "المتابعة باستخدام GitHub",
+    githubUnavailable: "سيصبح تسجيل الدخول عبر GitHub متاحًا بعد إعداد موفّر OAuth على الخادم.",
+    noAccount: "ليس لديك حساب بعد؟",
+    createAccount: "إنشاء حساب",
+    expiredTitle: "انتهت جلستك.",
+    expiredBody: "سجّل الدخول من جديد للمتابعة.",
+    loginError: "تعذر تسجيل الدخول.",
+    googleError: "تعذر تسجيل الدخول عبر Google.",
+    verificationTitle: "التحقق",
+    verificationIntro: "أدخل الرمز المكوّن من ستة أرقام من تطبيق المصادقة.",
+    verificationCode: "رمز التحقق",
+    verificationPlaceholder: "123456",
+    verify: "متابعة",
+    verifying: "جارٍ التحقق…",
+    invalidCode: "الرمز غير صحيح.",
+    back: "العودة إلى تسجيل الدخول",
+  },
+  en: {
+    title: "Sign in",
+    welcome: "Welcome back.",
+    email: "Email address",
+    emailPlaceholder: "your@email.com",
+    password: "Password",
+    passwordPlaceholder: "Your password",
+    forgot: "Forgot password?",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    submit: "Sign in",
+    submitting: "Signing in…",
+    continueWith: "Or continue with",
+    github: "Continue with GitHub",
+    githubUnavailable: "GitHub sign-in will be available once the GitHub OAuth provider is configured on the server.",
+    noAccount: "Don’t have an account yet?",
+    createAccount: "Create an account",
+    expiredTitle: "Your session has expired.",
+    expiredBody: "Sign in again to continue.",
+    loginError: "Sign-in failed.",
+    googleError: "Google sign-in failed.",
+    verificationTitle: "Verification",
+    verificationIntro: "Enter the six-digit code from your authenticator app.",
+    verificationCode: "Verification code",
+    verificationPlaceholder: "123456",
+    verify: "Continue",
+    verifying: "Verifying…",
+    invalidCode: "Invalid code.",
+    back: "Back to sign in",
+  },
+};
 
 function IconeEmail() {
   return (
@@ -54,8 +207,10 @@ function IconeGithub() {
   );
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const { lang } = useLang();
+  const text = COPY[lang];
   const { loginWithPassword, finirAvecCode, loginWithGoogle } = useAuth();
   const [defiMfa, setDefiMfa] = useState<string | null>(null);
   const [codeMfa, setCodeMfa] = useState("");
@@ -90,7 +245,7 @@ export default function LoginPage() {
       }
       router.replace(destination);
     } catch (err) {
-      setError(messageAuth(err, "Échec de connexion."));
+      setError(messageAuth(err, text.loginError));
       turnstile.current?.reinitialiser();
     } finally {
       setLoading(false);
@@ -106,7 +261,7 @@ export default function LoginPage() {
       await finirAvecCode(defiMfa, codeMfa);
       router.replace(destination);
     } catch (err) {
-      setError(messageAuth(err, "Code invalide."));
+      setError(messageAuth(err, text.invalidCode));
       setCodeMfa("");
     } finally {
       setLoading(false);
@@ -120,7 +275,7 @@ export default function LoginPage() {
       await loginWithGoogle(idToken);
       router.replace(destination);
     } catch (err) {
-      setError(messageAuth(err, "Échec de connexion Google."));
+      setError(messageAuth(err, text.googleError));
     } finally {
       setLoading(false);
     }
@@ -137,14 +292,14 @@ export default function LoginPage() {
     const codeCorps = (
       <form onSubmit={soumettreCode} className="auth-formulaire">
         <label className="auth-champ">
-          <span className="auth-etiquette">Code de vérification</span>
+          <span className="auth-etiquette">{text.verificationCode}</span>
           <input
             autoFocus
             required
             inputMode="text"
             autoComplete="one-time-code"
-            placeholder="123456"
-            aria-label="Code à six chiffres ou code de secours"
+            placeholder={text.verificationPlaceholder}
+            aria-label={text.verificationCode}
             value={codeMfa}
             onChange={(e) => setCodeMfa(e.target.value)}
             disabled={loading}
@@ -154,7 +309,7 @@ export default function LoginPage() {
         {messageErreur}
         <button type="submit" disabled={loading || !codeMfa.trim()} className="auth-bouton">
           {loading && <span className="auth-rotative" aria-hidden="true" />}
-          {loading ? "Vérification…" : "Continuer"}
+          {loading ? text.verifying : text.verify}
           {!loading && <IconeFleche />}
         </button>
         <button
@@ -167,20 +322,17 @@ export default function LoginPage() {
             turnstile.current?.reinitialiser();
           }}
         >
-          Revenir à la connexion
+          {text.back}
         </button>
       </form>
     );
 
-    const introCode =
-      "Saisissez le code à six chiffres de votre application d’authentification.";
-
     if (planChoisi) {
       return (
         <AuthShell planId={planChoisi}>
-          <div className="w-full">
+          <div className="w-full" dir="ltr">
             <h1 className="mb-2 text-2xl font-semibold">Vérification en deux étapes</h1>
-            <p className="text-sm text-[var(--text-secondary)]">{introCode}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{text.verificationIntro}</p>
             {codeCorps}
           </div>
         </AuthShell>
@@ -188,7 +340,7 @@ export default function LoginPage() {
     }
 
     return (
-      <AuthPremium titre="Vérification" intro={introCode}>
+      <AuthPremium titre={text.verificationTitle} intro={text.verificationIntro} langueActive>
         {codeCorps}
       </AuthPremium>
     );
@@ -200,7 +352,7 @@ export default function LoginPage() {
         <p role="status" className="auth-avis">
           <IconeInfo />
           <span>
-            <strong>Votre session a expiré.</strong> Reconnectez-vous pour continuer.
+            <strong>{text.expiredTitle}</strong> {text.expiredBody}
           </span>
         </p>
       )}
@@ -214,14 +366,14 @@ export default function LoginPage() {
 
       <form onSubmit={submit} className="auth-formulaire">
         <label className="auth-champ">
-          <span className="auth-etiquette">Adresse e-mail</span>
+          <span className="auth-etiquette">{text.email}</span>
           <span className="auth-input-wrap">
             <IconeEmail />
             <input
               type="email"
               required
               autoComplete="email"
-              placeholder="votre@email.com"
+              placeholder={text.emailPlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
@@ -232,14 +384,14 @@ export default function LoginPage() {
         </label>
 
         <label className="auth-champ">
-          <span className="auth-etiquette">Mot de passe</span>
+          <span className="auth-etiquette">{text.password}</span>
           <span className="auth-mdp">
             <IconeCadenas />
             <input
               type={voirMotDePasse ? "text" : "password"}
               autoComplete="current-password"
               required
-              placeholder="Votre mot de passe"
+              placeholder={text.passwordPlaceholder}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
@@ -250,7 +402,7 @@ export default function LoginPage() {
               type="button"
               className="auth-oeil"
               onClick={() => setVoirMotDePasse((v) => !v)}
-              aria-label={voirMotDePasse ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              aria-label={voirMotDePasse ? text.hidePassword : text.showPassword}
               aria-pressed={voirMotDePasse}
             >
               <IconeOeil ouvert={voirMotDePasse} />
@@ -259,7 +411,7 @@ export default function LoginPage() {
         </label>
 
         <p className="auth-ligne-oubli">
-          <Link href="/forgot/">Mot de passe oublié ?</Link>
+          <Link href="/forgot/">{text.forgot}</Link>
         </p>
 
         {messageErreur}
@@ -274,12 +426,12 @@ export default function LoginPage() {
 
         <button type="submit" disabled={loading} className="auth-bouton">
           {loading && <span className="auth-rotative" aria-hidden="true" />}
-          {loading ? "Connexion…" : "Se connecter"}
+          {loading ? text.submitting : text.submit}
           {!loading && <IconeFleche />}
         </button>
       </form>
 
-      <p className="auth-separateur">Ou continuer avec</p>
+      <p className="auth-separateur">{text.continueWith}</p>
 
       <div className="auth-socials">
         <div className="auth-google">
@@ -288,18 +440,18 @@ export default function LoginPage() {
         <button
           type="button"
           className="auth-social"
-          onClick={() => setError("La connexion GitHub sera disponible dès que le fournisseur OAuth GitHub sera configuré côté serveur.")}
-          aria-label="Continuer avec GitHub"
+          onClick={() => setError(text.githubUnavailable)}
+          aria-label={text.github}
         >
           <IconeGithub />
-          <span>Continuer avec GitHub</span>
+          <span>{text.github}</span>
         </button>
       </div>
 
       <p className="auth-bascule">
-        Vous n’avez pas encore de compte ?{" "}
+        {text.noAccount}{" "}
         <Link href={planChoisi ? `/register/?plan=${planChoisi}` : "/register/"}>
-          Créer un compte
+          {text.createAccount}
         </Link>
       </p>
     </>
@@ -308,7 +460,7 @@ export default function LoginPage() {
   if (planChoisi) {
     return (
       <AuthShell planId={planChoisi}>
-        <div className="w-full">
+        <div className="w-full" dir="ltr">
           <h1 className="mb-2 text-2xl font-semibold">Connexion</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             Connectez-vous pour retrouver votre offre et continuer.
@@ -320,8 +472,16 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthPremium titre="Connexion" intro="Bienvenue de retour.">
+    <AuthPremium titre={text.title} intro={text.welcome} langueActive>
       {corps}
     </AuthPremium>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <LangProvider>
+      <LoginPageContent />
+    </LangProvider>
   );
 }
