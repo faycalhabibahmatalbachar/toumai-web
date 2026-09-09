@@ -26,8 +26,6 @@ declare global {
 
 const SCRIPT_ID = "google-identity-services";
 
-/** Ne s'affiche que si NEXT_PUBLIC_GOOGLE_CLIENT_ID est configuré — pas de
- * bouton non fonctionnel affiché aux utilisateurs. */
 export function GoogleSignInButton({ onCredential }: { onCredential: (idToken: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -42,10 +40,10 @@ export function GoogleSignInButton({ onCredential }: { onCredential: (idToken: s
         callback: (resp) => onCredential(resp.credential),
       });
       window.google.accounts.id.renderButton(containerRef.current, {
-        theme: "outline",
+        theme: "filled_black",
         size: "large",
-        shape: "pill",
-        width: 320,
+        shape: "rectangular",
+        width: 240,
         text: "continue_with",
       });
       setReady(true);
