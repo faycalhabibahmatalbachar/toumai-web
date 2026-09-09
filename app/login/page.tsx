@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 import { signalerWidgetIndisponible } from "@/lib/api";
-import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
+import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 
 import { AuthShell } from "@/components/billing/AuthShell";
 import {
@@ -16,6 +16,7 @@ import {
   IconeInfo,
   IconeOeil,
 } from "@/components/auth/AuthPremium";
+import { messageAuth } from "@/components/auth/messages";
 import { safeAccountReturn } from "@/lib/payment-navigation";
 
 import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
@@ -35,7 +36,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const planMemorise = usePaymentPlan();
+  /* Appelé pour son effet : c'est lui qui garde le plan choisi en mémoire
+   * quand on arrive avec `?plan=`. Sa valeur de retour ne sert plus ici (voir
+   * `planChoisi` plus bas). */
+  usePaymentPlan();
   const location = usePaymentLocation();
   const parametres = new URLSearchParams(location.split("?")[1]);
   const retourCompte = safeAccountReturn(parametres.get("next"));
@@ -44,16 +48,21 @@ export default function LoginPage() {
   // Arrivée depuis une session expirée (voir session-guard).
   const sessionExpiree = parametres.has("expired");
 
-  /** UNE SESSION EXPIRÉE N'EST PAS UN PARCOURS D'ACHAT.
+  /** LE DÉCOR DE PAIEMENT SUIT L'ADRESSE, PAS LA MÉMOIRE DU NAVIGATEUR.
    *
    * `usePaymentPlan` retombe sur le plan gardé en `sessionStorage` quand
-   * l'adresse n'en porte pas. C'est juste pour une reprise de paiement, mais
-   * il suffisait d'avoir regardé un tarif dans la même session pour que
-   * `/login/?expired=1` se rhabille en tunnel : « Retour aux offres », « Compte
-   * → Paiement → Confirmation », alors qu'on a simplement été déconnecté.
+   * l'adresse n'en porte pas. Il suffisait donc d'avoir regardé un tarif dans
+   * la même session pour que `/login/` se rhabille en tunnel : « Retour aux
+   * offres », « Compte, Paiement, Confirmation », alors qu'on venait
+   * simplement se connecter.
    *
-   * Le plan reste en mémoire, il n'habille plus cet écran-là. */
-  const planChoisi = sessionExpiree ? null : planMemorise;
+   * Le parcours commercial porte son plan dans l'adresse d'un bout à l'autre
+   * (les liens vers `/register/` et `/login/` le recopient) : c'est donc là, et
+   * seulement là, qu'on le lit. Le plan reste en mémoire pour une reprise
+   * depuis les tarifs ; il n'habille plus l'écran de connexion ordinaire. */
+  const planUrl = publicPlanId(parametres.get("plan"));
+  const planChoisi =
+    planUrl === "essentiel" || planUrl === "toumai_5" ? planUrl : null;
   const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
 
   async function submit(e: React.FormEvent) {
@@ -70,7 +79,7 @@ export default function LoginPage() {
       }
       router.replace(destination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de connexion");
+      setError(messageAuth(err, "Échec de connexion."));
       // Un jeton Turnstile ne sert qu'une fois : sans remise à zéro, la
       // tentative suivante échouerait sur un jeton déjà consommé.
       turnstile.current?.reinitialiser();
@@ -88,7 +97,7 @@ export default function LoginPage() {
       await finirAvecCode(defiMfa, codeMfa);
       router.replace(destination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Code invalide");
+      setError(messageAuth(err, "Code invalide."));
       setCodeMfa("");
     } finally {
       setLoading(false);
@@ -102,7 +111,7 @@ export default function LoginPage() {
       await loginWithGoogle(idToken);
       router.replace(destination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de connexion Google");
+      setError(messageAuth(err, "Échec de connexion Google."));
     } finally {
       setLoading(false);
     }

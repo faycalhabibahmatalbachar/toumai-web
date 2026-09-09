@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 import { signalerWidgetIndisponible } from "@/lib/api";
-import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
+import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 
 import { AuthShell } from "@/components/billing/AuthShell";
 import {
@@ -15,7 +15,8 @@ import {
   IconeAlerte,
   IconeOeil,
 } from "@/components/auth/AuthPremium";
-import { usePaymentPlan } from "@/hooks/use-payment-navigation";
+import { messageAuth } from "@/components/auth/messages";
+import { usePaymentLocation, usePaymentPlan } from "@/hooks/use-payment-navigation";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -29,7 +30,20 @@ export default function RegisterPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [voirMotDePasse, setVoirMotDePasse] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const planChoisi = usePaymentPlan();
+  /* Appelé pour son effet : il garde le plan en mémoire quand on arrive avec
+   * `?plan=`. Le décor de paiement, lui, ne se fie qu'à l'adresse : avoir
+   * regardé un tarif ne doit pas transformer une inscription ordinaire en
+   * tunnel de commande. */
+  usePaymentPlan();
+  /* `usePaymentLocation` passe par `useSyncExternalStore` avec un instantané
+   * serveur vide : lire `window.location` directement ferait diverger le
+   * rendu prégénéré du rendu client. */
+  const location = usePaymentLocation();
+  const planUrl = publicPlanId(
+    new URLSearchParams(location.split("?")[1]).get("plan"),
+  );
+  const planChoisi =
+    planUrl === "essentiel" || planUrl === "toumai_5" ? planUrl : null;
   const turnstile = useRef<TurnstilePoignee | null>(null);
 
   const destination = planChoisi ? checkoutUrl(planChoisi) : "/chat";
@@ -57,7 +71,7 @@ export default function RegisterPage() {
           : "Compte créé. Confirmez votre e-mail avant de vous connecter.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'inscription");
+      setError(messageAuth(err, "Échec de l’inscription."));
       // Le jeton Turnstile est à usage unique : sans cette remise à zéro, la
       // deuxième tentative échouerait sur un jeton déjà consommé.
       turnstile.current?.reinitialiser();
@@ -73,7 +87,7 @@ export default function RegisterPage() {
       await loginWithGoogle(idToken);
       router.replace(destination);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de connexion Google");
+      setError(messageAuth(err, "Échec de connexion Google."));
     } finally {
       setLoading(false);
     }

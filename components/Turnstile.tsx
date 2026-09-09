@@ -154,7 +154,13 @@ export function Turnstile({
       reinitialiser: () => {
         rappel.current(null);
         if (identifiantWidget.current && window.turnstile) {
-          window.turnstile.reset(identifiantWidget.current);
+          try {
+            window.turnstile.reset(identifiantWidget.current);
+          } catch {
+            // « Nothing to reset found for provided container » : le widget a
+            // rendu un identifiant sans créer sa boîte (voir DELAI_MAX_MS).
+            // Le formulaire reste utilisable, l'exception n'apporte rien.
+          }
         }
       },
     };
