@@ -14,7 +14,14 @@ interface GoogleIdApi {
   }) => void;
   renderButton: (
     el: HTMLElement,
-    options: { theme?: string; size?: string; shape?: string; width?: number; text?: string },
+    options: {
+      theme?: string;
+      size?: string;
+      shape?: string;
+      width?: number;
+      text?: string;
+      locale?: string;
+    },
   ) => void;
 }
 
@@ -26,7 +33,15 @@ declare global {
 
 const SCRIPT_ID = "google-identity-services";
 
-export function GoogleSignInButton({ onCredential }: { onCredential: (idToken: string) => void }) {
+export function GoogleSignInButton({
+  onCredential,
+  width = 240,
+  locale,
+}: {
+  onCredential: (idToken: string) => void;
+  width?: number;
+  locale?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
 
@@ -35,6 +50,7 @@ export function GoogleSignInButton({ onCredential }: { onCredential: (idToken: s
 
     function init() {
       if (!window.google || !containerRef.current) return;
+      containerRef.current.replaceChildren();
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: (resp) => onCredential(resp.credential),
@@ -43,8 +59,9 @@ export function GoogleSignInButton({ onCredential }: { onCredential: (idToken: s
         theme: "filled_black",
         size: "large",
         shape: "rectangular",
-        width: 240,
+        width,
         text: "continue_with",
+        locale,
       });
       setReady(true);
     }
@@ -65,7 +82,7 @@ export function GoogleSignInButton({ onCredential }: { onCredential: (idToken: s
     script.defer = true;
     script.onload = init;
     document.body.appendChild(script);
-  }, [onCredential]);
+  }, [locale, onCredential, width]);
 
   if (!GOOGLE_CLIENT_ID) return null;
 
