@@ -52,6 +52,11 @@ import { useAuth } from "@/lib/auth-context";
 import { checkoutUrl, registerUrl } from "@/lib/plan-catalog";
 
 import "@/app/toumai-accueil.css";
+import "@/app/accueil-preuve.css";
+
+import { DemoToumai } from "./demo/DemoToumai";
+import { PreuveProduit } from "./demo/PreuveProduit";
+import { SCENARIO_HERO } from "./demo/scenarios";
 
 /** Où vit la question posée depuis l'accueil, lue ensuite par `/chat`. */
 const CLE_QUESTION = "toumai:question";
@@ -1045,15 +1050,10 @@ export function PageAccueil() {
       <main id="contenu">
         <section className="hero shell" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <p className="eyebrow">Toumaï AI, un assistant pour le travail de tous les jours</p>
-            <h1 id="hero-title">
-              Posez une question.
-              <br />
-              Écrivez, cherchez, avancez.
-            </h1>
+            <h1 id="hero-title">Demandez. Toumaï fait le travail, vous gardez la main.</h1>
             <p className="hero-intro">
-              Toumaï AI réunit le chat, la rédaction, la recherche web, les images et la voix.
-              Commencez par ce que vous avez à faire ; ajustez la réponse avec vos propres mots.
+              Il cherche sur le web, lit vos documents, écrit, parle et se branche à vos
+              outils. Avant tout envoi, il s’arrête et vous demande.
             </p>
 
             <form
@@ -1081,6 +1081,15 @@ export function PageAccueil() {
               </button>
             </form>
 
+            <div className="hero-actions">
+              <Link href="/chat" className="bouton-principal">
+                Ouvrir Toumaï
+              </Link>
+              <a href="#demonstration" className="bouton-secondaire">
+                Voir une démonstration
+              </a>
+            </div>
+
             <div className="quick-actions" aria-label="Exemples d’utilisation">
               {RACCOURCIS.map((r) => (
                 <button key={r.nom} type="button" onClick={() => remplir(r.prompt)}>
@@ -1090,26 +1099,21 @@ export function PageAccueil() {
             </div>
           </div>
 
-          <div className="hero-visual" aria-label="Portrait original de Toumaï en réflexion">
-            <div className="hero-art">
-              {/* LE PORTRAIT EST SERVI EN WEBP, ET LE PNG NE SUIT PAS.
-                *
-                * L'original pèse 2 097 Ko, le WebP 111 Ko — dix-neuf fois moins
-                * pour la même image. Garder le PNG en repli coûterait deux
-                * mégaoctets dans le dépôt et dans le déploiement au bénéfice
-                * de navigateurs qui n'existent plus : WebP est servi partout
-                * depuis 2020. Le PNG d'origine reste dans l'archive du code
-                * source, à côté, pour qui veut la maquette d'origine. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/accueil-medias/toumai-thinking-face.webp"
-                alt="Portrait illustré d’un jeune homme sahélien qui réfléchit, entouré de trois fragments représentant l’itération"
-                width={1448}
-                height={1086}
-              />
-            </div>
+          {/* LE PRODUIT, À LA PLACE DU PORTRAIT.
+            *
+            * La maquette mettait ici un portrait illustré. Il était beau, et
+            * il ne montrait pas Toumaï : un visiteur repartait sans avoir vu
+            * une seule fois l'application. Le portrait n'est pas perdu — il
+            * est auprès du fondateur, plus bas, où un visage a du sens.
+            *
+            * Ce qui le remplace est l'interface réelle, reproduite sans
+            * importer le chat : voir `demo/primitives.tsx`. */}
+          <div className="hero-demo">
+            <DemoToumai scenario={SCENARIO_HERO} compacte />
           </div>
         </section>
+
+        <PreuveProduit />
 
         <section className="principles" aria-label="Principes de Toumaï AI">
           <div className="shell principles-inner">
