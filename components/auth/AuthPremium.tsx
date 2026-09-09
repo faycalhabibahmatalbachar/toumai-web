@@ -9,6 +9,7 @@ import { LANG_META, LANGS, useLang, type Lang } from "@/lib/i18n/context";
 
 import "./auth.css";
 import "./auth-reference.css";
+import "./auth-compact.css";
 
 const LANG_SHORT: Record<Lang, string> = {
   fr: "FR",
@@ -179,7 +180,7 @@ export function AuthPremium({
   const copy = SHELL_COPY[lang];
 
   return (
-    <main className="auth" dir="ltr">
+    <main className={langueActive ? "auth auth-login" : "auth"} dir="ltr">
       <section className="auth-vitrine" aria-label="Univers visuel Toumaï AI">
         <CinemaToumai />
       </section>
