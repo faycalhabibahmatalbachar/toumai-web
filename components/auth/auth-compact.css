@@ -128,16 +128,39 @@
   margin: 13px 0 9px;
   font-size: 11px;
 }
-.auth-login .auth-socials { gap: 8px; }
+
+/* Google rend son propre iframe avec une largeur fixe. Le placer dans deux
+   colonnes de ~180 px le coupait visuellement. On garde le composant officiel
+   intact et on empile Google/GitHub dans une zone compacte de 240 px. */
+.auth-login .auth-socials {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  width: min(100%, 240px);
+  margin-inline: auto;
+}
 .auth-login .auth-google,
 .auth-login .auth-social {
+  width: 100%;
   min-height: 40px;
   height: 40px;
   border-radius: 7px;
 }
+.auth-login .auth-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
 .auth-login .auth-google > div {
-  transform: scale(.84);
-  transform-origin: center;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  transform: none;
+}
+.auth-login .auth-google iframe {
+  display: block;
+  max-width: 100% !important;
 }
 .auth-login .auth-social {
   padding-inline: 9px;
@@ -233,8 +256,8 @@
   .auth-login .auth-panneau-corps { width: min(100%, 350px); }
   .auth-login .auth-brand-lockup { margin-bottom: 16px; }
   .auth-login .auth-panneau h1 { font-size: 31px; }
-  .auth-login .auth-socials { grid-template-columns: 1fr; }
+  .auth-login .auth-socials { width: min(100%, 240px); }
   .auth-login .auth-google,
   .auth-login .auth-social { height: 40px; }
-  .auth-login .auth-google > div { transform: scale(.9); }
+  .auth-login .auth-google > div { transform: none; }
 }
