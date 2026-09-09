@@ -3,12 +3,12 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 import { signalerWidgetIndisponible } from "@/lib/api";
 import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
-
 import { AuthShell } from "@/components/billing/AuthShell";
 import {
   AuthPremium,
@@ -18,16 +18,45 @@ import {
 } from "@/components/auth/AuthPremium";
 import { messageAuth } from "@/components/auth/messages";
 import { safeAccountReturn } from "@/lib/payment-navigation";
-
 import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
+
+function IconeEmail() {
+  return (
+    <svg className="auth-input-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m4 7 8 6 8-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconeCadenas() {
+  return (
+    <svg className="auth-input-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <rect x="5" y="10" width="14" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconeFleche() {
+  return (
+    <svg className="auth-bouton-fleche" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M5 12h13M14 7l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconeGithub() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 .9A11.3 11.3 0 0 0 8.4 23c.56.1.77-.24.77-.54v-2.1c-3.12.68-3.78-1.33-3.78-1.33-.51-1.3-1.25-1.64-1.25-1.64-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.49-.28-5.1-1.24-5.1-5.54 0-1.22.44-2.22 1.16-3-.12-.28-.5-1.42.11-2.96 0 0 .95-.3 3.1 1.15a10.8 10.8 0 0 1 5.64 0c2.15-1.46 3.1-1.15 3.1-1.15.61 1.54.23 2.68.11 2.96.72.78 1.16 1.78 1.16 3 0 4.3-2.62 5.25-5.11 5.53.4.35.76 1.03.76 2.08v3.08c0 .3.2.65.77.54A11.3 11.3 0 0 0 12 .9Z" />
+    </svg>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const { loginWithPassword, finirAvecCode, loginWithGoogle } = useAuth();
-  /** Le jeton d'attente quand un second facteur est exigé.
-   *
-   * Tant qu'il est posé, l'écran demande le code et RIEN d'autre : aucune
-   * session n'existe encore, et le mot de passe n'a plus à être ressaisi. */
   const [defiMfa, setDefiMfa] = useState<string | null>(null);
   const [codeMfa, setCodeMfa] = useState("");
   const [email, setEmail] = useState("");
@@ -36,30 +65,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  /* Appelé pour son effet : c'est lui qui garde le plan choisi en mémoire
-   * quand on arrive avec `?plan=`. Sa valeur de retour ne sert plus ici (voir
-   * `planChoisi` plus bas). */
+
   usePaymentPlan();
   const location = usePaymentLocation();
   const parametres = new URLSearchParams(location.split("?")[1]);
   const retourCompte = safeAccountReturn(parametres.get("next"));
   const turnstile = useRef<TurnstilePoignee | null>(null);
-
-  // Arrivée depuis une session expirée (voir session-guard).
   const sessionExpiree = parametres.has("expired");
 
-  /** LE DÉCOR DE PAIEMENT SUIT L'ADRESSE, PAS LA MÉMOIRE DU NAVIGATEUR.
-   *
-   * `usePaymentPlan` retombe sur le plan gardé en `sessionStorage` quand
-   * l'adresse n'en porte pas. Il suffisait donc d'avoir regardé un tarif dans
-   * la même session pour que `/login/` se rhabille en tunnel : « Retour aux
-   * offres », « Compte, Paiement, Confirmation », alors qu'on venait
-   * simplement se connecter.
-   *
-   * Le parcours commercial porte son plan dans l'adresse d'un bout à l'autre
-   * (les liens vers `/register/` et `/login/` le recopient) : c'est donc là, et
-   * seulement là, qu'on le lit. Le plan reste en mémoire pour une reprise
-   * depuis les tarifs ; il n'habille plus l'écran de connexion ordinaire. */
   const planUrl = publicPlanId(parametres.get("plan"));
   const planChoisi =
     planUrl === "essentiel" || planUrl === "toumai_5" ? planUrl : null;
@@ -72,16 +85,12 @@ export default function LoginPage() {
     try {
       const defi = await loginWithPassword(email, password, turnstileToken);
       if (defi) {
-        // Le mot de passe est bon, mais il ne suffit plus. On bascule sur la
-        // demande de code sans ouvrir la moindre session.
         setDefiMfa(defi.mfaPendingToken);
         return;
       }
       router.replace(destination);
     } catch (err) {
       setError(messageAuth(err, "Échec de connexion."));
-      // Un jeton Turnstile ne sert qu'une fois : sans remise à zéro, la
-      // tentative suivante échouerait sur un jeton déjà consommé.
       turnstile.current?.reinitialiser();
     } finally {
       setLoading(false);
@@ -117,7 +126,6 @@ export default function LoginPage() {
     }
   }
 
-  /** Le message d'erreur, dans un conteneur signalé aux lecteurs d'écran. */
   const messageErreur = error && (
     <p role="alert" className="auth-erreur">
       <IconeAlerte />
@@ -125,21 +133,14 @@ export default function LoginPage() {
     </p>
   );
 
-  // ── LE SECOND FACTEUR PREND TOUT L'ÉCRAN ────────────────────────────────
-  //
-  // Un écran séparé, et non un champ ajouté sous le mot de passe : à ce
-  // stade, le mot de passe est déjà accepté et n'a plus à être ressaisi. Le
-  // laisser visible inviterait à le retaper, et à croire qu'il a échoué.
   if (defiMfa) {
     const codeCorps = (
-      <form onSubmit={soumettreCode} className="auth-formulaire" style={{ marginTop: 26 }}>
+      <form onSubmit={soumettreCode} className="auth-formulaire">
         <label className="auth-champ">
           <span className="auth-etiquette">Code de vérification</span>
           <input
             autoFocus
             required
-            // `inputMode` fait sortir le pavé numérique sur mobile, et
-            // `one-time-code` laisse le téléphone proposer le code lui-même.
             inputMode="text"
             autoComplete="one-time-code"
             placeholder="123456"
@@ -151,29 +152,28 @@ export default function LoginPage() {
           />
         </label>
         {messageErreur}
-        <div style={{ marginTop: 18 }}>
-          <button type="submit" disabled={loading || !codeMfa.trim()} className="auth-bouton">
-            {loading && <span className="auth-rotative" aria-hidden="true" />}
-            {loading ? "Vérification…" : "Continuer"}
-          </button>
-          <button
-            type="button"
-            className="auth-bouton-discret"
-            onClick={() => {
-              setDefiMfa(null);
-              setCodeMfa("");
-              setError(null);
-              turnstile.current?.reinitialiser();
-            }}
-          >
-            Revenir à la connexion
-          </button>
-        </div>
+        <button type="submit" disabled={loading || !codeMfa.trim()} className="auth-bouton">
+          {loading && <span className="auth-rotative" aria-hidden="true" />}
+          {loading ? "Vérification…" : "Continuer"}
+          {!loading && <IconeFleche />}
+        </button>
+        <button
+          type="button"
+          className="auth-bouton-discret"
+          onClick={() => {
+            setDefiMfa(null);
+            setCodeMfa("");
+            setError(null);
+            turnstile.current?.reinitialiser();
+          }}
+        >
+          Revenir à la connexion
+        </button>
       </form>
     );
 
     const introCode =
-      "Saisissez le code à six chiffres de votre application d’authentification. Un code de secours fonctionne aussi.";
+      "Saisissez le code à six chiffres de votre application d’authentification.";
 
     if (planChoisi) {
       return (
@@ -188,13 +188,11 @@ export default function LoginPage() {
     }
 
     return (
-      <AuthPremium titre="Vérification en deux étapes" intro={introCode}>
+      <AuthPremium titre="Vérification" intro={introCode}>
         {codeCorps}
       </AuthPremium>
     );
   }
-
-  // ── LA CONNEXION ────────────────────────────────────────────────────────
 
   const corps = (
     <>
@@ -202,8 +200,7 @@ export default function LoginPage() {
         <p role="status" className="auth-avis">
           <IconeInfo />
           <span>
-            <strong>Votre session a expiré.</strong> Reconnectez-vous pour reprendre où
-            vous en étiez.
+            <strong>Votre session a expiré.</strong> Reconnectez-vous pour continuer.
           </span>
         </p>
       )}
@@ -215,38 +212,34 @@ export default function LoginPage() {
         </p>
       )}
 
-      <div className="auth-google">
-        <GoogleSignInButton onCredential={onGoogleCredential} />
-      </div>
-
-      <p className="auth-separateur">ou</p>
-
       <form onSubmit={submit} className="auth-formulaire">
         <label className="auth-champ">
           <span className="auth-etiquette">Adresse e-mail</span>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="vous@exemple.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            aria-invalid={error ? true : undefined}
-            className="auth-saisie"
-          />
+          <span className="auth-input-wrap">
+            <IconeEmail />
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="votre@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              aria-invalid={error ? true : undefined}
+              className="auth-saisie"
+            />
+          </span>
         </label>
 
         <label className="auth-champ">
           <span className="auth-etiquette">Mot de passe</span>
           <span className="auth-mdp">
+            <IconeCadenas />
             <input
-              // Le type bascule, `autoComplete` ne bouge pas : c'est lui que
-              // regardent les gestionnaires de mots de passe.
               type={voirMotDePasse ? "text" : "password"}
               autoComplete="current-password"
               required
-              placeholder="••••••••"
+              placeholder="Votre mot de passe"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
@@ -271,8 +264,6 @@ export default function LoginPage() {
 
         {messageErreur}
 
-        {/* La vérification anti-robot est intacte : même widget, même jeton à
-            usage unique, même contrôle serveur. Seule sa place change. */}
         <div className="auth-turnstile">
           <Turnstile
             onToken={setTurnstileToken}
@@ -284,11 +275,29 @@ export default function LoginPage() {
         <button type="submit" disabled={loading} className="auth-bouton">
           {loading && <span className="auth-rotative" aria-hidden="true" />}
           {loading ? "Connexion…" : "Se connecter"}
+          {!loading && <IconeFleche />}
         </button>
       </form>
 
+      <p className="auth-separateur">Ou continuer avec</p>
+
+      <div className="auth-socials">
+        <div className="auth-google">
+          <GoogleSignInButton onCredential={onGoogleCredential} />
+        </div>
+        <button
+          type="button"
+          className="auth-social"
+          onClick={() => setError("La connexion GitHub sera disponible dès que le fournisseur OAuth GitHub sera configuré côté serveur.")}
+          aria-label="Continuer avec GitHub"
+        >
+          <IconeGithub />
+          <span>Continuer avec GitHub</span>
+        </button>
+      </div>
+
       <p className="auth-bascule">
-        Pas encore de compte ?{" "}
+        Vous n’avez pas encore de compte ?{" "}
         <Link href={planChoisi ? `/register/?plan=${planChoisi}` : "/register/"}>
           Créer un compte
         </Link>
@@ -296,16 +305,11 @@ export default function LoginPage() {
     </>
   );
 
-  // ARRIVÉE DEPUIS UN TARIF : le décor de paiement garde son sens.
-  //
-  // « Retour aux offres » et « Compte → Paiement → Confirmation » disent alors
-  // d'où l'on vient et ce qui reste à faire. Sur une connexion ordinaire, ils
-  // annonçaient une transaction qui n'aurait pas lieu — ils n'y sont plus.
   if (planChoisi) {
     return (
       <AuthShell planId={planChoisi}>
         <div className="w-full">
-          <h1 className="mb-2 text-2xl font-semibold">Heureux de vous revoir</h1>
+          <h1 className="mb-2 text-2xl font-semibold">Connexion</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             Connectez-vous pour retrouver votre offre et continuer.
           </p>
@@ -316,10 +320,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthPremium
-      titre="Heureux de vous revoir"
-      intro="Connectez-vous pour retrouver vos conversations, vos documents et vos connecteurs."
-    >
+    <AuthPremium titre="Connexion" intro="Bienvenue de retour.">
       {corps}
     </AuthPremium>
   );
