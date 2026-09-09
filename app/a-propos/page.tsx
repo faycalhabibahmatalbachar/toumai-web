@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LegalLayout } from "@/components/LegalLayout";
+import { EditorialDocument } from "@/components/editorial/EditorialDocument";
 
 export const metadata: Metadata = {
-  title: "À propos de Toumaï AI — IA conçue au Tchad",
+  title: { absolute: "À propos de Toumaï AI — IA conçue au Tchad" },
+  twitter: { card: "summary_large_image", title: "À propos de Toumaï AI", description: "Notre mission, notre origine et notre produit conçu à N’Djamena.", images: ["/og-image.png"] },
   description:
     "Toumaï AI est un assistant d’intelligence artificielle conçu à N’Djamena, pour écrire, chercher, apprendre et travailler dans plusieurs langues.",
   alternates: {
@@ -36,7 +37,7 @@ export default function AboutPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ABOUT_LD }} />
-      <LegalLayout title="À propos de Toumaï AI">
+      <EditorialDocument title="À propos de Toumaï AI" intro="Conçu à N’Djamena, ouvert sur le monde. Notre mission : rendre l’intelligence artificielle utile dans les langues et les tâches du quotidien.">
         <p>
           <strong>Toumaï AI</strong> est un assistant d&apos;intelligence artificielle
           conçu à N&apos;Djamena, au Tchad. Il réunit chat, rédaction, code, images,
@@ -110,7 +111,7 @@ export default function AboutPage() {
           notre page sur <Link href="/intelligence-artificielle-tchad" className="underline underline-offset-2">l&apos;intelligence artificielle au Tchad</Link>,
           ou <Link href="/chat" className="font-semibold underline underline-offset-2">essayez le chat</Link>.
         </p>
-      </LegalLayout>
+      </EditorialDocument>
     </>
   );
 }
