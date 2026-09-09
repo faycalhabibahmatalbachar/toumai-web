@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { Logo } from "@/components/Logo";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 import { signalerWidgetIndisponible } from "@/lib/api";
 import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
 
 import { AuthShell } from "@/components/billing/AuthShell";
+import {
+  AuthPremium,
+  IconeAlerte,
+  IconeOeil,
+} from "@/components/auth/AuthPremium";
 import { usePaymentPlan } from "@/hooks/use-payment-navigation";
 
 export default function RegisterPage() {
@@ -23,6 +27,7 @@ export default function RegisterPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [voirMotDePasse, setVoirMotDePasse] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const planChoisi = usePaymentPlan();
   const turnstile = useRef<TurnstilePoignee | null>(null);
@@ -48,8 +53,8 @@ export default function RegisterPage() {
         router.replace(destination);
       } else {
         setInfo(planChoisi
-          ? "Compte créé — confirmez votre e-mail, puis reconnectez-vous pour reprendre votre paiement."
-          : "Compte créé — confirmez votre e-mail avant de vous connecter.");
+          ? "Compte créé. Confirmez votre e-mail, puis reconnectez-vous pour reprendre votre paiement."
+          : "Compte créé. Confirmez votre e-mail avant de vous connecter.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'inscription");
@@ -74,102 +79,143 @@ export default function RegisterPage() {
     }
   }
 
-  return (
-    <AuthShell planId={planChoisi} register>
-      <div className="w-full">
-        <div className="mb-6 flex justify-center">
-          <Logo size={44} />
-        </div>
-        <h1 className="mb-2 text-center text-2xl font-semibold">Créez votre compte</h1>
-        <p className="mb-5 text-center text-sm text-[var(--text-secondary)]">
-          Vous recevrez des réponses plus riches et pourrez importer des
-          fichiers, générer des images, et bien plus encore.
+  const corps = (
+    <>
+      {planChoisi && (
+        <p className="auth-offre">
+          Vous avez choisi <strong>{PLAN_CATALOG[planChoisi].publicName}</strong>,{" "}
+          {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA pour 30 jours.
+          Créez votre compte pour continuer.
         </p>
-        {planChoisi && (
-          <p className="billing-chosen-plan">
-            Vous avez choisi <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA / 30 jours. Créez votre compte pour continuer.
-          </p>
-        )}
+      )}
 
-        <div className="mb-5">
-          <GoogleSignInButton onCredential={onGoogleCredential} />
-        </div>
+      <div className="auth-google">
+        <GoogleSignInButton onCredential={onGoogleCredential} />
+      </div>
 
-        <div className="my-6 flex items-center gap-3 text-xs text-[var(--text-tertiary)]">
-          <div className="h-px flex-1 bg-[var(--border)]" />
-          OU
-          <div className="h-px flex-1 bg-[var(--border)]" />
-        </div>
+      <p className="auth-separateur">ou</p>
 
-        <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="auth-formulaire">
+        <label className="auth-champ">
+          <span className="auth-etiquette">Nom</span>
           <input
             type="text"
             required
-            aria-label="Nom" autoComplete="name" placeholder="Nom"
+            autoComplete="name"
+            placeholder="Votre nom"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
+            disabled={loading}
+            className="auth-saisie"
           />
+        </label>
+
+        <label className="auth-champ">
+          <span className="auth-etiquette">Adresse e-mail</span>
           <input
             type="email"
             required
-            aria-label="Adresse e-mail" autoComplete="email" placeholder="Adresse e-mail"
+            autoComplete="email"
+            placeholder="vous@exemple.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
+            disabled={loading}
+            className="auth-saisie"
           />
-          <input
-            type="password" aria-label="Mot de passe" autoComplete="new-password"
-            required
-            placeholder="Mot de passe (8+ caractères)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
-          />
-          <label className="flex items-start gap-2.5 px-2 text-xs text-[var(--text-secondary)]">
+        </label>
+
+        <label className="auth-champ">
+          <span className="auth-etiquette">Mot de passe</span>
+          <span className="auth-mdp">
             <input
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--primary)]"
+              type={voirMotDePasse ? "text" : "password"}
+              autoComplete="new-password"
+              required
+              minLength={8}
+              placeholder="8 caractères au minimum"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              className="auth-saisie"
             />
-            <span>
-              J&apos;accepte les{" "}
-              <Link href="/terms" className="font-medium underline" style={{ color: "var(--primary)" }}>
-                conditions générales
-              </Link>{" "}
-              et la{" "}
-              <Link href="/privacy" className="font-medium underline" style={{ color: "var(--primary)" }}>
-                politique de confidentialité
-              </Link>
-              .
-            </span>
-          </label>
-          {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
-          {info && <p role="status" className="px-2 text-sm text-[var(--success)]">{info}</p>}
+            <button
+              type="button"
+              className="auth-oeil"
+              onClick={() => setVoirMotDePasse((v) => !v)}
+              aria-label={voirMotDePasse ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              aria-pressed={voirMotDePasse}
+            >
+              <IconeOeil ouvert={voirMotDePasse} />
+            </button>
+          </span>
+        </label>
+
+        <label className="auth-conditions">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+          />
+          <span>
+            J&apos;accepte les <Link href="/terms/">conditions générales</Link> et la{" "}
+            <Link href="/privacy/">politique de confidentialité</Link>.
+          </span>
+        </label>
+
+        {error && (
+          <p role="alert" className="auth-erreur">
+            <IconeAlerte />
+            <span>{error}</span>
+          </p>
+        )}
+        {info && (
+          <p role="status" className="auth-info">
+            {info}
+          </p>
+        )}
+
+        <div className="auth-turnstile">
           <Turnstile
             onToken={setTurnstileToken}
             onIndisponible={signalerWidgetIndisponible}
             poignee={turnstile}
           />
-          <button
-            type="submit"
-            disabled={loading || !acceptedTerms}
-            className="w-full rounded-full py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-            style={{ background: "var(--primary)" }}
-          >
-            {loading ? "Création…" : "Continuer"}
-          </button>
-        </form>
+        </div>
 
+        <button type="submit" disabled={loading || !acceptedTerms} className="auth-bouton">
+          {loading && <span className="auth-rotative" aria-hidden="true" />}
+          {loading ? "Création…" : "Créer mon compte"}
+        </button>
+      </form>
 
-        <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
-          Déjà un compte ?{" "}
-          <Link href={planChoisi ? `/login?plan=${planChoisi}` : "/login"} className="font-semibold" style={{ color: "var(--primary)" }}>
-            Se connecter
-          </Link>
-        </p>
-      </div>
-    </AuthShell>
+      <p className="auth-bascule">
+        Déjà un compte ?{" "}
+        <Link href={planChoisi ? `/login/?plan=${planChoisi}` : "/login/"}>Se connecter</Link>
+      </p>
+    </>
+  );
+
+  // ARRIVÉE DEPUIS UN TARIF : le décor de paiement garde son sens.
+  if (planChoisi) {
+    return (
+      <AuthShell planId={planChoisi} register>
+        <div className="w-full">
+          <h1 className="mb-2 text-2xl font-semibold">Créez votre compte</h1>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Il ne manque plus que cela pour continuer vers le paiement.
+          </p>
+          {corps}
+        </div>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthPremium
+      titre="Créez votre compte"
+      intro="Quelques secondes suffisent. Vos conversations, vos documents et vos connecteurs vous attendent ensuite."
+    >
+      {corps}
+    </AuthPremium>
   );
 }

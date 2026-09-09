@@ -164,7 +164,7 @@ export function Turnstile({
   if (echec) {
     return (
       <p className="text-xs" style={{ color: "var(--landing-muted)" }}>
-        Vérification anti-robot indisponible — vous pouvez continuer.
+        Vérification anti-robot indisponible sur ce navigateur. Vous pouvez continuer.
       </p>
     );
   }

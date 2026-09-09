@@ -5,12 +5,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { Logo } from "@/components/Logo";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 import { signalerWidgetIndisponible } from "@/lib/api";
 import { checkoutUrl, PLAN_CATALOG } from "@/lib/plan-catalog";
 
 import { AuthShell } from "@/components/billing/AuthShell";
+import {
+  AuthPremium,
+  IconeAlerte,
+  IconeInfo,
+  IconeOeil,
+} from "@/components/auth/AuthPremium";
 import { safeAccountReturn } from "@/lib/payment-navigation";
 
 import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
@@ -26,6 +31,7 @@ export default function LoginPage() {
   const [codeMfa, setCodeMfa] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [voirMotDePasse, setVoirMotDePasse] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -36,6 +42,7 @@ export default function LoginPage() {
   const turnstile = useRef<TurnstilePoignee | null>(null);
 
   // Arrivée depuis une session expirée (voir session-guard).
+  const sessionExpiree = parametres.has("expired");
   const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
 
   async function submit(e: React.FormEvent) {
@@ -90,137 +97,210 @@ export default function LoginPage() {
     }
   }
 
+  /** Le message d'erreur, dans un conteneur signalé aux lecteurs d'écran. */
+  const messageErreur = error && (
+    <p role="alert" className="auth-erreur">
+      <IconeAlerte />
+      <span>{error}</span>
+    </p>
+  );
+
   // ── LE SECOND FACTEUR PREND TOUT L'ÉCRAN ────────────────────────────────
   //
   // Un écran séparé, et non un champ ajouté sous le mot de passe : à ce
   // stade, le mot de passe est déjà accepté et n'a plus à être ressaisi. Le
   // laisser visible inviterait à le retaper, et à croire qu'il a échoué.
   if (defiMfa) {
+    const codeCorps = (
+      <form onSubmit={soumettreCode} className="auth-formulaire" style={{ marginTop: 26 }}>
+        <label className="auth-champ">
+          <span className="auth-etiquette">Code de vérification</span>
+          <input
+            autoFocus
+            required
+            // `inputMode` fait sortir le pavé numérique sur mobile, et
+            // `one-time-code` laisse le téléphone proposer le code lui-même.
+            inputMode="text"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            aria-label="Code à six chiffres ou code de secours"
+            value={codeMfa}
+            onChange={(e) => setCodeMfa(e.target.value)}
+            disabled={loading}
+            className="auth-saisie auth-code"
+          />
+        </label>
+        {messageErreur}
+        <div style={{ marginTop: 18 }}>
+          <button type="submit" disabled={loading || !codeMfa.trim()} className="auth-bouton">
+            {loading && <span className="auth-rotative" aria-hidden="true" />}
+            {loading ? "Vérification…" : "Continuer"}
+          </button>
+          <button
+            type="button"
+            className="auth-bouton-discret"
+            onClick={() => {
+              setDefiMfa(null);
+              setCodeMfa("");
+              setError(null);
+              turnstile.current?.reinitialiser();
+            }}
+          >
+            Revenir à la connexion
+          </button>
+        </div>
+      </form>
+    );
+
+    const introCode =
+      "Saisissez le code à six chiffres de votre application d’authentification. Un code de secours fonctionne aussi.";
+
+    if (planChoisi) {
+      return (
+        <AuthShell planId={planChoisi}>
+          <div className="w-full">
+            <h1 className="mb-2 text-2xl font-semibold">Vérification en deux étapes</h1>
+            <p className="text-sm text-[var(--text-secondary)]">{introCode}</p>
+            {codeCorps}
+          </div>
+        </AuthShell>
+      );
+    }
+
+    return (
+      <AuthPremium titre="Vérification en deux étapes" intro={introCode}>
+        {codeCorps}
+      </AuthPremium>
+    );
+  }
+
+  // ── LA CONNEXION ────────────────────────────────────────────────────────
+
+  const corps = (
+    <>
+      {sessionExpiree && (
+        <p role="status" className="auth-avis">
+          <IconeInfo />
+          <span>
+            <strong>Votre session a expiré.</strong> Reconnectez-vous pour reprendre où
+            vous en étiez.
+          </span>
+        </p>
+      )}
+
+      {planChoisi && (
+        <p className="auth-offre">
+          Reprenez votre choix : <strong>{PLAN_CATALOG[planChoisi].publicName}</strong>,{" "}
+          {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA pour 30 jours.
+        </p>
+      )}
+
+      <div className="auth-google">
+        <GoogleSignInButton onCredential={onGoogleCredential} />
+      </div>
+
+      <p className="auth-separateur">ou</p>
+
+      <form onSubmit={submit} className="auth-formulaire">
+        <label className="auth-champ">
+          <span className="auth-etiquette">Adresse e-mail</span>
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="vous@exemple.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+            aria-invalid={error ? true : undefined}
+            className="auth-saisie"
+          />
+        </label>
+
+        <label className="auth-champ">
+          <span className="auth-etiquette">Mot de passe</span>
+          <span className="auth-mdp">
+            <input
+              // Le type bascule, `autoComplete` ne bouge pas : c'est lui que
+              // regardent les gestionnaires de mots de passe.
+              type={voirMotDePasse ? "text" : "password"}
+              autoComplete="current-password"
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              aria-invalid={error ? true : undefined}
+              className="auth-saisie"
+            />
+            <button
+              type="button"
+              className="auth-oeil"
+              onClick={() => setVoirMotDePasse((v) => !v)}
+              aria-label={voirMotDePasse ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              aria-pressed={voirMotDePasse}
+            >
+              <IconeOeil ouvert={voirMotDePasse} />
+            </button>
+          </span>
+        </label>
+
+        <p className="auth-ligne-oubli">
+          <Link href="/forgot/">Mot de passe oublié ?</Link>
+        </p>
+
+        {messageErreur}
+
+        {/* La vérification anti-robot est intacte : même widget, même jeton à
+            usage unique, même contrôle serveur. Seule sa place change. */}
+        <div className="auth-turnstile">
+          <Turnstile
+            onToken={setTurnstileToken}
+            onIndisponible={signalerWidgetIndisponible}
+            poignee={turnstile}
+          />
+        </div>
+
+        <button type="submit" disabled={loading} className="auth-bouton">
+          {loading && <span className="auth-rotative" aria-hidden="true" />}
+          {loading ? "Connexion…" : "Se connecter"}
+        </button>
+      </form>
+
+      <p className="auth-bascule">
+        Pas encore de compte ?{" "}
+        <Link href={planChoisi ? `/register/?plan=${planChoisi}` : "/register/"}>
+          Créer un compte
+        </Link>
+      </p>
+    </>
+  );
+
+  // ARRIVÉE DEPUIS UN TARIF : le décor de paiement garde son sens.
+  //
+  // « Retour aux offres » et « Compte → Paiement → Confirmation » disent alors
+  // d'où l'on vient et ce qui reste à faire. Sur une connexion ordinaire, ils
+  // annonçaient une transaction qui n'aurait pas lieu — ils n'y sont plus.
+  if (planChoisi) {
     return (
       <AuthShell planId={planChoisi}>
         <div className="w-full">
-          <div className="mb-6 flex justify-center">
-            <Logo size={44} />
-          </div>
-          <h1 className="mb-2 text-center text-2xl font-semibold">Vérification en deux étapes</h1>
-          <p className="mb-8 text-center text-sm text-[var(--text-secondary)]">
-            Saisissez le code à six chiffres de votre application
-            d&apos;authentification. Vous pouvez aussi utiliser l&apos;un de vos
-            codes de secours.
+          <h1 className="mb-2 text-2xl font-semibold">Heureux de vous revoir</h1>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Connectez-vous pour retrouver votre offre et continuer.
           </p>
-          <form onSubmit={soumettreCode} className="space-y-3">
-            <input
-              autoFocus
-              required
-              // `inputMode` fait sortir le pavé numérique sur mobile, et
-              // `one-time-code` laisse le téléphone proposer le code lui-même.
-              inputMode="text"
-              autoComplete="one-time-code"
-              placeholder="123456 ou code de secours"
-              value={codeMfa}
-              onChange={(e) => setCodeMfa(e.target.value)}
-              className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-center text-lg tracking-[0.2em] outline-none focus:border-[var(--primary)]"
-            />
-            {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading || !codeMfa.trim()}
-              className="w-full rounded-full py-3 text-sm font-medium text-white transition disabled:opacity-50"
-              style={{ background: "var(--primary)" }}
-            >
-              {loading ? "Vérification…" : "Continuer"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDefiMfa(null);
-                setCodeMfa("");
-                setError(null);
-                turnstile.current?.reinitialiser();
-              }}
-              className="w-full rounded-full py-2 text-sm text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]"
-            >
-              Revenir à la connexion
-            </button>
-          </form>
+          {corps}
         </div>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell planId={planChoisi}>
-      <div className="w-full">
-        <div className="mb-6 flex justify-center">
-          <Logo size={44} />
-        </div>
-        <h1 className="mb-2 text-center text-2xl font-semibold">Content de vous revoir</h1>
-        <p className="mb-5 text-center text-sm text-[var(--text-secondary)]">
-          Connectez-vous pour retrouver vos conversations et préférences.
-        </p>
-        {parametres.has("expired") && <p role="status" className="billing-notice">Votre session a expiré — reconnectez-vous pour continuer.</p>}
-        {planChoisi && (
-          <p className="billing-chosen-plan">
-            Reprenez votre choix : <strong>{PLAN_CATALOG[planChoisi].publicName}</strong> — {PLAN_CATALOG[planChoisi].amount.toLocaleString("fr-FR")} FCFA / 30 jours.
-          </p>
-        )}
-
-        <div className="mb-5">
-          <GoogleSignInButton onCredential={onGoogleCredential} />
-        </div>
-
-        <div className="my-6 flex items-center gap-3 text-xs text-[var(--text-tertiary)]">
-          <div className="h-px flex-1 bg-[var(--border)]" />
-          OU
-          <div className="h-px flex-1 bg-[var(--border)]" />
-        </div>
-
-        <form onSubmit={submit} className="space-y-3">
-          <input
-            type="email"
-            required
-            aria-label="Adresse e-mail" autoComplete="email" placeholder="Adresse e-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
-          />
-          <input
-            type="password" aria-label="Mot de passe" autoComplete="current-password"
-            required
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-3 text-sm outline-none focus:border-[var(--primary)]"
-          />
-          <p className="px-2 text-right text-xs">
-            <Link href="/forgot" className="text-[var(--text-tertiary)] hover:text-[var(--primary)]">
-              Mot de passe oublié ?
-            </Link>
-          </p>
-          {error && <p role="alert" className="px-2 text-sm text-[var(--error)]">{error}</p>}
-          <Turnstile
-            onToken={setTurnstileToken}
-            onIndisponible={signalerWidgetIndisponible}
-            poignee={turnstile}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-full py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-            style={{ background: "var(--primary)" }}
-          >
-            {loading ? "Connexion…" : "Continuer"}
-          </button>
-        </form>
-
-
-        <p className="mt-6 text-center text-sm text-[var(--text-secondary)]">
-          Pas encore de compte ?{" "}
-          <Link href={planChoisi ? `/register?plan=${planChoisi}` : "/register"} className="font-semibold" style={{ color: "var(--primary)" }}>
-            Créer un compte
-          </Link>
-        </p>
-      </div>
-    </AuthShell>
+    <AuthPremium
+      titre="Heureux de vous revoir"
+      intro="Connectez-vous pour retrouver vos conversations, vos documents et vos connecteurs."
+    >
+      {corps}
+    </AuthPremium>
   );
 }
