@@ -138,7 +138,7 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  width: min(100%, 260px);
+  width: min(100%, 400px);
   margin-inline: auto;
 }
 .auth-login .auth-google,
@@ -262,7 +262,7 @@
   .auth-login .auth-brand-lockup { margin-bottom: 16px; }
   .auth-login .auth-panneau h1 { font-size: 31px; }
   .auth-login .auth-saisie { height: 47px; }
-  .auth-login .auth-socials { width: min(100%, 260px); }
+  .auth-login .auth-socials { width: min(100%, 400px); }
   .auth-login .auth-google,
   .auth-login .auth-social { height: 43px; }
   .auth-login .auth-google > div { transform: none; }
