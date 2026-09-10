@@ -1,8 +1,9 @@
-/* Ajustements dédiés à /login : l'écran doit tenir dans un viewport desktop
-   standard sans barre de défilement ni formulaire surdimensionné. */
+/* Dimensions communes aux écrans d'authentification Toumaï AI.
+   Le panneau formulaire est volontairement plus large et tous les formulaires
+   utilisent la même géométrie sur login/register/forgot/reset-password. */
 
 .auth-login {
-  grid-template-columns: minmax(0, 62%) minmax(390px, 38%);
+  grid-template-columns: minmax(0, 55%) minmax(470px, 45%);
   height: 100svh;
   min-height: 100svh;
   overflow: hidden;
@@ -11,140 +12,141 @@
 .auth-login .auth-panneau {
   height: 100svh;
   min-height: 0;
-  padding: 18px clamp(22px, 3vw, 42px) 14px;
+  padding: 22px clamp(30px, 4vw, 62px) 18px;
   overflow: hidden;
 }
 
 .auth-login .auth-panneau-corps {
   flex: 1;
-  width: min(100%, 370px);
+  width: min(100%, 440px);
   min-height: 0;
-  padding: 26px 0 8px;
+  padding: 28px 0 10px;
   justify-content: center;
 }
 
 .auth-login .auth-brand-lockup {
-  gap: 11px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 .auth-login .auth-brand-lockup img {
-  width: 42px !important;
-  height: 42px !important;
+  width: 44px !important;
+  height: 44px !important;
 }
 .auth-login .auth-brand-copy strong {
-  font-size: clamp(25px, 1.75vw, 33px);
+  font-size: clamp(26px, 1.8vw, 34px);
 }
 .auth-login .auth-brand-copy small {
   margin-top: 6px;
-  font-size: 5.8px;
+  font-size: 6px;
   letter-spacing: .48em;
 }
 
 .auth-login .auth-panneau h1 {
-  font-size: clamp(31px, 2.1vw, 38px);
+  font-size: clamp(32px, 2.2vw, 40px);
   line-height: 1;
 }
 .auth-login .auth-sous-titre {
-  margin-top: 6px;
-  font-size: 13.5px;
-  line-height: 1.35;
+  margin-top: 7px;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .auth-login .auth-langue {
-  top: 14px;
-  right: 16px;
+  top: 16px;
+  right: 18px;
 }
 .auth-login .auth-langue-bouton {
-  min-width: 44px;
-  height: 30px;
-  padding-inline: 8px;
-  font-size: 11.5px;
+  min-width: 46px;
+  height: 32px;
+  padding-inline: 9px;
+  font-size: 12px;
 }
 .auth-login .auth-langue-menu {
-  width: 176px;
-  top: calc(100% + 5px);
+  width: 182px;
+  top: calc(100% + 6px);
   padding: 5px;
 }
 .auth-login .auth-langue-menu button {
-  min-height: 34px;
+  min-height: 36px;
+  font-size: 12.5px;
+}
+
+.auth-login .auth-formulaire { margin-top: 17px; }
+.auth-login .auth-champ + .auth-champ { margin-top: 11px; }
+.auth-login .auth-etiquette {
+  margin-bottom: 5px;
+  font-size: 12.2px;
+}
+.auth-login .auth-saisie {
+  height: 48px;
+  padding-left: 42px;
+  border-radius: 9px;
+  font-size: 13.5px;
+}
+.auth-login .auth-mdp .auth-saisie { padding-right: 44px; }
+.auth-login .auth-input-icone {
+  left: 13px;
+  width: 17px;
+  height: 17px;
+}
+.auth-login .auth-oeil {
+  right: 4px;
+  width: 39px;
+  height: 39px;
+}
+.auth-login .auth-ligne-oubli {
+  margin-top: 6px;
   font-size: 12px;
 }
 
-.auth-login .auth-formulaire { margin-top: 15px; }
-.auth-login .auth-champ + .auth-champ { margin-top: 9px; }
-.auth-login .auth-etiquette {
-  margin-bottom: 4px;
-  font-size: 11.8px;
-}
-.auth-login .auth-saisie {
-  height: 44px;
-  padding-left: 39px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-.auth-login .auth-mdp .auth-saisie { padding-right: 40px; }
-.auth-login .auth-input-icone {
-  left: 12px;
-  width: 16px;
-  height: 16px;
-}
-.auth-login .auth-oeil {
-  right: 3px;
-  width: 36px;
-  height: 36px;
-}
-.auth-login .auth-ligne-oubli {
-  margin-top: 5px;
-  font-size: 11.5px;
+.auth-login .auth-conditions {
+  margin-top: 11px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .auth-login .auth-turnstile {
-  margin-top: 6px;
-  min-height: 52px;
-  max-height: 54px;
+  margin-top: 7px;
+  min-height: 54px;
+  max-height: 56px;
   overflow: visible;
 }
-/* Turnstile normal fait environ 300×65. On garde le vrai widget et ses
-   contrôles, mais on le présente plus discrètement sur l'écran de connexion. */
 .auth-login .auth-turnstile > div {
-  transform: scale(.82);
+  transform: scale(.84);
   transform-origin: center top;
-  margin-bottom: -12px;
+  margin-bottom: -10px;
 }
 
 .auth-login .auth-bouton {
-  min-height: 44px;
-  margin-top: 8px;
-  gap: 9px;
-  font-size: 13.5px;
+  min-height: 48px;
+  margin-top: 9px;
+  gap: 10px;
+  font-size: 14px;
 }
 .auth-login .auth-bouton-fleche {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
 }
 
 .auth-login .auth-separateur {
-  gap: 10px;
-  margin: 13px 0 9px;
-  font-size: 11px;
+  gap: 11px;
+  margin: 14px 0 10px;
+  font-size: 11.5px;
 }
 
-/* Google rend son propre iframe avec une largeur fixe. Le placer dans deux
-   colonnes de ~180 px le coupait visuellement. On garde le composant officiel
-   intact et on empile Google/GitHub dans une zone compacte de 240 px. */
 .auth-login .auth-socials {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 7px;
-  width: min(100%, 240px);
+  gap: 8px;
+  width: min(100%, 260px);
   margin-inline: auto;
 }
 .auth-login .auth-google,
 .auth-login .auth-social {
   width: 100%;
-  min-height: 40px;
-  height: 40px;
-  border-radius: 7px;
+  min-height: 44px;
+  height: 44px;
+  border-radius: 8px;
 }
 .auth-login .auth-google {
   display: flex;
@@ -163,76 +165,78 @@
   max-width: 100% !important;
 }
 .auth-login .auth-social {
-  padding-inline: 9px;
-  gap: 7px;
-  font-size: 11.5px;
+  padding-inline: 10px;
+  gap: 8px;
+  font-size: 12px;
 }
 .auth-login .auth-social svg {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
 }
 
 .auth-login .auth-bascule {
-  margin-top: 15px;
-  font-size: 11.5px;
+  margin-top: 17px;
+  font-size: 12px;
 }
 .auth-login .auth-pied {
-  width: min(100%, 430px);
-  padding-top: 4px;
-  gap: 4px;
-  font-size: 9.5px;
-  line-height: 1.35;
+  width: min(100%, 470px);
+  padding-top: 5px;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 .auth-login .auth-avis,
 .auth-login .auth-erreur,
-.auth-login .auth-offre {
-  margin-top: 7px;
-  padding: 7px 9px;
-  font-size: 11px;
-  line-height: 1.35;
+.auth-login .auth-offre,
+.auth-login .auth-info {
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
 .auth-login .auth-panneau[dir="rtl"] .auth-input-icone {
   left: auto;
-  right: 12px;
+  right: 13px;
 }
 .auth-login .auth-panneau[dir="rtl"] .auth-saisie {
-  padding: 0 39px 0 12px;
+  padding: 0 42px 0 13px;
 }
 .auth-login .auth-panneau[dir="rtl"] .auth-mdp .auth-saisie {
-  padding-left: 40px;
+  padding-left: 44px;
 }
 .auth-login .auth-panneau[dir="rtl"] .auth-oeil {
   right: auto;
-  left: 3px;
+  left: 4px;
 }
 
-/* Écrans laptop courts : encore plus dense pour éviter tout défilement. */
+/* Les écrans moins hauts restent légèrement plus denses afin que les pages
+   longues, surtout l'inscription, tiennent sans couper les contrôles. */
 @media (min-width: 901px) and (max-height: 760px) {
   .auth-login .auth-panneau { padding-block: 10px; }
-  .auth-login .auth-panneau-corps { width: min(100%, 350px); padding: 14px 0 4px; }
-  .auth-login .auth-brand-lockup { margin-bottom: 11px; }
+  .auth-login .auth-panneau-corps { width: min(100%, 420px); padding: 12px 0 4px; }
+  .auth-login .auth-brand-lockup { margin-bottom: 10px; }
   .auth-login .auth-brand-lockup img { width: 36px !important; height: 36px !important; }
   .auth-login .auth-brand-copy strong { font-size: 27px; }
   .auth-login .auth-brand-copy small { margin-top: 4px; font-size: 5px; }
   .auth-login .auth-panneau h1 { font-size: 30px; }
   .auth-login .auth-sous-titre { margin-top: 4px; font-size: 12.5px; }
-  .auth-login .auth-formulaire { margin-top: 10px; }
-  .auth-login .auth-saisie { height: 40px; }
+  .auth-login .auth-formulaire { margin-top: 9px; }
+  .auth-login .auth-saisie { height: 43px; }
   .auth-login .auth-champ + .auth-champ { margin-top: 7px; }
+  .auth-login .auth-conditions { margin-top: 7px; font-size: 11px; }
   .auth-login .auth-turnstile { min-height: 46px; max-height: 46px; margin-top: 3px; }
-  .auth-login .auth-turnstile > div { transform: scale(.72); margin-bottom: -18px; }
-  .auth-login .auth-bouton { min-height: 40px; margin-top: 6px; }
+  .auth-login .auth-turnstile > div { transform: scale(.74); margin-bottom: -17px; }
+  .auth-login .auth-bouton { min-height: 43px; margin-top: 6px; }
   .auth-login .auth-separateur { margin: 9px 0 7px; }
   .auth-login .auth-google,
-  .auth-login .auth-social { min-height: 36px; height: 36px; }
-  .auth-login .auth-bascule { margin-top: 10px; }
+  .auth-login .auth-social { min-height: 39px; height: 39px; }
+  .auth-login .auth-bascule { margin-top: 9px; }
   .auth-login .auth-pied { font-size: 8.8px; }
 }
 
-/* Sur mobile il vaut mieux autoriser le défilement plutôt que couper le
-   contenu, mais le formulaire reste sensiblement plus petit qu'avant. */
+/* Sur mobile, on conserve toute la largeur utile du téléphone. */
 @media (max-width: 900px) {
   .auth-login {
     display: block;
@@ -244,20 +248,22 @@
     height: auto;
     min-height: 100svh;
     overflow: visible;
-    padding: 14px 18px 14px;
+    padding: 16px 20px 16px;
   }
   .auth-login .auth-panneau-corps {
-    width: min(100%, 370px);
-    padding: 42px 0 14px;
+    width: min(100%, 440px);
+    padding: 44px 0 16px;
   }
 }
 
 @media (max-width: 560px) {
-  .auth-login .auth-panneau-corps { width: min(100%, 350px); }
+  .auth-login .auth-panneau { padding-inline: 16px; }
+  .auth-login .auth-panneau-corps { width: 100%; }
   .auth-login .auth-brand-lockup { margin-bottom: 16px; }
   .auth-login .auth-panneau h1 { font-size: 31px; }
-  .auth-login .auth-socials { width: min(100%, 240px); }
+  .auth-login .auth-saisie { height: 47px; }
+  .auth-login .auth-socials { width: min(100%, 260px); }
   .auth-login .auth-google,
-  .auth-login .auth-social { height: 40px; }
+  .auth-login .auth-social { height: 43px; }
   .auth-login .auth-google > div { transform: none; }
 }
