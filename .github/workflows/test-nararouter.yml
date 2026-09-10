@@ -1,0 +1,71 @@
+name: Test NaraRouter
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NARAROUTER_API_KEY: ${{ secrets.NARAROUTER_API_KEY }}
+      NARAROUTER_BASE_URL: https://router.bynara.id/v1
+    steps:
+      - name: Vérifier la présence du secret
+        shell: bash
+        run: |
+          if [ -z "$NARAROUTER_API_KEY" ]; then
+            echo "Le secret GitHub NARAROUTER_API_KEY est absent."
+            exit 1
+          fi
+
+      - name: Vérifier le catalogue autorisé
+        shell: bash
+        run: |
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --max-time 30 \
+            --header "Authorization: Bearer $NARAROUTER_API_KEY" \
+            "$NARAROUTER_BASE_URL/models")"
+          if [ "$status" != "200" ]; then
+            echo "NaraRouter /models a répondu HTTP $status."
+            exit 1
+          fi
+          model_count="$(jq '.data | length' "$response_file")"
+          if [ "$model_count" -lt 1 ]; then
+            echo "Le catalogue NaraRouter est vide ou invalide."
+            exit 1
+          fi
+          echo "Catalogue NaraRouter accessible : $model_count modèles autorisés."
+
+      - name: Tester le routage automatique gratuit
+        shell: bash
+        run: |
+          request_file="$(mktemp)"
+          response_file="$(mktemp)"
+          jq -n '{
+            model: "auto/bynara",
+            messages: [{role: "user", content: "Réponds uniquement par OK."}],
+            max_tokens: 8,
+            stream: false
+          }' > "$request_file"
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --max-time 60 \
+            --header "Authorization: Bearer $NARAROUTER_API_KEY" \
+            --header 'Content-Type: application/json' \
+            --data-binary "@$request_file" \
+            "$NARAROUTER_BASE_URL/chat/completions")"
+          if [ "$status" != "200" ]; then
+            error_type="$(jq -r '.error.type // "inconnu"' "$response_file" 2>/dev/null || true)"
+            echo "NaraRouter chat a répondu HTTP $status (type : $error_type)."
+            exit 1
+          fi
+          jq -e '.choices[0].message.content | strings | length > 0' "$response_file" >/dev/null
+          echo "Réponse NaraRouter reçue et valide."
