@@ -132,7 +132,8 @@ export function ToumaiLogoMotion() {
       aria-label="Toumaï AI"
       role="img"
       style={{
-        width: "clamp(250px, 31vw, 460px)",
+        width: "100%",
+        maxWidth: "460px",
         height: "auto",
         display: "block",
         filter:
