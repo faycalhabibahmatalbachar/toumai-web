@@ -71,7 +71,7 @@
   font-size: 12.5px;
 }
 
-.auth-login .auth-formulaire { margin-top: 17px; }
+.auth-login .auth-formulaire { margin-top: 14px; }
 .auth-login .auth-champ + .auth-champ { margin-top: 11px; }
 .auth-login .auth-etiquette {
   margin-bottom: 5px;
@@ -106,15 +106,38 @@
 }
 
 .auth-login .auth-turnstile {
-  margin-top: 7px;
-  min-height: 54px;
-  max-height: 56px;
-  overflow: visible;
+  justify-content: center;
+  margin-top: 8px;
+  min-height: 52px;
+  max-height: 52px;
+  overflow: hidden;
 }
 .auth-login .auth-turnstile > div {
-  transform: scale(.84);
+  flex: none;
+  width: 300px;
+  height: 52px;
+  transform: scale(.8);
   transform-origin: center top;
-  margin-bottom: -10px;
+}
+.auth-login .auth-turnstile-valide {
+  min-height: 32px;
+  max-height: 32px;
+}
+.auth-login .auth-turnstile-valide > div {
+  display: none;
+}
+.auth-login .auth-turnstile-ok {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin: 0;
+  padding: 5px 10px;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 28%, transparent);
+  border-radius: 999px;
+  font-size: 11.5px;
+  line-height: 1.2;
 }
 
 .auth-login .auth-bouton {
@@ -226,14 +249,50 @@
   .auth-login .auth-saisie { height: 43px; }
   .auth-login .auth-champ + .auth-champ { margin-top: 7px; }
   .auth-login .auth-conditions { margin-top: 7px; font-size: 11px; }
-  .auth-login .auth-turnstile { min-height: 46px; max-height: 46px; margin-top: 3px; }
-  .auth-login .auth-turnstile > div { transform: scale(.74); margin-bottom: -17px; }
+  .auth-login .auth-turnstile { min-height: 46px; max-height: 46px; margin-top: 5px; }
+  .auth-login .auth-turnstile > div { height: 46px; transform: scale(.7); }
+  .auth-login .auth-turnstile-valide { min-height: 28px; max-height: 28px; }
   .auth-login .auth-bouton { min-height: 43px; margin-top: 6px; }
   .auth-login .auth-separateur { margin: 9px 0 7px; }
   .auth-login .auth-google,
   .auth-login .auth-social { min-height: 39px; height: 39px; }
   .auth-login .auth-bascule { margin-top: 9px; }
   .auth-login .auth-pied { font-size: 8.8px; }
+}
+
+/* L'inscription contient un champ et une ligne de conditions supplémentaires.
+   On préserve leur lisibilité et on autorise le panneau seul à défiler sur les
+   écrans bas, au lieu d'écraser tous les textes pour forcer la page à tenir. */
+@media (min-width: 901px) {
+  .auth-register .auth-panneau {
+    overflow-y: auto;
+  }
+  .auth-register .auth-panneau-corps {
+    flex: none;
+    min-height: min-content;
+    margin-block: auto;
+    padding-block: 36px 20px;
+  }
+  .auth-register .auth-brand-lockup {
+    margin-bottom: 15px;
+  }
+  .auth-register .auth-formulaire {
+    margin-top: 14px;
+  }
+  .auth-register .auth-champ + .auth-champ {
+    margin-top: 9px;
+  }
+  .auth-register .auth-conditions {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .auth-register .auth-separateur {
+    margin: 11px 0 8px;
+  }
+  .auth-register .auth-bascule {
+    margin-top: 12px;
+  }
 }
 
 /* Sur mobile, on conserve toute la largeur utile du téléphone. */

@@ -13,10 +13,11 @@ import { AuthPremium, IconeAlerte, IconeOeil } from "@/components/auth/AuthPremi
 import { messageAuth } from "@/components/auth/messages";
 import { usePaymentLocation, usePaymentPlan } from "@/hooks/use-payment-navigation";
 import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
+import { API_BASE } from "@/lib/config";
+import { GuestOnly } from "@/components/auth/GuestOnly";
 
 const COPY: Record<Lang, {
   title: string;
-  intro: string;
   name: string;
   namePlaceholder: string;
   email: string;
@@ -38,13 +39,15 @@ const COPY: Record<Lang, {
   termsRequired: string;
   registerError: string;
   googleError: string;
+  github: string;
+  antiBotUnavailable: string;
+  antiBotVerified: string;
   created: string;
   createdPlan: string;
   selectedPlan: string;
 }> = {
   fr: {
     title: "Créer un compte",
-    intro: "Rejoignez Toumaï AI en quelques secondes.",
     name: "Nom",
     namePlaceholder: "Votre nom",
     email: "Adresse e-mail",
@@ -66,13 +69,15 @@ const COPY: Record<Lang, {
     termsRequired: "Vous devez accepter les conditions générales et la politique de confidentialité.",
     registerError: "Échec de l’inscription.",
     googleError: "Échec de connexion Google.",
+    github: "Continuer avec GitHub",
+    antiBotUnavailable: "Vérification anti-robot indisponible sur ce navigateur. Vous pouvez continuer.",
+    antiBotVerified: "Vérification de sécurité réussie",
     created: "Compte créé. Confirmez votre e-mail avant de vous connecter.",
     createdPlan: "Compte créé. Confirmez votre e-mail, puis reconnectez-vous pour reprendre votre paiement.",
     selectedPlan: "Vous avez choisi",
   },
   "ar-td": {
     title: "اعمل حساب",
-    intro: "ادخل عالم Toumaï AI في ثواني.",
     name: "الاسم",
     namePlaceholder: "اسمك",
     email: "الإيميل",
@@ -94,13 +99,15 @@ const COPY: Record<Lang, {
     termsRequired: "لازم توافق على شروط الاستخدام وسياسة الخصوصية.",
     registerError: "إنشاء الحساب ما تم.",
     googleError: "الدخول بـ Google ما تم.",
+    github: "واصل بـ GitHub",
+    antiBotUnavailable: "فحص الحماية ما اشتغل في المتصفح دا. تقدر تواصل.",
+    antiBotVerified: "فحص الحماية تم",
     created: "الحساب اتعمل. أكّد إيميلك قبل ما تدخل.",
     createdPlan: "الحساب اتعمل. أكّد إيميلك وبعدها ادخل من جديد عشان تواصل الدفع.",
     selectedPlan: "إنت اخترت",
   },
   ar: {
     title: "إنشاء حساب",
-    intro: "انضم إلى Toumaï AI خلال ثوانٍ.",
     name: "الاسم",
     namePlaceholder: "اسمك",
     email: "البريد الإلكتروني",
@@ -122,13 +129,15 @@ const COPY: Record<Lang, {
     termsRequired: "يجب الموافقة على شروط الاستخدام وسياسة الخصوصية.",
     registerError: "تعذر إنشاء الحساب.",
     googleError: "تعذر تسجيل الدخول عبر Google.",
+    github: "المتابعة باستخدام GitHub",
+    antiBotUnavailable: "التحقق المضاد للروبوت غير متاح على هذا المتصفح. يمكنك المتابعة.",
+    antiBotVerified: "تم التحقق الأمني",
     created: "تم إنشاء الحساب. أكّد بريدك الإلكتروني قبل تسجيل الدخول.",
     createdPlan: "تم إنشاء الحساب. أكّد بريدك الإلكتروني ثم سجّل الدخول مجددًا لمتابعة الدفع.",
     selectedPlan: "لقد اخترت",
   },
   en: {
     title: "Create an account",
-    intro: "Join Toumaï AI in just a few seconds.",
     name: "Name",
     namePlaceholder: "Your name",
     email: "Email address",
@@ -150,6 +159,9 @@ const COPY: Record<Lang, {
     termsRequired: "You must accept the Terms of Use and Privacy Policy.",
     registerError: "Account creation failed.",
     googleError: "Google sign-in failed.",
+    github: "Continue with GitHub",
+    antiBotUnavailable: "Anti-bot verification is unavailable in this browser. You can continue.",
+    antiBotVerified: "Security verification complete",
     created: "Account created. Confirm your email before signing in.",
     createdPlan: "Account created. Confirm your email, then sign in again to continue your payment.",
     selectedPlan: "You selected",
@@ -181,6 +193,14 @@ function IconeCadenas() {
     <svg className="auth-input-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
       <rect x="5" y="10" width="14" height="10" rx="2" />
       <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconeGithub() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 .9A11.3 11.3 0 0 0 8.4 23c.56.1.77-.24.77-.54v-2.1c-3.12.68-3.78-1.33-3.78-1.33-.51-1.3-1.25-1.64-1.25-1.64-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.49-.28-5.1-1.24-5.1-5.54 0-1.22.44-2.22 1.16-3-.12-.28-.5-1.42.11-2.96 0 0 .95-.3 3.1 1.15a10.8 10.8 0 0 1 5.64 0c2.15-1.46 3.1-1.15 3.1-1.15.61 1.54.23 2.68.11 2.96.72.78 1.16 1.78 1.16 3 0 4.3-2.62 5.25-5.11 5.53.4.35.76 1.03.76 2.08v3.08c0 .3.2.65.77.54A11.3 11.3 0 0 0 12 .9Z" />
     </svg>
   );
 }
@@ -246,6 +266,15 @@ function RegisterPageContent() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function onGithub() {
+    const next = destination.startsWith("/") && !destination.startsWith("//")
+      ? destination
+      : "/chat";
+    window.location.assign(
+      `${API_BASE}/google/github/start?next=${encodeURIComponent(next)}`,
+    );
   }
 
   const corps = (
@@ -339,27 +368,40 @@ function RegisterPageContent() {
         )}
         {info && <p role="status" className="auth-info">{info}</p>}
 
-        <div className="auth-turnstile">
-          <Turnstile
-            onToken={setTurnstileToken}
-            onIndisponible={signalerWidgetIndisponible}
-            poignee={turnstile}
-          />
-        </div>
-
         <button type="submit" disabled={loading || !acceptedTerms} className="auth-bouton">
           {loading && <span className="auth-rotative" aria-hidden="true" />}
           {loading ? text.creating : text.create}
         </button>
+
+        <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
+          <Turnstile
+            onToken={setTurnstileToken}
+            onIndisponible={signalerWidgetIndisponible}
+            poignee={turnstile}
+            language={GOOGLE_LOCALE[lang]}
+            appearance="always"
+            size="normal"
+            unavailableText={text.antiBotUnavailable}
+          />
+          {turnstileToken ? (
+            <p className="auth-turnstile-ok" role="status">✓ {text.antiBotVerified}</p>
+          ) : null}
+        </div>
       </form>
 
       <p className="auth-separateur">{text.continueWith}</p>
-      <div className="auth-google auth-google-register">
-        <GoogleSignInButton
-          onCredential={onGoogleCredential}
-          width={240}
-          locale={GOOGLE_LOCALE[lang]}
-        />
+      <div className="auth-socials">
+        <div className="auth-google auth-google-register">
+          <GoogleSignInButton
+            onCredential={onGoogleCredential}
+            width={400}
+            locale={GOOGLE_LOCALE[lang]}
+          />
+        </div>
+        <button type="button" className="auth-social" onClick={onGithub} disabled={loading}>
+          <IconeGithub />
+          <span>{text.github}</span>
+        </button>
       </div>
 
       <p className="auth-bascule">
@@ -374,7 +416,6 @@ function RegisterPageContent() {
       <AuthShell planId={planChoisi} register>
         <div className="w-full">
           <h1 className="mb-2 text-2xl font-semibold">{text.title}</h1>
-          <p className="text-sm text-[var(--text-secondary)]">{text.intro}</p>
           {corps}
         </div>
       </AuthShell>
@@ -382,7 +423,7 @@ function RegisterPageContent() {
   }
 
   return (
-    <AuthPremium titre={text.title} intro={text.intro} langueActive>
+    <AuthPremium titre={text.title} langueActive variante="register">
       {corps}
     </AuthPremium>
   );
@@ -390,8 +431,10 @@ function RegisterPageContent() {
 
 export default function RegisterPage() {
   return (
-    <LangProvider>
-      <RegisterPageContent />
-    </LangProvider>
+    <GuestOnly>
+      <LangProvider>
+        <RegisterPageContent />
+      </LangProvider>
+    </GuestOnly>
   );
 }

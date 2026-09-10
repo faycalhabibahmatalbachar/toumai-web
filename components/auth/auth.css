@@ -455,18 +455,29 @@
  * La hauteur est réservée d'avance : sans cela le bouton descendait d'un cran
  * à l'arrivée du widget. */
 .auth-turnstile {
-  min-height: 50px;
+  min-height: 52px;
   margin-top: 12px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 .auth-turnstile > div {
-  transform: scale(0.82);
-  transform-origin: left center;
+  flex: none;
+  width: 300px;
+  height: 52px;
+  transform: scale(0.8);
+  transform-origin: center top;
 }
 .auth-turnstile p {
   font-size: 12.5px;
   color: var(--text-tertiary);
+}
+.auth-turnstile-valide {
+  min-height: 32px;
+}
+.auth-turnstile-valide > div {
+  display: none;
 }
 
 /* ── Le bouton principal ────────────────────────────────────────────────── */

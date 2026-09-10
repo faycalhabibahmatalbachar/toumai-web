@@ -21,10 +21,10 @@ import { messageAuth } from "@/components/auth/messages";
 import { safeAccountReturn } from "@/lib/payment-navigation";
 import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
 import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
+import { GuestOnly } from "@/components/auth/GuestOnly";
 
 const COPY: Record<Lang, {
   title: string;
-  welcome: string;
   email: string;
   emailPlaceholder: string;
   password: string;
@@ -43,6 +43,7 @@ const COPY: Record<Lang, {
   loginError: string;
   googleError: string;
   antiBotUnavailable: string;
+  antiBotVerified: string;
   verificationTitle: string;
   verificationIntro: string;
   verificationCode: string;
@@ -54,7 +55,6 @@ const COPY: Record<Lang, {
 }> = {
   fr: {
     title: "Connexion",
-    welcome: "Bienvenue de retour.",
     email: "Adresse e-mail",
     emailPlaceholder: "votre@email.com",
     password: "Mot de passe",
@@ -73,6 +73,7 @@ const COPY: Record<Lang, {
     loginError: "Échec de connexion.",
     googleError: "Échec de connexion Google.",
     antiBotUnavailable: "Vérification anti-robot indisponible sur ce navigateur. Vous pouvez continuer.",
+    antiBotVerified: "Vérification de sécurité réussie",
     verificationTitle: "Vérification",
     verificationIntro: "Saisissez le code à six chiffres de votre application d’authentification.",
     verificationCode: "Code de vérification",
@@ -84,7 +85,6 @@ const COPY: Record<Lang, {
   },
   "ar-td": {
     title: "الدخول",
-    welcome: "أهلاً برجعتك.",
     email: "الإيميل",
     emailPlaceholder: "name@email.com",
     password: "كلمة المرور",
@@ -103,6 +103,7 @@ const COPY: Record<Lang, {
     loginError: "الدخول ما تم.",
     googleError: "الدخول بـ Google ما تم.",
     antiBotUnavailable: "فحص الحماية ما اشتغل في المتصفح دا. تقدر تواصل.",
+    antiBotVerified: "فحص الحماية تم",
     verificationTitle: "التأكيد",
     verificationIntro: "اكتب الكود المكوّن من ستة أرقام من تطبيق التحقق.",
     verificationCode: "كود التحقق",
@@ -114,7 +115,6 @@ const COPY: Record<Lang, {
   },
   ar: {
     title: "تسجيل الدخول",
-    welcome: "مرحبًا بعودتك.",
     email: "البريد الإلكتروني",
     emailPlaceholder: "name@email.com",
     password: "كلمة المرور",
@@ -133,6 +133,7 @@ const COPY: Record<Lang, {
     loginError: "تعذر تسجيل الدخول.",
     googleError: "تعذر تسجيل الدخول عبر Google.",
     antiBotUnavailable: "التحقق المضاد للروبوت غير متاح على هذا المتصفح. يمكنك المتابعة.",
+    antiBotVerified: "تم التحقق الأمني",
     verificationTitle: "التحقق",
     verificationIntro: "أدخل الرمز المكوّن من ستة أرقام من تطبيق المصادقة.",
     verificationCode: "رمز التحقق",
@@ -144,7 +145,6 @@ const COPY: Record<Lang, {
   },
   en: {
     title: "Sign in",
-    welcome: "Welcome back.",
     email: "Email address",
     emailPlaceholder: "your@email.com",
     password: "Password",
@@ -163,6 +163,7 @@ const COPY: Record<Lang, {
     loginError: "Sign-in failed.",
     googleError: "Google sign-in failed.",
     antiBotUnavailable: "Anti-bot verification is unavailable in this browser. You can continue.",
+    antiBotVerified: "Security verification complete",
     verificationTitle: "Verification",
     verificationIntro: "Enter the six-digit code from your authenticator app.",
     verificationCode: "Verification code",
@@ -428,23 +429,26 @@ function LoginPageContent() {
 
         {messageErreur}
 
-        <div className="auth-turnstile">
-          <Turnstile
-            onToken={setTurnstileToken}
-            onIndisponible={signalerWidgetIndisponible}
-            poignee={turnstile}
-            language={oauthLanguage}
-            appearance="interaction-only"
-            size="flexible"
-            unavailableText={text.antiBotUnavailable}
-          />
-        </div>
-
         <button type="submit" disabled={loading} className="auth-bouton">
           {loading && <span className="auth-rotative" aria-hidden="true" />}
           {loading ? text.submitting : text.submit}
           {!loading && <IconeFleche />}
         </button>
+
+        <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
+          <Turnstile
+            onToken={setTurnstileToken}
+            onIndisponible={signalerWidgetIndisponible}
+            poignee={turnstile}
+            language={oauthLanguage}
+            appearance="always"
+            size="normal"
+            unavailableText={text.antiBotUnavailable}
+          />
+          {turnstileToken ? (
+            <p className="auth-turnstile-ok" role="status">✓ {text.antiBotVerified}</p>
+          ) : null}
+        </div>
       </form>
 
       <p className="auth-separateur">{text.continueWith}</p>
@@ -493,7 +497,7 @@ function LoginPageContent() {
   }
 
   return (
-    <AuthPremium titre={text.title} intro={text.welcome} langueActive>
+    <AuthPremium titre={text.title} langueActive>
       {corps}
     </AuthPremium>
   );
@@ -501,8 +505,10 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <LangProvider>
-      <LoginPageContent />
-    </LangProvider>
+    <GuestOnly>
+      <LangProvider>
+        <LoginPageContent />
+      </LangProvider>
+    </GuestOnly>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AuthPremium, IconeAlerte } from "@/components/auth/AuthPremium";
+import { GuestOnly } from "@/components/auth/GuestOnly";
 import { API_BASE } from "@/lib/config";
 import { saveSession, type TokenPayload } from "@/lib/api";
 import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
@@ -161,8 +162,10 @@ function GithubCallbackContent() {
 
 export default function GithubCallbackPage() {
   return (
-    <LangProvider>
-      <GithubCallbackContent />
-    </LangProvider>
+    <GuestOnly>
+      <LangProvider>
+        <GithubCallbackContent />
+      </LangProvider>
+    </GuestOnly>
   );
 }

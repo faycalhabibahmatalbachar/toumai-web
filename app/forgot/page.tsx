@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { requestPasswordReset } from "@/lib/api";
 import { AuthPremium, IconeAlerte, IconeInfo } from "@/components/auth/AuthPremium";
+import { GuestOnly } from "@/components/auth/GuestOnly";
 import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
 
 const COPY: Record<Lang, {
@@ -168,8 +169,10 @@ function ForgotPasswordContent() {
 
 export default function ForgotPasswordPage() {
   return (
-    <LangProvider>
-      <ForgotPasswordContent />
-    </LangProvider>
+    <GuestOnly>
+      <LangProvider>
+        <ForgotPasswordContent />
+      </LangProvider>
+    </GuestOnly>
   );
 }

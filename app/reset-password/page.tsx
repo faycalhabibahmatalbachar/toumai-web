@@ -11,6 +11,7 @@ import {
   IconeInfo,
   IconeOeil,
 } from "@/components/auth/AuthPremium";
+import { GuestOnly } from "@/components/auth/GuestOnly";
 import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
 
 const COPY: Record<Lang, {
@@ -148,8 +149,6 @@ function useRecoveryToken(): { token: string | null; ready: boolean } {
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const recoveryToken = params.get("access_token");
-    setToken(recoveryToken);
-    setReady(true);
 
     if (recoveryToken && window.location.hash) {
       window.history.replaceState(
@@ -158,6 +157,15 @@ function useRecoveryToken(): { token: string | null; ready: boolean } {
         `${window.location.pathname}${window.location.search}`,
       );
     }
+
+    // Le jeton vient d'une source externe au rendu React (le fragment d'URL).
+    // On publie l'état au prochain frame pour éviter un rendu en cascade dans
+    // l'effet tout en nettoyant immédiatement la barre d'adresse.
+    const frame = window.requestAnimationFrame(() => {
+      setToken(recoveryToken);
+      setReady(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   return { token, ready };
@@ -318,8 +326,10 @@ function PasswordField({
 
 export default function ResetPasswordPage() {
   return (
-    <LangProvider>
-      <ResetPasswordContent />
-    </LangProvider>
+    <GuestOnly>
+      <LangProvider>
+        <ResetPasswordContent />
+      </LangProvider>
+    </GuestOnly>
   );
 }

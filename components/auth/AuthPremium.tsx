@@ -171,17 +171,26 @@ export function AuthPremium({
   intro,
   children,
   langueActive = false,
+  variante,
 }: {
   titre: string;
-  intro: ReactNode;
+  intro?: ReactNode;
   children: ReactNode;
   langueActive?: boolean;
+  variante?: "register";
 }) {
   const { lang, dir } = useLang();
   const copy = SHELL_COPY[lang];
 
   return (
-    <main className={langueActive ? "auth auth-login" : "auth"} dir="ltr">
+    <main
+      className={[
+        "auth",
+        langueActive ? "auth-login" : "",
+        variante === "register" ? "auth-register" : "",
+      ].filter(Boolean).join(" ")}
+      dir="ltr"
+    >
       <section className="auth-vitrine" aria-label="Univers visuel Toumaï AI">
         <CinemaToumai />
       </section>
@@ -192,7 +201,7 @@ export function AuthPremium({
         <div className="auth-panneau-corps">
           <MarquePanneau />
           <h1>{titre}</h1>
-          <p className="auth-sous-titre">{intro}</p>
+          {intro ? <p className="auth-sous-titre">{intro}</p> : null}
           {children}
         </div>
 
