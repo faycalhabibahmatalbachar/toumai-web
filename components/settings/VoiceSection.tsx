@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
 import {
   getPreferences,
   listVoices,
@@ -154,9 +155,9 @@ export function VoiceSection() {
                         style={{ background: "var(--primary)" }}
                       />
                     ) : playing === v.id ? (
-                      <PauseIcon />
+                      <Pause size={12} fill="currentColor" />
                     ) : (
-                      <PlayIcon />
+                      <Play size={12} fill="currentColor" />
                     )}
                   </button>
                   <div className="min-w-0">
@@ -194,21 +195,5 @@ export function VoiceSection() {
 
       {error && <p className="text-sm text-[var(--error)]">{error}</p>}
     </div>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  );
-}
-
-function PauseIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
-    </svg>
   );
 }

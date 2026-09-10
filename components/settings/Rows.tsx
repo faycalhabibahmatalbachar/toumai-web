@@ -1,20 +1,20 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { Check, Minus } from "lucide-react";
 
-/** Panneau de réglages — langage « Pro » : label de groupe uppercase hors du
- * cadre, carte plate radius 14 à liseré fin, rangées séparées par hairlines.
- * `break-inside-avoid` : les sections s'organisent en colonnes sur écran
- * large sans qu'un panneau soit coupé. */
+/** Panneau de réglages — label discret, surface calme et rangées séparées par
+ * des filets fins. La lecture reste verticale, comme dans les meilleurs
+ * produits IA : une décision à la fois. */
 export function Panel({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <section className="mb-6 break-inside-avoid">
+    <section className="mb-7">
       {title && (
-        <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--cx-text-label)]">
+        <p className="mb-2.5 px-1 text-[11px] font-bold uppercase tracking-[0.11em] text-[var(--cx-text-label)]">
           {title}
         </p>
       )}
-      <div className="overflow-hidden rounded-[14px] border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+      <div className="overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] shadow-[0_1px_0_rgba(255,255,255,0.025)]">
         {children}
       </div>
     </section>
@@ -36,17 +36,17 @@ export function Row({
 }) {
   return (
     <div
-      className={`border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 ${
-        stacked ? "" : "flex flex-wrap items-center justify-between gap-x-6 gap-y-3"
+      className={`border-t border-[var(--cx-border-subtle)] px-4 py-[18px] first:border-t-0 sm:px-5 ${
+        stacked ? "" : "flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-x-8"
       }`}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-[var(--cx-text-primary)]">{label}</p>
+        <p className="text-[14px] font-medium leading-5 text-[var(--cx-text-primary)]">{label}</p>
         {description && (
-          <p className="mt-0.5 text-xs leading-relaxed text-[var(--cx-text-muted)]">{description}</p>
+          <p className="mt-1 max-w-[58ch] text-[12.5px] leading-[1.55] text-[var(--cx-text-muted)]">{description}</p>
         )}
       </div>
-      <div className={stacked ? "mt-3" : "flex shrink-0 items-center gap-2"}>{children}</div>
+      <div className={stacked ? "mt-4" : "flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0"}>{children}</div>
     </div>
   );
 }
@@ -96,13 +96,9 @@ export function CxSwitch({
           }}
         >
           {checked ? (
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2">
-              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Check size={11} strokeWidth={3.2} />
           ) : (
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M5 12h14" strokeLinecap="round" />
-            </svg>
+            <Minus size={10} strokeWidth={3} />
           )}
         </span>
       </button>
@@ -123,16 +119,17 @@ export function Segmented<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex gap-1 rounded-[10px] border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] p-1">
+    <div className="flex w-full gap-1 overflow-x-auto rounded-[10px] border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] p-1 sm:w-auto">
       {options.map((o) => {
         const active = value === o.value;
         return (
           <button
             key={o.value}
+            type="button"
             onClick={() => onChange(o.value)}
             disabled={disabled}
             aria-pressed={active}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40"
+            className="min-h-8 flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40 sm:flex-none"
             style={
               active
                 ? {

@@ -65,8 +65,8 @@ export function MemorySection() {
   // faits à résumer, et jamais quand la mémoire est éteinte.
   useEffect(() => {
     if (invite || !active || !faits || faits.length === 0) {
-      setResume(null);
-      return;
+      const frame = window.requestAnimationFrame(() => setResume(null));
+      return () => window.cancelAnimationFrame(frame);
     }
     let vivant = true;
     resumeMemoire()

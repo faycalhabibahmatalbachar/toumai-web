@@ -48,7 +48,6 @@ export function SecuritySection() {
 
   useEffect(() => {
     if (!enrolement) {
-      setQr(null);
       return;
     }
     let vivant = true;

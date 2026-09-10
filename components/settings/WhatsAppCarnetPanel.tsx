@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { getWaCarnet, syncWaCarnet, type WaCarnet } from "@/lib/connectors-api";
 import { WhatsAppIcon } from "./BrandIcons";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
@@ -108,14 +109,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
             aria-label="Fermer"
             className="flex h-8 w-8 items-center justify-center rounded-[8px] text-[var(--cx-text-muted)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M4 4l8 8M12 4l-8 8"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-            </svg>
+            <X size={16} strokeWidth={1.8} />
           </button>
         </div>
 

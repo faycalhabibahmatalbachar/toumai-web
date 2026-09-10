@@ -96,8 +96,11 @@ function WebNotifRow() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setPerm(getWebNotifState());
-    setEnabled(isWebNotifEnabled());
+    const frame = window.requestAnimationFrame(() => {
+      setPerm(getWebNotifState());
+      setEnabled(isWebNotifEnabled());
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   async function toggle(v: boolean) {

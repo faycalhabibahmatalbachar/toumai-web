@@ -42,7 +42,10 @@ export function SharesSection() {
       });
   }, [invite]);
 
-  useEffect(charger, [charger]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(charger);
+    return () => window.cancelAnimationFrame(frame);
+  }, [charger]);
 
   async function copier(url: string, id: string) {
     try {

@@ -5,7 +5,19 @@
  * recherche ⌘K + segmented control, rail droit sticky. Jetons visuels scopés
  * dans .cx-scope (globals.css) — spec « Connecteurs Pro.dc.html ». */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Bell,
+  Check,
+  ChevronRight,
+  FileClock,
+  Info,
+  LockKeyhole,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 import {
   connectMail,
@@ -136,7 +148,9 @@ export function ConnectorsTab() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setKbdLabel("⌘K");
+    const frame = window.requestAnimationFrame(() => {
+      if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setKbdLabel("⌘K");
+    });
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -144,7 +158,10 @@ export function ConnectorsTab() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const reportStatus = (id: ConnectorId) => (s: RowStatus) =>
@@ -355,31 +372,13 @@ export function ConnectorsTab() {
         <aside className="w-full shrink-0 xl:w-[280px]">
           <div className="space-y-4 xl:sticky xl:top-[84px]">
             <RailCard label="Actions rapides">
-              {[
-                { label: "Ajouter un connecteur", icon: <PlusIcon />, onClick: addConnector },
-                { label: "Tester les connexions", icon: <RefreshIcon />, onClick: testAll },
-                {
-                  label: "Voir les journaux",
-                  icon: <JournalIcon />,
-                  onClick: () => {
-                    window.location.href = "/whatsapp";
-                  },
-                },
-              ].map((a) => (
-                <button
-                  key={a.label}
-                  onClick={a.onClick}
-                  className="flex w-full items-center justify-between gap-2 rounded-[9px] px-2 py-2.5 text-left text-[13px] font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="text-[var(--cx-text-muted)]" aria-hidden="true">
-                      {a.icon}
-                    </span>
-                    {a.label}
-                  </span>
-                  <ChevronRightIcon />
-                </button>
-              ))}
+              <QuickAction label="Ajouter un connecteur" icon={<PlusIcon />} onClick={addConnector} />
+              <QuickAction label="Tester les connexions" icon={<RefreshIcon />} onClick={testAll} />
+              <QuickAction
+                label="Voir les journaux"
+                icon={<JournalIcon />}
+                onClick={() => { window.location.href = "/whatsapp"; }}
+              />
             </RailCard>
 
             <RailCard label="Sécurité">
@@ -458,6 +457,22 @@ function RailCard({ label, children }: { label: string; children: ReactNode }) {
       </p>
       {children}
     </div>
+  );
+}
+
+function QuickAction({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-2 rounded-[9px] px-2 py-2.5 text-left text-[13px] font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+    >
+      <span className="flex items-center gap-2.5">
+        <span className="text-[var(--cx-text-muted)]" aria-hidden="true">{icon}</span>
+        {label}
+      </span>
+      <ChevronRightIcon />
+    </button>
   );
 }
 
@@ -715,23 +730,23 @@ function GoogleRow({ onStatus }: { onStatus: OnStatus }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  function apply(v: boolean) {
+  const apply = useCallback((v: boolean) => {
     setConnected(v);
     cacheWrite("cx:google", v);
-  }
+  }, []);
 
-  function refresh() {
+  const refresh = useCallback(() => {
     return getGoogleStatus()
       .then((s) => apply(s.connected))
       .catch(() => setConnected((c) => c ?? false));
-  }
+  }, [apply]);
 
   useEffect(() => {
     refresh();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [refresh]);
 
   async function connect() {
     setError(null);
@@ -835,20 +850,20 @@ function MailRow({ onStatus }: { onStatus: OnStatus }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  function apply(s: MailStatus) {
+  const apply = useCallback((s: MailStatus) => {
     setStatus(s);
     cacheWrite("cx:mail", s);
-  }
+  }, []);
 
-  function refresh() {
+  const refresh = useCallback(() => {
     return getMailStatus()
       .then(apply)
       .catch(() => setStatus((c) => c ?? { connected: false, email: null }));
-  }
+  }, [apply]);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1326,8 +1341,11 @@ function WebNotifRow({ onStatus }: { onStatus: OnStatus }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setPerm(getWebNotifState());
-    setEnabled(isWebNotifEnabled());
+    const frame = window.requestAnimationFrame(() => {
+      setPerm(getWebNotifState());
+      setEnabled(isWebNotifEnabled());
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const status: RowStatus =
@@ -1409,101 +1427,17 @@ function MeteoRow({ onStatus }: { onStatus: OnStatus }) {
   );
 }
 
-/* ---------- Icônes UI (traits SVG, jamais d'emoji) ---------- */
-
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function JournalIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinejoin="round" />
-      <path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className="text-[var(--cx-text-faint)]"
-    >
-      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function InfoIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8h.01M12 11v5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4" y="11" width="16" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 018 0v4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function BellGlyph() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8">
-      <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function DotsIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="19" cy="12" r="1.6" />
-    </svg>
-  );
-}
+/* Icônes d’interface Lucide ; seuls les logos de marques restent dédiés. */
+function SearchIcon() { return <Search size={14} strokeWidth={2} />; }
+function PlusIcon() { return <Plus size={14} strokeWidth={2} />; }
+function RefreshIcon() { return <RefreshCw size={14} strokeWidth={1.8} />; }
+function JournalIcon() { return <FileClock size={14} strokeWidth={1.8} />; }
+function ChevronRightIcon() { return <ChevronRight size={13} strokeWidth={2} className="text-[var(--cx-text-faint)]" />; }
+function CheckIcon() { return <Check size={14} strokeWidth={2} />; }
+function InfoIcon() { return <Info size={16} strokeWidth={1.8} />; }
+function LockIcon() { return <LockKeyhole size={14} strokeWidth={1.8} />; }
+function BellGlyph() { return <Bell size={20} strokeWidth={1.8} color="#fff" />; }
+function DotsIcon() { return <MoreHorizontal size={16} fill="currentColor" />; }
 
 /** LES ÉTAPES D'UNE LIAISON WHATSAPP.
  *

@@ -2,6 +2,31 @@
 
 import { useEffect, useState } from "react";
 import {
+  BarChart3,
+  Ban,
+  Bolt,
+  Check,
+  ContactRound,
+  Eye,
+  FileText,
+  Folder,
+  Image as ImageLucide,
+  List,
+  MessageSquareText,
+  Mic,
+  Minus,
+  Paperclip,
+  Pencil,
+  Phone,
+  RefreshCw,
+  Search,
+  Settings,
+  UserRound,
+  UsersRound,
+  Video,
+  X,
+} from "lucide-react";
+import {
   getWaCapacites,
   getWaSettings,
   updateWaSettings,
@@ -322,75 +347,29 @@ function CxSwitch({
   );
 }
 
-/* ---------- Icônes dédiées ---------- */
-const S = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
-
-function CloseIcon() {
-  return <svg {...S} width={16} height={16} strokeWidth={2}><path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" /></svg>;
-}
-function CheckMini() {
-  return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-function MinusMini() {
-  return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14" strokeLinecap="round" /></svg>;
-}
-function ChatIcon() {
-  return <svg {...S}><path d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-function MicIcon() {
-  return <svg {...S}><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0014 0M12 19v3" strokeLinecap="round" /></svg>;
-}
-function ImageIcon() {
-  return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-function VideoIcon() {
-  return <svg {...S}><rect x="2" y="5" width="14" height="14" rx="2" /><path d="M22 7l-6 5 6 5V7z" strokeLinejoin="round" /></svg>;
-}
-function DocIcon() {
-  return <svg {...S}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinejoin="round" /><path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" /></svg>;
-}
-function ClipIcon() {
-  return <svg {...S}><path d="M21 12.5l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l9-9a3.7 3.7 0 015.2 5.2l-9 9a1.8 1.8 0 01-2.6-2.6l8.3-8.3" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-function StatusIcon() {
-  return <svg {...S}><circle cx="12" cy="12" r="4" /><path d="M12 2a10 10 0 018.5 4.7M22 12a10 10 0 01-4.7 8.5M12 22a10 10 0 01-8.5-4.7M2 12a10 10 0 014.7-8.5" strokeLinecap="round" /></svg>;
-}
-function EyeIcon() {
-  return <svg {...S}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" strokeLinejoin="round" /><circle cx="12" cy="12" r="3" /></svg>;
-}
-function SummaryIcon() {
-  return <svg {...S}><path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round" /></svg>;
-}
-function SearchIcon() {
-  return <svg {...S}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" strokeLinecap="round" /></svg>;
-}
-function ChartIcon() {
-  return <svg {...S}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" strokeLinecap="round" /></svg>;
-}
-function ManageIcon() {
-  return <svg {...S}><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-function SyncIcon() {
-  return <svg {...S}><path d="M21 12a9 9 0 11-2.64-6.36M21 4v6h-6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-function ContactIcon() {
-  return <svg {...S}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c0-3.3 2.9-5 6.5-5s6.5 1.7 6.5 5M17 8h5M19.5 5.5v5" strokeLinecap="round" /></svg>;
-}
-function BoltIcon() {
-  return <svg {...S}><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" strokeLinejoin="round" /></svg>;
-}
-function AccountIcon() {
-  return <svg {...S}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" strokeLinecap="round" /></svg>;
-}
-function BlockIcon() {
-  return <svg {...S}><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" strokeLinecap="round" /></svg>;
-}
-function GroupIcon() {
-  return <svg {...S}><circle cx="9" cy="9" r="3.2" /><path d="M2.5 19c0-3 2.9-4.6 6.5-4.6s6.5 1.6 6.5 4.6" strokeLinecap="round" /><path d="M17 6.2a3.2 3.2 0 010 6M18.5 14.6c2 .5 3 1.9 3 4.4" strokeLinecap="round" /></svg>;
-}
-function FolderIcon() {
-  return <svg {...S}><path d="M3 7a2 2 0 012-2h4l2 2.5h8a2 2 0 012 2V18a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" strokeLinejoin="round" /></svg>;
-}
-function PhoneIcon() {
-  return <svg {...S}><path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 006.5 6.5L17 13l4 1.5v3a2 2 0 01-2.2 2A17 17 0 013.5 5.2 2 2 0 015.5 3h1z" strokeLinejoin="round" /></svg>;
-}
+/* Les icônes d’interface viennent de Lucide. Les marques conservent leurs
+ * logos officiels dédiés dans BrandIcons. */
+const iconProps = { size: 16, strokeWidth: 1.8 } as const;
+function CloseIcon() { return <X size={16} strokeWidth={2} />; }
+function CheckMini() { return <Check size={11} strokeWidth={3.2} />; }
+function MinusMini() { return <Minus size={10} strokeWidth={3} />; }
+function ChatIcon() { return <MessageSquareText {...iconProps} />; }
+function MicIcon() { return <Mic {...iconProps} />; }
+function ImageIcon() { return <ImageLucide {...iconProps} />; }
+function VideoIcon() { return <Video {...iconProps} />; }
+function DocIcon() { return <FileText {...iconProps} />; }
+function ClipIcon() { return <Paperclip {...iconProps} />; }
+function StatusIcon() { return <Settings {...iconProps} />; }
+function EyeIcon() { return <Eye {...iconProps} />; }
+function SummaryIcon() { return <List {...iconProps} />; }
+function SearchIcon() { return <Search {...iconProps} />; }
+function ChartIcon() { return <BarChart3 {...iconProps} />; }
+function ManageIcon() { return <Pencil {...iconProps} />; }
+function SyncIcon() { return <RefreshCw {...iconProps} />; }
+function ContactIcon() { return <ContactRound {...iconProps} />; }
+function BoltIcon() { return <Bolt {...iconProps} />; }
+function AccountIcon() { return <UserRound {...iconProps} />; }
+function BlockIcon() { return <Ban {...iconProps} />; }
+function GroupIcon() { return <UsersRound {...iconProps} />; }
+function FolderIcon() { return <Folder {...iconProps} />; }
+function PhoneIcon() { return <Phone {...iconProps} />; }

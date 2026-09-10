@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { CalendarDays, MessageSquareText } from "lucide-react";
 import {
   getProfile,
   getUsage,
@@ -20,7 +21,7 @@ import { Panel, Row } from "./Rows";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 export function GeneralSection() {
-  const { session, logout } = useAuth();
+  const { logout } = useAuth();
   const isGuest = false;
   // Seed depuis le cache persistant : la section s'affiche instantanément,
   // puis se revalide en arrière-plan.
@@ -134,13 +135,13 @@ export function GeneralSection() {
 
   return (
     <div>
-      <Panel title="Plan et facturation">
-        <Row label="Votre offre Toumaï AI" description="Consultez votre plan, sa période de validité et les offres disponibles.">
+      <Panel title="Abonnement">
+        <Row label="Offre actuelle" description={profile?.plan ? `Plan ${profile.plan}` : undefined}>
           <Link href="/billing" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4">Gérer mon offre</Link>
         </Row>
       </Panel>
       <Panel title="Profil">
-        <Row label="Photo de profil" description={isGuest ? "Créez un compte pour personnaliser votre profil." : "Visible dans la barre latérale et l'accueil."}>
+        <Row label="Photo de profil" description="JPG ou PNG · 2 Mo maximum">
           <div className="flex items-center gap-3">
             <div
               className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)]"
@@ -172,7 +173,7 @@ export function GeneralSection() {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onAvatarPick} />
           </div>
         </Row>
-        <Row label="Nom affiché" description={saved ? "Enregistré." : "Le nom que les autres voient."}>
+        <Row label="Nom affiché" description={saved ? "Enregistré." : undefined}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -182,7 +183,7 @@ export function GeneralSection() {
             className="w-52 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)] disabled:opacity-50"
           />
         </Row>
-        <Row label="Adresse e-mail" description="Utilisée pour la connexion et les notifications.">
+        <Row label="Adresse e-mail">
           <span className="text-sm text-[var(--text-secondary)]">
             {isGuest ? "Session invité" : profile?.email ?? "—"}
           </span>
@@ -192,15 +193,13 @@ export function GeneralSection() {
       {usage && (
         <Panel title="Utilisation">
           <UsageRow
-            icon={<ChatBubbleIcon />}
+            icon={<MessageSquareText size={16} strokeWidth={1.8} />}
             label="Aujourd'hui"
-            description="Requêtes et tokens utilisés aujourd'hui."
             value={`${usage.requests_today.toLocaleString("fr-FR")} requêtes · ${usage.tokens_today.toLocaleString("fr-FR")} tokens`}
           />
           <UsageRow
-            icon={<CalendarIcon />}
+            icon={<CalendarDays size={16} strokeWidth={1.8} />}
             label="Ce mois-ci"
-            description="Requêtes et tokens utilisés ce mois."
             value={`${usage.requests_month.toLocaleString("fr-FR")} requêtes · ${usage.tokens_month.toLocaleString("fr-FR")} tokens`}
           />
         </Panel>
@@ -211,7 +210,7 @@ export function GeneralSection() {
           rarement la seconde question sans avoir vu la première. */}
       {!isGuest && <LimitesUsage />}
 
-      <Panel title="Compte">
+      <Panel title="Session">
         {isGuest ? (
           // Session invité : proposer la connexion, pas la déconnexion.
           <Row
@@ -260,7 +259,7 @@ function UsageRow({
 }: {
   icon: React.ReactNode;
   label: string;
-  description: string;
+  description?: string;
   value: string;
 }) {
   return (
@@ -278,31 +277,10 @@ function UsageRow({
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium">{label}</p>
-          <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{description}</p>
+          {description ? <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{description}</p> : null}
         </div>
       </div>
       <span className="shrink-0 text-sm text-[var(--text-secondary)]">{value}</span>
     </div>
-  );
-}
-
-function ChatBubbleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path
-        d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
-    </svg>
   );
 }
