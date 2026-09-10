@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { Turnstile, type TurnstilePoignee } from "@/components/Turnstile";
 import { signalerWidgetIndisponible } from "@/lib/api";
+import { API_BASE } from "@/lib/config";
 import { checkoutUrl, PLAN_CATALOG, publicPlanId } from "@/lib/plan-catalog";
 import { AuthShell } from "@/components/billing/AuthShell";
 import {
@@ -35,13 +36,13 @@ const COPY: Record<Lang, {
   submitting: string;
   continueWith: string;
   github: string;
-  githubUnavailable: string;
   noAccount: string;
   createAccount: string;
   expiredTitle: string;
   expiredBody: string;
   loginError: string;
   googleError: string;
+  antiBotUnavailable: string;
   verificationTitle: string;
   verificationIntro: string;
   verificationCode: string;
@@ -65,13 +66,13 @@ const COPY: Record<Lang, {
     submitting: "Connexion…",
     continueWith: "Ou continuer avec",
     github: "Continuer avec GitHub",
-    githubUnavailable: "La connexion GitHub sera disponible dès que le fournisseur OAuth GitHub sera configuré côté serveur.",
     noAccount: "Vous n’avez pas encore de compte ?",
     createAccount: "Créer un compte",
     expiredTitle: "Votre session a expiré.",
     expiredBody: "Reconnectez-vous pour continuer.",
     loginError: "Échec de connexion.",
     googleError: "Échec de connexion Google.",
+    antiBotUnavailable: "Vérification anti-robot indisponible sur ce navigateur. Vous pouvez continuer.",
     verificationTitle: "Vérification",
     verificationIntro: "Saisissez le code à six chiffres de votre application d’authentification.",
     verificationCode: "Code de vérification",
@@ -95,13 +96,13 @@ const COPY: Record<Lang, {
     submitting: "جاري الدخول…",
     continueWith: "أو واصل بـ",
     github: "واصل بـ GitHub",
-    githubUnavailable: "الدخول بـ GitHub حيشتغل بعد ما نجهّز OAuth في السيرفر.",
     noAccount: "ما عندك حساب؟",
     createAccount: "اعمل حساب",
     expiredTitle: "الجلسة خلصت.",
     expiredBody: "ادخل من جديد عشان تواصل.",
     loginError: "الدخول ما تم.",
     googleError: "الدخول بـ Google ما تم.",
+    antiBotUnavailable: "فحص الحماية ما اشتغل في المتصفح دا. تقدر تواصل.",
     verificationTitle: "التأكيد",
     verificationIntro: "اكتب الكود المكوّن من ستة أرقام من تطبيق التحقق.",
     verificationCode: "كود التحقق",
@@ -125,13 +126,13 @@ const COPY: Record<Lang, {
     submitting: "جارٍ تسجيل الدخول…",
     continueWith: "أو تابع باستخدام",
     github: "المتابعة باستخدام GitHub",
-    githubUnavailable: "سيصبح تسجيل الدخول عبر GitHub متاحًا بعد إعداد موفّر OAuth على الخادم.",
     noAccount: "ليس لديك حساب بعد؟",
     createAccount: "إنشاء حساب",
     expiredTitle: "انتهت جلستك.",
     expiredBody: "سجّل الدخول من جديد للمتابعة.",
     loginError: "تعذر تسجيل الدخول.",
     googleError: "تعذر تسجيل الدخول عبر Google.",
+    antiBotUnavailable: "التحقق المضاد للروبوت غير متاح على هذا المتصفح. يمكنك المتابعة.",
     verificationTitle: "التحقق",
     verificationIntro: "أدخل الرمز المكوّن من ستة أرقام من تطبيق المصادقة.",
     verificationCode: "رمز التحقق",
@@ -155,13 +156,13 @@ const COPY: Record<Lang, {
     submitting: "Signing in…",
     continueWith: "Or continue with",
     github: "Continue with GitHub",
-    githubUnavailable: "GitHub sign-in will be available once the GitHub OAuth provider is configured on the server.",
     noAccount: "Don’t have an account yet?",
     createAccount: "Create an account",
     expiredTitle: "Your session has expired.",
     expiredBody: "Sign in again to continue.",
     loginError: "Sign-in failed.",
     googleError: "Google sign-in failed.",
+    antiBotUnavailable: "Anti-bot verification is unavailable in this browser. You can continue.",
     verificationTitle: "Verification",
     verificationIntro: "Enter the six-digit code from your authenticator app.",
     verificationCode: "Verification code",
@@ -232,6 +233,7 @@ function LoginPageContent() {
   const planChoisi =
     planUrl === "essentiel" || planUrl === "toumai_5" ? planUrl : null;
   const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
+  const oauthLanguage = lang === "ar-td" ? "ar" : lang;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -279,6 +281,16 @@ function LoginPageContent() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function onGithub() {
+    setError(null);
+    const next = destination.startsWith("/") && !destination.startsWith("//")
+      ? destination
+      : "/chat";
+    window.location.assign(
+      `${API_BASE}/google/github/start?next=${encodeURIComponent(next)}`,
+    );
   }
 
   const messageErreur = error && (
@@ -421,6 +433,10 @@ function LoginPageContent() {
             onToken={setTurnstileToken}
             onIndisponible={signalerWidgetIndisponible}
             poignee={turnstile}
+            language={oauthLanguage}
+            appearance="interaction-only"
+            size="flexible"
+            unavailableText={text.antiBotUnavailable}
           />
         </div>
 
@@ -435,12 +451,17 @@ function LoginPageContent() {
 
       <div className="auth-socials">
         <div className="auth-google">
-          <GoogleSignInButton onCredential={onGoogleCredential} />
+          <GoogleSignInButton
+            onCredential={onGoogleCredential}
+            width={400}
+            locale={oauthLanguage}
+          />
         </div>
         <button
           type="button"
           className="auth-social"
-          onClick={() => setError(text.githubUnavailable)}
+          onClick={onGithub}
+          disabled={loading}
           aria-label={text.github}
         >
           <IconeGithub />
