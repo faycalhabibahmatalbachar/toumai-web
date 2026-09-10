@@ -235,3 +235,50 @@ export function getWaActivity(opts?: {
   const qs = p.toString();
   return http.get(`/whatsapp/activity${qs ? `?${qs}` : ""}`);
 }
+
+// ---- Carnet d'adresses WhatsApp -------------------------------------------
+
+/** Un contact du carnet.
+ *
+ * `number` PEUT ETRE NULL, et c'est une information, pas un chargement rate.
+ * WhatsApp designe certaines personnes par un identifiant de confidentialite
+ * (@lid) et ne livre alors aucun numero. Le serveur rend donc `null` plutot
+ * qu'un numero fabrique a partir des chiffres de cet identifiant : celui-ci
+ * ressemble a un numero, n'en est pas un, et designe quelqu'un qui n'existe
+ * pas — WhatsApp accepte l'envoi sans erreur et le message ne part nulle part. */
+export interface WaContact {
+  jid: string;
+  number: string | null;
+  name: string;
+}
+
+export interface WaCarnet {
+  contacts: WaContact[];
+  count: number;
+  /** `passerelle` = la verite WhatsApp du moment ; `base` = la copie datee.
+   *  On affiche la difference au lieu de faire passer l'une pour l'autre. */
+  source: "passerelle" | "base";
+  derniere_synchronisation: string | null;
+  total_en_base: number;
+}
+
+export function getWaCarnet(search?: string): Promise<WaCarnet> {
+  const q = search ? `?search=${encodeURIComponent(search)}` : "";
+  return http.get(`/whatsapp/contacts${q}`);
+}
+
+export interface WaSynchroCarnet {
+  ok: boolean;
+  synchronises: number;
+  nouveaux?: number;
+  total: number;
+}
+
+/** Recopie le carnet de la passerelle dans la base.
+ *
+ * `forcer` redemande le carnet a WhatsApp : c'est lent, et sur une session
+ * deja jumelee ca ne ramene qu'une poignee de contacts — WhatsApp ne livre le
+ * carnet complet qu'au jumelage initial. Reserve a un geste explicite. */
+export function syncWaCarnet(forcer = false): Promise<WaSynchroCarnet> {
+  return http.post(`/whatsapp/contacts/sync${forcer ? "?forcer=true" : ""}`);
+}

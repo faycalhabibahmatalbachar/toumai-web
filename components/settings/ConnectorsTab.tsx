@@ -24,6 +24,7 @@ import {
   type WaEtat,
   type WhatsAppState,
 } from "@/lib/connectors-api";
+import { WhatsAppCarnetPanel } from "./WhatsAppCarnetPanel";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
 import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
@@ -983,6 +984,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
     cacheSeed<WhatsAppState>("cx:whatsapp"),
   );
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [carnetOpen, setCarnetOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
@@ -1178,7 +1180,13 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
                   },
                 },
                 ...(state?.status === "connected"
-                  ? [{ label: "Paramètres", onClick: () => setPermissionsOpen(true) }]
+                  ? [
+                      { label: "Paramètres", onClick: () => setPermissionsOpen(true) },
+                      // LA PREMIÈRE CHOSE À REGARDER quand Toumaï dit ne pas
+                      // connaître quelqu'un : la date de la dernière
+                      // synchronisation du carnet.
+                      { label: "Carnet de contacts", onClick: () => setCarnetOpen(true) },
+                    ]
                   : []),
               ]
         }
@@ -1295,6 +1303,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
         }
       />
       {permissionsOpen && <WhatsAppPermissionsPanel onClose={() => setPermissionsOpen(false)} />}
+      {carnetOpen && <WhatsAppCarnetPanel onClose={() => setCarnetOpen(false)} />}
       {confirmOpen && (
         <ConfirmDialog
           title="Déconnecter WhatsApp ?"
