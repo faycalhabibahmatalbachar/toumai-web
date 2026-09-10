@@ -64,7 +64,19 @@ const SHELL_COPY: Record<Lang, {
 function CinemaToumai() {
   return (
     <div className="auth-cinema" aria-hidden="true">
-      <ToumaiLogoMotion />
+      <span className="auth-cinema-glow" />
+      <span className="auth-cinema-wave un" />
+      <span className="auth-cinema-wave deux" />
+      <span className="auth-orbite" />
+      <span className="auth-orbite deux" />
+      <span className="auth-orbite trois" />
+      <span className="auth-planete grande" />
+      <span className="auth-planete petite" />
+      <span className="auth-planete petite-deux" />
+      <span className="auth-planete ivoire" />
+      <div className="auth-hero-logo">
+        <ToumaiLogoMotion />
+      </div>
     </div>
   );
 }
