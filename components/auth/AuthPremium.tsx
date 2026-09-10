@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Logo } from "@/components/Logo";
+import { ToumaiLogoMotion } from "@/components/auth/ToumaiLogoMotion";
 import { LANG_META, LANGS, useLang, type Lang } from "@/lib/i18n/context";
 
 import "./auth.css";
@@ -63,19 +64,7 @@ const SHELL_COPY: Record<Lang, {
 function CinemaToumai() {
   return (
     <div className="auth-cinema" aria-hidden="true">
-      <span className="auth-cinema-glow" />
-      <span className="auth-cinema-wave un" />
-      <span className="auth-cinema-wave deux" />
-      <span className="auth-orbite" />
-      <span className="auth-orbite deux" />
-      <span className="auth-orbite trois" />
-      <span className="auth-planete grande" />
-      <span className="auth-planete petite" />
-      <span className="auth-planete petite-deux" />
-      <span className="auth-planete ivoire" />
-      <div className="auth-hero-logo">
-        <Logo size={390} />
-      </div>
+      <ToumaiLogoMotion />
     </div>
   );
 }
