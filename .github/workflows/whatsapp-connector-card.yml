@@ -1,0 +1,32 @@
+name: WhatsApp connector card
+
+on:
+  push:
+    branches:
+      - refactor/whatsapp-connector-card
+    paths:
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - ".github/workflows/whatsapp-connector-card.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - ".github/workflows/whatsapp-connector-card.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint connector card
+        run: npx eslint components/chat/WhatsAppConnectorCard.tsx
