@@ -2,6 +2,11 @@ name: Test NaraRouter
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test-nararouter.yml
 
 permissions:
   contents: read
