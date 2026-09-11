@@ -2,6 +2,11 @@ name: Test UnoRouter
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test-unorouter.yml
 
 permissions:
   contents: read
@@ -21,6 +26,17 @@ jobs:
             echo "Le secret GitHub UNOROUTER_API_KEY est absent."
             exit 1
           fi
+          case "$UNOROUTER_API_KEY" in
+            Bearer\ *)
+              echo "Format invalide : enregistrez uniquement la clé, sans le préfixe Bearer."
+              exit 1
+              ;;
+          esac
+          if printf '%s' "$UNOROUTER_API_KEY" | grep -q '[[:space:]]'; then
+            echo "Format invalide : le secret contient un espace ou un retour à la ligne."
+            exit 1
+          fi
+          echo "Format UnoRouter valide."
 
       - name: Vérifier le catalogue de modèles
         shell: bash
