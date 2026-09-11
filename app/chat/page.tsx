@@ -80,6 +80,16 @@ function nextId() {
   return `m${Date.now()}${idCounter}`;
 }
 
+/** Questions qui doivent être résolues par la passerelle WhatsApp, jamais par
+ * une supposition du modèle. On reste volontairement strict pour ne pas
+ * détourner les demandes d'envoi ou de rédaction d'un message WhatsApp. */
+function isWhatsAppConnectorIntent(text: string): boolean {
+  const mentionsWhatsApp = /(?:whats?app|واتساب)/i.test(text);
+  const asksConnection =
+    /(?:connect(?:é|e|er|ion)?|reconnect|déconnect|deconnect|statut|état|etat|qr|scanner|jumel|lier|lié|lie|mon\s+num[eé]ro|my\s+number|connected|status|رقم|متصل|ربط|رمز)/i.test(text);
+  return mentionsWhatsApp && asksConnection;
+}
+
 /** Bref signal sonore (deux notes montantes) au démarrage de la dictée —
  * indique à l'utilisateur qu'il peut parler, comme les assistants vocaux. */
 function playDictationChime() {
@@ -626,6 +636,20 @@ export default function ChatPage() {
         : {}),
     };
     const assistantId = nextId();
+    if (!attachedDoc && isWhatsAppConnectorIntent(text)) {
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "Je vérifie directement l’état du connecteur WhatsApp.",
+          streaming: false,
+          whatsappConnector: true,
+        },
+      ]);
+      return;
+    }
     setMessages((prev) => [
       ...prev,
       userMsg,
@@ -2075,4 +2099,3 @@ function CheckIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
