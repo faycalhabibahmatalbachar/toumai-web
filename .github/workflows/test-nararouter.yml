@@ -26,6 +26,18 @@ jobs:
             echo "Le secret GitHub NARAROUTER_API_KEY est absent."
             exit 1
           fi
+          case "$NARAROUTER_API_KEY" in
+            sk-nry-*) ;;
+            *)
+              echo "Format invalide : le secret doit commencer par sk-nry- et ne doit pas contenir le mot Bearer."
+              exit 1
+              ;;
+          esac
+          if printf '%s' "$NARAROUTER_API_KEY" | grep -q '[[:space:]]'; then
+            echo "Format invalide : le secret contient un espace ou un retour à la ligne."
+            exit 1
+          fi
+          echo "Format NaraRouter valide."
 
       - name: Vérifier le catalogue autorisé
         shell: bash
