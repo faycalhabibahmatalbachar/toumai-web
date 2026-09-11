@@ -26,7 +26,7 @@ const WA = /(?:whats?app|واتساب)/i;
  * vers le modèle et ses tools : contacts, messages, groupes, statuts, profil,
  * recherche, synchronisation, etc.
  */
-const BUSINESS_ACTION = /(?:conversations?|chats?|messages?|contacts?|groupes?|groups?|channels?|cha[iî]nes?|synchronis|sync|chercher|rechercher|trouver|liste|lister|afficher|montre|montrer|cr[eé]er|ajouter|retirer|supprimer|modifier|changer|mettre|publier|poster|status\b|statut\b|envoyer|r[eé]pondre|r[eé]agir|transf[eé]rer|forward|archiver|d[eé]sarchiver|bloquer|d[eé]bloquer|photo|image|vid[eé]o|document|fichier|appel|call|lire|lecture|r[eé]sumer|analyse|analyser)/i;
+const BUSINESS_ACTION = /(?:conversations?|chats?|messages?|contacts?|groupes?|groups?|channels?|cha[iî]nes?|synchronis|sync|chercher|rechercher|trouver|liste|lister|cr[eé]er|ajouter|retirer|supprimer|modifier|changer|mettre|publier|poster|envoyer|r[eé]pondre|r[eé]agir|transf[eé]rer|forward|archiver|d[eé]sarchiver|bloquer|d[eé]bloquer|photo|image|vid[eé]o|document|fichier|appel|call|lire|lecture|r[eé]sumer|analyse|analyser)/i;
 
 const CONNECT = /\b(?:connecte|connecter|connect[eé]|reconnecte|reconnecter|reconnect[eé]|lier|relier|li[eé])\b/i;
 const DISCONNECT = /\b(?:d[eé]connecte|d[eé]connecter|deconnecte|deconnecter|logout|d[eé]lier|delier|فصل)\b/i;
