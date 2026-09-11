@@ -1,0 +1,68 @@
+name: WhatsApp routing regression
+
+on:
+  push:
+    branches:
+      - fix/whatsapp-action-routing
+    paths:
+      - "lib/whatsapp-intents.ts"
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - "scripts/verify-whatsapp-routing.mjs"
+      - ".github/workflows/whatsapp-routing-regression.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/whatsapp-intents.ts"
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - "scripts/verify-whatsapp-routing.mjs"
+      - ".github/workflows/whatsapp-routing-regression.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Static WhatsApp invariants
+        run: node scripts/verify-whatsapp-routing.mjs
+      - name: Compile intent classifier for behavioral tests
+        run: npx tsc lib/whatsapp-intents.ts --target ES2020 --module commonjs --skipLibCheck --outDir /tmp/wa-intents
+      - name: Behavioral routing cases
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { classifyWhatsAppIntent } = require('/tmp/wa-intents/whatsapp-intents.js');
+          const cases = [
+            ['mon WhatsApp est connecté ?', false, 'status'],
+            ['connecte mon WhatsApp', false, 'connect'],
+            ['reconnecte-le', true, 'reconnect'],
+            ['et mon numéro ?', true, 'number'],
+            ['déconnecte WhatsApp', false, 'disconnect'],
+            ['statut de connexion WhatsApp', false, 'status'],
+            ['tu peux lire mes conversations ?', true, null],
+            ['mes contacts c’est quoi ?', true, null],
+            ['Oui vous pouvez lancer', true, null],
+            ['tu peux mettre status ?', true, null],
+            ['tu peux creer groupe ?', true, null],
+            ['Ajouter ce contact 68663737 dans le groupe', true, null],
+            ['tu peux chercher contact dans mon numero et afficher moi ici ?', true, null],
+            ['WhatsApp, cherche Ali', false, null],
+            ['WhatsApp', false, null],
+          ];
+          for (const [text, ctx, expected] of cases) {
+            const got = classifyWhatsAppIntent(text, ctx)?.intent ?? null;
+            if (got !== expected) throw new Error(`${text}: expected ${expected}, got ${got}`);
+          }
+          console.log('WhatsApp behavioral routing cases: OK');
+          NODE
+      - name: Production build
+        run: npm run build

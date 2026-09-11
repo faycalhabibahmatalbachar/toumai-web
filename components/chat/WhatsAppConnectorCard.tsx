@@ -32,7 +32,7 @@ type Props = {
 
 const ACTIVE = new Set(["qr", "pairing", "connecting"]);
 
-function formatDuration(ms?: number) {
+function formatDuration(ms?: number | null) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return null;
   const minutes = Math.floor(ms / 60000);
   if (minutes < 1) return "à l’instant";
@@ -41,6 +41,25 @@ function formatDuration(ms?: number) {
   if (!hours) return `${minutes} min`;
   if (!rest) return `${hours} h`;
   return `${hours} h ${rest} min`;
+}
+
+/**
+ * `connecte_depuis_ms` et `derniere_activite_ms` sont des HORODATAGES Unix,
+ * pas des durées. Les diviser directement par 60 000 affiche le temps écoulé
+ * depuis 1970 (≈ 497 000 h en 2026). On les convertit d'abord en âge.
+ *
+ * Certaines anciennes passerelles ont rendu des secondes au lieu de ms : on
+ * normalise aussi ce cas pour éviter un nouveau saut de plusieurs décennies.
+ */
+function elapsedSince(timestamp?: number | null): number | null {
+  if (timestamp == null || !Number.isFinite(timestamp) || timestamp <= 0) return null;
+  const asMs = timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
+  const elapsed = Date.now() - asMs;
+  // Un horodatage futur de quelques secondes peut arriver par dérive d'horloge.
+  // Au-delà de cinq minutes, la donnée est incohérente : mieux vaut ne rien
+  // afficher que fabriquer une durée négative ou immense.
+  if (elapsed < -5 * 60_000) return null;
+  return Math.max(0, elapsed);
 }
 
 function maskNumber(value?: string | null) {
@@ -143,6 +162,8 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   const qr = raw?.qr || null;
   const number = etat?.numero || raw?.number || null;
   const pairingCode = etat?.code_jumelage || raw?.pairingCode || null;
+  const connectedElapsed = elapsedSince(etat?.connecte_depuis_ms);
+  const activityElapsed = elapsedSince(etat?.derniere_activite_ms);
   const capabilities = useMemo(
     () => Object.entries(etat?.capacites || {}).filter(([, enabled]) => enabled),
     [etat?.capacites],
@@ -186,9 +207,14 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
           <div>Compte : <strong className="text-[var(--text-primary)]">{number ? maskNumber(number) : "non fourni par le connecteur"}</strong></div>
           {etat?.nom_profil ? <div>Profil : <strong className="text-[var(--text-primary)]">{etat.nom_profil}</strong></div> : null}
           {etat?.plateforme ? <div>Plateforme : <strong className="text-[var(--text-primary)]">{etat.plateforme}</strong></div> : null}
-          {etat?.derniere_activite_ms != null ? <div>Dernière activité : <strong className="text-[var(--text-primary)]">{formatDuration(etat.derniere_activite_ms)}</strong></div> : null}
-          {etat?.connecte_depuis_ms != null ? <div>Connecté depuis : <strong className="text-[var(--text-primary)]">{formatDuration(etat.connecte_depuis_ms)}</strong></div> : null}
-          {etat?.contacts != null ? <div>Contacts : <strong className="text-[var(--text-primary)]">{etat.contacts}</strong></div> : null}
+          {activityElapsed != null ? <div>Dernière activité : <strong className="text-[var(--text-primary)]">{activityElapsed < 60_000 ? "à l’instant" : `il y a ${formatDuration(activityElapsed)}`}</strong></div> : null}
+          {connectedElapsed != null ? <div>Connecté depuis : <strong className="text-[var(--text-primary)]">{formatDuration(connectedElapsed)}</strong></div> : null}
+          {etat?.contacts != null ? (
+            <div>
+              Contacts synchronisés : <strong className="text-[var(--text-primary)]">{etat.contacts}</strong>
+              {etat.contacts === 0 ? <span> — cela ne signifie pas que le compte WhatsApp n’a aucun contact.</span> : null}
+            </div>
+          ) : null}
         </div>
       )}
 
