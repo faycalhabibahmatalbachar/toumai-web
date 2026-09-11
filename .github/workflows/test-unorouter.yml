@@ -59,29 +59,58 @@ jobs:
           fi
           echo "Catalogue UnoRouter accessible : $model_count modèles retournés."
 
-      - name: Tester une réponse gratuite minimale
+      - name: Tester le routage gratuit avec repli
         shell: bash
         run: |
-          request_file="$(mktemp)"
-          response_file="$(mktemp)"
-          jq -n '{
-            model: "gpt-oss-120b:free",
-            messages: [{role: "user", content: "Réponds uniquement par OK."}],
-            max_tokens: 8,
-            stream: false
-          }' > "$request_file"
-          status="$(curl --silent --show-error \
-            --output "$response_file" \
-            --write-out '%{http_code}' \
-            --max-time 60 \
+          models_file="$(mktemp)"
+          curl --silent --show-error --fail \
+            --max-time 30 \
             --header "Authorization: Bearer $UNOROUTER_API_KEY" \
-            --header 'Content-Type: application/json' \
-            --data-binary "@$request_file" \
-            "$UNOROUTER_BASE_URL/chat/completions")"
-          if [ "$status" != "200" ]; then
-            error_code="$(jq -r '.error.code // "inconnu"' "$response_file" 2>/dev/null || true)"
-            echo "UnoRouter chat a répondu HTTP $status (code : $error_code)."
+            "$UNOROUTER_BASE_URL/models" > "$models_file"
+
+          mapfile -t free_models < <(
+            jq -r '.data[]?.id | select(test("(:free|/free)$"; "i"))' "$models_file" | head -n 5
+          )
+          if [ "${#free_models[@]}" -eq 0 ]; then
+            echo "Aucun alias gratuit détecté dans le catalogue UnoRouter."
             exit 1
           fi
-          jq -e '.choices[0].message.content | strings | length > 0' "$response_file" >/dev/null
-          echo "Réponse UnoRouter reçue et valide."
+
+          request_file="$(mktemp)"
+          response_file="$(mktemp)"
+          success=0
+          last_status="aucun"
+          last_code="inconnu"
+
+          for model in "${free_models[@]}"; do
+            jq -n --arg model "$model" '{
+              model: $model,
+              messages: [{role: "user", content: "Réponds uniquement par OK."}],
+              max_tokens: 8,
+              stream: false
+            }' > "$request_file"
+
+            last_status="$(curl --silent --show-error \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              --max-time 60 \
+              --header "Authorization: Bearer $UNOROUTER_API_KEY" \
+              --header 'Content-Type: application/json' \
+              --data-binary "@$request_file" \
+              "$UNOROUTER_BASE_URL/chat/completions")"
+
+            if [ "$last_status" = "200" ] && jq -e '.choices[0].message.content | strings | length > 0' "$response_file" >/dev/null; then
+              echo "Réponse UnoRouter gratuite reçue et valide."
+              success=1
+              break
+            fi
+
+            last_code="$(jq -r '.error.code // .error.type // "inconnu"' "$response_file" 2>/dev/null || true)"
+            echo "Un modèle gratuit a répondu HTTP $last_status (code : $last_code), essai du repli suivant."
+            sleep 2
+          done
+
+          if [ "$success" -ne 1 ]; then
+            echo "Tous les replis gratuits testés ont échoué. Dernier statut HTTP $last_status (code : $last_code)."
+            exit 1
+          fi
