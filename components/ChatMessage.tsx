@@ -14,6 +14,8 @@ import type { ChatImage } from "./chat/media/types";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
 import { Logo } from "./Logo";
 import { useSpeakText } from "@/hooks/useSpeakText";
+import { WhatsAppConnectorCard } from "./chat/WhatsAppConnectorCard";
+import type { WhatsAppChatIntent } from "@/lib/whatsapp-intents";
 
 /** Extrait le HTML de base d'un message d'édition (qui embarque le code du
  * site dans un bloc ```html) pour appliquer un patch. */
@@ -72,6 +74,8 @@ export interface Message {
   reasoningMs?: number;
   /** Action en cours côté serveur avant la réponse (`"web_search"`). */
   activity?: string;
+  /** UI live du connecteur WhatsApp. Aucun QR ni secret n’est persisté ici. */
+  whatsappConnector?: { intent: WhatsAppChatIntent };
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -646,6 +650,9 @@ export function ChatMessage({
           durationMs={message.reasoningMs}
           streaming={message.streaming}
         />
+      )}
+      {message.whatsappConnector && (
+        <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />
       )}
       <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && !message.content ? (
