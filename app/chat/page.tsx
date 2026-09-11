@@ -29,6 +29,7 @@ import { applyChatFontSize } from "@/lib/ui-prefs";
 import { describeError, errorMessage, microphoneErrorMessage } from "@/lib/errors";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { SELECTABLE_MODELS } from "@/lib/models";
+import { classifyWhatsAppIntent } from "@/lib/whatsapp-intents";
 import {
   CommandPalette,
   filterPalette,
@@ -78,16 +79,6 @@ let idCounter = 0;
 function nextId() {
   idCounter += 1;
   return `m${Date.now()}${idCounter}`;
-}
-
-/** Questions qui doivent être résolues par la passerelle WhatsApp, jamais par
- * une supposition du modèle. On reste volontairement strict pour ne pas
- * détourner les demandes d'envoi ou de rédaction d'un message WhatsApp. */
-function isWhatsAppConnectorIntent(text: string): boolean {
-  const mentionsWhatsApp = /(?:whats?app|واتساب)/i.test(text);
-  const asksConnection =
-    /(?:connect(?:é|e|er|ion)?|reconnect|déconnect|deconnect|statut|état|etat|qr|scanner|jumel|lier|lié|lie|mon\s+num[eé]ro|my\s+number|connected|status|رقم|متصل|ربط|رمز)/i.test(text);
-  return mentionsWhatsApp && asksConnection;
 }
 
 /** Bref signal sonore (deux notes montantes) au démarrage de la dictée —
@@ -636,16 +627,25 @@ export default function ChatPage() {
         : {}),
     };
     const assistantId = nextId();
-    if (!attachedDoc && isWhatsAppConnectorIntent(text)) {
+    // Le statut/numéro/QR WhatsApp ne doit jamais être inventé par le modèle.
+    // On conserve un contexte court pour comprendre « et mon numéro ? » ou
+    // « reconnecte-le » juste après une interaction WhatsApp, sans détourner
+    // les demandes générales qui n’ont aucun rapport avec le connecteur.
+    const hasWhatsAppContext = [...messages]
+      .reverse()
+      .slice(0, 4)
+      .some((m) => Boolean(m.whatsappConnector) || /(?:whats?app|واتساب)/i.test(m.content));
+    const whatsappIntent = attachedDoc ? null : classifyWhatsAppIntent(text, hasWhatsAppContext);
+    if (whatsappIntent) {
       setMessages((prev) => [
         ...prev,
         userMsg,
         {
           id: assistantId,
           role: "assistant",
-          content: "Je vérifie directement l’état du connecteur WhatsApp.",
+          content: "",
           streaming: false,
-          whatsappConnector: true,
+          whatsappConnector: { intent: whatsappIntent.intent },
         },
       ]);
       return;
