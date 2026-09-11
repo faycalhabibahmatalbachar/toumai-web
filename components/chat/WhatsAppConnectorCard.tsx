@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -136,7 +136,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const generation = useRef(0);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const g = ++generation.current;
     setError(null);
     const [e, r] = await Promise.all([
@@ -150,28 +150,9 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
     }
     if (e) setEtat(e);
     if (r) setRaw(r);
-  };
-
-  useEffect(() => {
-    void refresh();
-    return () => {
-      generation.current += 1;
-    };
   }, []);
 
-  useEffect(() => {
-    if (!raw || !ACTIVE.has(raw.status)) return;
-    const id = window.setInterval(() => void refresh(), 3000);
-    return () => window.clearInterval(id);
-  }, [raw?.status]);
-
-  useEffect(() => {
-    if (intent === "connect" || intent === "reconnect" || intent === "qr") {
-      void startQr();
-    }
-  }, [intent]);
-
-  async function startQr() {
+  const startQr = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
@@ -184,7 +165,28 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
     } finally {
       setBusy(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => void refresh(), 0);
+    return () => {
+      window.clearTimeout(id);
+      generation.current += 1;
+    };
+  }, [refresh]);
+
+  const rawStatus = raw?.status;
+  useEffect(() => {
+    if (!rawStatus || !ACTIVE.has(rawStatus)) return;
+    const id = window.setInterval(() => void refresh(), 3000);
+    return () => window.clearInterval(id);
+  }, [rawStatus, refresh]);
+
+  useEffect(() => {
+    if (intent !== "connect" && intent !== "reconnect" && intent !== "qr") return;
+    const id = window.setTimeout(() => void startQr(), 0);
+    return () => window.clearTimeout(id);
+  }, [intent, startQr]);
 
   async function refreshPairing() {
     setBusy(true);
