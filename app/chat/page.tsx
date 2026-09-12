@@ -183,24 +183,14 @@ export default function ChatPage() {
   // Tâche de navigation web détectée → fenêtre dédiée de l'Agent Navigateur.
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
   const urlConvAttempted = useRef(false);
-  const [attachedDoc, setAttachedDoc] = useState<UploadedDocument | null>(null);
+  const [attachedDocs, setAttachedDocs] = useState<UploadedDocument[]>([]);
   // Langue de réponse définie dans les préférences ("fr", "en", "ar"… ou
   // "auto") — envoyée à chaque tour pour que l'IA réponde TOUJOURS dans la
   // langue choisie, pas dans celle détectée du message.
   const preferredLangRef = useRef<string>("auto");
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  /** L'aperçu de l'image jointe, fabriqué depuis le fichier LOCAL.
-   *
-   * POURQUOI PAS UNE URL DU SERVEUR
-   * -------------------------------
-   * Le serveur ne rend qu'un identifiant, un nom et un type — pas d'adresse
-   * consultable. Attendre qu'il en fournisse une reporterait l'aperçu à
-   * plus tard ; le fichier est déjà dans le navigateur, il n'y a rien à
-   * attendre.
-   *
-   * Conséquence utile : l'aperçu s'affiche DÈS le choix du fichier, avant même
-   * la fin de l'import. On voit ce qu'on envoie pendant que ça part. */
-  const [apercuJoint, setApercuJoint] = useState<string | null>(null);
+  // Les aperçus utilisent l'URL de stockage renvoyée après upload. Cela évite
+  // de conserver plusieurs blob: locaux en mémoire quand cinq fichiers sont joints.
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const whisperRecRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -600,7 +590,7 @@ export default function ChatPage() {
     // bouton grisé — le premier laisse croire à une panne, le second dit ce
     // qu'il attend. Constaté dans le navigateur : aucun appel réseau après le
     // clic.
-    if ((!text && !attachedDoc) || sending || !session) return;
+    if ((!text && attachedDocs.length === 0) || sending || !session) return;
     // Demande de navigation web → l'Agent Navigateur prend le relais dans sa
     // fenêtre dédiée (l'utilisateur n'a plus à le lancer manuellement).
     // Second garde-fou : une édition de site (prompt de patch contenant le HTML
@@ -623,8 +613,16 @@ export default function ChatPage() {
       content: text,
       envoyeLe: new Date().toISOString(),
       // La pièce part avec le message et reste visible dans le fil.
-      ...(attachedDoc
-        ? { piece: { nom: attachedDoc.filename, apercu: apercuJoint ?? undefined } }
+      ...(attachedDocs.length
+        ? {
+            pieces: attachedDocs.map((doc) => ({
+              nom: doc.filename,
+              apercu: doc.file_type === "image" ? doc.storage_url : undefined,
+              type: doc.mime_type || doc.file_type,
+              taille: doc.file_size,
+              pages: doc.page_count,
+            })),
+          }
         : {}),
     };
     const assistantId = nextId();
@@ -636,7 +634,7 @@ export default function ChatPage() {
       .reverse()
       .slice(0, 4)
       .some((m) => Boolean(m.whatsappConnector) || /(?:whats?app|واتساب)/i.test(m.content));
-    const whatsappIntent = attachedDoc ? null : classifyWhatsAppIntent(text, hasWhatsAppContext);
+    const whatsappIntent = attachedDocs.length ? null : classifyWhatsAppIntent(text, hasWhatsAppContext);
     if (whatsappIntent) {
       setMessages((prev) => [
         ...prev,
@@ -717,12 +715,9 @@ export default function ChatPage() {
 
     let acc = "";
     try {
-      const documentId = attachedDoc?.doc_id;
-      setAttachedDoc(null);
-      // On lâche la référence SANS révoquer l adresse : le message du fil
-      // affiche desormais la même vignette, et la révoquer y laisserait un
-      // cadre vide.
-      setApercuJoint(null);
+      const documents = attachedDocs;
+      const documentIds = documents.map((doc) => doc.doc_id).slice(0, 5);
+      setAttachedDocs([]);
       // ÉPHÉMÈRE : le contexte voyage AVEC la requête. Sans identifiant de
       // conversation, le serveur n'a rien à relire — chaque message serait le
       // premier, et « résume ce que je viens de dire » ne répondrait rien.
@@ -742,7 +737,8 @@ export default function ChatPage() {
           modelPreference: model,
           language: preferredLangRef.current,
           webSearch,
-          documentId,
+          documentId: documentIds[0],
+          documentIds,
           ephemeral,
           history: ephemeralHistory,
           lastImageUrl: ephemeralLastImage,
@@ -1074,76 +1070,66 @@ export default function ChatPage() {
     if (rec && rec.state === "recording") rec.stop();
   }
 
-  /** Fabrique l'aperçu d'une image. Les autres formats gardent leur icône. */
-  function poserApercu(file: File) {
-    oublierApercu();
-    if (file.type.startsWith("image/")) {
-      setApercuJoint(URL.createObjectURL(file));
+  const importFiles = useCallback(async (files: File[]) => {
+    const slots = Math.max(0, 5 - attachedDocs.length);
+    if (!slots || files.length === 0) {
+      if (!slots) setError("Maximum 5 fichiers par message.");
+      return;
     }
-  }
+    const candidats = files.slice(0, slots);
+    if (files.length > slots) setError(`Maximum 5 fichiers — ${files.length - slots} ignoré(s).`);
 
-  /** Rend la mémoire de l'aperçu.
-   *
-   * `createObjectURL` réserve le fichier tant qu'on ne le révoque pas : sans
-   * cet appel, joindre vingt images dans une session en garderait vingt en
-   * mémoire jusqu'à la fermeture de l'onglet. */
-  function oublierApercu() {
-    setApercuJoint((prec) => {
-      if (prec) URL.revokeObjectURL(prec);
-      return null;
+    const invalid = candidats.find((file) => file.size === 0 || file.size > 10 * 1024 * 1024);
+    if (invalid) {
+      setError(
+        invalid.size === 0
+          ? `${invalid.name} est vide.`
+          : `${invalid.name} dépasse 10 Mo.`,
+      );
+      return;
+    }
+
+    // Déduplication UX avant le réseau. Le serveur reste la source de vérité.
+    const uniques = candidats.filter(
+      (file) =>
+        !attachedDocs.some(
+          (doc) => doc.filename === file.name && doc.file_size === file.size,
+        ),
+    );
+    if (!uniques.length) {
+      setError("Ces fichiers sont déjà joints.");
+      return;
+    }
+
+    setUploadingDoc(true);
+    clearError();
+    const resultats = await Promise.allSettled(uniques.map((file) => uploadDocument(file)));
+    const reussis: UploadedDocument[] = [];
+    const erreurs: string[] = [];
+    resultats.forEach((result, index) => {
+      if (result.status === "fulfilled") reussis.push(result.value);
+      else erreurs.push(uniques[index]?.name || "fichier");
     });
-  }
+    if (reussis.length) {
+      setAttachedDocs((prev) => [...prev, ...reussis].slice(0, 5));
+    }
+    if (erreurs.length) {
+      setError(`Import impossible : ${erreurs.join(", ")}.`);
+    }
+    setUploadingDoc(false);
+  }, [attachedDocs]);
 
   async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Fichier trop volumineux (10 Mo max).");
-      return;
-    }
-    poserApercu(file);
-    setUploadingDoc(true);
-    clearError();
-    try {
-      const doc = await uploadDocument(file);
-      setAttachedDoc(doc);
-    } catch (err) {
-      setError(errorMessage(err, "upload"));
-    } finally {
-      setUploadingDoc(false);
-    }
+    await importFiles(files);
   }
 
-  /** Import d'un fichier venant du glisser-déposer ou du presse-papiers —
-   * même chemin que le sélecteur de fichiers, mêmes contrôles de taille. */
-  const importFile = useCallback(async (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Fichier trop volumineux (10 Mo max).");
-      return;
-    }
-    poserApercu(file);
-    setUploadingDoc(true);
-    clearError();
-    try {
-      const doc = await uploadDocument(file);
-      setAttachedDoc(doc);
-    } catch (err) {
-      setError(errorMessage(err, "upload"));
-    } finally {
-      setUploadingDoc(false);
-    }
-  }, []);
-
-  // Le backend n'accepte qu'une pièce jointe par message : on prend la première
-  // et on le dit, plutôt que d'en perdre silencieusement.
   const onDroppedFiles = useCallback(
     (files: File[]) => {
-      if (files.length === 0) return;
-      if (files.length > 1) setError("Un seul fichier par message — le premier a été retenu.");
-      void importFile(files[0]);
+      void importFiles(files);
     },
-    [importFile],
+    [importFiles],
   );
 
   // Collage d'une image depuis le presse-papiers (capture d'écran, copie web).
@@ -1284,7 +1270,7 @@ export default function ChatPage() {
   // On attend en revanche la FIN de l'import : partir avant, c'est envoyer un
   // message qui référence un document que le serveur n'a pas encore.
   const canSend =
-    (Boolean(input.trim()) || Boolean(attachedDoc)) &&
+    (Boolean(input.trim()) || attachedDocs.length > 0) &&
     !uploadingDoc &&
     !sending &&
     Boolean(session);
@@ -1555,7 +1541,8 @@ export default function ChatPage() {
               ref={fileInputRef}
               type="file"
               className="hidden"
-              accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.gif"
+              accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.csv,.png,.jpg,.jpeg,.webp,.gif"
+              multiple
               onChange={onFilePicked}
             />
             {palette && paletteItems.length > 0 && !dictating && (
@@ -1586,42 +1573,37 @@ export default function ChatPage() {
                     qu'on s'apprête à envoyer ; la vignette le dit d'un coup
                     d'œil, et permet de voir qu'on s'est trompé de fichier
                     AVANT d'appuyer sur Entrée. */}
-                {apercuJoint ? (
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={apercuJoint}
-                      alt={attachedDoc?.filename ?? "Image jointe"}
-                      className="h-16 w-16 rounded-lg border border-[var(--border)] object-cover"
-                    />
-                    {uploadingDoc && (
-                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/45 text-[11px] text-white">
-                        …
-                      </div>
-                    )}
-                    {attachedDoc && !uploadingDoc && (
+                {attachedDocs.map((doc) =>
+                  doc.file_type === "image" && doc.storage_url ? (
+                    <div key={doc.doc_id} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={doc.storage_url}
+                        alt={doc.filename}
+                        className="h-16 w-16 rounded-lg border border-[var(--border)] object-cover"
+                        loading="lazy"
+                      />
                       <button
-                        onClick={() => {
-                          setAttachedDoc(null);
-                          oublierApercu();
-                        }}
-                        aria-label="Retirer la pièce jointe"
+                        onClick={() => setAttachedDocs((prev) => prev.filter((item) => item.doc_id !== doc.doc_id))}
+                        aria-label={`Retirer ${doc.filename}`}
                         title="Retirer"
                         className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[11px] leading-none text-[var(--text-secondary)] shadow transition hover:text-[var(--text-primary)]"
                       >
                         ×
                       </button>
-                    )}
-                  </div>
-                ) : (
-                  (attachedDoc || uploadingDoc) && (
+                    </div>
+                  ) : (
                     <ComposerChip
+                      key={doc.doc_id}
                       icon={<FileIcon />}
-                      label={uploadingDoc ? "Import en cours…" : (attachedDoc?.filename ?? "")}
+                      label={doc.filename}
                       tone="accent"
-                      onRemove={attachedDoc ? () => setAttachedDoc(null) : undefined}
+                      onRemove={() => setAttachedDocs((prev) => prev.filter((item) => item.doc_id !== doc.doc_id))}
                     />
-                  )
+                  ),
+                )}
+                {uploadingDoc && (
+                  <ComposerChip icon={<FileIcon />} label="Import en cours…" tone="accent" />
                 )}
               <textarea
                 ref={attacherChamp}
