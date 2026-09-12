@@ -24,6 +24,14 @@ export interface HistoryMessage {
     sources?: WebSource[];
     search_images?: SearchImage[];
     blocks?: ResponseBlock[];
+    attachment?: {
+      id?: string;
+      name: string;
+      mime_type?: string;
+      size_bytes?: number;
+      page_count?: number;
+      status?: "ready" | "processing" | "error";
+    };
     /** Trace de raisonnement conservée — alimente le panneau « Réflexion »
      * quand on rouvre une conversation. */
     reasoning?: string;
