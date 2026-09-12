@@ -241,7 +241,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     attachedDocsRef.current = attachedDocs;
-  }, [attachedDocs]);
+  }, [attachedDocs, pendingUploads]);
 
   useEffect(() => {
     return () => {
@@ -1155,7 +1155,10 @@ export default function ChatPage() {
   }
 
   const importFiles = useCallback(async (files: File[]) => {
-    const slots = Math.max(0, 5 - attachedDocs.length);
+    const uploadsActifs = pendingUploads.filter(
+      (item) => item.status === "uploading",
+    ).length;
+    const slots = Math.max(0, 5 - attachedDocs.length - uploadsActifs);
     if (!slots || files.length === 0) {
       if (!slots) setError("Maximum 5 fichiers par message.");
       return;
