@@ -208,6 +208,7 @@ export default function ChatPage() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const whisperRecRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
   const dictationBaseRef = useRef("");
   /** Dictée abandonnée : les transcriptions en vol ne doivent plus écrire dans
    * le champ, et la passe finale de Whisper doit être sautée. */
@@ -1167,27 +1168,43 @@ export default function ChatPage() {
         },
       ]);
 
-      return uploadDocumentWithProgress(file, (progress) => {
-        setPendingUploads((prev) =>
-          prev.map((item) =>
-            item.id === uploadId ? { ...item, progress } : item,
-          ),
-        );
-      })
+      const controller = new AbortController();
+      uploadControllersRef.current.set(uploadId, controller);
+
+      return uploadDocumentWithProgress(
+        file,
+        (progress) => {
+          setPendingUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadId ? { ...item, progress } : item,
+            ),
+          );
+        },
+        controller.signal,
+      )
         .then((doc) => {
+          uploadControllersRef.current.delete(uploadId);
           setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
           return doc;
         })
         .catch((uploadError: unknown) => {
-          const message =
-            uploadError instanceof Error ? uploadError.message : "Échec de l'upload";
-          setPendingUploads((prev) =>
-            prev.map((item) =>
-              item.id === uploadId
-                ? { ...item, status: "error", error: message }
-                : item,
-            ),
-          );
+          uploadControllersRef.current.delete(uploadId);
+          if (
+            uploadError instanceof DOMException &&
+            uploadError.name === "AbortError"
+          ) {
+            setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
+          } else {
+            const message =
+              uploadError instanceof Error ? uploadError.message : "Échec de l'upload";
+            setPendingUploads((prev) =>
+              prev.map((item) =>
+                item.id === uploadId
+                  ? { ...item, status: "error", error: message }
+                  : item,
+              ),
+            );
+          }
           throw uploadError;
         });
     });
@@ -1207,6 +1224,12 @@ export default function ChatPage() {
     }
     setUploadingDoc(false);
   }, [attachedDocs]);
+
+  function annulerUpload(uploadId: string) {
+    uploadControllersRef.current.get(uploadId)?.abort();
+    uploadControllersRef.current.delete(uploadId);
+    setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
+  }
 
   async function retirerDocument(docId: string) {
     const doc = attachedDocs.find((item) => item.doc_id === docId);
@@ -1714,9 +1737,20 @@ export default function ChatPage() {
                       <p className="truncate text-xs font-medium text-[var(--text-primary)]">
                         {upload.name}
                       </p>
-                      <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">
-                        {upload.status === "error" ? "Erreur" : `${upload.progress}%`}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                          {upload.status === "error" ? "Erreur" : `${upload.progress}%`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => annulerUpload(upload.id)}
+                          className="flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                          aria-label={upload.status === "error" ? `Fermer l'erreur ${upload.name}` : `Annuler l'import de ${upload.name}`}
+                          title={upload.status === "error" ? "Fermer" : "Annuler l'import"}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                     {upload.status === "error" ? (
                       <p className="mt-1 line-clamp-2 text-[11px] text-[var(--error)]">
