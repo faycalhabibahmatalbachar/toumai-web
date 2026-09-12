@@ -28,6 +28,7 @@ const checks = [
   ["upload cancellation", chat.includes("uploadControllersRef") && chat.includes("annulerUpload(upload.id)")],
   ["unsent upload cleanup", chat.includes("documentsNonEnvoyes") && chat.includes("deleteDocument(doc.doc_id)")],
   ["unmount upload cleanup", chat.includes("attachedDocsRef.current") && chat.includes("controller.abort()")],
+  ["active uploads count toward limit", chat.includes("5 - attachedDocs.length - uploadsActifs")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
