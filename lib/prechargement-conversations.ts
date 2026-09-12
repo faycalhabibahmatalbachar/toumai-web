@@ -72,6 +72,7 @@ export type MessageEnCache = {
   searchImages?: unknown;
   blocks?: unknown;
   piece?: unknown;
+  pieces?: unknown;
   reasoning?: unknown;
   reasoningMs?: unknown;
 };
@@ -95,6 +96,12 @@ export function convertirHistorique(historique: HistoryMessage[]): MessageEnCach
           pages: m.metadata.attachment.page_count,
         }
       : undefined,
+    pieces: m.metadata?.attachments?.map((piece) => ({
+      nom: piece.name,
+      type: piece.mime_type,
+      taille: piece.size_bytes,
+      pages: piece.page_count,
+    })),
     reasoning: m.metadata?.reasoning,
     reasoningMs: m.metadata?.reasoning_ms,
   }));
