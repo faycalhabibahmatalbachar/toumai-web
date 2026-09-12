@@ -32,6 +32,14 @@ export interface HistoryMessage {
       page_count?: number;
       status?: "ready" | "processing" | "error";
     };
+    attachments?: Array<{
+      id?: string;
+      name: string;
+      mime_type?: string;
+      size_bytes?: number;
+      page_count?: number;
+      status?: "ready" | "processing" | "error";
+    }>;
     /** Trace de raisonnement conservée — alimente le panneau « Réflexion »
      * quand on rouvre une conversation. */
     reasoning?: string;
