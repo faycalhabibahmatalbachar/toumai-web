@@ -19,10 +19,17 @@ export function DropZone({
   const matches = useCallback(
     (file: File) => {
       if (accept === "*") return true;
-      const patterns = accept.split(",").map((p) => p.trim());
-      return patterns.some((p) => {
-        if (p.endsWith("/*")) return file.type.startsWith(p.slice(0, -1));
-        return file.type === p;
+      const patterns = accept
+        .split(",")
+        .map((pattern) => pattern.trim().toLowerCase())
+        .filter(Boolean);
+      const mime = (file.type || "").toLowerCase();
+      const name = (file.name || "").toLowerCase();
+
+      return patterns.some((pattern) => {
+        if (pattern.startsWith(".")) return name.endsWith(pattern);
+        if (pattern.endsWith("/*")) return mime.startsWith(pattern.slice(0, -1));
+        return mime === pattern;
       });
     },
     [accept],
@@ -61,7 +68,7 @@ export function DropZone({
             }}
           >
             <p className="text-sm font-medium" style={{ color: "var(--primary)" }}>
-              Déposez le fichier ici
+              Déposez les fichiers ici
             </p>
           </motion.div>
         )}
