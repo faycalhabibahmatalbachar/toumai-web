@@ -94,6 +94,13 @@ export interface Message {
     taille?: number;
     pages?: number;
   };
+  pieces?: Array<{
+    nom: string;
+    apercu?: string;
+    type?: string;
+    taille?: number;
+    pages?: number;
+  }>;
   /** Action sensible en attente (WhatsApp, mail…) — affiche la carte
    * Confirmer/Annuler qui déclenche la VRAIE exécution côté backend. */
   toolConfirmation?: ToolConfirmation;
@@ -763,28 +770,30 @@ export function ChatMessage({
       {/* LA PIÈCE JOINTE RESTE DANS LE FIL.
           Sans elle, on relisait « analyse ça » sans savoir quoi — la question
           perdait son sujet dès qu'on remontait la conversation. */}
-      {message.piece && (
-        <div className="mt-2 flex items-center gap-2">
-          {message.piece.apercu ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={message.piece.apercu}
-              alt={message.piece.nom}
-              className="h-24 w-24 rounded-xl border border-[var(--border)] object-cover"
-            />
-          ) : (
-            /* Après un rechargement, l'adresse locale n'existe plus : il
-               reste le nom, qui vaut mieux qu'un cadre vide. */
-            <div className="max-w-[20rem] rounded-xl border border-[var(--border)] px-3 py-2">
-              <p className="truncate text-xs font-medium text-[var(--text-primary)]">
-                {message.piece.nom}
-              </p>
-              <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
-                {[message.piece.type, message.piece.pages ? `${message.piece.pages} page${message.piece.pages > 1 ? "s" : ""}` : null, typeof message.piece.taille === "number" ? formatFileSize(message.piece.taille) : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </div>
+      {(message.pieces?.length || message.piece) && (
+        <div className="mt-2 flex flex-wrap items-start gap-2">
+          {(message.pieces?.length ? message.pieces : message.piece ? [message.piece] : []).map((piece, index) =>
+            piece.apercu ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                key={`${piece.nom}-${index}`}
+                src={piece.apercu}
+                alt={piece.nom}
+                className="h-24 w-24 rounded-xl border border-[var(--border)] object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div key={`${piece.nom}-${index}`} className="max-w-[20rem] rounded-xl border border-[var(--border)] px-3 py-2">
+                <p className="truncate text-xs font-medium text-[var(--text-primary)]">
+                  {piece.nom}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
+                  {[piece.type, piece.pages ? `${piece.pages} page${piece.pages > 1 ? "s" : ""}` : null, typeof piece.taille === "number" ? formatFileSize(piece.taille) : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+            )
           )}
         </div>
       )}
