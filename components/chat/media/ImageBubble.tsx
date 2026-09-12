@@ -52,6 +52,8 @@ export function ImageBubble({
             alt={image.alt || "Image"}
             fill
             unoptimized
+            loading="lazy"
+            referrerPolicy="no-referrer"
             sizes="(max-width: 640px) 100vw, 480px"
             className="object-cover"
             onLoad={() => setLoaded(true)}
