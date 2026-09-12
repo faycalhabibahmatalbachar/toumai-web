@@ -1,0 +1,32 @@
+name: Quota UX regression
+
+on:
+  pull_request:
+    paths:
+      - 'components/chat/JaugeUsage.tsx'
+      - 'app/usage/**'
+      - '.github/workflows/quota-ux-regression.yml'
+  push:
+    branches: [main, feat/quota-ux-v2]
+    paths:
+      - 'components/chat/JaugeUsage.tsx'
+      - 'app/usage/**'
+      - '.github/workflows/quota-ux-regression.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint quota UI
+        run: npx eslint components/chat/JaugeUsage.tsx
+      - name: Production build
+        run: npm run build

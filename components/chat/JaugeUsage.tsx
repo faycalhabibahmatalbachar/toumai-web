@@ -1,45 +1,28 @@
 "use client";
 
 /**
- * LE BANDEAU DE QUOTA, SOUS LE CHAMP DE SAISIE.
+ * Bandeau de quota conversationnel.
  *
- * IL NE S'AFFICHE QU'AU MOMENT OÙ IL SERT
- * ========================================
- * La première version se montrait dès qu'il restait moins d'un quart du
- * quota. L'intention était bonne — prévenir avant le mur — mais le résultat
- * ne l'était pas : « 1 message aujourd'hui sur 20 » restait affiché en
- * permanence sous le champ de saisie, et un compteur permanent au-dessus
- * d'un endroit où l'on écrit donne l'impression d'être surveillé pendant
- * qu'on parle.
+ * Source de vérité : `/abonnements/moi`. Le navigateur n'invente aucun compteur
+ * et ne calcule aucune fenêtre métier. Le serveur fournit l'usage, le niveau
+ * d'alerte, `reset_at` et le fuseau de référence.
  *
- * Il n'apparaît donc plus qu'une fois la limite ATTEINTE, c'est-à-dire au
- * seul instant où l'information change quelque chose : celui où l'on ne peut
- * plus envoyer et où l'on a besoin de savoir pourquoi.
- *
- * IL DIT CE QUI BLOQUE, PAS TOUT CE QUI EXISTE
- * =============================================
- * Trois limites encadrent les messages : cinq heures, la journée, la semaine.
- * Les afficher toutes serait un tableau de bord. On montre celle qui bloque —
- * et si plusieurs sont pleines, celle qui repart le plus tôt, parce que c'est
- * la seule dont l'heure de reprise intéresse quelqu'un.
- *
- * LES CHIFFRES VIENNENT DU SERVEUR, TOUJOURS
- * ===========================================
- * Rien n'est compté ici. Un compteur tenu par le navigateur repart à zéro à
- * chaque rechargement, ne voit pas le deuxième onglet, et ment dès qu'on
- * ouvre l'application sur un autre appareil. `/abonnements/moi` est la seule
- * source, et elle est relue après chaque échange.
+ * UX :
+ * - normal (<80 %) : rien ;
+ * - warning (>=80 %) : alerte discrète ;
+ * - critical (>=95 %) : alerte forte ;
+ * - blocked (>=100 %) : blocage explicite + heure de reprise.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import { API_BASE } from "@/lib/config";
 import { authHeaders } from "@/lib/api";
+import { API_BASE } from "@/lib/config";
 
-/** Les trois fenêtres qui encadrent les messages, de la plus courte à la plus
- *  longue. Le même ordre que `core/quotas.py`, et pour la même raison. */
-const FENETRES_MESSAGES = ["messages_5h", "messages", "messages_semaine"];
+const FENETRES_MESSAGES = ["messages_5h", "messages", "messages_semaine"] as const;
+type CleMessage = (typeof FENETRES_MESSAGES)[number];
+type Niveau = "normal" | "warning" | "critical" | "blocked";
 
 type Quota = {
   utilise: number;
@@ -48,12 +31,41 @@ type Quota = {
   restant: number | null;
   fenetre: string;
   secondes_restantes: number | null;
+  usage_ratio?: number | null;
+  alert_level?: Niveau;
+  reset_at?: string | null;
+  timezone?: string;
 };
 
 type Etat = {
+  timezone?: string;
+  server_now?: string;
   plan: { code: string; nom: string };
   quotas: Record<string, Quota>;
 };
+
+const POIDS: Record<Niveau, number> = {
+  normal: 0,
+  warning: 1,
+  critical: 2,
+  blocked: 3,
+};
+
+const LIBELLES: Record<CleMessage, string> = {
+  messages_5h: "sur cette période",
+  messages: "aujourd’hui",
+  messages_semaine: "cette semaine",
+};
+
+function niveauDe(q: Quota): Niveau {
+  if (q.alert_level) return q.alert_level;
+  if (q.illimite || q.plafond <= 0) return "normal";
+  const ratio = q.plafond ? q.utilise / q.plafond : 0;
+  if (ratio >= 1) return "blocked";
+  if (ratio >= 0.95) return "critical";
+  if (ratio >= 0.8) return "warning";
+  return "normal";
+}
 
 function enClair(secondes: number | null): string {
   if (secondes === null) return "";
@@ -67,11 +79,22 @@ function enClair(secondes: number | null): string {
   return jours === 1 ? "1 jour" : `${jours} jours`;
 }
 
-const LIBELLES: Record<string, string> = {
-  messages_5h: "Limite de 5 heures atteinte",
-  messages: "Limite quotidienne atteinte",
-  messages_semaine: "Limite hebdomadaire atteinte",
-};
+function heureReset(resetAt: string | null | undefined, timezone: string | undefined): string | null {
+  if (!resetAt) return null;
+  try {
+    const date = new Date(resetAt);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: timezone || "Africa/Ndjamena",
+    }).format(date);
+  } catch {
+    return null;
+  }
+}
 
 export function JaugeUsage({ signal }: { signal?: number }) {
   const [etat, setEtat] = useState<Etat | null>(null);
@@ -80,76 +103,115 @@ export function JaugeUsage({ signal }: { signal?: number }) {
     try {
       const reponse = await fetch(`${API_BASE}/abonnements/moi`, {
         headers: authHeaders(),
+        cache: "no-store",
       });
       if (!reponse.ok) return;
       const charge = await reponse.json();
       if (charge?.data) setEtat(charge.data as Etat);
     } catch {
-      // Le bandeau est un secours. Il ne fait jamais de bruit : c'est le
-      // serveur qui refuse pour de bon, pas cet affichage.
+      // Ce composant informe, il n'autorise ni ne refuse. Le serveur reste le garde.
     }
   }, []);
 
   useEffect(() => {
-    void relire();
+    // Déférer le fetch évite une mutation d'état synchrone dans le corps de
+    // l'effet tout en gardant une lecture immédiate au prochain tour event-loop.
+    const timer = window.setTimeout(() => {
+      void relire();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [relire, signal]);
 
-  // ── QUAND SE MONTRER ─────────────────────────────────────────────────
-  //
-  // Une seule condition : une fenêtre est PLEINE. Tant qu'il reste ne
-  // serait-ce qu'un message, l'interface reste nue.
-  if (!etat) return null;
+  const selection = useMemo(() => {
+    if (!etat) return null;
 
-  const pleines = FENETRES_MESSAGES.map((cle) => ({ cle, q: etat.quotas?.[cle] }))
-    .filter(({ q }) => q && !q.illimite && q.plafond > 0 && (q.restant ?? 0) <= 0);
+    const candidats = FENETRES_MESSAGES.map((cle) => {
+      const q = etat.quotas?.[cle];
+      return q ? { cle, q, niveau: niveauDe(q) } : null;
+    }).filter(Boolean) as Array<{ cle: CleMessage; q: Quota; niveau: Niveau }>;
 
-  if (!pleines.length) return null;
+    const visibles = candidats.filter(({ niveau }) => POIDS[niveau] > 0);
+    if (!visibles.length) return null;
 
-  // Plusieurs limites pleines : on cite celle qui repart le plus tôt. C'est la
-  // seule échéance qui aide — savoir que l'hebdomadaire repart dans six jours
-  // n'apprend rien à qui pourra réécrire dans deux heures.
-  const bloquante = pleines.reduce((meilleur, courant) => {
-    const a = courant.q!.secondes_restantes ?? Number.MAX_SAFE_INTEGER;
-    const b = meilleur.q!.secondes_restantes ?? Number.MAX_SAFE_INTEGER;
-    return a < b ? courant : meilleur;
-  });
+    // Gravité d'abord. À gravité égale, on montre la fenêtre qui repart le plus tôt.
+    return visibles.reduce((meilleur, courant) => {
+      const diff = POIDS[courant.niveau] - POIDS[meilleur.niveau];
+      if (diff > 0) return courant;
+      if (diff < 0) return meilleur;
+      const a = courant.q.secondes_restantes ?? Number.MAX_SAFE_INTEGER;
+      const b = meilleur.q.secondes_restantes ?? Number.MAX_SAFE_INTEGER;
+      return a < b ? courant : meilleur;
+    });
+  }, [etat]);
 
-  const q = bloquante.q!;
-  const titre = LIBELLES[bloquante.cle] ?? "Limite atteinte";
+  if (!etat || !selection) return null;
+
+  const { cle, q, niveau } = selection;
+  const restant = Math.max(0, q.restant ?? q.plafond - q.utilise);
+  const timezone = q.timezone || etat.timezone || "Africa/Ndjamena";
+  const reset = heureReset(q.reset_at, timezone);
+
+  const copy = (() => {
+    if (niveau === "blocked") {
+      return {
+        titre: "Trop de demandes pour cette période",
+        detail: `Vous avez utilisé vos ${q.plafond} messages ${LIBELLES[cle]}.`,
+      };
+    }
+    if (niveau === "critical") {
+      return {
+        titre: restant === 1 ? "Plus qu’un message disponible" : `Plus que ${restant} messages disponibles`,
+        detail: `La limite ${LIBELLES[cle]} approche.`,
+      };
+    }
+    return {
+      titre: "Vous approchez de votre limite",
+      detail: `${restant} messages restent ${LIBELLES[cle]}.`,
+    };
+  })();
+
+  const danger = niveau === "blocked" || niveau === "critical";
+  const background = danger
+    ? "var(--danger-bg, rgba(192,87,58,0.08))"
+    : "rgba(217,164,65,0.10)";
+  const border = danger
+    ? "var(--danger-border, rgba(192,87,58,0.24))"
+    : "rgba(217,164,65,0.32)";
 
   return (
     <div
       className="mx-auto mt-2 flex w-full max-w-[var(--chat-measure)] flex-wrap items-center gap-x-2 gap-y-1 rounded-[10px] px-3 py-2 text-[12.5px]"
-      style={{
-        background: "var(--danger-bg, rgba(192,87,58,0.08))",
-        border: "1px solid var(--danger-border, rgba(192,87,58,0.24))",
-        color: "var(--text-secondary)",
-      }}
+      style={{ background, border: `1px solid ${border}`, color: "var(--text-secondary)" }}
       role="status"
       aria-live="polite"
+      data-quota-level={niveau}
     >
-      <span aria-hidden="true" className="shrink-0" style={{ color: "var(--danger, #c0573a)" }}>
-        {/* Un rond barré : le geste est refusé, ce n'est pas une panne. */}
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="9" />
-          <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
-        </svg>
+      <span aria-hidden="true" className="shrink-0" style={{ color: danger ? "var(--danger, #c0573a)" : "#a66b00" }}>
+        {niveau === "blocked" ? (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+          </svg>
+        ) : (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 3 2.8 19h18.4L12 3Z" />
+            <path d="M12 9v4" />
+            <circle cx="12" cy="16" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        )}
       </span>
 
-      <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{titre}</span>
-      <span className="tabular-nums" style={{ color: "var(--text-tertiary)" }}>
-        {q.utilise} messages sur {q.plafond}
-      </span>
+      <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{copy.titre}</span>
+      <span style={{ color: "var(--text-tertiary)" }}>{copy.detail}</span>
 
-      {q.secondes_restantes ? (
+      {reset ? (
         <span style={{ color: "var(--text-tertiary)" }}>
-          · reprise dans {enClair(q.secondes_restantes)}
+          · reprise le {reset} (heure de N’Djamena)
         </span>
+      ) : q.secondes_restantes ? (
+        <span style={{ color: "var(--text-tertiary)" }}>· reprise dans {enClair(q.secondes_restantes)}</span>
       ) : null}
 
-      {/* « POURQUOI SUIS-JE BLOQUÉ » SE POSE AVANT « COMBIEN ÇA COÛTE ».
-          La page d'usage explique la règle, montre les autres compteurs, et
-          porte le lien vers les offres quand il a un sens. */}
       <Link
         href="/usage"
         className="ml-auto shrink-0 underline underline-offset-2"
