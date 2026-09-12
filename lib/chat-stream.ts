@@ -83,6 +83,7 @@ export interface ChatStreamParams {
   language?: string;
   webSearch?: boolean;
   documentId?: string;
+  documentIds?: string[];
   /** DISCUSSION ÉPHÉMÈRE — le drapeau part à CHAQUE tour (il n'y a pas d'état
    * de session côté serveur). Le backend saute alors la création de
    * conversation, l'enregistrement des messages, le titre et l'extraction
@@ -122,7 +123,8 @@ export async function streamChat(
         language: params.language || "auto",
         model_preference: params.modelPreference,
         web_search: Boolean(params.webSearch),
-        document_id: params.documentId || undefined,
+        document_id: params.documentId || params.documentIds?.[0] || undefined,
+        document_ids: params.documentIds?.length ? params.documentIds.slice(0, 5) : undefined,
         ephemeral: Boolean(params.ephemeral),
         history: params.ephemeral ? (params.history ?? []) : undefined,
         last_image_url: params.ephemeral ? params.lastImageUrl : undefined,
