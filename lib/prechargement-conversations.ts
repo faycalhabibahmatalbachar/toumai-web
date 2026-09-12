@@ -90,6 +90,7 @@ export function convertirHistorique(historique: HistoryMessage[]): MessageEnCach
     blocks: m.metadata?.blocks,
     piece: m.metadata?.attachment
       ? {
+          id: m.metadata.attachment.id,
           nom: m.metadata.attachment.name,
           type: m.metadata.attachment.mime_type,
           taille: m.metadata.attachment.size_bytes,
@@ -97,6 +98,7 @@ export function convertirHistorique(historique: HistoryMessage[]): MessageEnCach
         }
       : undefined,
     pieces: m.metadata?.attachments?.map((piece) => ({
+      id: piece.id,
       nom: piece.name,
       type: piece.mime_type,
       taille: piece.size_bytes,
