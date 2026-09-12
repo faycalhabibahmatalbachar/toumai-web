@@ -197,6 +197,7 @@ export default function ChatPage() {
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
   const urlConvAttempted = useRef(false);
   const [attachedDocs, setAttachedDocs] = useState<UploadedDocument[]>([]);
+  const attachedDocsRef = useRef<UploadedDocument[]>([]);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   // Langue de réponse définie dans les préférences ("fr", "en", "ar"… ou
   // "auto") — envoyée à chaque tour pour que l'IA réponde TOUJOURS dans la
@@ -237,6 +238,24 @@ export default function ChatPage() {
   /** Écran étroit : le rappel « /commandes, @modèle » du champ de saisie y
    * passait à la ligne et doublait la hauteur du composeur au repos. */
   const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    attachedDocsRef.current = attachedDocs;
+  }, [attachedDocs]);
+
+  useEffect(() => {
+    return () => {
+      for (const controller of uploadControllersRef.current.values()) {
+        controller.abort();
+      }
+      uploadControllersRef.current.clear();
+      // Les documents encore présents ici n'ont jamais été envoyés dans un
+      // message : on évite de laisser des objets orphelins dans le stockage.
+      for (const doc of attachedDocsRef.current) {
+        void deleteDocument(doc.doc_id).catch(() => {});
+      }
+    };
+  }, []);
 
   /** DISCUSSION ÉPHÉMÈRE — rien de ce fil n'est écrit nulle part.
    *
@@ -597,6 +616,20 @@ export default function ChatPage() {
   function newChat() {
     // On reste en éphémère si on y était, mais le fil quitté est détruit.
     purgeEphemeral();
+
+    for (const controller of uploadControllersRef.current.values()) {
+      controller.abort();
+    }
+    uploadControllersRef.current.clear();
+    setPendingUploads([]);
+
+    const documentsNonEnvoyes = attachedDocsRef.current;
+    attachedDocsRef.current = [];
+    setAttachedDocs([]);
+    for (const doc of documentsNonEnvoyes) {
+      void deleteDocument(doc.doc_id).catch(() => {});
+    }
+
     setActiveSessionId(null);
     setUrlConversation(null);
     setMessages([]);
