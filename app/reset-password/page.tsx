@@ -16,6 +16,7 @@ import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
 
 const COPY: Record<Lang, {
   title: string;
+  openInApp: string;
   intro: string;
   password: string;
   passwordPlaceholder: string;
@@ -37,6 +38,7 @@ const COPY: Record<Lang, {
 }> = {
   fr: {
     title: "Nouveau mot de passe",
+    openInApp: "Ouvrir dans l’application Toumaï",
     intro: "Choisissez un nouveau mot de passe sécurisé pour votre compte.",
     password: "Nouveau mot de passe",
     passwordPlaceholder: "8 caractères au minimum",
@@ -58,6 +60,7 @@ const COPY: Record<Lang, {
   },
   "ar-td": {
     title: "كلمة مرور جديدة",
+    openInApp: "افتح في تطبيق تومَاي",
     intro: "اختار كلمة مرور جديدة وآمنة لحسابك.",
     password: "كلمة المرور الجديدة",
     passwordPlaceholder: "على الأقل 8 حروف",
@@ -79,6 +82,7 @@ const COPY: Record<Lang, {
   },
   ar: {
     title: "كلمة مرور جديدة",
+    openInApp: "الفتح في تطبيق تومَاي",
     intro: "اختر كلمة مرور جديدة وآمنة لحسابك.",
     password: "كلمة المرور الجديدة",
     passwordPlaceholder: "8 أحرف على الأقل",
@@ -100,6 +104,7 @@ const COPY: Record<Lang, {
   },
   en: {
     title: "New password",
+    openInApp: "Open in the Toumaï app",
     intro: "Choose a new secure password for your account.",
     password: "New password",
     passwordPlaceholder: "At least 8 characters",
@@ -233,6 +238,8 @@ function ResetPasswordContent() {
             </div>
           )}
 
+          {token && <OuvrirDansLApplication token={token} libelle={text.openInApp} />}
+
           <form onSubmit={submit} className="auth-formulaire">
             <PasswordField
               label={text.password}
@@ -321,6 +328,48 @@ function PasswordField({
         </button>
       </span>
     </label>
+  );
+}
+
+/** La bascule vers l'application, sur téléphone seulement.
+ *
+ * POURQUOI CE BOUTON EXISTE
+ * --------------------------
+ * L'application mobile sait changer un mot de passe, dans son propre écran.
+ * Mais le lien de l'e-mail est fabriqué par Supabase et pointe forcément vers
+ * une page web : rien ne peut l'envoyer directement à l'application.
+ *
+ * Un App Link vérifié (le lien https ouvrant l'application sans passer par
+ * ici) demanderait `assetlinks.json` et `apple-app-site-association` hébergés
+ * sur ce domaine, signés de l'empreinte de la clé de publication. Mesuré le
+ * 12/09/2026 : les deux répondent 404. Ce bouton est donc le pont, et il ne
+ * coûte qu'un geste.
+ *
+ * SUR ORDINATEUR, IL N'APPARAÎT PAS. Proposer d'ouvrir une application mobile
+ * à quelqu'un devant son écran d'ordinateur est une impasse : le lien ne fait
+ * rien, et on cherche pourquoi. Le formulaire de cette page reste de toute
+ * façon le chemin complet.
+ *
+ * Le jeton part dans le FRAGMENT, comme il est arrivé : un fragment ne quitte
+ * jamais l'appareil.
+ */
+function OuvrirDansLApplication({ token, libelle }: { token: string; libelle: string }) {
+  const [surMobile, setSurMobile] = useState(false);
+
+  useEffect(() => {
+    setSurMobile(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
+  }, []);
+
+  if (!surMobile) return null;
+
+  return (
+    <a
+      className="auth-bouton-discret"
+      href={`toumai://reset-password#access_token=${encodeURIComponent(token)}`}
+      style={{ display: "block", textAlign: "center", marginBottom: 16 }}
+    >
+      {libelle}
+    </a>
   );
 }
 
