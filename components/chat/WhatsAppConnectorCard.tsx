@@ -121,7 +121,7 @@ function InfoCell({
       className={`min-w-0 rounded-2xl border border-[var(--border)]/80 bg-[var(--background)]/35 px-3.5 py-3 ${wide ? "sm:col-span-2" : ""}`}
     >
       <div className="flex items-center gap-2 text-[11px] font-medium text-[var(--text-tertiary)]">
-        <span className="shrink-0 opacity-75">{icon}</span>
+        <span className="shrink-0 opacity-75" aria-hidden="true">{icon}</span>
         <span>{label}</span>
       </div>
       <div className="mt-1.5 truncate text-[13px] font-semibold text-[var(--text-primary)]">{value}</div>
@@ -266,9 +266,11 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   return (
     <section
       className="relative mt-3 w-full max-w-[560px] overflow-hidden rounded-[26px] border border-[var(--border)] bg-[var(--card)] shadow-[0_18px_60px_rgba(0,0,0,0.08)]"
-      aria-live="polite"
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[var(--primary)]/8 to-transparent" />
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        WhatsApp : {visibleStatus}. {summary}
+      </p>
 
       <div className="relative p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
@@ -294,7 +296,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
         </div>
 
         {error && (
-          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] px-3.5 py-3 text-[12px] leading-5 text-[var(--text-secondary)]">
+          <div role="alert" className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] px-3.5 py-3 text-[12px] leading-5 text-[var(--text-secondary)]">
             <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
             <span>{error}</span>
           </div>
