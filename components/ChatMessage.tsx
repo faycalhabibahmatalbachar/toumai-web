@@ -826,7 +826,7 @@ export function ChatMessage({
           )}
           {message.sources && message.sources.length > 0 && <WebSourcesRow sources={message.sources} />}
         </>
-      )}
+      ) : null}
       {!message.streaming && message.modelNotice && (
         <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>
       )}
