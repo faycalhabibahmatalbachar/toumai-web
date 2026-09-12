@@ -121,6 +121,31 @@ export interface WaEtat {
   capacites_source?: "passerelle" | "inconnu" | "aucune";
   /** Ce qu'aucune version ne fera, avec la raison. */
   hors_de_portee?: Record<string, string>;
+  /** État réel du régulateur serveur. Absent avec un backend plus ancien. */
+  protection?: WaProtectionState;
+}
+
+export interface WaProtectionClassState {
+  derniere_minute: number;
+  derniere_heure: number;
+  dernier_jour: number;
+  plafond_jour: number;
+  echecs_consecutifs: number;
+  en_repos: boolean;
+}
+
+export interface WaProtectionState {
+  available: boolean;
+  shared: boolean | null;
+  source: "redis" | "local" | "unavailable";
+  mode: "normal" | "prudence" | "unknown";
+  prudence: { active: boolean; reste_s: number };
+  classes: Partial<Record<"lecture" | "ecriture" | "sensible", WaProtectionClassState>>;
+  policies: {
+    anti_duplicate: boolean;
+    burst_control: boolean;
+    verified_execution: boolean;
+  };
 }
 
 export function getWaEtat(): Promise<WaEtat> {

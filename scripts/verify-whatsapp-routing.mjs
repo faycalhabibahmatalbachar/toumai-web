@@ -35,5 +35,12 @@ if (card.includes('formatDuration(etat.connecte_depuis_ms)')) {
 if (!card.includes('Contacts synchronisés')) {
   throw new Error('contact count must be labelled as synchronized contacts');
 }
+if (!card.includes('WhatsAppProtectionPanel')) {
+  throw new Error('connector card must render the real server protection panel');
+}
+const api = fs.readFileSync('lib/connectors-api.ts', 'utf8');
+if (!api.includes('protection?: WaProtectionState;')) {
+  throw new Error('WaEtat must expose the optional server protection contract');
+}
 
 console.log('WhatsApp routing regression checks: OK');

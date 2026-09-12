@@ -25,6 +25,7 @@ import {
   type WaEtat,
   type WhatsAppState,
 } from "@/lib/connectors-api";
+import { WhatsAppProtectionPanel } from "./WhatsAppProtectionPanel";
 
 export type WhatsAppConnectorIntent =
   | "status"
@@ -410,6 +411,8 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
             ) : null}
           </div>
         )}
+
+        <WhatsAppProtectionPanel protection={etat?.protection} connected={connected} />
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-4">
           {(disconnected || expired || intent === "connect" || intent === "reconnect") && !unreachable && (
