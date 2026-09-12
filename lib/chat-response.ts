@@ -49,8 +49,20 @@ export function blocksFromMetadata(meta?: LegacyRichMetadata | null): ResponseBl
 
   const blocks: ResponseBlock[] = [];
   if (meta.activity) blocks.push({ type: "activity", activity: meta.activity });
-  if (meta.search_images?.length) blocks.push({ type: "web_images", images: meta.search_images });
-  if (meta.image_urls?.length) blocks.push({ type: "generated_images", urls: meta.image_urls });
+
+  const webImageUrls = new Set(
+    (meta.search_images ?? []).map((image) => image.url).filter(Boolean),
+  );
+  const generatedUrls = (meta.image_urls ?? []).filter(
+    (url) => url && !webImageUrls.has(url),
+  );
+
+  if (meta.search_images?.length) {
+    blocks.push({ type: "web_images", images: meta.search_images });
+  }
+  if (generatedUrls.length) {
+    blocks.push({ type: "generated_images", urls: generatedUrls });
+  }
   if (meta.sources?.length) blocks.push({ type: "sources", sources: meta.sources });
   if (meta.tool_confirmation) {
     blocks.push({ type: "tool_confirmation", confirmation: meta.tool_confirmation });
