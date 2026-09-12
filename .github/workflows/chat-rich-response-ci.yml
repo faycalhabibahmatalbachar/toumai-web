@@ -26,6 +26,8 @@ jobs:
           cache: npm
       - name: Install exact lockfile
         run: npm ci
+      - name: Lint
+        run: npm run lint
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
