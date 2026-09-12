@@ -717,6 +717,13 @@ export function ChatMessage({
     (!isProject && !message.streaming ? extractHtml(message.content || "") : null);
   const isSite = Boolean(finishedHtml);
 
+  // Les recherches d'images renvoient les mêmes URL dans imageUrls pour la
+  // compatibilité. Ne rendre qu'une fois ces résultats, avec leur provenance.
+  const searchImageUrls = new Set((message.searchImages ?? []).map((img) => img.url));
+  const standaloneImageUrls = (message.imageUrls ?? []).filter(
+    (url) => !searchImageUrls.has(url),
+  );
+
   let visibleContent = message.content || "";
   if (building) visibleContent = visibleContent.replace(/```html[\s\S]*$/i, "").trimEnd();
   // Si patch appliqué, on masque les blocs SEARCH/REPLACE (techniques).
@@ -861,9 +868,9 @@ export function ChatMessage({
         <RichResponseBlocks blocks={message.blocks} />
       ) : !message.streaming ? (
         <>
-          {message.imageUrls && message.imageUrls.length > 0 && (
+          {standaloneImageUrls.length > 0 && (
             <div className="mt-2">
-              <MediaMessage images={imagesFromUrls(message.imageUrls, { alt: "Image générée par Toumaï AI" })} />
+              <MediaMessage images={imagesFromUrls(standaloneImageUrls, { alt: "Image générée par Toumaï AI" })} />
             </div>
           )}
           {message.searchImages && message.searchImages.length > 0 && (
