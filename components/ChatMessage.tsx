@@ -702,6 +702,17 @@ export function ChatMessage({
         <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />
       )}
       <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
+        {message.streaming && message.activity ? (
+          <ActivityLine
+            label={
+              message.activity === "deep_web_search"
+                ? "Recherche approfondie sur le Web…"
+                : message.activity === "document_analysis"
+                  ? "Analyse du document…"
+                  : "Recherche sur le Web…"
+            }
+          />
+        ) : null}
         {message.streaming && !message.content ? (
           <TypingDots />
         ) : (
