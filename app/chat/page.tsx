@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { streamChat, type HistoryTurn } from "@/lib/chat-stream";
+import { blocksFromMetadata, mergeResponseBlocks } from "@/lib/chat-response";
 import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/chat-api";
 import { getProfile, prenomAffichable } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
@@ -771,9 +772,27 @@ export default function ChatPage() {
           }
           if (evt.metadata?.sources && !evt.done) {
             const srcs = evt.metadata.sources;
+            const incomingBlocks = blocksFromMetadata({ sources: srcs });
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantId ? { ...m, sources: srcs, activity: undefined } : m,
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      sources: srcs,
+                      blocks: mergeResponseBlocks(m.blocks, incomingBlocks),
+                      activity: undefined,
+                    }
+                  : m,
+              ),
+            );
+          }
+          if (evt.metadata?.blocks && !evt.done) {
+            const incomingBlocks = evt.metadata.blocks;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, blocks: mergeResponseBlocks(m.blocks, incomingBlocks) }
+                  : m,
               ),
             );
           }
@@ -793,6 +812,7 @@ export default function ChatPage() {
             const modelNotice = evt.metadata?.model_notice;
             const reasoning = evt.metadata?.reasoning;
             const reasoningMs = evt.metadata?.reasoning_ms;
+            const richBlocks = blocksFromMetadata(evt.metadata);
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {
@@ -803,6 +823,7 @@ export default function ChatPage() {
                     imageUrls: imageUrls?.length ? imageUrls : m.imageUrls,
                     sources: sources?.length ? sources : m.sources,
                     searchImages: searchImages?.length ? searchImages : m.searchImages,
+                    blocks: mergeResponseBlocks(m.blocks, richBlocks),
                     // Rétrogradation de modèle : on l'affiche, on ne la cache pas.
                     modelNotice: modelNotice ?? m.modelNotice,
                     // Trace de raisonnement réelle (panneau « Réflexion »).
