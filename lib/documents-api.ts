@@ -1,6 +1,6 @@
 import { http, postForm } from "./http";
 import { API_BASE } from "./config";
-import { authHeaders } from "./api";
+import { authHeaders, ensureFreshSession } from "./api";
 
 export interface UploadedDocument {
   doc_id: string;
@@ -22,11 +22,12 @@ export async function uploadDocument(file: File): Promise<UploadedDocument> {
   return postForm<UploadedDocument>("/documents/upload", form);
 }
 
-export function uploadDocumentWithProgress(
+export async function uploadDocumentWithProgress(
   file: File,
   onProgress?: (percent: number) => void,
   signal?: AbortSignal,
 ): Promise<UploadedDocument> {
+  await ensureFreshSession();
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
