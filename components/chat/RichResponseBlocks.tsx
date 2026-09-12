@@ -102,6 +102,15 @@ function WeatherWidget({ data }: { data: Record<string, unknown> }) {
   const feelsLike = typeof data.feels_like === "number" ? data.feels_like : null;
   const humidity = typeof data.humidity === "number" ? data.humidity : null;
   const wind = typeof data.wind_speed === "number" ? data.wind_speed : null;
+  const uvIndex = typeof data.uv_index === "number" ? data.uv_index : null;
+  const sunrise = typeof data.sunrise === "string" ? data.sunrise : "";
+  const sunset = typeof data.sunset === "string" ? data.sunset : "";
+  const hourly = Array.isArray(data.hourly)
+    ? data.hourly.filter(
+        (hour): hour is Record<string, unknown> =>
+          Boolean(hour) && typeof hour === "object" && !Array.isArray(hour),
+      ).slice(0, 8)
+    : [];
   const forecast = Array.isArray(data.forecast)
     ? data.forecast.filter(
         (day): day is Record<string, unknown> =>
@@ -125,7 +134,7 @@ function WeatherWidget({ data }: { data: Record<string, unknown> }) {
             </p>
           ) : null}
         </div>
-        <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
           <div>
             <dt className="text-[var(--text-tertiary)]">Ressenti</dt>
             <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{feelsLike !== null ? `${feelsLike}°` : "—"}</dd>
@@ -138,8 +147,33 @@ function WeatherWidget({ data }: { data: Record<string, unknown> }) {
             <dt className="text-[var(--text-tertiary)]">Vent</dt>
             <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{wind !== null ? `${wind} km/h` : "—"}</dd>
           </div>
+          <div>
+            <dt className="text-[var(--text-tertiary)]">Indice UV</dt>
+            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{uvIndex !== null ? uvIndex : "—"}</dd>
+          </div>
         </dl>
+        {(sunrise || sunset) ? (
+          <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">
+            {sunrise ? `Lever ${sunrise}` : ""}
+            {sunrise && sunset ? " · " : ""}
+            {sunset ? `Coucher ${sunset}` : ""}
+          </p>
+        ) : null}
       </div>
+      {hourly.length ? (
+        <div className="overflow-x-auto border-t border-[var(--border)] px-2 py-2" aria-label="Prévisions horaires">
+          <div className="flex min-w-max gap-1">
+            {hourly.map((hour, index) => (
+              <div key={String(hour.time ?? index)} className="w-[4.7rem] rounded-xl px-2 py-2 text-center">
+                <p className="text-[11px] font-medium text-[var(--text-secondary)]">{String(hour.time ?? "")}</p>
+                <p className="mt-1 text-xs font-medium text-[var(--text-primary)]">
+                  {typeof hour.temp === "number" ? `${hour.temp}°` : "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {forecast.length ? (
         <div className="overflow-x-auto border-t border-[var(--border)] px-2 py-2">
           <div className="flex min-w-max gap-1">
