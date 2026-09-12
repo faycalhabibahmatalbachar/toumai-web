@@ -11,6 +11,8 @@ import { ProjectCard } from "./ProjectViewer";
 import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/lib/project-parser";
 import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
 import type { ChatImage } from "./chat/media/types";
+import type { ResponseBlock } from "@/lib/chat-response";
+import { RichResponseBlocks } from "./chat/RichResponseBlocks";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
 import { Logo } from "./Logo";
 import { useSpeakText } from "@/hooks/useSpeakText";
@@ -62,6 +64,8 @@ export interface Message {
   /** Sources et images réelles trouvées pendant une recherche web (jamais générées). */
   sources?: WebSource[];
   searchImages?: SearchImage[];
+  /** Blocs enrichis ordonnés. Quand présents, ils remplacent le rendu legacy sources/images. */
+  blocks?: ResponseBlock[];
   /** Renseigné quand le modèle demandé était indisponible et que la cascade a
    * rétrogradé. Affiché sous la réponse : l'utilisateur doit savoir qui lui a
    * répondu, on ne laisse pas croire qu'il a eu Toumaï 5. */
@@ -744,28 +748,32 @@ export function ChatMessage({
       {!message.streaming && message.toolConfirmation && (
         <ToolConfirmCard confirmation={message.toolConfirmation} />
       )}
-      {!message.streaming && message.imageUrls && message.imageUrls.length > 0 && (
-        <div className="mt-2">
-          <MediaMessage images={imagesFromUrls(message.imageUrls, { alt: "Image générée par Toumaï AI" })} />
-        </div>
-      )}
-      {!message.streaming && message.searchImages && message.searchImages.length > 0 && (
-        <div className="mt-2">
-          <MediaMessage
-            images={message.searchImages.map(
-              (img, i): ChatImage => ({
-                id: `${img.url}-${i}`,
-                url: img.url,
-                alt: img.title,
-                sourceUrl: img.source_url,
-                sourceTitle: img.title,
-              }),
-            )}
-          />
-        </div>
-      )}
-      {!message.streaming && message.sources && message.sources.length > 0 && (
-        <WebSourcesRow sources={message.sources} />
+      {!message.streaming && message.blocks?.length ? (
+        <RichResponseBlocks blocks={message.blocks} />
+      ) : (
+        <>
+          {message.imageUrls && message.imageUrls.length > 0 && (
+            <div className="mt-2">
+              <MediaMessage images={imagesFromUrls(message.imageUrls, { alt: "Image générée par Toumaï AI" })} />
+            </div>
+          )}
+          {message.searchImages && message.searchImages.length > 0 && (
+            <div className="mt-2">
+              <MediaMessage
+                images={message.searchImages.map(
+                  (img, i): ChatImage => ({
+                    id: `${img.url}-${i}`,
+                    url: img.url,
+                    alt: img.title,
+                    sourceUrl: img.source_url,
+                    sourceTitle: img.title,
+                  }),
+                )}
+              />
+            </div>
+          )}
+          {message.sources && message.sources.length > 0 && <WebSourcesRow sources={message.sources} />}
+        </>
       )}
       {!message.streaming && message.modelNotice && (
         <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>
