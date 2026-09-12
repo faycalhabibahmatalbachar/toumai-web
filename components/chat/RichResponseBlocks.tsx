@@ -1,0 +1,163 @@
+"use client";
+
+import type { ResponseBlock, ResponseWidget } from "@/lib/chat-response";
+import { MediaMessage, imagesFromUrls } from "./media/MediaMessage";
+import type { ChatImage } from "./media/types";
+
+function safeHttpUrl(raw?: string): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function host(raw: string): string {
+  try {
+    return new URL(raw).host.replace(/^www\./, "");
+  } catch {
+    return raw;
+  }
+}
+
+function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "sources" }> }) {
+  const sources = block.sources
+    .map((source, index) => ({ source, index, url: safeHttpUrl(source.url) }))
+    .filter((entry): entry is typeof entry & { url: string } => Boolean(entry.url))
+    .slice(0, 8);
+  if (!sources.length) return null;
+
+  return (
+    <section className="mt-3" aria-label="Sources consultées">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[12px] font-medium text-[var(--text-tertiary)]">
+          Sources · {sources.length}
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {sources.map(({ source, index, url }) => (
+          <a
+            key={url + index}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group min-w-0 rounded-xl border border-[var(--border)] px-3 py-2.5 transition hover:bg-[var(--hover)]"
+          >
+            <div className="flex items-start gap-2.5">
+              <span
+                className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--card)] px-1 text-[11px] font-semibold text-[var(--text-secondary)]"
+                aria-hidden="true"
+              >
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
+                  {source.title || host(url)}
+                </p>
+                <p className="truncate text-[11px] text-[var(--text-tertiary)]">{host(url)}</p>
+                {"snippet" in source && typeof source.snippet === "string" && source.snippet ? (
+                  <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">
+                    {source.snippet}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function WebImagesBlock({ block }: { block: Extract<ResponseBlock, { type: "web_images" }> }) {
+  const images = block.images
+    .map((img, i): ChatImage | null => {
+      const url = safeHttpUrl(img.url);
+      if (!url) return null;
+      return {
+        id: img.url + i,
+        url,
+        alt: img.title || "Image issue de la recherche Web",
+        sourceUrl: safeHttpUrl(img.source_url) || undefined,
+      };
+    })
+    .filter((img): img is ChatImage => Boolean(img));
+  if (!images.length) return null;
+  return (
+    <section className="mt-3" aria-label="Images de la recherche Web">
+      <MediaMessage images={images} />
+    </section>
+  );
+}
+
+function WidgetBlock({ widget }: { widget: ResponseWidget }) {
+  if (widget.type === "table" && Array.isArray(widget.data)) {
+    const rows = widget.data.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row));
+    const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).slice(0, 8);
+    if (!rows.length || !columns.length) return null;
+    return (
+      <section className="mt-3 overflow-hidden rounded-xl border border-[var(--border)]" aria-label={widget.title || "Tableau"}>
+        {widget.title ? <h3 className="px-3 py-2 text-sm font-medium text-[var(--text-primary)]">{widget.title}</h3> : null}
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-xs">
+            <thead className="bg-[var(--card)] text-[var(--text-secondary)]">
+              <tr>{columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.slice(0, 100).map((row, i) => (
+                <tr key={i} className="border-t border-[var(--border)]">
+                  {columns.map((c) => <td key={c} className="max-w-[18rem] px-3 py-2 align-top text-[var(--text-primary)]">{String(row[c] ?? "")}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-3 rounded-xl border border-[var(--border)] px-3 py-2.5" aria-label={widget.title || "Widget"}>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">Widget · {widget.type}</p>
+      {widget.title ? <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{widget.title}</p> : null}
+    </section>
+  );
+}
+
+export function RichResponseBlocks({ blocks }: { blocks?: ResponseBlock[] }) {
+  if (!blocks?.length) return null;
+  return (
+    <>
+      {blocks.map((block, index) => {
+        const key = block.id || `${block.type}-${index}`;
+        switch (block.type) {
+          case "sources":
+            return <SourcesBlock key={key} block={block} />;
+          case "web_images":
+            return <WebImagesBlock key={key} block={block} />;
+          case "generated_images":
+            return block.urls.length ? (
+              <div key={key} className="mt-3">
+                <MediaMessage images={imagesFromUrls(block.urls, { alt: "Image générée par Toumaï AI" })} />
+              </div>
+            ) : null;
+          case "widget":
+            return <WidgetBlock key={key} widget={block.widget} />;
+          case "file":
+            return (
+              <div key={key} className="mt-3 rounded-xl border border-[var(--border)] px-3 py-2.5">
+                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{block.file.name}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{block.file.mime_type || "Fichier"}</p>
+                {block.file.error ? <p className="mt-1 text-xs text-[var(--error)]">{block.file.error}</p> : null}
+              </div>
+            );
+          case "activity":
+          case "tool_confirmation":
+            return null;
+        }
+      })}
+    </>
+  );
+}
