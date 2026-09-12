@@ -36,6 +36,13 @@ function pendingHtmlCode(content: string): string | null {
   return after;
 }
 
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "";
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -57,7 +64,13 @@ export interface Message {
    * n'en gardait aucune trace — impossible de savoir, en relisant, sur quoi
    * portait la question. `apercu` est une adresse locale (`blob:`) valable
    * le temps de l'onglet ; le nom reste comme repli après rechargement. */
-  piece?: { nom: string; apercu?: string };
+  piece?: {
+    nom: string;
+    apercu?: string;
+    type?: string;
+    taille?: number;
+    pages?: number;
+  };
   /** Action sensible en attente (WhatsApp, mail…) — affiche la carte
    * Confirmer/Annuler qui déclenche la VRAIE exécution côté backend. */
   toolConfirmation?: ToolConfirmation;
@@ -739,9 +752,16 @@ export function ChatMessage({
           ) : (
             /* Après un rechargement, l'adresse locale n'existe plus : il
                reste le nom, qui vaut mieux qu'un cadre vide. */
-            <span className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
-              {message.piece.nom}
-            </span>
+            <div className="max-w-[20rem] rounded-xl border border-[var(--border)] px-3 py-2">
+              <p className="truncate text-xs font-medium text-[var(--text-primary)]">
+                {message.piece.nom}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
+                {[message.piece.type, message.piece.pages ? `${message.piece.pages} page${message.piece.pages > 1 ? "s" : ""}` : null, typeof message.piece.taille === "number" ? formatFileSize(message.piece.taille) : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
           )}
         </div>
       )}
