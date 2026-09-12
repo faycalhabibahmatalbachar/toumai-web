@@ -88,6 +88,7 @@ export interface Message {
    * portait la question. `apercu` est une adresse locale (`blob:`) valable
    * le temps de l'onglet ; le nom reste comme repli après rechargement. */
   piece?: {
+    id?: string;
     nom: string;
     apercu?: string;
     type?: string;
@@ -95,6 +96,7 @@ export interface Message {
     pages?: number;
   };
   pieces?: Array<{
+    id?: string;
     nom: string;
     apercu?: string;
     type?: string;
