@@ -2,6 +2,7 @@ import { API_BASE } from "./config";
 import { authHeaders, ensureFreshSession, refreshSession } from "./api";
 import { handleUnauthorized } from "./session-guard";
 import { HttpError } from "./errors";
+import type { ResponseBlock } from "./chat-response";
 
 /** Action sensible (WhatsApp, mail…) en attente de confirmation explicite —
  * émise par le backend dans les métadonnées du flux. Le frontend affiche une
@@ -15,14 +16,15 @@ export interface ToolConfirmation {
 
 /** Source web citée par une réponse ayant fait une recherche. */
 export interface WebSource {
+  id?: string;
   title?: string;
   url: string;
-  /** Extrait réellement renvoyé par le moteur de recherche. */
+  /** Extrait réellement renvoyé par le moteur/retriever. Jamais synthétisé côté client. */
   snippet?: string;
-  /** Pertinence du fournisseur quand elle est disponible. */
   score?: number | null;
-  /** Date publiée/observée quand le fournisseur la fournit. */
+  domain?: string;
   published_at?: string;
+  favicon_url?: string;
 }
 
 /** Image réelle trouvée pendant une recherche web — jamais générée. */
@@ -52,6 +54,8 @@ export interface StreamMetadata {
    * `"web_search"`. Émis AVANT l'action, parce qu'une recherche prend plusieurs
    * secondes et qu'un écran muet pendant ce temps ressemble à une panne. */
   activity?: string;
+  /** Contrat extensible de réponse enrichie. Les anciens champs ci-dessus restent supportés. */
+  blocks?: ResponseBlock[];
   [key: string]: unknown;
 }
 
@@ -80,6 +84,7 @@ export interface ChatStreamParams {
   language?: string;
   webSearch?: boolean;
   documentId?: string;
+  documentIds?: string[];
   /** DISCUSSION ÉPHÉMÈRE — le drapeau part à CHAQUE tour (il n'y a pas d'état
    * de session côté serveur). Le backend saute alors la création de
    * conversation, l'enregistrement des messages, le titre et l'extraction
@@ -119,7 +124,8 @@ export async function streamChat(
         language: params.language || "auto",
         model_preference: params.modelPreference,
         web_search: Boolean(params.webSearch),
-        document_id: params.documentId || undefined,
+        document_id: params.documentId || params.documentIds?.[0] || undefined,
+        document_ids: params.documentIds?.length ? params.documentIds.slice(0, 5) : undefined,
         ephemeral: Boolean(params.ephemeral),
         history: params.ephemeral ? (params.history ?? []) : undefined,
         last_image_url: params.ephemeral ? params.lastImageUrl : undefined,
