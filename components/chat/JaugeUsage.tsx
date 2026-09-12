@@ -114,7 +114,12 @@ export function JaugeUsage({ signal }: { signal?: number }) {
   }, []);
 
   useEffect(() => {
-    void relire();
+    // Déférer le fetch évite une mutation d'état synchrone dans le corps de
+    // l'effet tout en gardant une lecture immédiate au prochain tour event-loop.
+    const timer = window.setTimeout(() => {
+      void relire();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [relire, signal]);
 
   const selection = useMemo(() => {
