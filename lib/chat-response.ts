@@ -85,6 +85,6 @@ function stableBlockKey(block: ResponseBlock): string {
     case "file":
       return `file:${block.file.id || block.file.name}`;
     case "widget":
-      return `widget:${block.widget.type}`;
+      return `widget:${block.widget.type}:${block.widget.title || "default"}`;
   }
 }
