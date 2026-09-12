@@ -21,6 +21,7 @@ export interface WebSource {
   url: string;
   /** Extrait réellement renvoyé par le moteur/retriever. Jamais synthétisé côté client. */
   snippet?: string;
+  score?: number | null;
   domain?: string;
   published_at?: string;
   favicon_url?: string;
