@@ -2,6 +2,7 @@ import { API_BASE } from "./config";
 import { authHeaders, ensureFreshSession, refreshSession } from "./api";
 import { handleUnauthorized } from "./session-guard";
 import { HttpError } from "./errors";
+import type { ResponseBlock } from "./chat-response";
 
 /** Action sensible (WhatsApp, mail…) en attente de confirmation explicite —
  * émise par le backend dans les métadonnées du flux. Le frontend affiche une
@@ -15,8 +16,14 @@ export interface ToolConfirmation {
 
 /** Source web citée par une réponse ayant fait une recherche. */
 export interface WebSource {
+  id?: string;
   title?: string;
   url: string;
+  /** Extrait réellement renvoyé par le moteur/retriever. Jamais synthétisé côté client. */
+  snippet?: string;
+  domain?: string;
+  published_at?: string;
+  favicon_url?: string;
 }
 
 /** Image réelle trouvée pendant une recherche web — jamais générée. */
@@ -46,6 +53,8 @@ export interface StreamMetadata {
    * `"web_search"`. Émis AVANT l'action, parce qu'une recherche prend plusieurs
    * secondes et qu'un écran muet pendant ce temps ressemble à une panne. */
   activity?: string;
+  /** Contrat extensible de réponse enrichie. Les anciens champs ci-dessus restent supportés. */
+  blocks?: ResponseBlock[];
   [key: string]: unknown;
 }
 
