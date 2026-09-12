@@ -20,6 +20,9 @@ const checks = [
   ["composer max five", chat.includes("5 - attachedDocs.length")],
   ["server delete on remove", chat.includes("deleteDocument(docId)")],
   ["drag-drop extension matching", dropZone.includes('pattern.startsWith(".")') && dropZone.includes("name.endsWith(pattern)")],
+  ["attachment ids kept in messages", chat.includes("id: doc.doc_id")],
+  ["regenerate keeps document ids", chat.includes("dernierUtilisateur?.pieces?.map((piece) => piece.id)")],
+  ["edit keeps document ids", chat.includes("edited.pieces?.map((piece) => piece.id)")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
