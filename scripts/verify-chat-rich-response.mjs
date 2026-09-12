@@ -26,6 +26,8 @@ const checks = [
   ["per-file upload progress", chat.includes('role="progressbar"') && chat.includes("upload.progress")],
   ["progress upload api", fs.readFileSync("lib/documents-api.ts", "utf8").includes("uploadDocumentWithProgress")],
   ["upload cancellation", chat.includes("uploadControllersRef") && chat.includes("annulerUpload(upload.id)")],
+  ["unsent upload cleanup", chat.includes("documentsNonEnvoyes") && chat.includes("deleteDocument(doc.doc_id)")],
+  ["unmount upload cleanup", chat.includes("attachedDocsRef.current") && chat.includes("controller.abort()")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
