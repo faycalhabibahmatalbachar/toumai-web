@@ -25,6 +25,7 @@ const checks = [
   ["edit keeps document ids", chat.includes("edited.pieces?.map((piece) => piece.id)")],
   ["per-file upload progress", chat.includes('role="progressbar"') && chat.includes("upload.progress")],
   ["progress upload api", fs.readFileSync("lib/documents-api.ts", "utf8").includes("uploadDocumentWithProgress")],
+  ["upload cancellation", chat.includes("uploadControllersRef") && chat.includes("annulerUpload(upload.id)")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
