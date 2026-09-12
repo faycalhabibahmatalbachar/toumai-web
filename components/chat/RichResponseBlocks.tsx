@@ -92,7 +92,76 @@ function WebImagesBlock({ block }: { block: Extract<ResponseBlock, { type: "web_
   );
 }
 
+function WeatherWidget({ data }: { data: Record<string, unknown> }) {
+  const city = typeof data.city === "string" ? data.city : "";
+  const country = typeof data.country === "string" ? data.country : "";
+  const description = typeof data.description === "string" ? data.description : "";
+  const temperature = typeof data.temperature === "number" ? data.temperature : null;
+  const feelsLike = typeof data.feels_like === "number" ? data.feels_like : null;
+  const humidity = typeof data.humidity === "number" ? data.humidity : null;
+  const wind = typeof data.wind_speed === "number" ? data.wind_speed : null;
+  const forecast = Array.isArray(data.forecast)
+    ? data.forecast.filter(
+        (day): day is Record<string, unknown> =>
+          Boolean(day) && typeof day === "object" && !Array.isArray(day),
+      ).slice(0, 7)
+    : [];
+
+  return (
+    <section className="mt-3 overflow-hidden rounded-2xl border border-[var(--border)]" aria-label={`Météo ${city}`}>
+      <div className="px-4 py-3.5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+              {[city, country].filter(Boolean).join(", ") || "Météo"}
+            </p>
+            {description ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{description}</p> : null}
+          </div>
+          {temperature !== null ? (
+            <p className="shrink-0 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+              {temperature}°
+            </p>
+          ) : null}
+        </div>
+        <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <dt className="text-[var(--text-tertiary)]">Ressenti</dt>
+            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{feelsLike !== null ? `${feelsLike}°` : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-[var(--text-tertiary)]">Humidité</dt>
+            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{humidity !== null ? `${humidity}%` : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-[var(--text-tertiary)]">Vent</dt>
+            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{wind !== null ? `${wind} km/h` : "—"}</dd>
+          </div>
+        </dl>
+      </div>
+      {forecast.length ? (
+        <div className="overflow-x-auto border-t border-[var(--border)] px-2 py-2">
+          <div className="flex min-w-max gap-1">
+            {forecast.map((day, index) => (
+              <div key={String(day.date ?? index)} className="w-[4.7rem] rounded-xl px-2 py-2 text-center">
+                <p className="text-[11px] font-medium text-[var(--text-secondary)]">{String(day.day ?? "")}</p>
+                <p className="mt-1 text-xs text-[var(--text-primary)]">
+                  {typeof day.max === "number" ? `${day.max}°` : "—"}
+                  <span className="text-[var(--text-tertiary)]"> / {typeof day.min === "number" ? `${day.min}°` : "—"}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function WidgetBlock({ widget }: { widget: ResponseWidget }) {
+  if (widget.type === "weather" && widget.data && typeof widget.data === "object" && !Array.isArray(widget.data)) {
+    return <WeatherWidget data={widget.data as Record<string, unknown>} />;
+  }
+
   if (widget.type === "table" && Array.isArray(widget.data)) {
     const rows = widget.data.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row));
     const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).slice(0, 8);
