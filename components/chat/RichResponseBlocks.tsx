@@ -43,6 +43,8 @@ function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "source
             href={url}
             target="_blank"
             rel="noopener noreferrer"
+            referrerPolicy="no-referrer"
+            aria-label={`Source ${index + 1} : ${source.title || host(url)} — ${host(url)}`}
             className="group min-w-0 rounded-xl border border-[var(--border)] px-3 py-2.5 transition hover:bg-[var(--hover)]"
           >
             <div className="flex items-start gap-2.5">
@@ -172,7 +174,7 @@ function WidgetBlock({ widget }: { widget: ResponseWidget }) {
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-xs">
             <thead className="bg-[var(--card)] text-[var(--text-secondary)]">
-              <tr>{columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>)}</tr>
+              <tr>{columns.map((c) => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>)}</tr>
             </thead>
             <tbody>
               {rows.slice(0, 100).map((row, i) => (
@@ -219,7 +221,11 @@ export function RichResponseBlocks({ blocks }: { blocks?: ResponseBlock[] }) {
               <div key={key} className="mt-3 rounded-xl border border-[var(--border)] px-3 py-2.5">
                 <p className="truncate text-sm font-medium text-[var(--text-primary)]">{block.file.name}</p>
                 <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{block.file.mime_type || "Fichier"}</p>
-                {block.file.error ? <p className="mt-1 text-xs text-[var(--error)]">{block.file.error}</p> : null}
+                {block.file.error ? (
+                  <p role="alert" className="mt-1 text-xs text-[var(--error)]">
+                    {block.file.error}
+                  </p>
+                ) : null}
               </div>
             );
           case "activity":
