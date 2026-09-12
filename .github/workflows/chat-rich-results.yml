@@ -1,0 +1,34 @@
+name: Chat rich results regression
+
+on:
+  pull_request:
+    paths:
+      - 'components/ChatMessage.tsx'
+      - 'lib/chat-stream.ts'
+      - 'app/chat/**'
+      - '.github/workflows/chat-rich-results.yml'
+  push:
+    branches: [feat/chat-rich-web-sources-20260912]
+    paths:
+      - 'components/ChatMessage.tsx'
+      - 'lib/chat-stream.ts'
+      - 'app/chat/**'
+      - '.github/workflows/chat-rich-results.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint changed chat surfaces
+        run: npx eslint components/ChatMessage.tsx lib/chat-stream.ts
+      - name: Production build
+        run: npm run build

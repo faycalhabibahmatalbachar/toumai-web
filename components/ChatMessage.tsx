@@ -315,29 +315,58 @@ function GlobeSmallIcon() {
 
 /** Liens des pages consultées pendant une recherche web — façon Perplexity. */
 function WebSourcesRow({ sources }: { sources: WebSource[] }) {
-  const items = sources.filter((s) => s.url).slice(0, 5);
+  const items = sources.filter((s) => s.url).slice(0, 6);
   if (items.length === 0) return null;
   return (
-    <div className="mt-3">
+    <section className="mt-3" aria-label="Sources Web">
       <p className="mb-1.5 flex items-center gap-1.5 text-[12px] text-[var(--text-tertiary)]">
         <GlobeSmallIcon />
-        Web consulté — {items.length} source{items.length > 1 ? "s" : ""}
+        Sources — {items.length}
       </p>
-      <div className="flex flex-wrap gap-2">
-      {items.map((s, i) => (
-        <a
-          key={s.url + i}
-          href={s.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex max-w-[200px] items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
-        >
-          <LinkIcon />
-          <span className="truncate">{s.title || domainFromUrl(s.url)}</span>
-        </a>
-      ))}
+      <div className="space-y-1">
+        {items.map((s, i) => {
+          const domain = domainFromUrl(s.url);
+          return (
+            <details
+              id={`source-${i + 1}`}
+              key={s.url + i}
+              className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
+                <span
+                  className="flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--hover)] px-1 font-semibold text-[var(--text-primary)]"
+                  aria-label={`Source ${i + 1}`}
+                >
+                  [{i + 1}]
+                </span>
+                <span className="min-w-0 flex-1 truncate">
+                  {s.title || domain}
+                </span>
+                <span className="max-w-[35%] truncate text-[11px] text-[var(--text-tertiary)]">
+                  {domain}
+                </span>
+              </summary>
+              <div className="border-t border-[var(--border)] px-3 py-2.5">
+                {s.snippet ? (
+                  <p className="mb-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">
+                    {s.snippet}
+                  </p>
+                ) : null}
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-medium text-[var(--primary)] hover:underline"
+                >
+                  <LinkIcon />
+                  <span className="truncate">{s.url}</span>
+                </a>
+              </div>
+            </details>
+          );
+        })}
       </div>
-    </div>
+    </section>
   );
 }
 

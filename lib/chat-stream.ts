@@ -17,6 +17,12 @@ export interface ToolConfirmation {
 export interface WebSource {
   title?: string;
   url: string;
+  /** Extrait réellement renvoyé par le moteur de recherche. */
+  snippet?: string;
+  /** Pertinence du fournisseur quand elle est disponible. */
+  score?: number | null;
+  /** Date publiée/observée quand le fournisseur la fournit. */
+  published_at?: string;
 }
 
 /** Image réelle trouvée pendant une recherche web — jamais générée. */
