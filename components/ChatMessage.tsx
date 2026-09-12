@@ -800,9 +800,9 @@ export function ChatMessage({
       {!message.streaming && message.toolConfirmation && (
         <ToolConfirmCard confirmation={message.toolConfirmation} />
       )}
-      {!message.streaming && message.blocks?.length ? (
+      {message.blocks?.length ? (
         <RichResponseBlocks blocks={message.blocks} />
-      ) : (
+      ) : !message.streaming ? (
         <>
           {message.imageUrls && message.imageUrls.length > 0 && (
             <div className="mt-2">
