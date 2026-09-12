@@ -27,7 +27,7 @@ jobs:
       - name: Install exact lockfile
         run: npm ci
       - name: Block high and critical dependency vulnerabilities
-        run: npm audit --audit-level=high
+        run: npm audit --package-lock-only --audit-level=high
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
