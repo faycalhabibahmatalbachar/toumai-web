@@ -625,6 +625,7 @@ export default function ChatPage() {
       ...(attachedDocs.length
         ? {
             pieces: attachedDocs.map((doc) => ({
+              id: doc.doc_id,
               nom: doc.filename,
               apercu: doc.file_type === "image" ? doc.storage_url : undefined,
               type: doc.mime_type || doc.file_type,
@@ -663,7 +664,14 @@ export default function ChatPage() {
       userMsg,
       { id: assistantId, role: "assistant", content: "", streaming: true },
     ]);
-    await runStream(text, assistantId, isFirstMessage, userMsg.id);
+    await runStream(
+      text,
+      assistantId,
+      isFirstMessage,
+      userMsg.id,
+      undefined,
+      attachedDocs.map((doc) => doc.doc_id),
+    );
   }
 
   /** Redemande une réponse pour le dernier message utilisateur — remplace la
@@ -678,7 +686,15 @@ export default function ChatPage() {
       const withoutLast = prev[prev.length - 1]?.role === "assistant" ? prev.slice(0, -1) : prev;
       return [...withoutLast, { id: assistantId, role: "assistant", content: "", streaming: true }];
     });
-    await runStream(lastUserMessageRef.current, assistantId, false);
+    const dernierUtilisateur = [...messages].reverse().find((m) => m.role === "user");
+    await runStream(
+      lastUserMessageRef.current,
+      assistantId,
+      false,
+      dernierUtilisateur?.id,
+      undefined,
+      dernierUtilisateur?.pieces?.map((piece) => piece.id).filter((id): id is string => Boolean(id)),
+    );
   }
 
   /** Modifie un message utilisateur passé, tronque tout ce qui suit (côté
@@ -708,7 +724,14 @@ export default function ChatPage() {
         // périmé pour ce tour, pas un blocage de l'UX.
       }
     }
-    await runStream(newContent, assistantId, isFirstMessage, edited.id);
+    await runStream(
+      newContent,
+      assistantId,
+      isFirstMessage,
+      edited.id,
+      undefined,
+      edited.pieces?.map((piece) => piece.id).filter((docId): docId is string => Boolean(docId)),
+    );
   }
 
   async function runStream(
@@ -717,6 +740,7 @@ export default function ChatPage() {
     isFirstMessage: boolean,
     userMsgId?: string,
     onChunk?: (chunk: string) => void,
+    documentIdsOverride?: string[],
   ): Promise<string> {
     setSending(true);
     const controller = new AbortController();
@@ -724,9 +748,12 @@ export default function ChatPage() {
 
     let acc = "";
     try {
-      const documents = attachedDocs;
-      const documentIds = documents.map((doc) => doc.doc_id).slice(0, 5);
-      setAttachedDocs([]);
+      const documentIds = (
+        documentIdsOverride?.length
+          ? documentIdsOverride
+          : attachedDocs.map((doc) => doc.doc_id)
+      ).slice(0, 5);
+      if (attachedDocs.length) setAttachedDocs([]);
       // ÉPHÉMÈRE : le contexte voyage AVEC la requête. Sans identifiant de
       // conversation, le serveur n'a rien à relire — chaque message serait le
       // premier, et « résume ce que je viens de dire » ne répondrait rien.
