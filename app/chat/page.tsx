@@ -1557,7 +1557,7 @@ export default function ChatPage() {
             messages.length === 0 && !historyLoading ? "pb-[7vh]" : "pb-3"
           }`}
         >
-          <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">
+          <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx,.txt,.md,.markdown,.csv">
           <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-col gap-2">
             <input
               ref={fileInputRef}
