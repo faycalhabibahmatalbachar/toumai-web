@@ -1,6 +1,8 @@
 import { http, postForm } from "./http";
 import { API_BASE } from "./config";
-import { authHeaders, ensureFreshSession } from "./api";
+import { authHeaders, ensureFreshSession, refreshSession } from "./api";
+import { handleUnauthorized } from "./session-guard";
+import { HttpError } from "./errors";
 
 export interface UploadedDocument {
   doc_id: string;
@@ -14,6 +16,12 @@ export interface UploadedDocument {
   texte_lu?: boolean;
 }
 
+type UploadEnvelope = {
+  success?: boolean;
+  message?: string;
+  data?: UploadedDocument;
+};
+
 /** Upload un fichier (PDF/DOCX/XLSX/image, 10 Mo max) — indexé côté backend
  * pour que le prochain message puisse le référencer via document_id. */
 export async function uploadDocument(file: File): Promise<UploadedDocument> {
@@ -22,12 +30,11 @@ export async function uploadDocument(file: File): Promise<UploadedDocument> {
   return postForm<UploadedDocument>("/documents/upload", form);
 }
 
-export async function uploadDocumentWithProgress(
+function uploadOnce(
   file: File,
   onProgress?: (percent: number) => void,
   signal?: AbortSignal,
-): Promise<UploadedDocument> {
-  await ensureFreshSession();
+): Promise<{ status: number; body: UploadEnvelope }> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
@@ -40,7 +47,7 @@ export async function uploadDocumentWithProgress(
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
-      onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 99)));
     };
 
     const onAbort = () => xhr.abort();
@@ -56,30 +63,25 @@ export async function uploadDocumentWithProgress(
 
     xhr.onload = () => {
       cleanup();
+      let body: UploadEnvelope = {};
       try {
-        const body = JSON.parse(xhr.responseText || "{}") as {
-          success?: boolean;
-          message?: string;
-          data?: UploadedDocument;
-        };
-        if (xhr.status >= 200 && xhr.status < 300 && body.success !== false && body.data) {
-          onProgress?.(100);
-          resolve(body.data);
+        body = JSON.parse(xhr.responseText || "{}") as UploadEnvelope;
+      } catch {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          reject(new Error("Réponse d'upload invalide"));
           return;
         }
-        reject(new Error(body.message || `Erreur upload ${xhr.status}`));
-      } catch {
-        reject(new Error("Réponse d'upload invalide"));
       }
+      resolve({ status: xhr.status, body });
     };
 
     xhr.onerror = () => {
       cleanup();
-      reject(new Error("Échec réseau pendant l'upload"));
+      reject(new TypeError("Échec réseau pendant l'upload"));
     };
     xhr.ontimeout = () => {
       cleanup();
-      reject(new Error("Délai d'upload dépassé"));
+      reject(new DOMException("Délai d'upload dépassé", "TimeoutError"));
     };
     xhr.onabort = () => {
       cleanup();
@@ -90,6 +92,43 @@ export async function uploadDocumentWithProgress(
   });
 }
 
+export async function uploadDocumentWithProgress(
+  file: File,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+): Promise<UploadedDocument> {
+  // Renouvellement préventif avant un transfert potentiellement long.
+  await ensureFreshSession();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { status, body } = await uploadOnce(file, onProgress, signal);
+
+    if (status >= 200 && status < 300 && body.success !== false && body.data) {
+      onProgress?.(100);
+      return body.data;
+    }
+
+    if (status === 401 && attempt === 0) {
+      // Le chemin avec progression utilisait XMLHttpRequest, donc il échappait
+      // au retry 401 centralisé de authFetch. Résultat : un gros fichier pouvait
+      // finir son transfert juste après rotation du token et échouer alors que
+      // la session était parfaitement récupérable. On renouvelle et rejoue UNE
+      // seule fois avec le nouveau Bearer, sans boucle infinie.
+      const outcome = await refreshSession();
+      if (outcome.status === "ok") {
+        onProgress?.(0);
+        continue;
+      }
+      if (outcome.status === "unavailable") throw new HttpError(503);
+      handleUnauthorized();
+      throw new HttpError(401);
+    }
+
+    throw new HttpError(status || 502, body.message);
+  }
+
+  throw new HttpError(502);
+}
 
 /** Supprime un document privé déjà uploadé mais retiré avant envoi. */
 export async function deleteDocument(docId: string): Promise<void> {
