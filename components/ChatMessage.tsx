@@ -36,6 +36,29 @@ function pendingHtmlCode(content: string): string | null {
   return after;
 }
 
+function linkifySourceCitations(markdown: string, sources?: WebSource[]): string {
+  if (!markdown || !sources?.length) return markdown;
+  // Ne jamais réécrire les blocs de code : “[1]” peut y être une donnée.
+  return markdown
+    .split(/(```[\s\S]*?```)/g)
+    .map((part, index) => {
+      if (index % 2 === 1) return part;
+      return part.replace(/\[(\d{1,2})\]/g, (raw, nRaw: string) => {
+        const n = Number(nRaw);
+        const source = sources[n - 1];
+        if (!source?.url) return raw;
+        try {
+          const url = new URL(source.url);
+          if (url.protocol !== "https:" && url.protocol !== "http:") return raw;
+          return `[[${n}]](${url.toString()} "Source ${n}")`;
+        } catch {
+          return raw;
+        }
+      });
+    })
+    .join("");
+}
+
 function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "";
   if (bytes < 1024) return `${bytes} o`;
@@ -723,7 +746,7 @@ export function ChatMessage({
                 },
               }}
             >
-              {visibleContent}
+              {linkifySourceCitations(visibleContent, message.sources)}
             </ReactMarkdown>
             {building && <SiteBuildingCard code={pendingCode ?? ""} />}
             {isProject && <ProjectCard content={message.content || ""} onSuggest={onSuggest} />}
