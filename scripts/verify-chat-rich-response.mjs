@@ -23,6 +23,8 @@ const checks = [
   ["attachment ids kept in messages", chat.includes("id: doc.doc_id")],
   ["regenerate keeps document ids", chat.includes("dernierUtilisateur?.pieces?.map((piece) => piece.id)")],
   ["edit keeps document ids", chat.includes("edited.pieces?.map((piece) => piece.id)")],
+  ["per-file upload progress", chat.includes('role="progressbar"') && chat.includes("upload.progress")],
+  ["progress upload api", fs.readFileSync("lib/documents-api.ts", "utf8").includes("uploadDocumentWithProgress")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
