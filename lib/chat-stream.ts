@@ -112,13 +112,22 @@ function emitSseBlock(block: string, onEvent: (evt: StreamEvent) => void): void 
   if (!dataLines.length) return;
   const jsonStr = dataLines.join("\n").trim();
   if (!jsonStr) return;
+
+  let event: StreamEvent;
   try {
-    onEvent(JSON.parse(jsonStr) as StreamEvent);
+    event = JSON.parse(jsonStr) as StreamEvent;
   } catch {
     // Un événement SSE invalide ne doit pas faire tomber tout le tour. Le
     // prochain événement reste consommable. Les fragments réseau, eux, sont
     // conservés dans `pending` jusqu'au séparateur complet.
+    return;
   }
+
+  // IMPORTANT : ne jamais mettre l'appel applicatif dans le try/catch du
+  // JSON.parse. `page.tsx` lève volontairement une erreur lorsque le backend
+  // émet { error: ... }; l'ancien code avalait cette exception et transformait
+  // une vraie panne en fin de réponse silencieuse.
+  onEvent(event);
 }
 
 /**
@@ -189,6 +198,11 @@ export async function streamChat(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let pending = "";
+  let receivedDone = false;
+  const dispatch = (event: StreamEvent) => {
+    if (event.done) receivedDone = true;
+    onEvent(event);
+  };
 
   while (true) {
     const { value, done } = await reader.read();
@@ -204,12 +218,21 @@ export async function streamChat(
       const block = pending.slice(0, match.index);
       pending = pending.slice(match.index + match[0].length);
       separator.lastIndex = 0;
-      emitSseBlock(block, onEvent);
+      emitSseBlock(block, dispatch);
     }
   }
 
   // TextDecoder peut conserver un dernier octet partiel ; on le vide puis on
   // traite le dernier événement même si le serveur ferme sans séparateur vide.
   pending += decoder.decode();
-  if (pending.trim()) emitSseBlock(pending, onEvent);
+  if (pending.trim()) emitSseBlock(pending, dispatch);
+
+  // Le contrat du backend se termine par { done: true }. Une fermeture réseau
+  // avant cet événement est une réponse tronquée, même si quelques tokens sont
+  // déjà affichés. On conserve ces tokens à l'écran, mais on signale la panne
+  // afin que l'utilisateur sache qu'il doit régénérer. Une interruption via le
+  // bouton Arrêter reste volontaire et ne doit pas devenir une erreur serveur.
+  if (!receivedDone && !signal?.aborted) {
+    throw new HttpError(502, "La réponse a été interrompue avant sa fin.");
+  }
 }
