@@ -2,6 +2,7 @@ import { API_BASE } from "./config";
 import { authHeaders } from "./api";
 import { authFetch } from "./http";
 import type { WebSource, SearchImage } from "./chat-stream";
+import type { ResponseBlock } from "./chat-response";
 
 export interface ChatSession {
   id: string;
@@ -22,6 +23,23 @@ export interface HistoryMessage {
     image_urls?: string[];
     sources?: WebSource[];
     search_images?: SearchImage[];
+    blocks?: ResponseBlock[];
+    attachment?: {
+      id?: string;
+      name: string;
+      mime_type?: string;
+      size_bytes?: number;
+      page_count?: number;
+      status?: "ready" | "processing" | "error";
+    };
+    attachments?: Array<{
+      id?: string;
+      name: string;
+      mime_type?: string;
+      size_bytes?: number;
+      page_count?: number;
+      status?: "ready" | "processing" | "error";
+    }>;
     /** Trace de raisonnement conservée — alimente le panneau « Réflexion »
      * quand on rouvre une conversation. */
     reasoning?: string;

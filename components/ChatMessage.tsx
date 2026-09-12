@@ -11,6 +11,8 @@ import { ProjectCard } from "./ProjectViewer";
 import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/lib/project-parser";
 import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
 import type { ChatImage } from "./chat/media/types";
+import type { ResponseBlock } from "@/lib/chat-response";
+import { RichResponseBlocks } from "./chat/RichResponseBlocks";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
 import { Logo } from "./Logo";
 import { useSpeakText } from "@/hooks/useSpeakText";
@@ -34,6 +36,36 @@ function pendingHtmlCode(content: string): string | null {
   return after;
 }
 
+function linkifySourceCitations(markdown: string, sources?: WebSource[]): string {
+  if (!markdown || !sources?.length) return markdown;
+  // Ne jamais réécrire les blocs de code : “[1]” peut y être une donnée.
+  return markdown
+    .split(/(```[\s\S]*?```)/g)
+    .map((part, index) => {
+      if (index % 2 === 1) return part;
+      return part.replace(/\[(\d{1,2})\]/g, (raw, nRaw: string) => {
+        const n = Number(nRaw);
+        const source = sources[n - 1];
+        if (!source?.url) return raw;
+        try {
+          const url = new URL(source.url);
+          if (url.protocol !== "https:" && url.protocol !== "http:") return raw;
+          return `[[${n}]](${url.toString()} "Source ${n}")`;
+        } catch {
+          return raw;
+        }
+      });
+    })
+    .join("");
+}
+
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "";
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -55,13 +87,30 @@ export interface Message {
    * n'en gardait aucune trace — impossible de savoir, en relisant, sur quoi
    * portait la question. `apercu` est une adresse locale (`blob:`) valable
    * le temps de l'onglet ; le nom reste comme repli après rechargement. */
-  piece?: { nom: string; apercu?: string };
+  piece?: {
+    id?: string;
+    nom: string;
+    apercu?: string;
+    type?: string;
+    taille?: number;
+    pages?: number;
+  };
+  pieces?: Array<{
+    id?: string;
+    nom: string;
+    apercu?: string;
+    type?: string;
+    taille?: number;
+    pages?: number;
+  }>;
   /** Action sensible en attente (WhatsApp, mail…) — affiche la carte
    * Confirmer/Annuler qui déclenche la VRAIE exécution côté backend. */
   toolConfirmation?: ToolConfirmation;
   /** Sources et images réelles trouvées pendant une recherche web (jamais générées). */
   sources?: WebSource[];
   searchImages?: SearchImage[];
+  /** Blocs enrichis ordonnés. Quand présents, ils remplacent le rendu legacy sources/images. */
+  blocks?: ResponseBlock[];
   /** Renseigné quand le modèle demandé était indisponible et que la cascade a
    * rétrogradé. Affiché sous la réponse : l'utilisateur doit savoir qui lui a
    * répondu, on ne laisse pas croire qu'il a eu Toumaï 5. */
@@ -314,9 +363,25 @@ function GlobeSmallIcon() {
 }
 
 /** Liens des pages consultées pendant une recherche web — façon Perplexity. */
+function sourceUrl(raw?: string): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function WebSourcesRow({ sources }: { sources: WebSource[] }) {
-  const items = sources.filter((s) => s.url).slice(0, 6);
+  const items = sources
+    .map((source) => ({ source, url: sourceUrl(source.url) }))
+    .filter((item): item is { source: WebSource; url: string } => Boolean(item.url))
+    .slice(0, 6);
   if (items.length === 0) return null;
+
   return (
     <section className="mt-3" aria-label="Sources Web">
       <p className="mb-1.5 flex items-center gap-1.5 text-[12px] text-[var(--text-tertiary)]">
@@ -324,12 +389,12 @@ function WebSourcesRow({ sources }: { sources: WebSource[] }) {
         Sources — {items.length}
       </p>
       <div className="space-y-1">
-        {items.map((s, i) => {
-          const domain = domainFromUrl(s.url);
+        {items.map(({ source: s, url }, i) => {
+          const domain = domainFromUrl(url);
           return (
             <details
               id={`source-${i + 1}`}
-              key={s.url + i}
+              key={url + i}
               className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]"
             >
               <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
@@ -339,9 +404,7 @@ function WebSourcesRow({ sources }: { sources: WebSource[] }) {
                 >
                   [{i + 1}]
                 </span>
-                <span className="min-w-0 flex-1 truncate">
-                  {s.title || domain}
-                </span>
+                <span className="min-w-0 flex-1 truncate">{s.title || domain}</span>
                 <span className="max-w-[35%] truncate text-[11px] text-[var(--text-tertiary)]">
                   {domain}
                 </span>
@@ -353,13 +416,14 @@ function WebSourcesRow({ sources }: { sources: WebSource[] }) {
                   </p>
                 ) : null}
                 <a
-                  href={s.url}
+                  href={url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  referrerPolicy="no-referrer"
                   className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-medium text-[var(--primary)] hover:underline"
                 >
                   <LinkIcon />
-                  <span className="truncate">{s.url}</span>
+                  <span className="truncate">{url}</span>
                 </a>
               </div>
             </details>
@@ -653,14 +717,6 @@ export function ChatMessage({
     (!isProject && !message.streaming ? extractHtml(message.content || "") : null);
   const isSite = Boolean(finishedHtml);
 
-  // Le backend fournit aussi image_urls pour la compatibilité lorsqu'une
-  // recherche d'images réussit. Ne pas rendre ces mêmes URL une seconde fois
-  // comme si elles avaient été générées par Toumaï AI.
-  const searchImageUrls = new Set((message.searchImages ?? []).map((img) => img.url));
-  const standaloneImageUrls = (message.imageUrls ?? []).filter(
-    (url) => !searchImageUrls.has(url),
-  );
-
   let visibleContent = message.content || "";
   if (building) visibleContent = visibleContent.replace(/```html[\s\S]*$/i, "").trimEnd();
   // Si patch appliqué, on masque les blocs SEARCH/REPLACE (techniques).
@@ -692,6 +748,17 @@ export function ChatMessage({
         <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />
       )}
       <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
+        {message.streaming && message.activity ? (
+          <ActivityLine
+            label={
+              message.activity === "deep_web_search"
+                ? "Recherche approfondie sur le Web…"
+                : message.activity === "document_analysis"
+                  ? "Analyse du document…"
+                  : "Recherche sur le Web…"
+            }
+          />
+        ) : null}
         {message.streaming && !message.content ? (
           <TypingDots />
         ) : (
@@ -743,7 +810,7 @@ export function ChatMessage({
                 },
               }}
             >
-              {visibleContent}
+              {linkifySourceCitations(visibleContent, message.sources)}
             </ReactMarkdown>
             {building && <SiteBuildingCard code={pendingCode ?? ""} />}
             {isProject && <ProjectCard content={message.content || ""} onSuggest={onSuggest} />}
@@ -760,54 +827,63 @@ export function ChatMessage({
       {/* LA PIÈCE JOINTE RESTE DANS LE FIL.
           Sans elle, on relisait « analyse ça » sans savoir quoi — la question
           perdait son sujet dès qu'on remontait la conversation. */}
-      {message.piece && (
-        <div className="mt-2 flex items-center gap-2">
-          {message.piece.apercu ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={message.piece.apercu}
-              alt={message.piece.nom}
-              className="h-24 w-24 rounded-xl border border-[var(--border)] object-cover"
-            />
-          ) : (
-            /* Après un rechargement, l'adresse locale n'existe plus : il
-               reste le nom, qui vaut mieux qu'un cadre vide. */
-            <span className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">
-              {message.piece.nom}
-            </span>
+      {(message.pieces?.length || message.piece) && (
+        <div className="mt-2 flex flex-wrap items-start gap-2">
+          {(message.pieces?.length ? message.pieces : message.piece ? [message.piece] : []).map((piece, index) =>
+            piece.apercu ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                key={`${piece.nom}-${index}`}
+                src={piece.apercu}
+                alt={piece.nom}
+                className="h-24 w-24 rounded-xl border border-[var(--border)] object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div key={`${piece.nom}-${index}`} className="max-w-[20rem] rounded-xl border border-[var(--border)] px-3 py-2">
+                <p className="truncate text-xs font-medium text-[var(--text-primary)]">
+                  {piece.nom}
+                </p>
+                <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
+                  {[piece.type, piece.pages ? `${piece.pages} page${piece.pages > 1 ? "s" : ""}` : null, typeof piece.taille === "number" ? formatFileSize(piece.taille) : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+            )
           )}
         </div>
       )}
       {!message.streaming && message.toolConfirmation && (
         <ToolConfirmCard confirmation={message.toolConfirmation} />
       )}
-      {!message.streaming && standaloneImageUrls.length > 0 && (
-        <div className="mt-2">
-          <MediaMessage
-            images={imagesFromUrls(standaloneImageUrls, {
-              alt: "Image générée par Toumaï AI",
-            })}
-          />
-        </div>
-      )}
-      {!message.streaming && message.searchImages && message.searchImages.length > 0 && (
-        <div className="mt-2">
-          <MediaMessage
-            images={message.searchImages.map(
-              (img, i): ChatImage => ({
-                id: `${img.url}-${i}`,
-                url: img.url,
-                alt: img.title,
-                sourceUrl: img.source_url,
-                sourceTitle: img.title,
-              }),
-            )}
-          />
-        </div>
-      )}
-      {!message.streaming && message.sources && message.sources.length > 0 && (
-        <WebSourcesRow sources={message.sources} />
-      )}
+      {message.blocks?.length ? (
+        <RichResponseBlocks blocks={message.blocks} />
+      ) : !message.streaming ? (
+        <>
+          {message.imageUrls && message.imageUrls.length > 0 && (
+            <div className="mt-2">
+              <MediaMessage images={imagesFromUrls(message.imageUrls, { alt: "Image générée par Toumaï AI" })} />
+            </div>
+          )}
+          {message.searchImages && message.searchImages.length > 0 && (
+            <div className="mt-2">
+              <MediaMessage
+                images={message.searchImages.map(
+                  (img, i): ChatImage => ({
+                    id: `${img.url}-${i}`,
+                    url: img.url,
+                    alt: img.title,
+                    sourceUrl: img.source_url,
+                    sourceTitle: img.title,
+                  }),
+                )}
+              />
+            </div>
+          )}
+          {message.sources && message.sources.length > 0 && <WebSourcesRow sources={message.sources} />}
+        </>
+      ) : null}
       {!message.streaming && message.modelNotice && (
         <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>
       )}
