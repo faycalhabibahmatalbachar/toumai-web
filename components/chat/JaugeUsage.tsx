@@ -11,7 +11,8 @@
  * - normal (<80 %) : rien ;
  * - warning (>=80 %) : alerte discrète ;
  * - critical (>=95 %) : alerte forte ;
- * - blocked (>=100 %) : blocage explicite + heure de reprise.
+ * - blocked (>=100 %) : blocage explicite + heure de reprise ;
+ * - critical/blocked : opt-in explicite pour recevoir un e-mail au reset.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -98,6 +99,9 @@ function heureReset(resetAt: string | null | undefined, timezone: string | undef
 
 export function JaugeUsage({ signal }: { signal?: number }) {
   const [etat, setEtat] = useState<Etat | null>(null);
+  const [notificationEnCours, setNotificationEnCours] = useState<CleMessage | null>(null);
+  const [notificationActive, setNotificationActive] = useState<CleMessage | null>(null);
+  const [notificationErreur, setNotificationErreur] = useState<string | null>(null);
 
   const relire = useCallback(async () => {
     try {
@@ -113,9 +117,29 @@ export function JaugeUsage({ signal }: { signal?: number }) {
     }
   }, []);
 
+  const demanderNotification = useCallback(async (cle: CleMessage) => {
+    setNotificationEnCours(cle);
+    setNotificationErreur(null);
+    try {
+      const reponse = await fetch(`${API_BASE}/abonnements/quota/${cle}/notify-reset`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const charge = await reponse.json().catch(() => null);
+      if (!reponse.ok) {
+        const message = charge?.detail || charge?.error?.message || "Impossible d’activer l’e-mail pour le moment.";
+        setNotificationErreur(String(message));
+        return;
+      }
+      setNotificationActive(cle);
+    } catch {
+      setNotificationErreur("Impossible d’activer l’e-mail pour le moment.");
+    } finally {
+      setNotificationEnCours(null);
+    }
+  }, []);
+
   useEffect(() => {
-    // Déférer le fetch évite une mutation d'état synchrone dans le corps de
-    // l'effet tout en gardant une lecture immédiate au prochain tour event-loop.
     const timer = window.setTimeout(() => {
       void relire();
     }, 0);
@@ -133,7 +157,6 @@ export function JaugeUsage({ signal }: { signal?: number }) {
     const visibles = candidats.filter(({ niveau }) => POIDS[niveau] > 0);
     if (!visibles.length) return null;
 
-    // Gravité d'abord. À gravité égale, on montre la fenêtre qui repart le plus tôt.
     return visibles.reduce((meilleur, courant) => {
       const diff = POIDS[courant.niveau] - POIDS[meilleur.niveau];
       if (diff > 0) return courant;
@@ -177,6 +200,8 @@ export function JaugeUsage({ signal }: { signal?: number }) {
   const border = danger
     ? "var(--danger-border, rgba(192,87,58,0.24))"
     : "rgba(217,164,65,0.32)";
+  const peutNotifier = danger && Boolean(q.reset_at || q.secondes_restantes);
+  const notificationDeCetteFenetre = notificationActive === cle;
 
   return (
     <div
@@ -210,6 +235,30 @@ export function JaugeUsage({ signal }: { signal?: number }) {
         </span>
       ) : q.secondes_restantes ? (
         <span style={{ color: "var(--text-tertiary)" }}>· reprise dans {enClair(q.secondes_restantes)}</span>
+      ) : null}
+
+      {peutNotifier ? (
+        notificationDeCetteFenetre ? (
+          <span className="shrink-0" style={{ color: "var(--text-secondary)", fontWeight: 600 }}>
+            · E-mail activé
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void demanderNotification(cle)}
+            disabled={notificationEnCours === cle}
+            className="shrink-0 underline underline-offset-2 disabled:cursor-wait disabled:opacity-60"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {notificationEnCours === cle ? "Activation…" : "Me prévenir par e-mail"}
+          </button>
+        )
+      ) : null}
+
+      {notificationErreur ? (
+        <span className="basis-full" style={{ color: "var(--danger, #c0573a)" }}>
+          {notificationErreur}
+        </span>
       ) : null}
 
       <Link
