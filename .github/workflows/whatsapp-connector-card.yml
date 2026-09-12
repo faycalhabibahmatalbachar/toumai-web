@@ -4,20 +4,27 @@ on:
   push:
     branches:
       - refactor/whatsapp-connector-card
+      - feat/whatsapp-protection-card
     paths:
       - "components/chat/WhatsAppConnectorCard.tsx"
+      - "components/chat/WhatsAppProtectionPanel.tsx"
+      - "lib/connectors-api.ts"
+      - "scripts/verify-whatsapp-routing.mjs"
       - ".github/workflows/whatsapp-connector-card.yml"
   pull_request:
     branches:
       - main
     paths:
       - "components/chat/WhatsAppConnectorCard.tsx"
+      - "components/chat/WhatsAppProtectionPanel.tsx"
+      - "lib/connectors-api.ts"
+      - "scripts/verify-whatsapp-routing.mjs"
       - ".github/workflows/whatsapp-connector-card.yml"
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,5 +35,9 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
-      - name: Lint connector card
-        run: npx eslint components/chat/WhatsAppConnectorCard.tsx
+      - name: Lint connector surfaces
+        run: npx eslint components/chat/WhatsAppConnectorCard.tsx components/chat/WhatsAppProtectionPanel.tsx lib/connectors-api.ts
+      - name: Static WhatsApp invariants
+        run: node scripts/verify-whatsapp-routing.mjs
+      - name: Production build
+        run: npm run build
