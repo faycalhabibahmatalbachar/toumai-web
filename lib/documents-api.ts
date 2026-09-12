@@ -5,7 +5,11 @@ export interface UploadedDocument {
   filename: string;
   file_type: string;
   page_count: number;
+  file_size?: number;
+  mime_type?: string;
   preview_text: string;
+  storage_url?: string;
+  texte_lu?: boolean;
 }
 
 /** Upload un fichier (PDF/DOCX/XLSX/image, 10 Mo max) — indexé côté backend
