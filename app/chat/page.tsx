@@ -10,7 +10,11 @@ import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/ch
 import { getProfile, prenomAffichable } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { transcribeAudio } from "@/lib/voice-api";
-import { deleteDocument, uploadDocument, type UploadedDocument } from "@/lib/documents-api";
+import {
+  deleteDocument,
+  uploadDocumentWithProgress,
+  type UploadedDocument,
+} from "@/lib/documents-api";
 import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
@@ -74,6 +78,15 @@ interface SpeechRecognitionLike extends EventTarget {
   onend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onstart: (() => void) | null;
+}
+
+interface PendingUpload {
+  id: string;
+  name: string;
+  size: number;
+  progress: number;
+  status: "uploading" | "error";
+  error?: string;
 }
 
 let idCounter = 0;
@@ -184,6 +197,7 @@ export default function ChatPage() {
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
   const urlConvAttempted = useRef(false);
   const [attachedDocs, setAttachedDocs] = useState<UploadedDocument[]>([]);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   // Langue de réponse définie dans les préférences ("fr", "en", "ar"… ou
   // "auto") — envoyée à chaque tour pour que l'IA réponde TOUJOURS dans la
   // langue choisie, pas dans celle détectée du message.
@@ -1139,7 +1153,46 @@ export default function ChatPage() {
 
     setUploadingDoc(true);
     clearError();
-    const resultats = await Promise.allSettled(uniques.map((file) => uploadDocument(file)));
+
+    const jobs = uniques.map((file, index) => {
+      const uploadId = `${Date.now()}-${index}-${file.name}-${file.size}`;
+      setPendingUploads((prev) => [
+        ...prev,
+        {
+          id: uploadId,
+          name: file.name,
+          size: file.size,
+          progress: 0,
+          status: "uploading",
+        },
+      ]);
+
+      return uploadDocumentWithProgress(file, (progress) => {
+        setPendingUploads((prev) =>
+          prev.map((item) =>
+            item.id === uploadId ? { ...item, progress } : item,
+          ),
+        );
+      })
+        .then((doc) => {
+          setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
+          return doc;
+        })
+        .catch((uploadError: unknown) => {
+          const message =
+            uploadError instanceof Error ? uploadError.message : "Échec de l'upload";
+          setPendingUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadId
+                ? { ...item, status: "error", error: message }
+                : item,
+            ),
+          );
+          throw uploadError;
+        });
+    });
+
+    const resultats = await Promise.allSettled(jobs);
     const reussis: UploadedDocument[] = [];
     const erreurs: string[] = [];
     resultats.forEach((result, index) => {
@@ -1651,9 +1704,41 @@ export default function ChatPage() {
                     />
                   ),
                 )}
-                {uploadingDoc && (
-                  <ComposerChip icon={<FileIcon />} label="Import en cours…" tone="accent" />
-                )}
+                {pendingUploads.map((upload) => (
+                  <div
+                    key={upload.id}
+                    className="min-w-[10rem] max-w-[16rem] rounded-xl border border-[var(--border)] px-3 py-2"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-medium text-[var(--text-primary)]">
+                        {upload.name}
+                      </p>
+                      <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">
+                        {upload.status === "error" ? "Erreur" : `${upload.progress}%`}
+                      </span>
+                    </div>
+                    {upload.status === "error" ? (
+                      <p className="mt-1 line-clamp-2 text-[11px] text-[var(--error)]">
+                        {upload.error}
+                      </p>
+                    ) : (
+                      <div
+                        className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--border)]"
+                        role="progressbar"
+                        aria-label={`Import de ${upload.name}`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={upload.progress}
+                      >
+                        <div
+                          className="h-full rounded-full bg-[var(--primary)] transition-[width]"
+                          style={{ width: `${upload.progress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
               <textarea
                 ref={attacherChamp}
                 value={input}
