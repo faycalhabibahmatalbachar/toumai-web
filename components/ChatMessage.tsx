@@ -363,8 +363,23 @@ function GlobeSmallIcon() {
 }
 
 /** Liens des pages consultées pendant une recherche web — façon Perplexity. */
+function sourceUrl(raw?: string): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function WebSourcesRow({ sources }: { sources: WebSource[] }) {
-  const items = sources.filter((s) => s.url).slice(0, 5);
+  const items = sources
+    .map((source) => ({ source, url: sourceUrl(source.url) }))
+    .filter((item): item is { source: WebSource; url: string } => Boolean(item.url))
+    .slice(0, 5);
   if (items.length === 0) return null;
   return (
     <div className="mt-3">
@@ -373,16 +388,16 @@ function WebSourcesRow({ sources }: { sources: WebSource[] }) {
         Web consulté — {items.length} source{items.length > 1 ? "s" : ""}
       </p>
       <div className="flex flex-wrap gap-2">
-      {items.map((s, i) => (
+      {items.map(({ source: s, url }, i) => (
         <a
-          key={s.url + i}
-          href={s.url}
+          key={url + i}
+          href={url}
           target="_blank"
           rel="noopener noreferrer"
           className="flex max-w-[200px] items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
         >
           <LinkIcon />
-          <span className="truncate">{s.title || domainFromUrl(s.url)}</span>
+          <span className="truncate">{s.title || domainFromUrl(url)}</span>
         </a>
       ))}
       </div>
