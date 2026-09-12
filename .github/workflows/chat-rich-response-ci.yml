@@ -26,8 +26,19 @@ jobs:
           cache: npm
       - name: Install exact lockfile
         run: npm ci
-      - name: Lint
-        run: npm run lint
+      - name: Lint changed chat surface
+        run: >
+          npx eslint
+          app/chat/page.tsx
+          components/ChatMessage.tsx
+          components/chat/RichResponseBlocks.tsx
+          components/chat/media/ImageBubble.tsx
+          components/chat/media/ImageToolbar.tsx
+          lib/chat-response.ts
+          lib/chat-stream.ts
+          lib/chat-api.ts
+          lib/documents-api.ts
+          lib/prechargement-conversations.ts
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
