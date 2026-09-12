@@ -106,11 +106,12 @@ export function ImageToolbar({
         <Icon d={copied === "image" ? ICONS.check : ICONS.copy} />
       </button>
       <a
-        href={image.url}
+        href={image.sourceUrl || image.url}
         target="_blank"
         rel="noopener noreferrer"
-        title="Ouvrir dans un nouvel onglet"
-        aria-label="Ouvrir dans un nouvel onglet"
+        referrerPolicy="no-referrer"
+        title={image.sourceUrl ? "Ouvrir la source originale" : "Ouvrir dans un nouvel onglet"}
+        aria-label={image.sourceUrl ? "Ouvrir la source originale" : "Ouvrir dans un nouvel onglet"}
         className={btnCls}
       >
         <Icon d={ICONS.external} />

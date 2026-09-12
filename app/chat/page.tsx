@@ -5,11 +5,16 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { streamChat, type HistoryTurn } from "@/lib/chat-stream";
+import { blocksFromMetadata, mergeResponseBlocks } from "@/lib/chat-response";
 import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/chat-api";
 import { getProfile, prenomAffichable } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { transcribeAudio } from "@/lib/voice-api";
-import { uploadDocument, type UploadedDocument } from "@/lib/documents-api";
+import {
+  deleteDocument,
+  uploadDocumentWithProgress,
+  type UploadedDocument,
+} from "@/lib/documents-api";
 import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
@@ -73,6 +78,15 @@ interface SpeechRecognitionLike extends EventTarget {
   onend: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onstart: (() => void) | null;
+}
+
+interface PendingUpload {
+  id: string;
+  name: string;
+  size: number;
+  progress: number;
+  status: "uploading" | "error";
+  error?: string;
 }
 
 let idCounter = 0;
@@ -182,27 +196,20 @@ export default function ChatPage() {
   // Tâche de navigation web détectée → fenêtre dédiée de l'Agent Navigateur.
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
   const urlConvAttempted = useRef(false);
-  const [attachedDoc, setAttachedDoc] = useState<UploadedDocument | null>(null);
+  const [attachedDocs, setAttachedDocs] = useState<UploadedDocument[]>([]);
+  const attachedDocsRef = useRef<UploadedDocument[]>([]);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   // Langue de réponse définie dans les préférences ("fr", "en", "ar"… ou
   // "auto") — envoyée à chaque tour pour que l'IA réponde TOUJOURS dans la
   // langue choisie, pas dans celle détectée du message.
   const preferredLangRef = useRef<string>("auto");
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  /** L'aperçu de l'image jointe, fabriqué depuis le fichier LOCAL.
-   *
-   * POURQUOI PAS UNE URL DU SERVEUR
-   * -------------------------------
-   * Le serveur ne rend qu'un identifiant, un nom et un type — pas d'adresse
-   * consultable. Attendre qu'il en fournisse une reporterait l'aperçu à
-   * plus tard ; le fichier est déjà dans le navigateur, il n'y a rien à
-   * attendre.
-   *
-   * Conséquence utile : l'aperçu s'affiche DÈS le choix du fichier, avant même
-   * la fin de l'import. On voit ce qu'on envoie pendant que ça part. */
-  const [apercuJoint, setApercuJoint] = useState<string | null>(null);
+  // Les aperçus utilisent l'URL de stockage renvoyée après upload. Cela évite
+  // de conserver plusieurs blob: locaux en mémoire quand cinq fichiers sont joints.
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const whisperRecRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
   const dictationBaseRef = useRef("");
   /** Dictée abandonnée : les transcriptions en vol ne doivent plus écrire dans
    * le champ, et la passe finale de Whisper doit être sautée. */
@@ -232,6 +239,24 @@ export default function ChatPage() {
    * passait à la ligne et doublait la hauteur du composeur au repos. */
   const [narrow, setNarrow] = useState(false);
 
+  useEffect(() => {
+    attachedDocsRef.current = attachedDocs;
+  }, [attachedDocs, pendingUploads]);
+
+  useEffect(() => {
+    return () => {
+      for (const controller of uploadControllersRef.current.values()) {
+        controller.abort();
+      }
+      uploadControllersRef.current.clear();
+      // Les documents encore présents ici n'ont jamais été envoyés dans un
+      // message : on évite de laisser des objets orphelins dans le stockage.
+      for (const doc of attachedDocsRef.current) {
+        void deleteDocument(doc.doc_id).catch(() => {});
+      }
+    };
+  }, []);
+
   /** DISCUSSION ÉPHÉMÈRE — rien de ce fil n'est écrit nulle part.
    *
    * Le drapeau part à CHAQUE tour : il n'y a pas de « session éphémère » côté
@@ -246,15 +271,21 @@ export default function ChatPage() {
   // Calculé après montage (pas au rendu serveur statique) pour éviter un
   // écart d'hydratation lié au fuseau horaire du visiteur.
   useEffect(() => {
-    setGreeting(timeGreeting());
+    // L'initialisation dépend du fuseau du navigateur : on la programme après
+    // l'effet plutôt que de déclencher une mise à jour synchrone en cascade.
+    const initialisation = window.setTimeout(
+      () => setGreeting(timeGreeting()),
+      0,
+    );
     // ELLE DOIT SUIVRE L'HEURE, PAS CELLE DU CHARGEMENT.
-    //
-    // Un onglet reste ouvert des heures. Sans cette horloge, quelqu'un qui
-    // ouvre l'application à 11 h 55 lit encore « Bonjour » à 20 h — et le
-    // défaut se voit précisément chez les gens qui utilisent le produit le
-    // plus longtemps.
-    const horloge = setInterval(() => setGreeting(timeGreeting()), 60_000);
-    return () => clearInterval(horloge);
+    const horloge = window.setInterval(
+      () => setGreeting(timeGreeting()),
+      60_000,
+    );
+    return () => {
+      window.clearTimeout(initialisation);
+      window.clearInterval(horloge);
+    };
   }, []);
 
   // ── LE BROUILLON QUI SURVIT ─────────────────────────────────────────────
@@ -268,13 +299,16 @@ export default function ChatPage() {
   // l'onglet où on l'écrit. Le partager entre onglets ferait apparaître dans
   // l'un ce qu'on tape dans l'autre.
   useEffect(() => {
-    try {
-      const garde = window.sessionStorage.getItem(BROUILLON);
-      if (garde) setInput(garde);
-    } catch {
-      // Navigation privée, stockage refusé : on s'en passe. Perdre un
-      // brouillon est regrettable ; empêcher d'écrire le serait davantage.
-    }
+    const restauration = window.setTimeout(() => {
+      try {
+        const garde = window.sessionStorage.getItem(BROUILLON);
+        if (garde) setInput(garde);
+      } catch {
+        // Navigation privée, stockage refusé : on s'en passe. Perdre un
+        // brouillon est regrettable ; empêcher d'écrire le serait davantage.
+      }
+    }, 0);
+    return () => window.clearTimeout(restauration);
   }, []);
 
   // ── LA QUESTION VENUE DE L'ACCUEIL PART TOUTE SEULE ────────────────────
@@ -582,6 +616,20 @@ export default function ChatPage() {
   function newChat() {
     // On reste en éphémère si on y était, mais le fil quitté est détruit.
     purgeEphemeral();
+
+    for (const controller of uploadControllersRef.current.values()) {
+      controller.abort();
+    }
+    uploadControllersRef.current.clear();
+    setPendingUploads([]);
+
+    const documentsNonEnvoyes = attachedDocsRef.current;
+    attachedDocsRef.current = [];
+    setAttachedDocs([]);
+    for (const doc of documentsNonEnvoyes) {
+      void deleteDocument(doc.doc_id).catch(() => {});
+    }
+
     setActiveSessionId(null);
     setUrlConversation(null);
     setMessages([]);
@@ -599,7 +647,7 @@ export default function ChatPage() {
     // bouton grisé — le premier laisse croire à une panne, le second dit ce
     // qu'il attend. Constaté dans le navigateur : aucun appel réseau après le
     // clic.
-    if ((!text && !attachedDoc) || sending || !session) return;
+    if ((!text && attachedDocs.length === 0) || sending || !session) return;
     // Demande de navigation web → l'Agent Navigateur prend le relais dans sa
     // fenêtre dédiée (l'utilisateur n'a plus à le lancer manuellement).
     // Second garde-fou : une édition de site (prompt de patch contenant le HTML
@@ -622,8 +670,17 @@ export default function ChatPage() {
       content: text,
       envoyeLe: new Date().toISOString(),
       // La pièce part avec le message et reste visible dans le fil.
-      ...(attachedDoc
-        ? { piece: { nom: attachedDoc.filename, apercu: apercuJoint ?? undefined } }
+      ...(attachedDocs.length
+        ? {
+            pieces: attachedDocs.map((doc) => ({
+              id: doc.doc_id,
+              nom: doc.filename,
+              apercu: doc.file_type === "image" ? doc.storage_url : undefined,
+              type: doc.mime_type || doc.file_type,
+              taille: doc.file_size,
+              pages: doc.page_count,
+            })),
+          }
         : {}),
     };
     const assistantId = nextId();
@@ -635,7 +692,7 @@ export default function ChatPage() {
       .reverse()
       .slice(0, 4)
       .some((m) => Boolean(m.whatsappConnector) || /(?:whats?app|واتساب)/i.test(m.content));
-    const whatsappIntent = attachedDoc ? null : classifyWhatsAppIntent(text, hasWhatsAppContext);
+    const whatsappIntent = attachedDocs.length ? null : classifyWhatsAppIntent(text, hasWhatsAppContext);
     if (whatsappIntent) {
       setMessages((prev) => [
         ...prev,
@@ -655,7 +712,14 @@ export default function ChatPage() {
       userMsg,
       { id: assistantId, role: "assistant", content: "", streaming: true },
     ]);
-    await runStream(text, assistantId, isFirstMessage, userMsg.id);
+    await runStream(
+      text,
+      assistantId,
+      isFirstMessage,
+      userMsg.id,
+      undefined,
+      attachedDocs.map((doc) => doc.doc_id),
+    );
   }
 
   /** Redemande une réponse pour le dernier message utilisateur — remplace la
@@ -670,7 +734,15 @@ export default function ChatPage() {
       const withoutLast = prev[prev.length - 1]?.role === "assistant" ? prev.slice(0, -1) : prev;
       return [...withoutLast, { id: assistantId, role: "assistant", content: "", streaming: true }];
     });
-    await runStream(lastUserMessageRef.current, assistantId, false);
+    const dernierUtilisateur = [...messages].reverse().find((m) => m.role === "user");
+    await runStream(
+      lastUserMessageRef.current,
+      assistantId,
+      false,
+      dernierUtilisateur?.id,
+      undefined,
+      dernierUtilisateur?.pieces?.map((piece) => piece.id).filter((id): id is string => Boolean(id)),
+    );
   }
 
   /** Modifie un message utilisateur passé, tronque tout ce qui suit (côté
@@ -700,7 +772,14 @@ export default function ChatPage() {
         // périmé pour ce tour, pas un blocage de l'UX.
       }
     }
-    await runStream(newContent, assistantId, isFirstMessage, edited.id);
+    await runStream(
+      newContent,
+      assistantId,
+      isFirstMessage,
+      edited.id,
+      undefined,
+      edited.pieces?.map((piece) => piece.id).filter((docId): docId is string => Boolean(docId)),
+    );
   }
 
   async function runStream(
@@ -709,6 +788,7 @@ export default function ChatPage() {
     isFirstMessage: boolean,
     userMsgId?: string,
     onChunk?: (chunk: string) => void,
+    documentIdsOverride?: string[],
   ): Promise<string> {
     setSending(true);
     const controller = new AbortController();
@@ -716,12 +796,12 @@ export default function ChatPage() {
 
     let acc = "";
     try {
-      const documentId = attachedDoc?.doc_id;
-      setAttachedDoc(null);
-      // On lâche la référence SANS révoquer l adresse : le message du fil
-      // affiche desormais la même vignette, et la révoquer y laisserait un
-      // cadre vide.
-      setApercuJoint(null);
+      const documentIds = (
+        documentIdsOverride?.length
+          ? documentIdsOverride
+          : attachedDocs.map((doc) => doc.doc_id)
+      ).slice(0, 5);
+      if (attachedDocs.length) setAttachedDocs([]);
       // ÉPHÉMÈRE : le contexte voyage AVEC la requête. Sans identifiant de
       // conversation, le serveur n'a rien à relire — chaque message serait le
       // premier, et « résume ce que je viens de dire » ne répondrait rien.
@@ -741,7 +821,8 @@ export default function ChatPage() {
           modelPreference: model,
           language: preferredLangRef.current,
           webSearch,
-          documentId,
+          documentId: documentIds[0],
+          documentIds,
           ephemeral,
           history: ephemeralHistory,
           lastImageUrl: ephemeralLastImage,
@@ -771,9 +852,27 @@ export default function ChatPage() {
           }
           if (evt.metadata?.sources && !evt.done) {
             const srcs = evt.metadata.sources;
+            const incomingBlocks = blocksFromMetadata({ sources: srcs });
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantId ? { ...m, sources: srcs, activity: undefined } : m,
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      sources: srcs,
+                      blocks: mergeResponseBlocks(m.blocks, incomingBlocks),
+                      activity: undefined,
+                    }
+                  : m,
+              ),
+            );
+          }
+          if (evt.metadata?.blocks && !evt.done) {
+            const incomingBlocks = evt.metadata.blocks;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, blocks: mergeResponseBlocks(m.blocks, incomingBlocks) }
+                  : m,
               ),
             );
           }
@@ -793,6 +892,7 @@ export default function ChatPage() {
             const modelNotice = evt.metadata?.model_notice;
             const reasoning = evt.metadata?.reasoning;
             const reasoningMs = evt.metadata?.reasoning_ms;
+            const richBlocks = blocksFromMetadata(evt.metadata);
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id === assistantId) {
@@ -803,6 +903,7 @@ export default function ChatPage() {
                     imageUrls: imageUrls?.length ? imageUrls : m.imageUrls,
                     sources: sources?.length ? sources : m.sources,
                     searchImages: searchImages?.length ? searchImages : m.searchImages,
+                    blocks: mergeResponseBlocks(m.blocks, richBlocks),
                     // Rétrogradation de modèle : on l'affiche, on ne la cache pas.
                     modelNotice: modelNotice ?? m.modelNotice,
                     // Trace de raisonnement réelle (panneau « Réflexion »).
@@ -1053,76 +1154,143 @@ export default function ChatPage() {
     if (rec && rec.state === "recording") rec.stop();
   }
 
-  /** Fabrique l'aperçu d'une image. Les autres formats gardent leur icône. */
-  function poserApercu(file: File) {
-    oublierApercu();
-    if (file.type.startsWith("image/")) {
-      setApercuJoint(URL.createObjectURL(file));
+  const importFiles = useCallback(async (files: File[]) => {
+    const uploadsActifs = pendingUploads.filter(
+      (item) => item.status === "uploading",
+    ).length;
+    const slots = Math.max(0, 5 - attachedDocs.length - uploadsActifs);
+    if (!slots || files.length === 0) {
+      if (!slots) setError("Maximum 5 fichiers par message.");
+      return;
     }
+    const candidats = files.slice(0, slots);
+    if (files.length > slots) setError(`Maximum 5 fichiers — ${files.length - slots} ignoré(s).`);
+
+    const invalid = candidats.find((file) => file.size === 0 || file.size > 10 * 1024 * 1024);
+    if (invalid) {
+      setError(
+        invalid.size === 0
+          ? `${invalid.name} est vide.`
+          : `${invalid.name} dépasse 10 Mo.`,
+      );
+      return;
+    }
+
+    // Déduplication UX avant le réseau. Le serveur reste la source de vérité.
+    const uniques = candidats.filter(
+      (file) =>
+        !attachedDocs.some(
+          (doc) => doc.filename === file.name && doc.file_size === file.size,
+        ),
+    );
+    if (!uniques.length) {
+      setError("Ces fichiers sont déjà joints.");
+      return;
+    }
+
+    setUploadingDoc(true);
+    clearError();
+
+    const jobs = uniques.map((file, index) => {
+      const uploadId = `${Date.now()}-${index}-${file.name}-${file.size}`;
+      setPendingUploads((prev) => [
+        ...prev,
+        {
+          id: uploadId,
+          name: file.name,
+          size: file.size,
+          progress: 0,
+          status: "uploading",
+        },
+      ]);
+
+      const controller = new AbortController();
+      uploadControllersRef.current.set(uploadId, controller);
+
+      return uploadDocumentWithProgress(
+        file,
+        (progress) => {
+          setPendingUploads((prev) =>
+            prev.map((item) =>
+              item.id === uploadId ? { ...item, progress } : item,
+            ),
+          );
+        },
+        controller.signal,
+      )
+        .then((doc) => {
+          uploadControllersRef.current.delete(uploadId);
+          setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
+          return doc;
+        })
+        .catch((uploadError: unknown) => {
+          uploadControllersRef.current.delete(uploadId);
+          if (
+            uploadError instanceof DOMException &&
+            uploadError.name === "AbortError"
+          ) {
+            setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
+          } else {
+            const message =
+              uploadError instanceof Error ? uploadError.message : "Échec de l'upload";
+            setPendingUploads((prev) =>
+              prev.map((item) =>
+                item.id === uploadId
+                  ? { ...item, status: "error", error: message }
+                  : item,
+              ),
+            );
+          }
+          throw uploadError;
+        });
+    });
+
+    const resultats = await Promise.allSettled(jobs);
+    const reussis: UploadedDocument[] = [];
+    const erreurs: string[] = [];
+    resultats.forEach((result, index) => {
+      if (result.status === "fulfilled") reussis.push(result.value);
+      else erreurs.push(uniques[index]?.name || "fichier");
+    });
+    if (reussis.length) {
+      setAttachedDocs((prev) => [...prev, ...reussis].slice(0, 5));
+    }
+    if (erreurs.length) {
+      setError(`Import impossible : ${erreurs.join(", ")}.`);
+    }
+    setUploadingDoc(false);
+  }, [attachedDocs]);
+
+  function annulerUpload(uploadId: string) {
+    uploadControllersRef.current.get(uploadId)?.abort();
+    uploadControllersRef.current.delete(uploadId);
+    setPendingUploads((prev) => prev.filter((item) => item.id !== uploadId));
   }
 
-  /** Rend la mémoire de l'aperçu.
-   *
-   * `createObjectURL` réserve le fichier tant qu'on ne le révoque pas : sans
-   * cet appel, joindre vingt images dans une session en garderait vingt en
-   * mémoire jusqu'à la fermeture de l'onglet. */
-  function oublierApercu() {
-    setApercuJoint((prec) => {
-      if (prec) URL.revokeObjectURL(prec);
-      return null;
-    });
+  async function retirerDocument(docId: string) {
+    const doc = attachedDocs.find((item) => item.doc_id === docId);
+    setAttachedDocs((prev) => prev.filter((item) => item.doc_id !== docId));
+    if (!doc) return;
+    try {
+      await deleteDocument(docId);
+    } catch {
+      // Le retrait visuel reste immédiat. L'échec serveur est signalé afin que
+      // l'utilisateur sache que le stockage n'a pas encore été nettoyé.
+      setError(`Le fichier « ${doc.filename} » a été retiré du message, mais sa suppression du stockage doit être réessayée.`);
+    }
   }
 
   async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Fichier trop volumineux (10 Mo max).");
-      return;
-    }
-    poserApercu(file);
-    setUploadingDoc(true);
-    clearError();
-    try {
-      const doc = await uploadDocument(file);
-      setAttachedDoc(doc);
-    } catch (err) {
-      setError(errorMessage(err, "upload"));
-    } finally {
-      setUploadingDoc(false);
-    }
+    await importFiles(files);
   }
 
-  /** Import d'un fichier venant du glisser-déposer ou du presse-papiers —
-   * même chemin que le sélecteur de fichiers, mêmes contrôles de taille. */
-  const importFile = useCallback(async (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Fichier trop volumineux (10 Mo max).");
-      return;
-    }
-    poserApercu(file);
-    setUploadingDoc(true);
-    clearError();
-    try {
-      const doc = await uploadDocument(file);
-      setAttachedDoc(doc);
-    } catch (err) {
-      setError(errorMessage(err, "upload"));
-    } finally {
-      setUploadingDoc(false);
-    }
-  }, []);
-
-  // Le backend n'accepte qu'une pièce jointe par message : on prend la première
-  // et on le dit, plutôt que d'en perdre silencieusement.
   const onDroppedFiles = useCallback(
     (files: File[]) => {
-      if (files.length === 0) return;
-      if (files.length > 1) setError("Un seul fichier par message — le premier a été retenu.");
-      void importFile(files[0]);
+      void importFiles(files);
     },
-    [importFile],
+    [importFiles],
   );
 
   // Collage d'une image depuis le presse-papiers (capture d'écran, copie web).
@@ -1263,7 +1431,7 @@ export default function ChatPage() {
   // On attend en revanche la FIN de l'import : partir avant, c'est envoyer un
   // message qui référence un document que le serveur n'a pas encore.
   const canSend =
-    (Boolean(input.trim()) || Boolean(attachedDoc)) &&
+    (Boolean(input.trim()) || attachedDocs.length > 0) &&
     !uploadingDoc &&
     !sending &&
     Boolean(session);
@@ -1528,13 +1696,14 @@ export default function ChatPage() {
             messages.length === 0 && !historyLoading ? "pb-[7vh]" : "pb-3"
           }`}
         >
-          <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx">
+          <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx,.txt,.md,.markdown,.csv">
           <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-col gap-2">
             <input
               ref={fileInputRef}
               type="file"
               className="hidden"
-              accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg,.webp,.gif"
+              accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.csv,.png,.jpg,.jpeg,.webp,.gif"
+              multiple
               onChange={onFilePicked}
             />
             {palette && paletteItems.length > 0 && !dictating && (
@@ -1565,43 +1734,81 @@ export default function ChatPage() {
                     qu'on s'apprête à envoyer ; la vignette le dit d'un coup
                     d'œil, et permet de voir qu'on s'est trompé de fichier
                     AVANT d'appuyer sur Entrée. */}
-                {apercuJoint ? (
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={apercuJoint}
-                      alt={attachedDoc?.filename ?? "Image jointe"}
-                      className="h-16 w-16 rounded-lg border border-[var(--border)] object-cover"
-                    />
-                    {uploadingDoc && (
-                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/45 text-[11px] text-white">
-                        …
-                      </div>
-                    )}
-                    {attachedDoc && !uploadingDoc && (
+                {attachedDocs.map((doc) =>
+                  doc.file_type === "image" && doc.storage_url ? (
+                    <div key={doc.doc_id} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={doc.storage_url}
+                        alt={doc.filename}
+                        className="h-16 w-16 rounded-lg border border-[var(--border)] object-cover"
+                        loading="lazy"
+                      />
                       <button
-                        onClick={() => {
-                          setAttachedDoc(null);
-                          oublierApercu();
-                        }}
-                        aria-label="Retirer la pièce jointe"
+                        onClick={() => void retirerDocument(doc.doc_id)}
+                        aria-label={`Retirer ${doc.filename}`}
                         title="Retirer"
                         className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[11px] leading-none text-[var(--text-secondary)] shadow transition hover:text-[var(--text-primary)]"
                       >
                         ×
                       </button>
+                    </div>
+                  ) : (
+                    <ComposerChip
+                      key={doc.doc_id}
+                      icon={<FileIcon />}
+                      label={doc.filename}
+                      tone="accent"
+                      onRemove={() => void retirerDocument(doc.doc_id)}
+                    />
+                  ),
+                )}
+                {pendingUploads.map((upload) => (
+                  <div
+                    key={upload.id}
+                    className="min-w-[10rem] max-w-[16rem] rounded-xl border border-[var(--border)] px-3 py-2"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-medium text-[var(--text-primary)]">
+                        {upload.name}
+                      </p>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                          {upload.status === "error" ? "Erreur" : `${upload.progress}%`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => annulerUpload(upload.id)}
+                          className="flex h-5 w-5 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+                          aria-label={upload.status === "error" ? `Fermer l'erreur ${upload.name}` : `Annuler l'import de ${upload.name}`}
+                          title={upload.status === "error" ? "Fermer" : "Annuler l'import"}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    {upload.status === "error" ? (
+                      <p className="mt-1 line-clamp-2 text-[11px] text-[var(--error)]">
+                        {upload.error}
+                      </p>
+                    ) : (
+                      <div
+                        className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--border)]"
+                        role="progressbar"
+                        aria-label={`Import de ${upload.name}`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={upload.progress}
+                      >
+                        <div
+                          className="h-full rounded-full bg-[var(--primary)] transition-[width]"
+                          style={{ width: `${upload.progress}%` }}
+                        />
+                      </div>
                     )}
                   </div>
-                ) : (
-                  (attachedDoc || uploadingDoc) && (
-                    <ComposerChip
-                      icon={<FileIcon />}
-                      label={uploadingDoc ? "Import en cours…" : (attachedDoc?.filename ?? "")}
-                      tone="accent"
-                      onRemove={attachedDoc ? () => setAttachedDoc(null) : undefined}
-                    />
-                  )
-                )}
+                ))}
               <textarea
                 ref={attacherChamp}
                 value={input}

@@ -1,0 +1,59 @@
+name: Chat rich response CI
+
+on:
+  pull_request:
+    paths:
+      - "app/chat/**"
+      - "components/ChatMessage.tsx"
+      - "components/chat/**"
+      - "lib/chat-*.ts"
+      - "lib/documents-api.ts"
+      - "lib/prechargement-conversations.ts"
+      - ".github/workflows/chat-rich-response-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Lint changed chat surface
+        run: >
+          npx eslint
+          app/chat/page.tsx
+          components/ChatMessage.tsx
+          components/chat/RichResponseBlocks.tsx
+          components/chat/media/ImageBubble.tsx
+          components/chat/media/ImageToolbar.tsx
+          lib/chat-response.ts
+          lib/chat-stream.ts
+          lib/chat-api.ts
+          lib/documents-api.ts
+          lib/prechargement-conversations.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Regression tests
+        id: tests
+        continue-on-error: true
+        run: npm test 2>&1 | tee frontend-tests.log
+      - name: Upload frontend test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-rich-frontend-diagnostics
+          path: frontend-tests.log
+          retention-days: 3
+      - name: Enforce frontend regressions
+        if: always()
+        run: test "${{ steps.tests.outcome }}" = "success"
