@@ -29,8 +29,8 @@ jobs:
       - name: Validate application
         run: |
           npm run typecheck
-          npm test
           npm run build
+          npm test
       - name: Verify remaining vulnerabilities
         run: npm audit --audit-level=high
       - name: Commit dependency remediation
