@@ -10,7 +10,7 @@ import { getHistory, deleteMessageAndAfter, purgeEphemeralMedia } from "@/lib/ch
 import { getProfile, prenomAffichable } from "@/lib/user-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { transcribeAudio } from "@/lib/voice-api";
-import { uploadDocument, type UploadedDocument } from "@/lib/documents-api";
+import { deleteDocument, uploadDocument, type UploadedDocument } from "@/lib/documents-api";
 import { ChatMessage, type Message } from "@/components/ChatMessage";
 import { ModelSelector } from "@/components/ModelSelector";
 import { Sidebar } from "@/components/Sidebar";
@@ -1119,6 +1119,19 @@ export default function ChatPage() {
     setUploadingDoc(false);
   }, [attachedDocs]);
 
+  async function retirerDocument(docId: string) {
+    const doc = attachedDocs.find((item) => item.doc_id === docId);
+    setAttachedDocs((prev) => prev.filter((item) => item.doc_id !== docId));
+    if (!doc) return;
+    try {
+      await deleteDocument(docId);
+    } catch {
+      // Le retrait visuel reste immédiat. L'échec serveur est signalé afin que
+      // l'utilisateur sache que le stockage n'a pas encore été nettoyé.
+      setError(`Le fichier « ${doc.filename} » a été retiré du message, mais sa suppression du stockage doit être réessayée.`);
+    }
+  }
+
   async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -1584,7 +1597,7 @@ export default function ChatPage() {
                         loading="lazy"
                       />
                       <button
-                        onClick={() => setAttachedDocs((prev) => prev.filter((item) => item.doc_id !== doc.doc_id))}
+                        onClick={() => void retirerDocument(doc.doc_id)}
                         aria-label={`Retirer ${doc.filename}`}
                         title="Retirer"
                         className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[11px] leading-none text-[var(--text-secondary)] shadow transition hover:text-[var(--text-primary)]"
@@ -1598,7 +1611,7 @@ export default function ChatPage() {
                       icon={<FileIcon />}
                       label={doc.filename}
                       tone="accent"
-                      onRemove={() => setAttachedDocs((prev) => prev.filter((item) => item.doc_id !== doc.doc_id))}
+                      onRemove={() => void retirerDocument(doc.doc_id)}
                     />
                   ),
                 )}
