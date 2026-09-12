@@ -653,6 +653,14 @@ export function ChatMessage({
     (!isProject && !message.streaming ? extractHtml(message.content || "") : null);
   const isSite = Boolean(finishedHtml);
 
+  // Le backend fournit aussi image_urls pour la compatibilité lorsqu'une
+  // recherche d'images réussit. Ne pas rendre ces mêmes URL une seconde fois
+  // comme si elles avaient été générées par Toumaï AI.
+  const searchImageUrls = new Set((message.searchImages ?? []).map((img) => img.url));
+  const standaloneImageUrls = (message.imageUrls ?? []).filter(
+    (url) => !searchImageUrls.has(url),
+  );
+
   let visibleContent = message.content || "";
   if (building) visibleContent = visibleContent.replace(/```html[\s\S]*$/i, "").trimEnd();
   // Si patch appliqué, on masque les blocs SEARCH/REPLACE (techniques).
@@ -773,9 +781,13 @@ export function ChatMessage({
       {!message.streaming && message.toolConfirmation && (
         <ToolConfirmCard confirmation={message.toolConfirmation} />
       )}
-      {!message.streaming && message.imageUrls && message.imageUrls.length > 0 && (
+      {!message.streaming && standaloneImageUrls.length > 0 && (
         <div className="mt-2">
-          <MediaMessage images={imagesFromUrls(message.imageUrls, { alt: "Image générée par Toumaï AI" })} />
+          <MediaMessage
+            images={imagesFromUrls(standaloneImageUrls, {
+              alt: "Image générée par Toumaï AI",
+            })}
+          />
         </div>
       )}
       {!message.streaming && message.searchImages && message.searchImages.length > 0 && (
