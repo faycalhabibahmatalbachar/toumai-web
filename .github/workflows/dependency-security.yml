@@ -1,0 +1,36 @@
+name: Dependency security
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/dependency-security.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/dependency-security.yml'
+  schedule:
+    - cron: '17 5 * * 1'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Block high and critical dependency vulnerabilities
+        run: npm audit --audit-level=high
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Export-dependent regression tests
+        run: npm test
