@@ -160,27 +160,74 @@ export async function streamChat(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let pending = "";
+  let pendingCR = false;
+  let sawDone = false;
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    pending += decoder.decode(value, { stream: true });
+  /** Normalise le framing SSE sans casser un CRLF coupé entre deux chunks. */
+  const appendDecoded = (text: string, flush = false) => {
+    if (pendingCR) {
+      if (text.startsWith("\n")) text = text.slice(1);
+      pending += "\n";
+      pendingCR = false;
+    }
+    if (!flush && text.endsWith("\r")) {
+      text = text.slice(0, -1);
+      pendingCR = true;
+    }
+    pending += text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  };
 
+  /** Un événement SSE peut porter plusieurs lignes data:, concaténées avec LF. */
+  const dispatchBlock = (block: string) => {
+    const data: string[] = [];
+    for (const rawLine of block.split("\n")) {
+      if (!rawLine.startsWith("data:")) continue;
+      let value = rawLine.slice(5);
+      if (value.startsWith(" ")) value = value.slice(1);
+      data.push(value);
+    }
+    if (!data.length) return;
+
+    const payload = data.join("\n");
+    if (!payload) return;
+    try {
+      const evt = JSON.parse(payload) as StreamEvent;
+      if (evt.done) sawDone = true;
+      onEvent(evt);
+    } catch {
+      // Payload JSON invalide : on ignore uniquement cet événement complet.
+    }
+  };
+
+  const drainCompleteEvents = () => {
     let sep: number;
     while ((sep = pending.indexOf("\n\n")) >= 0) {
       const block = pending.slice(0, sep);
       pending = pending.slice(sep + 2);
-      for (const line of block.split("\n")) {
-        const t = line.trimEnd();
-        if (!t.startsWith("data:")) continue;
-        const jsonStr = t.slice(5).trim();
-        if (!jsonStr) continue;
-        try {
-          onEvent(JSON.parse(jsonStr) as StreamEvent);
-        } catch {
-          // fragment JSON incomplet — ignoré
-        }
-      }
+      dispatchBlock(block);
     }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    appendDecoded(decoder.decode(value, { stream: true }));
+    drainCompleteEvents();
+  }
+
+  // Vide les éventuels octets UTF-8 retenus par TextDecoder. Conformément à
+  // SSE, un dernier bloc sans ligne vide terminale n'est PAS dispatché.
+  appendDecoded(decoder.decode(), true);
+  if (pendingCR) {
+    pending += "\n";
+    pendingCR = false;
+  }
+  drainCompleteEvents();
+
+  // Notre backend termine chaque flux réussi par {done:true}. Une fermeture
+  // propre du socket sans cet événement indique donc une réponse tronquée :
+  // mieux vaut signaler l'incident que présenter un texte partiel comme fini.
+  if (!sawDone) {
+    throw new HttpError(502, "Le flux de réponse s'est interrompu avant sa confirmation de fin.");
   }
 }
