@@ -237,15 +237,21 @@ export default function ChatPage() {
   // Calculé après montage (pas au rendu serveur statique) pour éviter un
   // écart d'hydratation lié au fuseau horaire du visiteur.
   useEffect(() => {
-    setGreeting(timeGreeting());
+    // L'initialisation dépend du fuseau du navigateur : on la programme après
+    // l'effet plutôt que de déclencher une mise à jour synchrone en cascade.
+    const initialisation = window.setTimeout(
+      () => setGreeting(timeGreeting()),
+      0,
+    );
     // ELLE DOIT SUIVRE L'HEURE, PAS CELLE DU CHARGEMENT.
-    //
-    // Un onglet reste ouvert des heures. Sans cette horloge, quelqu'un qui
-    // ouvre l'application à 11 h 55 lit encore « Bonjour » à 20 h — et le
-    // défaut se voit précisément chez les gens qui utilisent le produit le
-    // plus longtemps.
-    const horloge = setInterval(() => setGreeting(timeGreeting()), 60_000);
-    return () => clearInterval(horloge);
+    const horloge = window.setInterval(
+      () => setGreeting(timeGreeting()),
+      60_000,
+    );
+    return () => {
+      window.clearTimeout(initialisation);
+      window.clearInterval(horloge);
+    };
   }, []);
 
   // ── LE BROUILLON QUI SURVIT ─────────────────────────────────────────────
@@ -259,13 +265,16 @@ export default function ChatPage() {
   // l'onglet où on l'écrit. Le partager entre onglets ferait apparaître dans
   // l'un ce qu'on tape dans l'autre.
   useEffect(() => {
-    try {
-      const garde = window.sessionStorage.getItem(BROUILLON);
-      if (garde) setInput(garde);
-    } catch {
-      // Navigation privée, stockage refusé : on s'en passe. Perdre un
-      // brouillon est regrettable ; empêcher d'écrire le serait davantage.
-    }
+    const restauration = window.setTimeout(() => {
+      try {
+        const garde = window.sessionStorage.getItem(BROUILLON);
+        if (garde) setInput(garde);
+      } catch {
+        // Navigation privée, stockage refusé : on s'en passe. Perdre un
+        // brouillon est regrettable ; empêcher d'écrire le serait davantage.
+      }
+    }, 0);
+    return () => window.clearTimeout(restauration);
   }, []);
 
   // ── LA QUESTION VENUE DE L'ACCUEIL PART TOUTE SEULE ────────────────────
