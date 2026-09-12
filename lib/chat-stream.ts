@@ -99,6 +99,28 @@ export interface ChatStreamParams {
   lastImageUrl?: string;
 }
 
+function emitSseBlock(block: string, onEvent: (evt: StreamEvent) => void): void {
+  const dataLines: string[] = [];
+  for (const rawLine of block.split(/\r?\n/)) {
+    if (!rawLine.startsWith("data:")) continue;
+    // La spécification SSE autorise plusieurs lignes data: dans un même
+    // événement. On les recompose au lieu d'essayer de parser chaque ligne
+    // indépendamment, ce qui cassait les payloads multi-lignes.
+    const value = rawLine.slice(5);
+    dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
+  }
+  if (!dataLines.length) return;
+  const jsonStr = dataLines.join("\n").trim();
+  if (!jsonStr) return;
+  try {
+    onEvent(JSON.parse(jsonStr) as StreamEvent);
+  } catch {
+    // Un événement SSE invalide ne doit pas faire tomber tout le tour. Le
+    // prochain événement reste consommable. Les fragments réseau, eux, sont
+    // conservés dans `pending` jusqu'au séparateur complet.
+  }
+}
+
 /**
  * Ouvre le flux SSE `/chat/stream` et invoque `onEvent` pour chaque événement.
  * Utilise fetch + ReadableStream (EventSource ne supporte pas POST + headers
@@ -157,6 +179,13 @@ export async function streamChat(
     throw new HttpError(res.ok ? 502 : res.status, detail);
   }
 
+  const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType && !contentType.includes("text/event-stream")) {
+    // Un proxy/CDN qui renvoie une page HTML 200 ne doit jamais être traité
+    // comme une réponse IA vide : on remonte une panne explicite.
+    throw new HttpError(502, "Le serveur de chat a renvoyé un flux invalide.");
+  }
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let pending = "";
@@ -166,21 +195,21 @@ export async function streamChat(
     if (done) break;
     pending += decoder.decode(value, { stream: true });
 
-    let sep: number;
-    while ((sep = pending.indexOf("\n\n")) >= 0) {
-      const block = pending.slice(0, sep);
-      pending = pending.slice(sep + 2);
-      for (const line of block.split("\n")) {
-        const t = line.trimEnd();
-        if (!t.startsWith("data:")) continue;
-        const jsonStr = t.slice(5).trim();
-        if (!jsonStr) continue;
-        try {
-          onEvent(JSON.parse(jsonStr) as StreamEvent);
-        } catch {
-          // fragment JSON incomplet — ignoré
-        }
-      }
+    // SSE accepte LF et CRLF. Le précédent parseur ne reconnaissait que \n\n,
+    // donc un proxy normalisant en CRLF pouvait laisser le chat bloqué jusqu'à
+    // la fermeture du flux.
+    let match: RegExpExecArray | null;
+    const separator = /\r?\n\r?\n/g;
+    while ((match = separator.exec(pending)) !== null) {
+      const block = pending.slice(0, match.index);
+      pending = pending.slice(match.index + match[0].length);
+      separator.lastIndex = 0;
+      emitSseBlock(block, onEvent);
     }
   }
+
+  // TextDecoder peut conserver un dernier octet partiel ; on le vide puis on
+  // traite le dernier événement même si le serveur ferme sans séparateur vide.
+  pending += decoder.decode();
+  if (pending.trim()) emitSseBlock(pending, onEvent);
 }
