@@ -1,6 +1,6 @@
 "use client";
 
-import type { ResponseBlock, ResponseWidget } from "@/lib/chat-response";
+import type { ActionStep, ResponseBlock, ResponseWidget } from "@/lib/chat-response";
 import { MediaMessage, imagesFromUrls } from "./media/MediaMessage";
 import type { ChatImage } from "./media/types";
 
@@ -193,6 +193,47 @@ function WeatherWidget({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+const ETAT_ACTION: Record<ActionStep["state"], { icon: string; color: string; sr: string }> = {
+  done: { icon: "✓", color: "var(--success)", sr: "vérifié" },
+  warning: { icon: "!", color: "var(--warning, #d9a441)", sr: "non vérifié" },
+  failed: { icon: "✕", color: "var(--error)", sr: "échec" },
+  pending: { icon: "○", color: "var(--text-tertiary)", sr: "en attente" },
+};
+
+/** Les actions réellement exécutées pendant ce tour, dans l'ordre.
+ *
+ * Le libellé et l'état viennent du journal serveur : une étape n'apparaît
+ * « ✓ » que si le connecteur a été relu et confirme le changement. Une action
+ * acceptée mais non relue reste « ! ». C'est ce qui empêche l'écran de dire
+ * « Photo ajoutée » quand elle ne l'est pas. */
+function ActionsBlock({ steps }: { steps: ActionStep[] }) {
+  if (!steps.length) return null;
+  return (
+    <section className="mt-3 max-w-md rounded-xl border border-[var(--border)] px-3 py-2.5" aria-label="Actions exécutées">
+      <ol className="space-y-1.5">
+        {steps.slice(0, 12).map((step, index) => {
+          const etat = ETAT_ACTION[step.state] ?? ETAT_ACTION.pending;
+          return (
+            <li key={step.action_id || `${step.capability}-${index}`} className="flex items-start gap-2 text-[13px]">
+              <span
+                aria-hidden="true"
+                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                style={{ color: etat.color, border: `1px solid ${etat.color}` }}
+              >
+                {etat.icon}
+              </span>
+              <span className="text-[var(--text-primary)]">
+                {step.label}
+                <span className="sr-only"> — {etat.sr}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 function WidgetBlock({ widget }: { widget: ResponseWidget }) {
   if (widget.type === "weather" && widget.data && typeof widget.data === "object" && !Array.isArray(widget.data)) {
     return <WeatherWidget data={widget.data as Record<string, unknown>} />;
@@ -250,6 +291,8 @@ export function RichResponseBlocks({ blocks }: { blocks?: ResponseBlock[] }) {
             ) : null;
           case "widget":
             return <WidgetBlock key={key} widget={block.widget} />;
+          case "actions":
+            return <ActionsBlock key={key} steps={block.steps} />;
           case "file":
             return (
               <div key={key} className="mt-3 rounded-xl border border-[var(--border)] px-3 py-2.5">

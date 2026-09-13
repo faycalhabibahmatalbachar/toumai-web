@@ -7,7 +7,20 @@ export type ResponseBlock =
   | { type: "tool_confirmation"; id?: string; confirmation: ToolConfirmation }
   | { type: "activity"; id?: string; activity: string; label?: string }
   | { type: "file"; id?: string; file: ResponseFile }
-  | { type: "widget"; id?: string; widget: ResponseWidget };
+  | { type: "widget"; id?: string; widget: ResponseWidget }
+  | { type: "actions"; id?: string; steps: ActionStep[] };
+
+/** Une action réellement exécutée, avec son statut issu du journal serveur.
+ * `state` : done (vérifiée), warning (acceptée non vérifiée ou partielle),
+ * failed, pending (confirmation requise). Jamais déduit du texte du modèle. */
+export interface ActionStep {
+  capability: string;
+  label: string;
+  state: "done" | "warning" | "failed" | "pending";
+  status?: string;
+  verified?: boolean;
+  action_id?: string | null;
+}
 
 export interface ResponseFile {
   id?: string;
@@ -33,6 +46,7 @@ export interface LegacyRichMetadata {
   search_images?: SearchImage[];
   tool_confirmation?: ToolConfirmation;
   activity?: string;
+  action_steps?: ActionStep[];
   blocks?: ResponseBlock[];
 }
 
@@ -64,6 +78,7 @@ export function blocksFromMetadata(meta?: LegacyRichMetadata | null): ResponseBl
     blocks.push({ type: "generated_images", urls: generatedUrls });
   }
   if (meta.sources?.length) blocks.push({ type: "sources", sources: meta.sources });
+  if (meta.action_steps?.length) blocks.push({ type: "actions", steps: meta.action_steps });
   if (meta.tool_confirmation) {
     blocks.push({ type: "tool_confirmation", confirmation: meta.tool_confirmation });
   }
@@ -98,5 +113,7 @@ function stableBlockKey(block: ResponseBlock): string {
       return `file:${block.file.id || block.file.name}`;
     case "widget":
       return `widget:${block.widget.type}:${block.widget.title || "default"}`;
+    case "actions":
+      return "actions";
   }
 }

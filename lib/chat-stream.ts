@@ -12,6 +12,9 @@ export interface ToolConfirmation {
   tool: string;
   args: Record<string, unknown>;
   text?: string;
+  /** Identifiant de la demande écrite côté serveur. C'est elle que « Confirmer »
+   * consomme : le serveur exécute ce qu'IL a proposé, pas ce que le client renvoie. */
+  pending_id?: string | null;
 }
 
 /** Source web citée par une réponse ayant fait une recherche. */

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { confirmToolAction, sendFeedback } from "@/lib/chat-api";
+import { cancelToolAction, confirmToolAction, sendFeedback } from "@/lib/chat-api";
 import type { ToolConfirmation, WebSource, SearchImage } from "@/lib/chat-stream";
 import { CodeBlock } from "./CodeBlock";
 import { SiteBuildingCard, SiteArtifactCard, extractHtml } from "./SiteBuilder";
@@ -144,7 +144,7 @@ function ToolConfirmCard({ confirmation }: { confirmation: ToolConfirmation }) {
   async function confirm() {
     setState("running");
     try {
-      const res = await confirmToolAction(confirmation.tool, confirmation.args);
+      const res = await confirmToolAction(confirmation.tool, confirmation.args, confirmation.pending_id);
       setState(res.ok ? "done" : "error");
       setResultMsg(res.message || (res.ok ? "Action exécutée." : "Échec de l'action."));
     } catch (err) {
@@ -176,7 +176,10 @@ function ToolConfirmCard({ confirmation }: { confirmation: ToolConfirmation }) {
               Confirmer
             </button>
             <button
-              onClick={() => setState("cancelled")}
+              onClick={() => {
+                setState("cancelled");
+                if (confirmation.pending_id) void cancelToolAction(confirmation.pending_id);
+              }}
               className="rounded-lg border border-[var(--border)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
             >
               Annuler

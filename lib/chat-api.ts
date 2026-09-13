@@ -159,15 +159,24 @@ export async function sendFeedback(messageId: string, rating: "up" | "down"): Pr
 export async function confirmToolAction(
   tool: string,
   args: Record<string, unknown>,
+  pendingId?: string | null,
 ): Promise<{ ok: boolean; message: string }> {
   const res = await authFetch("/chat/tool/confirm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tool, args }),
+    body: JSON.stringify({ tool, args, pending_id: pendingId || undefined }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.message || `Erreur ${res.status}`);
   return { ok: body.success !== false, message: body.message || "" };
+}
+
+/** Refuse une action proposée : la demande en attente est annulée côté serveur,
+ * et un « oui » tapé plus tard ne pourra plus la déclencher. */
+export async function cancelToolAction(pendingId: string): Promise<void> {
+  await authFetch(`/agent/confirmations/${encodeURIComponent(pendingId)}/annuler`, {
+    method: "POST",
+  }).catch(() => undefined);
 }
 
 // ── Partage de conversation ─────────────────────────────────────────────────

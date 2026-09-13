@@ -29,6 +29,14 @@ const checks = [
   ["unsent upload cleanup", chat.includes("documentsNonEnvoyes") && chat.includes("deleteDocument(doc.doc_id)")],
   ["unmount upload cleanup", chat.includes("attachedDocsRef.current") && chat.includes("controller.abort()")],
   ["active uploads count toward limit", chat.includes("5 - attachedDocs.length - uploadsActifs")],
+  // Les étapes d'action : leur état vient du journal serveur, jamais du texte.
+  ["typed actions block", response.includes('type: "actions"') && response.includes("interface ActionStep")],
+  ["actions block rendered", renderer.includes("ActionsBlock") && renderer.includes('case "actions"')],
+  ["legacy action_steps bridge", response.includes("meta.action_steps")],
+  // La confirmation consomme la demande écrite côté serveur.
+  ["confirmation carries pending_id", stream.includes("pending_id?: string | null")],
+  ["confirm sends pending_id", fs.readFileSync("lib/chat-api.ts", "utf8").includes("pending_id: pendingId")],
+  ["cancel releases pending action", fs.readFileSync("components/ChatMessage.tsx", "utf8").includes("cancelToolAction(confirmation.pending_id)")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
