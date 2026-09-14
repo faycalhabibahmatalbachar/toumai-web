@@ -5,7 +5,9 @@ import {
   Check,
   Circle,
   CircleX,
+  ExternalLink,
   FileText,
+  Globe2,
   LoaderCircle,
   Search,
 } from "lucide-react";
@@ -34,42 +36,100 @@ function host(raw: string): string {
   }
 }
 
+function SourceIcon({ url, favicon, title }: { url: string; favicon?: string; title?: string }) {
+  const safeFavicon = safeHttpUrl(favicon);
+  const label = (title || host(url) || "W").trim().charAt(0).toUpperCase();
+  if (safeFavicon) {
+    return (
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--border)] bg-[var(--background)]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={safeFavicon} alt="" className="h-4 w-4 object-contain" referrerPolicy="no-referrer" />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--background)] text-[10px] font-semibold text-[var(--text-secondary)]" aria-hidden="true">
+      {label || <Globe2 className="h-3.5 w-3.5" />}
+    </span>
+  );
+}
+
 function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "sources" }> }) {
   const sources = block.sources
     .map((source, index) => ({ source, index, url: safeHttpUrl(source.url) }))
     .filter((entry): entry is typeof entry & { url: string } => Boolean(entry.url))
-    .slice(0, 8);
+    .slice(0, 10);
   if (!sources.length) return null;
 
+  const visited = sources.slice(0, 5);
+
   return (
-    <section className="mt-3" aria-label="Sources consultées">
-      <div className="mb-2 flex items-center gap-2 text-[12px] font-medium text-[var(--text-tertiary)]">
-        <Search className="h-3.5 w-3.5" aria-hidden="true" />
-        Sources · {sources.length}
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {sources.map(({ source, index, url }) => (
-          <a
-            key={url + index}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            referrerPolicy="no-referrer"
-            aria-label={`Source ${index + 1} : ${source.title || host(url)} — ${host(url)}`}
-            className="group min-w-0 rounded-xl border border-[var(--border)] px-3 py-2.5 transition hover:bg-[var(--hover)]"
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--card)] px-1 text-[11px] font-semibold text-[var(--text-secondary)]">{index + 1}</span>
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">{source.title || host(url)}</p>
-                <p className="truncate text-[11px] text-[var(--text-tertiary)]">{host(url)}</p>
-                {"snippet" in source && typeof source.snippet === "string" && source.snippet ? (
-                  <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">{source.snippet}</p>
-                ) : null}
+    <section className="mt-3 w-full max-w-[620px]" aria-label="Recherche sur le Web et sources consultées">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/55 px-3.5 py-3">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-[var(--text-primary)]">
+          <Search className="h-3.5 w-3.5" aria-hidden="true" />
+          Recherche sur le Web
+          <span className="ml-auto text-[10.5px] font-normal text-[var(--text-tertiary)]">
+            {sources.length} site{sources.length > 1 ? "s" : ""} consulté{sources.length > 1 ? "s" : ""}
+          </span>
+        </div>
+
+        <div className="mt-2.5 space-y-1" aria-label="Sites visités">
+          {visited.map(({ source, index, url }) => (
+            <a
+              key={`visited-${url}-${index}`}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerPolicy="no-referrer"
+              className="group flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1 transition hover:bg-[var(--hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+              aria-label={`Site consulté : ${source.title || host(url)} — ${host(url)}`}
+            >
+              <SourceIcon url={url} favicon={source.favicon_url} title={source.title} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11.5px] font-medium text-[var(--text-primary)]">{source.title || host(url)}</p>
+                <p className="truncate text-[10px] text-[var(--text-tertiary)]">Consulté · {host(url)}</p>
               </div>
-            </div>
-          </a>
-        ))}
+              <ExternalLink className="h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
+            </a>
+          ))}
+        </div>
+
+        <details className="group mt-2 border-t border-[var(--border)] pt-2">
+          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-lg px-1.5 text-[11px] font-medium text-[var(--text-secondary)] outline-none transition hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
+            <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Sources · {sources.length}
+            <span className="ml-auto text-[10px] font-normal text-[var(--text-tertiary)] group-open:hidden">Afficher</span>
+            <span className="ml-auto hidden text-[10px] font-normal text-[var(--text-tertiary)] group-open:inline">Masquer</span>
+          </summary>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {sources.map(({ source, index, url }) => (
+              <a
+                key={url + index}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                referrerPolicy="no-referrer"
+                aria-label={`Source ${index + 1} : ${source.title || host(url)} — ${host(url)}`}
+                className="group/source min-w-0 rounded-xl border border-[var(--border)] px-3 py-2.5 transition hover:bg-[var(--hover)]"
+              >
+                <div className="flex items-start gap-2.5">
+                  <SourceIcon url={url} favicon={source.favicon_url} title={source.title} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-medium text-[var(--text-primary)]">
+                      <span className="mr-1.5 text-[10px] text-[var(--text-tertiary)]">[{index + 1}]</span>
+                      {source.title || host(url)}
+                    </p>
+                    <p className="truncate text-[10.5px] text-[var(--text-tertiary)]">{host(url)}</p>
+                    {typeof source.snippet === "string" && source.snippet ? (
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">{source.snippet}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </details>
       </div>
     </section>
   );
