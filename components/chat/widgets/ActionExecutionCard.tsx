@@ -10,7 +10,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ToolConfirmation } from "@/lib/chat-stream";
 import { authFetch } from "@/lib/http";
 import { cancelToolAction } from "@/lib/chat-api";
@@ -24,7 +24,8 @@ export type ActionRuntimeState =
   | "partial_success"
   | "failed"
   | "cancelled"
-  | "expired";
+  | "expired"
+  | "already_processed";
 
 type ActionPayload = {
   action_id?: string | null;
@@ -50,6 +51,11 @@ type ConfirmationResponse = {
   data?: (Record<string, unknown> & { action_steps?: ResultStep[] }) | null;
 };
 
+type PendingStatusResponse = {
+  success?: boolean;
+  data?: { status?: string; action_id?: string | null } | null;
+};
+
 function value(args: Record<string, unknown>, ...keys: string[]): string {
   for (const key of keys) {
     const item = args[key];
@@ -63,8 +69,14 @@ function maskPhone(raw: string): string {
   if (!compact || compact.includes("@g.us")) return compact;
   const digits = compact.replace(/\D/g, "");
   if (digits.length < 7) return raw;
-  const withPlus = compact.startsWith("+") ? `+${digits}` : `+${digits}`;
-  return `${withPlus.slice(0, 7)}•••${withPlus.slice(-3)}`;
+  return `+${digits}`.slice(0, 7) + "•••" + digits.slice(-3);
+}
+
+function participantValues(args: Record<string, unknown>): string[] {
+  if (!Array.isArray(args.participants)) return [];
+  return args.participants
+    .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    .map((item) => maskPhone(item.trim()));
 }
 
 function previewLines(tool: string, args: Record<string, unknown>): string[] {
@@ -85,6 +97,7 @@ function previewLines(tool: string, args: Record<string, unknown>): string[] {
   const lines: string[] = [];
   const group = value(args, "group_name", "group_subject", "group", "chat_name");
   const recipient = value(args, "to_name", "contact_name", "participant_name", "to", "participant", "phone");
+  const participants = participantValues(args);
   const message = value(args, "message", "text", "body", "caption");
   const subject = value(args, "subject", "title");
   const sendAt = value(args, "send_at", "start", "datetime");
@@ -92,17 +105,16 @@ function previewLines(tool: string, args: Record<string, unknown>): string[] {
   const newValue = value(args, "value", "description", "name");
 
   if (group && !group.endsWith("@g.us")) lines.push(`Groupe · ${group}`);
-  if (recipient) lines.push(`Destinataire · ${recipient.match(/^\+?\d{7,}$/) ? maskPhone(recipient) : recipient}`);
+  if (participants.length) lines.push(`Membre${participants.length > 1 ? "s" : ""} · ${participants.join(", ")}`);
+  else if (recipient) lines.push(`Destinataire · ${recipient.match(/^\+?\d{7,}$/) ? maskPhone(recipient) : recipient}`);
   if (subject && !message.includes(subject)) lines.push(`Objet · ${subject}`);
   if (message) lines.push(`« ${message.length > 160 ? `${message.slice(0, 157)}…` : message} »`);
   if (sendAt) lines.push(`Quand · ${sendAt}`);
-  if (action && !["send_whatsapp", "send_email"].includes(tool)) {
-    lines.push(`Opération · ${action}`);
-  }
+  if (action && !["send_whatsapp", "send_email"].includes(tool)) lines.push(`Opération · ${action}`);
   if (newValue && newValue !== group && newValue !== message) {
     lines.push(`Valeur · ${newValue.length > 120 ? `${newValue.slice(0, 117)}…` : newValue}`);
   }
-  return lines.slice(0, 4);
+  return lines.slice(0, 5);
 }
 
 function normalizedState(response: ConfirmationResponse): {
@@ -111,38 +123,28 @@ function normalizedState(response: ConfirmationResponse): {
   message: string;
 } {
   const data = response.data && typeof response.data === "object" ? response.data : {};
-  const action = data._action && typeof data._action === "object"
-    ? (data._action as ActionPayload)
-    : undefined;
+  const action = data._action && typeof data._action === "object" ? (data._action as ActionPayload) : undefined;
   const raw = action?.status || "";
   const message = response.message || "";
 
-  // Le statut normalisé du backend est plus précis que le booléen HTTP.
-  // Un batch peut renvoyer success:false ET _action.status=partial_success :
-  // l'afficher en échec total ferait perdre l'information des étapes réussies.
-  if (raw === "partial_success" || raw === "verification_failed") {
-    return { state: "partial_success", action, message };
-  }
-  if (["failed", "timeout", "unsupported"].includes(raw)) {
-    return { state: "failed", action, message };
-  }
+  if (raw === "partial_success" || raw === "verification_failed") return { state: "partial_success", action, message };
+  if (["failed", "timeout", "unsupported"].includes(raw)) return { state: "failed", action, message };
   if (raw === "cancelled") return { state: "cancelled", action, message };
   if (raw === "awaiting_confirmation") return { state: "awaiting_confirmation", action, message };
   if (response.success === false) {
     const lower = message.toLowerCase();
-    if (lower.includes("expir") || lower.includes("déjà été utilisée") || lower.includes("déjà été traité")) {
-      return { state: "expired", action, message };
+    if (lower.includes("déjà été traité") || lower.includes("déjà été utilisée") || lower.includes("déjà été utilisé")) {
+      return { state: "already_processed", action, message };
     }
+    if (lower.includes("expir")) return { state: "expired", action, message };
     return { state: "failed", action, message };
   }
   return { state: "success", action, message };
 }
 
 function StateIcon({ state }: { state: ActionRuntimeState }) {
-  if (state === "running" || state === "verifying") {
-    return <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />;
-  }
-  if (state === "success") return <Check className="h-4 w-4" aria-hidden="true" />;
+  if (state === "running" || state === "verifying") return <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />;
+  if (state === "success" || state === "already_processed") return <Check className="h-4 w-4" aria-hidden="true" />;
   if (state === "partial_success") return <AlertTriangle className="h-4 w-4" aria-hidden="true" />;
   if (state === "failed" || state === "expired") return <CircleX className="h-4 w-4" aria-hidden="true" />;
   if (state === "cancelled") return <X className="h-4 w-4" aria-hidden="true" />;
@@ -163,25 +165,74 @@ export function ActionExecutionCard({
   confirmation: ToolConfirmation;
   compactWhenDone?: boolean;
 }) {
-  const descriptor = useMemo(
-    () => describeTool(confirmation.tool, confirmation.args || {}),
-    [confirmation.tool, confirmation.args],
-  );
-  const preview = useMemo(
-    () => previewLines(confirmation.tool, confirmation.args || {}),
-    [confirmation.tool, confirmation.args],
-  );
+  const args = (confirmation.args || {}) as Record<string, unknown>;
+  const descriptor = useMemo(() => describeTool(confirmation.tool, args), [confirmation.tool, confirmation.args]);
+  const preview = useMemo(() => previewLines(confirmation.tool, args), [confirmation.tool, confirmation.args]);
   const [state, setState] = useState<ActionRuntimeState>("awaiting_confirmation");
   const [resultMessage, setResultMessage] = useState("");
   const [action, setAction] = useState<ActionPayload | undefined>();
   const [resultSteps, setResultSteps] = useState<ResultStep[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const batchCount = confirmation.tool === "__toumai_batch__" && Array.isArray(confirmation.args?.actions)
-    ? confirmation.args.actions.length
-    : 0;
-  const done = ["success", "partial_success", "failed", "cancelled", "expired"].includes(state);
+  const batchCount = confirmation.tool === "__toumai_batch__" && Array.isArray(args.actions) ? args.actions.length : 0;
+  const done = ["success", "partial_success", "failed", "cancelled", "expired", "already_processed"].includes(state);
   const collapsed = compactWhenDone && done && !detailsOpen;
+
+  useEffect(() => {
+    const pendingId = confirmation.pending_id;
+    if (!pendingId) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const reconcile = async () => {
+      try {
+        const res = await authFetch("/agent/actions/pending/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pending_id: pendingId }),
+        });
+        const body = (await res.json().catch(() => ({}))) as PendingStatusResponse;
+        if (disposed || !res.ok || body.success === false) return;
+        const status = body.data?.status || "unknown";
+        if (status === "awaiting_confirmation") {
+          setState((current) => current === "awaiting_confirmation" ? current : current);
+          return;
+        }
+        if (status === "confirmed" || status === "executing") {
+          setState("running");
+          timer = setTimeout(reconcile, 1800);
+          return;
+        }
+        if (status === "done") {
+          setState("already_processed");
+          setResultMessage("Cette action a déjà été traitée. Elle ne sera pas exécutée une seconde fois.");
+          return;
+        }
+        if (status === "failed") {
+          setState("failed");
+          setResultMessage("Cette action a déjà été traitée et s’est terminée en échec.");
+          return;
+        }
+        if (status === "cancelled") {
+          setState("cancelled");
+          return;
+        }
+        if (status === "expired" || status === "unknown") {
+          setState("expired");
+          setResultMessage(status === "unknown" ? "Cette confirmation n’est plus active." : "Cette confirmation a expiré.");
+        }
+      } catch {
+        // Une panne de réconciliation ne doit jamais déclencher une mutation ni
+        // transformer la carte en succès. On conserve l'état local courant.
+      }
+    };
+
+    void reconcile();
+    return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [confirmation.pending_id]);
 
   async function confirm() {
     if (state !== "awaiting_confirmation") return;
@@ -199,8 +250,6 @@ export function ActionExecutionCard({
       });
       const body = (await res.json().catch(() => ({}))) as ConfirmationResponse;
       if (!res.ok) throw new Error(body.message || `Erreur ${res.status}`);
-      // La route ne répond qu'après l'exécution ET la relecture du connecteur.
-      // Le statut affiché ci-dessous vient donc du journal serveur, jamais du LLM.
       const normalized = normalizedState(body);
       setAction(normalized.action);
       setResultSteps(Array.isArray(body.data?.action_steps) ? body.data!.action_steps! : []);
@@ -223,10 +272,11 @@ export function ActionExecutionCard({
       : state === "running" ? descriptor.running
         : state === "verifying" ? descriptor.verifying
           : state === "success" ? descriptor.success
-            : state === "partial_success" ? "Terminé avec un point à vérifier"
+            : state === "partial_success" ? "Terminé avec un résultat partiel"
               : state === "cancelled" ? descriptor.cancelled
                 : state === "expired" ? "Confirmation expirée"
-                  : "Action non terminée";
+                  : state === "already_processed" ? "Action déjà traitée"
+                    : `Échec · ${descriptor.title}`;
 
   const verified = action?.verified === true;
 
@@ -289,17 +339,13 @@ export function ActionExecutionCard({
                   {preview.length ? (
                     <div className="mt-3 space-y-1.5 rounded-xl border border-[var(--border)]/80 bg-[var(--background)]/35 px-3 py-2.5">
                       {preview.map((line, index) => (
-                        <p key={`${line}-${index}`} className="break-words text-[12px] leading-5 text-[var(--text-secondary)]">
-                          {line}
-                        </p>
+                        <p key={`${line}-${index}`} className="break-words text-[12px] leading-5 text-[var(--text-secondary)]">{line}</p>
                       ))}
                     </div>
                   ) : null}
 
                   {resultMessage && state !== "awaiting_confirmation" ? (
-                    <p className={`mt-3 text-[12px] leading-5 ${
-                      state === "failed" || state === "expired" ? "text-[var(--error)]" : "text-[var(--text-secondary)]"
-                    }`}>
+                    <p className={`mt-3 text-[12px] leading-5 ${state === "failed" || state === "expired" ? "text-[var(--error)]" : "text-[var(--text-secondary)]"}`}>
                       {resultMessage}
                     </p>
                   ) : null}
@@ -309,15 +355,15 @@ export function ActionExecutionCard({
                       {resultSteps.slice(0, 8).map((step, index) => {
                         const succeeded = step.state === "success" || step.state === "done";
                         const partial = step.state === "partial_success" || step.state === "warning";
+                        const blocked = step.state === "blocked";
                         return (
                           <li key={`${step.label || "action"}-${index}`} className="flex items-start gap-2 text-[11px] leading-5">
-                            <span className={`mt-[3px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${
-                              succeeded ? "text-emerald-600" : partial ? "text-amber-600" : "text-[var(--text-tertiary)]"
-                            }`} aria-hidden="true">
-                              {succeeded ? <Check className="h-3 w-3" /> : partial ? <AlertTriangle className="h-3 w-3" /> : <CircleX className="h-3 w-3" />}
+                            <span className={`mt-[3px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${succeeded ? "text-emerald-600" : partial ? "text-amber-600" : "text-[var(--text-tertiary)]"}`} aria-hidden="true">
+                              {succeeded ? <Check className="h-3 w-3" /> : partial ? <AlertTriangle className="h-3 w-3" /> : blocked ? <X className="h-3 w-3" /> : <CircleX className="h-3 w-3" />}
                             </span>
                             <span className="min-w-0 text-[var(--text-secondary)]">
                               {step.label || `Action ${index + 1}`}
+                              {blocked ? <span className="block text-[10px] text-[var(--text-tertiary)]">Non exécutée</span> : null}
                               {step.detail ? <span className="block text-[10px] text-[var(--text-tertiary)]">{step.detail}</span> : null}
                             </span>
                           </li>
@@ -335,7 +381,7 @@ export function ActionExecutionCard({
 
                   {state === "partial_success" ? (
                     <p className="mt-2 text-[11px] leading-5 text-amber-700 dark:text-amber-400">
-                      Toumaï ne marque pas cette opération comme totalement réussie tant que le connecteur ne confirme pas toutes les étapes.
+                      Seules les étapes réellement confirmées par le connecteur sont considérées comme réussies.
                     </p>
                   ) : null}
 
@@ -343,16 +389,10 @@ export function ActionExecutionCard({
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={confirm}
-                        className={`min-h-10 rounded-xl px-4 text-[13px] font-semibold text-white transition active:scale-[0.98] ${
-                          descriptor.risk === "destructive" ? "bg-red-600 hover:bg-red-700" : "bg-[var(--primary)] hover:opacity-90"
-                        }`}
+                        onClick={() => void confirm()}
+                        className={`min-h-10 rounded-xl px-4 text-[13px] font-semibold text-white transition active:scale-[0.98] ${descriptor.risk === "destructive" ? "bg-red-600 hover:bg-red-700" : "bg-[var(--primary)] hover:opacity-90"}`}
                       >
-                        {batchCount > 1
-                          ? `Confirmer les ${batchCount}`
-                          : descriptor.risk === "destructive"
-                            ? "Confirmer l’action"
-                            : "Confirmer"}
+                        {batchCount > 1 ? `Confirmer les ${batchCount}` : descriptor.risk === "destructive" ? "Confirmer l’action" : "Confirmer"}
                       </button>
                       <button
                         type="button"

@@ -5,6 +5,7 @@ const renderer = fs.readFileSync("components/chat/RichResponseBlocks.tsx", "utf8
 const stream = fs.readFileSync("lib/chat-stream.ts", "utf8");
 const chat = fs.readFileSync("app/chat/page.tsx", "utf8");
 const dropZone = fs.readFileSync("components/chat/media/DropZone.tsx", "utf8");
+const actionCard = fs.readFileSync("components/chat/widgets/ActionExecutionCard.tsx", "utf8");
 
 const checks = [
   ["typed sources block", response.includes('type: "sources"')],
@@ -29,14 +30,15 @@ const checks = [
   ["unsent upload cleanup", chat.includes("documentsNonEnvoyes") && chat.includes("deleteDocument(doc.doc_id)")],
   ["unmount upload cleanup", chat.includes("attachedDocsRef.current") && chat.includes("controller.abort()")],
   ["active uploads count toward limit", chat.includes("5 - attachedDocs.length - uploadsActifs")],
-  // Les étapes d'action : leur état vient du journal serveur, jamais du texte.
   ["typed actions block", response.includes('type: "actions"') && response.includes("interface ActionStep")],
   ["actions block rendered", renderer.includes("ActionsBlock") && renderer.includes('case "actions"')],
   ["legacy action_steps bridge", response.includes("meta.action_steps")],
-  // La confirmation consomme la demande écrite côté serveur.
   ["confirmation carries pending_id", stream.includes("pending_id?: string | null")],
-  ["confirm sends pending_id", fs.readFileSync("lib/chat-api.ts", "utf8").includes("pending_id: pendingId")],
-  ["cancel releases pending action", fs.readFileSync("components/ChatMessage.tsx", "utf8").includes("cancelToolAction(confirmation.pending_id)")],
+  ["confirm sends pending_id", actionCard.includes("pending_id: confirmation.pending_id")],
+  ["cancel releases pending action", actionCard.includes("cancelToolAction(confirmation.pending_id)")],
+  ["pending action reconciled after reload", actionCard.includes("/agent/actions/pending/status")],
+  ["processed action is not shown as expired", actionCard.includes('"already_processed"') && actionCard.includes("Action déjà traitée")],
+  ["blocked workflow step rendered", actionCard.includes('step.state === "blocked"') && actionCard.includes("Non exécutée")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);

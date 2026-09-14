@@ -59,18 +59,12 @@ function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "source
             className="group min-w-0 rounded-xl border border-[var(--border)] px-3 py-2.5 transition hover:bg-[var(--hover)]"
           >
             <div className="flex items-start gap-2.5">
-              <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--card)] px-1 text-[11px] font-semibold text-[var(--text-secondary)]">
-                {index + 1}
-              </span>
+              <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--card)] px-1 text-[11px] font-semibold text-[var(--text-secondary)]">{index + 1}</span>
               <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">
-                  {source.title || host(url)}
-                </p>
+                <p className="truncate text-[13px] font-medium text-[var(--text-primary)]">{source.title || host(url)}</p>
                 <p className="truncate text-[11px] text-[var(--text-tertiary)]">{host(url)}</p>
                 {"snippet" in source && typeof source.snippet === "string" && source.snippet ? (
-                  <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">
-                    {source.snippet}
-                  </p>
+                  <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">{source.snippet}</p>
                 ) : null}
               </div>
             </div>
@@ -131,6 +125,8 @@ function stateVisual(state: ActionState): {
     case "failed":
     case "expired":
       return { icon: <CircleX className="h-3 w-3" />, color: "var(--error)", sr: "échec", active: false };
+    case "blocked":
+      return { icon: <CircleX className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "non exécuté", active: false };
     case "cancelled":
       return { icon: <CircleX className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "annulé", active: false };
     case "running":
@@ -145,11 +141,6 @@ function stateVisual(state: ActionState): {
   }
 }
 
-/**
- * Timeline des opérations réellement connues du backend. Une demande composée
- * (ex. « ajoute Ali puis envoie bonsoir ») reste dans UNE carte et chaque étape
- * évolue indépendamment, au lieu de créer plusieurs gros messages successifs.
- */
 function ActionsBlock({
   steps,
   title,
@@ -160,14 +151,19 @@ function ActionsBlock({
   if (!steps.length) return null;
   const succeeded = steps.filter((step) => ["done", "success"].includes(step.state)).length;
   const failed = steps.filter((step) => ["failed", "expired"].includes(step.state)).length;
+  const blocked = steps.filter((step) => step.state === "blocked").length;
   const partial = steps.some((step) => ["warning", "partial_success"].includes(step.state));
   const active = steps.some((step) => ["preparing", "queued", "running", "verifying"].includes(step.state));
 
   const summary = active
     ? "Exécution en cours"
-    : failed || partial
-      ? `Terminé avec ${failed + (partial ? 1 : 0)} point${failed + (partial ? 1 : 0) > 1 ? "s" : ""} à vérifier`
-      : `${succeeded || steps.length} action${(succeeded || steps.length) > 1 ? "s" : ""} terminée${(succeeded || steps.length) > 1 ? "s" : ""}`;
+    : failed
+      ? `Workflow interrompu · ${succeeded}/${steps.length} étape${steps.length > 1 ? "s" : ""} réussie${succeeded > 1 ? "s" : ""}`
+      : blocked
+        ? `Workflow incomplet · ${blocked} étape${blocked > 1 ? "s" : ""} non exécutée${blocked > 1 ? "s" : ""}`
+        : partial
+          ? "Workflow terminé avec un résultat partiel"
+          : `${succeeded || steps.length} action${(succeeded || steps.length) > 1 ? "s" : ""} terminée${(succeeded || steps.length) > 1 ? "s" : ""}`;
 
   return (
     <section className="mt-3 w-full max-w-[560px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]" aria-label="Actions exécutées">
@@ -201,7 +197,7 @@ function ActionsBlock({
                   <span className="sr-only"> — {visual.sr}</span>
                 </p>
                 {(step.detail || step.target) ? (
-                  <p className="truncate text-[10px] text-[var(--text-tertiary)]">{step.detail || step.target}</p>
+                  <p className="text-[10px] leading-4 text-[var(--text-tertiary)]">{step.detail || step.target}</p>
                 ) : null}
               </div>
             </li>
