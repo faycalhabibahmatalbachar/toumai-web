@@ -312,7 +312,7 @@ export function ActionExecutionCard({
         }
         if (status === "done") {
           setState("already_processed");
-          setResultMessage("Cette action a déjà été traitée et ne sera pas relancée.");
+          setResultMessage("Cette action a déjà été traitée. Elle ne sera pas relancée.");
           return;
         }
         if (status === "failed") {
@@ -392,137 +392,144 @@ export function ActionExecutionCard({
   const showOutcomeRows = resultSteps.length > 0 && (state === "partial_success" || state === "failed" || detailsOpen);
 
   return (
-    <motion.section
-      layout
-      transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
-      className={`mt-2.5 w-full max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] border-l-2 bg-[var(--card)] ${stateAccent(state)}`}
-      aria-live="polite"
-      aria-label={descriptor.title}
-      role={state === "failed" ? "alert" : undefined}
-    >
-      <motion.div layout className={compactSuccess ? "px-3.5 py-2.5" : "px-3.5 py-3"}>
-        <div className="flex min-h-8 min-w-0 items-center gap-2.5">
-          <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-            state === "success" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              : state === "partial_success" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                : state === "failed" || state === "expired" ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                  : "bg-[var(--background)] text-[var(--text-secondary)]"
-          }`}>
-            <StateIcon state={state} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{headline}</p>
-            <p className="mt-0.5 truncate text-[10.5px] text-[var(--text-tertiary)]">
-              {compactSuccess && subject
-                ? subject
-                : state === "awaiting_confirmation"
-                  ? (batchCount ? "WhatsApp" : riskLabel(descriptor.risk))
-                  : state === "running"
-                    ? `${batchCount || 1} action${(batchCount || 1) > 1 ? "s" : ""}`
-                    : subject || descriptor.title}
-            </p>
+    <>
+      {/* Une confirmation structurée remplace le paragraphe généré par le modèle
+          dans le même tour. Cela supprime la duplication texte + carte sans
+          toucher aux réponses ordinaires, aux sources ou au raisonnement. */}
+      <style>{`.msg-row:has([data-action-runtime="true"]) .prose-toumai{display:none}`}</style>
+      <motion.section
+        data-action-runtime="true"
+        layout
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
+        className={`mt-2.5 w-full max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] border-l-2 bg-[var(--card)] ${stateAccent(state)}`}
+        aria-live="polite"
+        aria-label={descriptor.title}
+        role={state === "failed" ? "alert" : undefined}
+      >
+        <motion.div layout className={compactSuccess ? "px-3.5 py-2.5" : "px-3.5 py-3"}>
+          <div className="flex min-h-8 min-w-0 items-center gap-2.5">
+            <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+              state === "success" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : state === "partial_success" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                  : state === "failed" || state === "expired" ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                    : "bg-[var(--background)] text-[var(--text-secondary)]"
+            }`}>
+              <StateIcon state={state} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{headline}</p>
+              <p className="mt-0.5 truncate text-[10.5px] text-[var(--text-tertiary)]">
+                {compactSuccess && subject
+                  ? subject
+                  : state === "awaiting_confirmation"
+                    ? (batchCount ? "WhatsApp" : riskLabel(descriptor.risk))
+                    : state === "running"
+                      ? `${batchCount || 1} action${(batchCount || 1) > 1 ? "s" : ""}`
+                      : subject || descriptor.title}
+              </p>
+            </div>
+            {done ? (
+              <button
+                type="button"
+                onClick={() => setDetailsOpen((current) => !current)}
+                className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                aria-expanded={detailsOpen}
+              >
+                Détails
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
-          {done ? (
-            <button
-              type="button"
-              onClick={() => setDetailsOpen((current) => !current)}
-              className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-              aria-expanded={detailsOpen}
-            >
-              Détails
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
 
-        <AnimatePresence initial={false}>
-          {showPreview ? (
-            <motion.div
-              key="preview"
-              initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-              transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
-              className="mt-2.5 overflow-hidden"
-            >
-              <ol className="space-y-0.5" aria-label={batchCount ? "Actions du workflow" : "Action à exécuter"}>
-                {rows.map((row, index) => {
-                  const active = state === "running" && index === 0;
-                  return (
-                    <li key={`${row.title}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
-                      <span className={`mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center ${active ? "text-[var(--primary)]" : "text-[var(--text-tertiary)]"}`} aria-hidden="true">
-                        {active ? <LoaderCircle className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <Circle className="h-3 w-3" />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-baseline justify-between gap-2">
-                          <p className="min-w-0 truncate text-[12px] font-medium text-[var(--text-primary)]">{row.title}</p>
-                          {row.meta ? <span className="shrink-0 text-[9.5px] text-[var(--text-tertiary)]">{row.meta}</span> : null}
+          <AnimatePresence initial={false}>
+            {showPreview ? (
+              <motion.div
+                key="preview"
+                initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
+                className="mt-2.5 overflow-hidden"
+              >
+                <ol className="space-y-0.5" aria-label={batchCount ? "Actions du workflow" : "Action à exécuter"}>
+                  {rows.map((row, index) => {
+                    const active = state === "running" && index === 0;
+                    return (
+                      <li key={`${row.title}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
+                        <span className={`mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center ${active ? "text-[var(--primary)]" : "text-[var(--text-tertiary)]"}`} aria-hidden="true">
+                          {active ? <LoaderCircle className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <Circle className="h-3 w-3" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-baseline justify-between gap-2">
+                            <p className="min-w-0 truncate text-[12px] font-medium text-[var(--text-primary)]">{row.title}</p>
+                            {row.meta ? <span className="shrink-0 text-[9.5px] text-[var(--text-tertiary)]">{row.meta}</span> : null}
+                          </div>
+                          {row.detail ? <p className="mt-0.5 break-words text-[10.5px] leading-4 text-[var(--text-tertiary)]">{row.detail}</p> : null}
                         </div>
-                        {row.detail ? <p className="mt-0.5 break-words text-[10.5px] leading-4 text-[var(--text-tertiary)]">{row.detail}</p> : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
+                      </li>
+                    );
+                  })}
+                </ol>
 
-              {state === "awaiting_confirmation" ? (
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void confirm()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-[12px] font-semibold text-white outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]"
-                  >
-                    {batchCount > 1 ? `Confirmer les ${batchCount}` : "Confirmer"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void cancel()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl px-3.5 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              ) : null}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        {showOutcomeRows ? (
-          <ol className="mt-2.5 space-y-0.5" aria-label="Résultat des actions">
-            {resultSteps.slice(0, 8).map((step, index) => {
-              const detail = resultDetail(step);
-              return (
-                <li key={`${step.capability || step.label || "action"}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
-                  <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center"><StepStatusIcon state={step.state} /></span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11.5px] font-medium leading-4 text-[var(--text-primary)]">{resultTitle(step)}</p>
-                    {detail ? <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-tertiary)]">{detail}</p> : null}
+                {state === "awaiting_confirmation" ? (
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void confirm()}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-[12px] font-semibold text-white outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]"
+                    >
+                      {batchCount > 1 ? `Confirmer les ${batchCount}` : "Confirmer"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void cancel()}
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl px-3.5 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                    >
+                      Annuler
+                    </button>
                   </div>
-                </li>
-              );
-            })}
-          </ol>
-        ) : null}
+                ) : null}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
-        <AnimatePresence initial={false}>
-          {detailsOpen ? (
-            <motion.div
-              key="technical-details"
-              initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-              transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
-              className="overflow-hidden"
-            >
-              <div className="mt-2.5 border-t border-[var(--border)] pt-2.5 text-[10px] leading-4 text-[var(--text-tertiary)]">
-                {technicalMessage ? <p>{technicalMessage}</p> : null}
-                {verified ? <p className="mt-1 text-emerald-600 dark:text-emerald-400">Résultat vérifié auprès du connecteur.</p> : null}
-                {state === "already_processed" ? <p className="mt-1">La confirmation a déjà été consommée : aucune seconde exécution n’est possible.</p> : null}
-              </div>
-            </motion.div>
+          {showOutcomeRows ? (
+            <ol className="mt-2.5 space-y-0.5" aria-label="Résultat des actions">
+              {resultSteps.slice(0, 8).map((step, index) => {
+                const detail = resultDetail(step);
+                return (
+                  <li key={`${step.capability || step.label || "action"}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
+                    <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center"><StepStatusIcon state={step.state} /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11.5px] font-medium leading-4 text-[var(--text-primary)]">{resultTitle(step)}</p>
+                      {detail ? <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-tertiary)]">{detail}</p> : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           ) : null}
-        </AnimatePresence>
-      </motion.div>
-    </motion.section>
+
+          <AnimatePresence initial={false}>
+            {detailsOpen ? (
+              <motion.div
+                key="technical-details"
+                initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2.5 border-t border-[var(--border)] pt-2.5 text-[10px] leading-4 text-[var(--text-tertiary)]">
+                  {technicalMessage ? <p>{technicalMessage}</p> : null}
+                  {verified ? <p className="mt-1 text-emerald-600 dark:text-emerald-400">Résultat vérifié auprès du connecteur.</p> : null}
+                  {state === "already_processed" ? <p className="mt-1">La confirmation a déjà été consommée : aucune seconde exécution n’est possible.</p> : null}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </motion.div>
+      </motion.section>
+    </>
   );
 }
