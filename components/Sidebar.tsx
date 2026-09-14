@@ -400,6 +400,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
               l'utilisateur demande une navigation web. */}
           {[
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
+            { href: "/automations", label: "Automatisations", icon: <AutomationIcon /> },
             { href: "/whatsapp", label: "WhatsApp", icon: <WhatsAppNavIcon /> },
             { href: "/settings?tab=connectors", label: "Connecteurs", icon: <PlugIcon /> },
           ].map((item) => (
@@ -845,6 +846,15 @@ function LibraryIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function AutomationIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12M7.76 16.24l-2.12 2.12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.7" />
     </svg>
   );
 }
