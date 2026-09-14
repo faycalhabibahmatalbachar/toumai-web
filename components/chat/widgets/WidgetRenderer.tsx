@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Calculator,
   Check,
+  CircleX,
   Clock3,
   CloudSun,
   ExternalLink,
@@ -342,6 +343,58 @@ function QuotaWidget({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+type CapabilityState = "available" | "unsupported" | "unavailable";
+
+function capabilityState(rows: Record<string, unknown>[]): CapabilityState {
+  if (rows.some((row) => row.available_now === true && row.supported !== false)) return "available";
+  if (rows.length && rows.every((row) => row.supported === false)) return "unsupported";
+  return "unavailable";
+}
+
+function CapabilitiesWidget({ data }: { data: Record<string, unknown> }) {
+  const provider = string(data.provider) || "Connecteur";
+  const capabilities = arrayOfRecords(data.capabilities);
+  const groups = [
+    ["Messages", ["whatsapp.message."]],
+    ["Médias", ["whatsapp.media."]],
+    ["Groupes", ["whatsapp.group."]],
+    ["Membres", ["whatsapp.group.participant."]],
+    ["Administrateurs", ["whatsapp.group.admin."]],
+    ["Statuts", ["whatsapp.status."]],
+    ["Contacts", ["whatsapp.contact."]],
+    ["Appels", ["whatsapp.call."]],
+  ] as const;
+  const availableCount = capabilities.filter((item) => item.available_now === true && item.supported !== false).length;
+
+  return (
+    <WidgetShell
+      title={`Capacités · ${provider}`}
+      subtitle={`${availableCount} capacité${availableCount > 1 ? "s" : ""} disponible${availableCount > 1 ? "s" : ""} maintenant`}
+      icon={<ShieldCheck className="h-4.5 w-4.5" />}
+    >
+      <div className="divide-y divide-[var(--border)]">
+        {groups.map(([label, prefixes]) => {
+          const rows = capabilities.filter((item) => prefixes.some((prefix) => string(item.capability).startsWith(prefix)));
+          const state = capabilityState(rows);
+          const detail = state === "available" ? "Disponible" : state === "unsupported" ? "Non pris en charge" : rows.length ? "Indisponible actuellement" : "Non déclaré";
+          return (
+            <div key={label} className="flex min-h-11 items-center gap-3 px-4 py-2.5">
+              <span className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${state === "available" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : state === "unsupported" ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-700 dark:text-amber-400"}`}>
+                {state === "available" ? <Check className="h-3.5 w-3.5" /> : state === "unsupported" ? <CircleX className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+              </span>
+              <p className="min-w-0 flex-1 text-[12px] font-medium text-[var(--text-primary)]">{label}</p>
+              <p className="shrink-0 text-right text-[10px] text-[var(--text-tertiary)]">{detail}</p>
+            </div>
+          );
+        })}
+      </div>
+      <div className="border-t border-[var(--border)] px-4 py-2.5 text-[10px] leading-4 text-[var(--text-tertiary)]">
+        État lu depuis le registre runtime du connecteur. Aucune capacité n’est déduite du Web.
+      </div>
+    </WidgetShell>
+  );
+}
+
 function TableWidget({ data, title }: { data: unknown; title?: string }) {
   const rows = arrayOfRecords(data).slice(0, 100);
   const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).slice(0, 8);
@@ -394,6 +447,7 @@ export function WidgetRenderer({ widget }: { widget: ResponseWidget }) {
     case "connector_auth": return <AuthRequiredWidget data={data} />;
     case "quota":
     case "usage": return <QuotaWidget data={data} />;
+    case "capabilities": return <CapabilitiesWidget data={data} />;
     case "table": return <TableWidget data={widget.data} title={widget.title} />;
     default: return <GenericWidget widget={widget} />;
   }
