@@ -13,6 +13,11 @@ const requiredPageContracts = [
   'aria-modal="true"',
   'Africa/Ndjamena',
   'Toumaï Automations',
+  'getWhatsAppAutomationHistory',
+  'Historique d’exécution',
+  'Mode hors connexion',
+  'lastSyncedAt',
+  'Réessayer',
   'Une tâche déjà partie ne peut pas être rappelée.',
 ];
 
@@ -32,6 +37,10 @@ for (const endpoint of [
 
 if (!sidebar.includes('href: "/automations"')) {
   throw new Error("La page Automatisations n'est pas accessible depuis la navigation.");
+}
+
+if (!page.includes('disabled={busy || !online}')) {
+  throw new Error("Les mutations doivent être désactivées hors connexion.");
 }
 
 if (/to_jid|action_payload/.test(page)) {
