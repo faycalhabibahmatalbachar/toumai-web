@@ -9,6 +9,7 @@ export type ActionState =
   | "success"
   | "partial_success"
   | "failed"
+  | "blocked"
   | "cancelled"
   | "expired"
   // États historiques conservés pendant la migration backend/frontend.
