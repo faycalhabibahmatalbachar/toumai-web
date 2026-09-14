@@ -7,6 +7,10 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
+  ExternalLink,
+  History,
+  ShieldCheck,
+  WifiOff,
   FileText,
   LoaderCircle,
   MessageCircle,
@@ -22,11 +26,13 @@ import { useAuth } from "@/lib/auth-context";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import {
   cancelWhatsAppAutomation,
+  getWhatsAppAutomationHistory,
   getWhatsAppAutomations,
   pauseWhatsAppAutomation,
   resumeWhatsAppAutomation,
   updateWhatsAppAutomation,
   type WhatsAppAutomation,
+  type WhatsAppAutomationHistoryEntry,
   type WhatsAppAutomationStatus,
 } from "@/lib/connectors-api";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -83,6 +89,9 @@ export default function AutomationsPage() {
   const [editing, setEditing] = useState<WhatsAppAutomation | null>(null);
   const [cancelling, setCancelling] = useState<WhatsAppAutomation | null>(null);
   const [menuId, setMenuId] = useState("");
+  const [selected, setSelected] = useState<WhatsAppAutomation | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
 
   const load = useCallback(async (quiet = false) => {
     if (!session) return;
@@ -94,6 +103,7 @@ export default function AutomationsPage() {
         limit: 100,
       });
       setTasks(result.tasks);
+      setLastSyncedAt(new Date());
     } catch {
       setError("Impossible de charger les automatisations pour le moment.");
     } finally {
@@ -104,6 +114,14 @@ export default function AutomationsPage() {
   useEffect(() => {
     if (!loading && session) void load();
   }, [load, loading, session]);
+
+  useEffect(() => {
+    const syncNetwork = () => setIsOnline(window.navigator.onLine);
+    syncNetwork();
+    window.addEventListener("online", syncNetwork);
+    window.addEventListener("offline", syncNetwork);
+    return () => { window.removeEventListener("online", syncNetwork); window.removeEventListener("offline", syncNetwork); };
+  }, []);
 
   useEffect(() => {
     if (!session || !tasks.some((task) => ["pending", "processing"].includes(task.status))) return;
@@ -160,6 +178,7 @@ export default function AutomationsPage() {
       </header>
 
       <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-8 md:px-8">
+        {!isOnline && <div role="status" className="mb-5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><WifiOff className="h-4 w-4" />Mode hors connexion — les dernières données synchronisées restent visibles, mais les actions sont désactivées.</div>}
         <section className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--cx-border-default)] bg-white shadow-sm">
@@ -208,7 +227,7 @@ export default function AutomationsPage() {
             </div>
           </div>
 
-          {error && <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          {error && <div role="alert" className="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span>{error}</span><button onClick={() => void load()} className="shrink-0 rounded-lg px-3 py-1.5 font-semibold hover:bg-red-100">Réessayer</button></div>}
 
           {fetching && !tasks.length ? (
             <div className="flex min-h-56 items-center justify-center"><LoaderCircle className="h-6 w-6 animate-spin text-[var(--cx-text-faint)]" /></div>
@@ -221,13 +240,14 @@ export default function AutomationsPage() {
           ) : (
             <div className="divide-y divide-[var(--cx-border-subtle)]">
               {visible.map((task) => (
-                <TaskRow key={task.id} task={task} busy={busyId === task.id} menuOpen={menuId === task.id} onMenu={() => setMenuId((id) => id === task.id ? "" : task.id)} onPause={() => void mutate(task, () => pauseWhatsAppAutomation(task.id))} onResume={() => void mutate(task, () => resumeWhatsAppAutomation(task.id))} onEdit={() => { setMenuId(""); setEditing(task); }} onCancel={() => { setMenuId(""); setCancelling(task); }} />
+                <TaskRow key={task.id} task={task} online={isOnline} onInspect={() => setSelected(task)} busy={busyId === task.id} menuOpen={menuId === task.id} onMenu={() => setMenuId((id) => id === task.id ? "" : task.id)} onPause={() => void mutate(task, () => pauseWhatsAppAutomation(task.id))} onResume={() => void mutate(task, () => resumeWhatsAppAutomation(task.id))} onEdit={() => { setMenuId(""); setEditing(task); }} onCancel={() => { setMenuId(""); setCancelling(task); }} />
               ))}
             </div>
           )}
         </section>
       </main>
 
+      {selected && <DetailPanel task={tasks.find((item) => item.id === selected.id) ?? selected} lastSyncedAt={lastSyncedAt} onClose={() => setSelected(null)} />}
       {editing && <EditDialog task={editing} onClose={() => setEditing(null)} onSaved={(updated) => { setTasks((items) => items.map((item) => item.id === updated.id ? updated : item)); setEditing(null); }} />}
       {cancelling && <ConfirmDialog task={cancelling} busy={busyId === cancelling.id} onClose={() => setCancelling(null)} onConfirm={() => void mutate(cancelling, () => cancelWhatsAppAutomation(cancelling.id)).then(() => setCancelling(null))} />}
     </div>
@@ -238,7 +258,7 @@ function Metric({ label, value, icon }: { label: string; value: number; icon: Re
   return <div className="rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-4"><span className="text-[var(--cx-accent-text)] [&>svg]:h-4 [&>svg]:w-4">{icon}</span><p className="mt-4 text-2xl font-semibold tabular-nums text-[var(--cx-text-primary)]">{value}</p><p className="mt-1 text-xs text-[var(--cx-text-muted)]">{label}</p></div>;
 }
 
-function TaskRow({ task, busy, menuOpen, onMenu, onPause, onResume, onEdit, onCancel }: { task: WhatsAppAutomation; busy: boolean; menuOpen: boolean; onMenu: () => void; onPause: () => void; onResume: () => void; onEdit: () => void; onCancel: () => void }) {
+function TaskRow({ task, online, onInspect, busy, menuOpen, onMenu, onPause, onResume, onEdit, onCancel }: { task: WhatsAppAutomation; online: boolean; onInspect: () => void; busy: boolean; menuOpen: boolean; onMenu: () => void; onPause: () => void; onResume: () => void; onEdit: () => void; onCancel: () => void }) {
   const state = STATUS[task.status];
   const mutable = task.status === "pending" || task.status === "paused";
   return (
@@ -251,14 +271,54 @@ function TaskRow({ task, busy, menuOpen, onMenu, onPause, onResume, onEdit, onCa
         {task.last_error && <p className="mt-2 line-clamp-2 text-xs text-red-600">{task.last_error}</p>}
       </div>
       <div className="flex items-center justify-end gap-2">
-        {task.status === "pending" && <button disabled={busy} onClick={onPause} className="rounded-lg border border-[var(--cx-border-default)] p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Suspendre"><Pause className="h-4 w-4" /></button>}
-        {task.status === "paused" && <button disabled={busy} onClick={onResume} className="rounded-lg border border-[var(--cx-border-default)] p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Reprendre"><Play className="h-4 w-4" /></button>}
-        {mutable && <button disabled={busy} onClick={onMenu} className="rounded-lg p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label="Plus d'actions"><MoreHorizontal className="h-5 w-5" /></button>}
+        <button onClick={onInspect} className="rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label={"Consulter " + task.title}>Détails</button>
+        {task.status === "pending" && <button disabled={busy || !online} onClick={onPause} className="rounded-lg border border-[var(--cx-border-default)] p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Suspendre"><Pause className="h-4 w-4" /></button>}
+        {task.status === "paused" && <button disabled={busy || !online} onClick={onResume} className="rounded-lg border border-[var(--cx-border-default)] p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Reprendre"><Play className="h-4 w-4" /></button>}
+        {mutable && <button disabled={busy || !online} onClick={onMenu} className="rounded-lg p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label="Plus d'actions"><MoreHorizontal className="h-5 w-5" /></button>}
       </div>
       {menuOpen && <div className="absolute right-4 top-14 z-20 w-48 rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] p-1.5 shadow-xl"><button onClick={onEdit} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--cx-text-secondary)] hover:bg-[var(--cx-hover)]"><CalendarClock className="h-4 w-4" />Modifier</button><button onClick={onCancel} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" />Annuler la tâche</button></div>}
     </article>
   );
 }
+
+
+function DetailPanel({ task, lastSyncedAt, onClose }: { task: WhatsAppAutomation; lastSyncedAt: Date | null; onClose: () => void }) {
+  const [history, setHistory] = useState<WhatsAppAutomationHistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  useEffect(() => {
+    let active = true;
+    getWhatsAppAutomationHistory(task.id)
+      .then((result) => { if (active) setHistory(result.entries); })
+      .catch(() => { if (active) setHistoryError("Historique momentanément indisponible."); })
+      .finally(() => { if (active) setLoadingHistory(false); });
+    return () => { active = false; };
+  }, [task.id]);
+  const state = STATUS[task.status];
+  const events: WhatsAppAutomationHistoryEntry[] = history.length ? history : [{ action: "scheduled", success: true, error: "", source: "Toumaï AI", result: {}, created_at: task.created_at || task.send_at }];
+  return <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-labelledby="detail-title" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <aside className="ml-auto flex h-full w-full max-w-xl flex-col border-l border-[var(--cx-border-default)] bg-[var(--cx-surface)] shadow-2xl">
+      <header className="flex items-start justify-between border-b border-[var(--cx-border-subtle)] p-5">
+        <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--cx-text-faint)]">Détail de la tâche</p><h2 id="detail-title" className="mt-2 truncate text-xl font-semibold text-[var(--cx-text-primary)]">{task.title}</h2></div>
+        <button onClick={onClose} className="rounded-lg p-2 hover:bg-[var(--cx-hover)]" aria-label="Fermer le détail"><X className="h-5 w-5" /></button>
+      </header>
+      <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex items-center justify-between rounded-2xl border border-[var(--cx-border-subtle)] p-4"><div><p className="text-xs text-[var(--cx-text-faint)]">État réel</p><p className="mt-1 text-sm font-semibold" style={{ color: state.color }}>{state.label}</p></div><ShieldCheck className="h-6 w-6 text-[var(--cx-accent-text)]" /></div>
+        <dl className="mt-5 grid gap-4 rounded-2xl bg-[var(--cx-hover-row)] p-4 text-sm">
+          <Detail label="Destinataire" value={task.recipient} /><Detail label="Prochaine exécution" value={formatDate(task.send_at)} /><Detail label="Récurrence" value={recurrenceLabel(task)} /><Detail label="Fuseau de référence" value={task.timezone || "Africa/Ndjamena"} /><Detail label={task.action_type === "send_media" ? "Fichier" : "Message"} value={task.filename || task.message_preview || "Aucun aperçu"} />{task.attempts > 0 && <Detail label="Tentatives" value={String(task.attempts)} />}
+        </dl>
+        {task.last_error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"><p className="text-xs font-semibold text-red-800">Dernière erreur</p><p className="mt-1 break-words text-sm text-red-700">{task.last_error}</p></div>}
+        <section className="mt-7" aria-labelledby="history-title">
+          <div className="flex items-center justify-between"><h3 id="history-title" className="flex items-center gap-2 text-sm font-semibold text-[var(--cx-text-primary)]"><History className="h-4 w-4" />Historique d’exécution</h3>{lastSyncedAt && <span className="text-[11px] text-[var(--cx-text-faint)]">Synchronisé à {lastSyncedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}</div>
+          {loadingHistory ? <div className="mt-4 space-y-3" aria-label="Chargement de l’historique">{[1,2,3].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-[var(--cx-hover)]" />)}</div> : historyError ? <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{historyError}</p> : <ol className="mt-4 space-y-3">{events.map((event, index) => <li key={event.created_at + index} className="flex gap-3"><span className={"mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full " + (event.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>{event.success ? <CheckCircle2 className="h-4 w-4" /> : <CircleAlert className="h-4 w-4" />}</span><div className="min-w-0"><p className="text-sm font-medium text-[var(--cx-text-secondary)]">{historyActionLabel(event.action)}</p><p className="mt-0.5 text-xs text-[var(--cx-text-faint)]">{formatDate(event.created_at)} · {event.source || "Toumaï AI"}</p>{event.error && <p className="mt-1 break-words text-xs text-red-600">{event.error}</p>}</div></li>)}</ol>}
+        </section>
+      </div>
+      <footer className="border-t border-[var(--cx-border-subtle)] p-4"><Link href="/chat?automation=whatsapp" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--cx-accent)] px-4 text-sm font-semibold text-white"><ExternalLink className="h-4 w-4" />Créer une nouvelle tâche</Link></footer>
+    </aside>
+  </div>;
+}
+function Detail({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-[var(--cx-text-faint)]">{label}</dt><dd className="mt-1 break-words font-medium text-[var(--cx-text-secondary)]">{value}</dd></div>; }
+function historyActionLabel(action: string) { const labels: Record<string, string> = { scheduled: "Tâche programmée", claim: "Exécution démarrée", sent: "Message remis au fournisseur", failed: "Échec d’exécution", paused: "Tâche suspendue", resumed: "Tâche reprise", cancelled: "Tâche annulée", updated: "Tâche modifiée" }; return labels[action] || action.replaceAll("_", " "); }
 
 function EditDialog({ task, onClose, onSaved }: { task: WhatsAppAutomation; onClose: () => void; onSaved: (task: WhatsAppAutomation) => void }) {
   const local = new Date(task.send_at);
