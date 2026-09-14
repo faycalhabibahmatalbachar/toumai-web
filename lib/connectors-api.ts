@@ -307,3 +307,90 @@ export interface WaSynchroCarnet {
 export function syncWaCarnet(forcer = false): Promise<WaSynchroCarnet> {
   return http.post(`/whatsapp/contacts/sync${forcer ? "?forcer=true" : ""}`);
 }
+
+
+// ---- Automatisations WhatsApp --------------------------------------------
+
+export type WhatsAppAutomationStatus =
+  | "pending"
+  | "processing"
+  | "paused"
+  | "sent"
+  | "failed"
+  | "cancelled";
+
+export interface WhatsAppAutomation {
+  id: string;
+  title: string;
+  recipient: string;
+  action_type: "send_text" | "send_media";
+  message_preview: string;
+  media_type?: string | null;
+  filename?: string | null;
+  send_at: string;
+  timezone: string;
+  recurrence: "none" | "daily" | "weekly" | "monthly" | "cron";
+  cron_expr?: string;
+  status: WhatsAppAutomationStatus;
+  attempts: number;
+  sent_at?: string | null;
+  last_error?: string;
+  provider_message_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface WhatsAppAutomationHistoryEntry {
+  action: string;
+  success: boolean;
+  error: string;
+  source: string;
+  result: { provider_message_id?: string | null };
+  created_at: string;
+}
+
+export function getWhatsAppAutomations(params?: {
+  status?: WhatsAppAutomationStatus;
+  limit?: number;
+}): Promise<{ tasks: WhatsAppAutomation[]; count: number }> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.size ? `?${query.toString()}` : "";
+  return http.get(`/whatsapp/automations${suffix}`);
+}
+
+export function updateWhatsAppAutomation(
+  id: string,
+  patch: {
+    message?: string;
+    send_at?: string;
+    recurrence?: WhatsAppAutomation["recurrence"];
+    cron_expr?: string;
+  },
+): Promise<WhatsAppAutomation> {
+  return http.patch(`/whatsapp/automations/${encodeURIComponent(id)}`, patch);
+}
+
+export function pauseWhatsAppAutomation(id: string): Promise<WhatsAppAutomation> {
+  return http.post(`/whatsapp/automations/${encodeURIComponent(id)}/pause`);
+}
+
+export function resumeWhatsAppAutomation(id: string): Promise<WhatsAppAutomation> {
+  return http.post(`/whatsapp/automations/${encodeURIComponent(id)}/resume`);
+}
+
+export function cancelWhatsAppAutomation(id: string): Promise<WhatsAppAutomation> {
+  return http.post(`/whatsapp/automations/${encodeURIComponent(id)}/cancel`, {
+    confirmed: true,
+  });
+}
+
+export function getWhatsAppAutomationHistory(
+  id: string,
+  limit = 30,
+): Promise<{ entries: WhatsAppAutomationHistoryEntry[]; count: number }> {
+  return http.get(
+    `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${limit}`,
+  );
+}

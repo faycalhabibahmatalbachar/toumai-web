@@ -1,0 +1,31 @@
+name: WhatsApp automations web
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/automations/**"
+      - "lib/connectors-api.ts"
+      - "components/Sidebar.tsx"
+      - "scripts/verify-whatsapp-automations.mjs"
+      - ".github/workflows/whatsapp-automations-web.yml"
+  push:
+    branches: [feat/whatsapp-automations-ui-20260914]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Automation UI contract
+        run: node scripts/verify-whatsapp-automations.mjs
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
