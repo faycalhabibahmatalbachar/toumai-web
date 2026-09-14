@@ -19,6 +19,8 @@ expect(source.includes('useReducedMotion'), "reduced-motion preference is respec
 expect(source.includes('/agent/actions/pending/status'), "persistent confirmation is reconciled after reload");
 expect(source.includes('confirmation.pending_id'), "pending_id remains the server authority for confirmation");
 expect(source.includes('__toumai_batch__'), "batch workflows stay rendered as one action surface");
+expect(source.includes('data-action-runtime="true"'), "action runtime marks its single visual surface");
+expect(source.includes('.prose-toumai{display:none}'), "duplicated assistant prose is hidden when an action surface owns the turn");
 expect(source.includes('Créer le groupe'), "group creation uses a structured short row");
 expect(source.includes('Envoyer le message'), "message sending uses a structured short row");
 expect(source.includes('Terminé avec ${Math.max(1, problems)} problème'), "partial success has a concise problem summary");
