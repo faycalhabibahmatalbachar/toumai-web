@@ -308,6 +308,23 @@ function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescript
 }
 
 export function describeTool(tool: string, args: Record<string, unknown> = {}): ToolUiDescriptor {
+  if (tool === "__toumai_batch__") {
+    const actions = Array.isArray(args.actions)
+      ? args.actions.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+      : [];
+    const destructive = actions.some((item) => item.risk === "destructive");
+    const count = actions.length;
+    return {
+      title: count ? `${count} actions à exécuter` : "Plusieurs actions à exécuter",
+      awaiting: count ? `${count} actions prêtes` : "Actions prêtes",
+      running: "Exécution des actions…",
+      verifying: "Vérification des actions…",
+      success: count ? `${count} actions terminées` : "Actions terminées",
+      cancelled: "Actions annulées",
+      risk: destructive ? "destructive" : "mass",
+    };
+  }
+
   if (tool === "whatsapp_group_manage" || tool === "whatsapp_group_participants") {
     const specific = descriptorForGroupManage(args);
     if (specific) return specific;

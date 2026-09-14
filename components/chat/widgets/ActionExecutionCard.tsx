@@ -36,10 +36,18 @@ type ActionPayload = {
   consigne?: string;
 };
 
+type ResultStep = {
+  label?: string;
+  state?: string;
+  status?: string;
+  verified?: boolean;
+  detail?: string | null;
+};
+
 type ConfirmationResponse = {
   success?: boolean;
   message?: string;
-  data?: Record<string, unknown> | null;
+  data?: (Record<string, unknown> & { action_steps?: ResultStep[] }) | null;
 };
 
 function value(args: Record<string, unknown>, ...keys: string[]): string {
@@ -60,6 +68,20 @@ function maskPhone(raw: string): string {
 }
 
 function previewLines(tool: string, args: Record<string, unknown>): string[] {
+  if (tool === "__toumai_batch__") {
+    const actions = Array.isArray(args.actions)
+      ? args.actions.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+      : [];
+    return actions.slice(0, 8).map((item, index) => {
+      const label = typeof item.label === "string" && item.label.trim()
+        ? item.label.trim()
+        : typeof item.capability === "string" && item.capability.trim()
+          ? item.capability.trim()
+          : `Action ${index + 1}`;
+      return `${index + 1}. ${label}`;
+    });
+  }
+
   const lines: string[] = [];
   const group = value(args, "group_name", "group_subject", "group", "chat_name");
   const recipient = value(args, "to_name", "contact_name", "participant_name", "to", "participant", "phone");
@@ -95,13 +117,9 @@ function normalizedState(response: ConfirmationResponse): {
   const raw = action?.status || "";
   const message = response.message || "";
 
-  if (response.success === false) {
-    const lower = message.toLowerCase();
-    if (lower.includes("expir") || lower.includes("déjà été utilisée") || lower.includes("déjà été traité")) {
-      return { state: "expired", action, message };
-    }
-    return { state: "failed", action, message };
-  }
+  // Le statut normalisé du backend est plus précis que le booléen HTTP.
+  // Un batch peut renvoyer success:false ET _action.status=partial_success :
+  // l'afficher en échec total ferait perdre l'information des étapes réussies.
   if (raw === "partial_success" || raw === "verification_failed") {
     return { state: "partial_success", action, message };
   }
@@ -110,6 +128,13 @@ function normalizedState(response: ConfirmationResponse): {
   }
   if (raw === "cancelled") return { state: "cancelled", action, message };
   if (raw === "awaiting_confirmation") return { state: "awaiting_confirmation", action, message };
+  if (response.success === false) {
+    const lower = message.toLowerCase();
+    if (lower.includes("expir") || lower.includes("déjà été utilisée") || lower.includes("déjà été traité")) {
+      return { state: "expired", action, message };
+    }
+    return { state: "failed", action, message };
+  }
   return { state: "success", action, message };
 }
 
@@ -149,8 +174,12 @@ export function ActionExecutionCard({
   const [state, setState] = useState<ActionRuntimeState>("awaiting_confirmation");
   const [resultMessage, setResultMessage] = useState("");
   const [action, setAction] = useState<ActionPayload | undefined>();
+  const [resultSteps, setResultSteps] = useState<ResultStep[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  const batchCount = confirmation.tool === "__toumai_batch__" && Array.isArray(confirmation.args?.actions)
+    ? confirmation.args.actions.length
+    : 0;
   const done = ["success", "partial_success", "failed", "cancelled", "expired"].includes(state);
   const collapsed = compactWhenDone && done && !detailsOpen;
 
@@ -174,6 +203,7 @@ export function ActionExecutionCard({
       // Le statut affiché ci-dessous vient donc du journal serveur, jamais du LLM.
       const normalized = normalizedState(body);
       setAction(normalized.action);
+      setResultSteps(Array.isArray(body.data?.action_steps) ? body.data!.action_steps! : []);
       setResultMessage(normalized.message);
       setState(normalized.state);
     } catch (error) {
@@ -274,6 +304,28 @@ export function ActionExecutionCard({
                     </p>
                   ) : null}
 
+                  {resultSteps.length ? (
+                    <ol className="mt-3 space-y-1.5 rounded-xl border border-[var(--border)]/80 bg-[var(--background)]/35 px-3 py-2.5" aria-label="Résultat des actions">
+                      {resultSteps.slice(0, 8).map((step, index) => {
+                        const succeeded = step.state === "success" || step.state === "done";
+                        const partial = step.state === "partial_success" || step.state === "warning";
+                        return (
+                          <li key={`${step.label || "action"}-${index}`} className="flex items-start gap-2 text-[11px] leading-5">
+                            <span className={`mt-[3px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${
+                              succeeded ? "text-emerald-600" : partial ? "text-amber-600" : "text-[var(--text-tertiary)]"
+                            }`} aria-hidden="true">
+                              {succeeded ? <Check className="h-3 w-3" /> : partial ? <AlertTriangle className="h-3 w-3" /> : <CircleX className="h-3 w-3" />}
+                            </span>
+                            <span className="min-w-0 text-[var(--text-secondary)]">
+                              {step.label || `Action ${index + 1}`}
+                              {step.detail ? <span className="block text-[10px] text-[var(--text-tertiary)]">{step.detail}</span> : null}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  ) : null}
+
                   {state === "success" && action ? (
                     <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
                       {verified ? "Résultat vérifié auprès du connecteur" : "Demande acceptée · vérification complète indisponible"}
@@ -296,7 +348,11 @@ export function ActionExecutionCard({
                           descriptor.risk === "destructive" ? "bg-red-600 hover:bg-red-700" : "bg-[var(--primary)] hover:opacity-90"
                         }`}
                       >
-                        {descriptor.risk === "destructive" ? "Confirmer l’action" : "Confirmer"}
+                        {batchCount > 1
+                          ? `Confirmer les ${batchCount}`
+                          : descriptor.risk === "destructive"
+                            ? "Confirmer l’action"
+                            : "Confirmer"}
                       </button>
                       <button
                         type="button"
