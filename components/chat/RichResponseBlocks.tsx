@@ -1,14 +1,26 @@
 "use client";
 
-import type { ActionStep, ResponseBlock, ResponseWidget } from "@/lib/chat-response";
+import {
+  AlertTriangle,
+  Check,
+  Circle,
+  CircleX,
+  FileText,
+  LoaderCircle,
+  Search,
+} from "lucide-react";
+import type { ActionState, ActionStep, ResponseBlock } from "@/lib/chat-response";
+import { activityLabel } from "@/lib/tool-ui";
 import { MediaMessage, imagesFromUrls } from "./media/MediaMessage";
 import type { ChatImage } from "./media/types";
+import { ActionExecutionCard } from "./widgets/ActionExecutionCard";
+import { WidgetRenderer } from "./widgets/WidgetRenderer";
 
 function safeHttpUrl(raw?: string): string | null {
   if (!raw) return null;
   try {
-    const u = new URL(raw);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
+    const url = new URL(raw);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null;
   } catch {
     return null;
   }
@@ -31,10 +43,9 @@ function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "source
 
   return (
     <section className="mt-3" aria-label="Sources consultées">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-[12px] font-medium text-[var(--text-tertiary)]">
-          Sources · {sources.length}
-        </p>
+      <div className="mb-2 flex items-center gap-2 text-[12px] font-medium text-[var(--text-tertiary)]">
+        <Search className="h-3.5 w-3.5" aria-hidden="true" />
+        Sources · {sources.length}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {sources.map(({ source, index, url }) => (
@@ -48,10 +59,7 @@ function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "source
             className="group min-w-0 rounded-xl border border-[var(--border)] px-3 py-2.5 transition hover:bg-[var(--hover)]"
           >
             <div className="flex items-start gap-2.5">
-              <span
-                className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--card)] px-1 text-[11px] font-semibold text-[var(--text-secondary)]"
-                aria-hidden="true"
-              >
+              <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--card)] px-1 text-[11px] font-semibold text-[var(--text-secondary)]">
                 {index + 1}
               </span>
               <div className="min-w-0">
@@ -75,17 +83,18 @@ function SourcesBlock({ block }: { block: Extract<ResponseBlock, { type: "source
 
 function WebImagesBlock({ block }: { block: Extract<ResponseBlock, { type: "web_images" }> }) {
   const images = block.images
-    .map((img, i): ChatImage | null => {
-      const url = safeHttpUrl(img.url);
+    .map((image, index): ChatImage | null => {
+      const url = safeHttpUrl(image.url);
       if (!url) return null;
       return {
-        id: img.url + i,
+        id: image.url + index,
         url,
-        alt: img.title || "Image issue de la recherche Web",
-        sourceUrl: safeHttpUrl(img.source_url) || undefined,
+        alt: image.title || "Image issue de la recherche Web",
+        sourceUrl: safeHttpUrl(image.source_url) || undefined,
+        sourceTitle: image.title,
       };
     })
-    .filter((img): img is ChatImage => Boolean(img));
+    .filter((image): image is ChatImage => Boolean(image));
   if (!images.length) return null;
   return (
     <section className="mt-3" aria-label="Images de la recherche Web">
@@ -94,138 +103,107 @@ function WebImagesBlock({ block }: { block: Extract<ResponseBlock, { type: "web_
   );
 }
 
-function WeatherWidget({ data }: { data: Record<string, unknown> }) {
-  const city = typeof data.city === "string" ? data.city : "";
-  const country = typeof data.country === "string" ? data.country : "";
-  const description = typeof data.description === "string" ? data.description : "";
-  const temperature = typeof data.temperature === "number" ? data.temperature : null;
-  const feelsLike = typeof data.feels_like === "number" ? data.feels_like : null;
-  const humidity = typeof data.humidity === "number" ? data.humidity : null;
-  const wind = typeof data.wind_speed === "number" ? data.wind_speed : null;
-  const uvIndex = typeof data.uv_index === "number" ? data.uv_index : null;
-  const sunrise = typeof data.sunrise === "string" ? data.sunrise : "";
-  const sunset = typeof data.sunset === "string" ? data.sunset : "";
-  const hourly = Array.isArray(data.hourly)
-    ? data.hourly.filter(
-        (hour): hour is Record<string, unknown> =>
-          Boolean(hour) && typeof hour === "object" && !Array.isArray(hour),
-      ).slice(0, 8)
-    : [];
-  const forecast = Array.isArray(data.forecast)
-    ? data.forecast.filter(
-        (day): day is Record<string, unknown> =>
-          Boolean(day) && typeof day === "object" && !Array.isArray(day),
-      ).slice(0, 7)
-    : [];
-
+function ActivityBlock({ block }: { block: Extract<ResponseBlock, { type: "activity" }> }) {
   return (
-    <section className="mt-3 overflow-hidden rounded-2xl border border-[var(--border)]" aria-label={`Météo ${city}`}>
-      <div className="px-4 py-3.5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-[var(--text-primary)]">
-              {[city, country].filter(Boolean).join(", ") || "Météo"}
-            </p>
-            {description ? <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{description}</p> : null}
-          </div>
-          {temperature !== null ? (
-            <p className="shrink-0 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
-              {temperature}°
-            </p>
-          ) : null}
-        </div>
-        <dl className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-          <div>
-            <dt className="text-[var(--text-tertiary)]">Ressenti</dt>
-            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{feelsLike !== null ? `${feelsLike}°` : "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-[var(--text-tertiary)]">Humidité</dt>
-            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{humidity !== null ? `${humidity}%` : "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-[var(--text-tertiary)]">Vent</dt>
-            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{wind !== null ? `${wind} km/h` : "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-[var(--text-tertiary)]">Indice UV</dt>
-            <dd className="mt-0.5 font-medium text-[var(--text-primary)]">{uvIndex !== null ? uvIndex : "—"}</dd>
-          </div>
-        </dl>
-        {(sunrise || sunset) ? (
-          <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">
-            {sunrise ? `Lever ${sunrise}` : ""}
-            {sunrise && sunset ? " · " : ""}
-            {sunset ? `Coucher ${sunset}` : ""}
-          </p>
-        ) : null}
-      </div>
-      {hourly.length ? (
-        <div className="overflow-x-auto border-t border-[var(--border)] px-2 py-2" aria-label="Prévisions horaires">
-          <div className="flex min-w-max gap-1">
-            {hourly.map((hour, index) => (
-              <div key={String(hour.time ?? index)} className="w-[4.7rem] rounded-xl px-2 py-2 text-center">
-                <p className="text-[11px] font-medium text-[var(--text-secondary)]">{String(hour.time ?? "")}</p>
-                <p className="mt-1 text-xs font-medium text-[var(--text-primary)]">
-                  {typeof hour.temp === "number" ? `${hour.temp}°` : "—"}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {forecast.length ? (
-        <div className="overflow-x-auto border-t border-[var(--border)] px-2 py-2">
-          <div className="flex min-w-max gap-1">
-            {forecast.map((day, index) => (
-              <div key={String(day.date ?? index)} className="w-[4.7rem] rounded-xl px-2 py-2 text-center">
-                <p className="text-[11px] font-medium text-[var(--text-secondary)]">{String(day.day ?? "")}</p>
-                <p className="mt-1 text-xs text-[var(--text-primary)]">
-                  {typeof day.max === "number" ? `${day.max}°` : "—"}
-                  <span className="text-[var(--text-tertiary)]"> / {typeof day.min === "number" ? `${day.min}°` : "—"}</span>
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </section>
+    <div className="mt-2 flex max-w-[560px] items-center gap-2 text-[12px] text-[var(--text-tertiary)]" aria-live="polite">
+      <span className="relative inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+        <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[var(--primary)]/20" />
+        <LoaderCircle className="relative h-3.5 w-3.5 animate-spin" />
+      </span>
+      <span>{block.label || activityLabel(block.activity, block.detail)}</span>
+    </div>
   );
 }
 
-const ETAT_ACTION: Record<ActionStep["state"], { icon: string; color: string; sr: string }> = {
-  done: { icon: "✓", color: "var(--success)", sr: "vérifié" },
-  warning: { icon: "!", color: "var(--warning, #d9a441)", sr: "non vérifié" },
-  failed: { icon: "✕", color: "var(--error)", sr: "échec" },
-  pending: { icon: "○", color: "var(--text-tertiary)", sr: "en attente" },
-};
+function stateVisual(state: ActionState): {
+  icon: React.ReactNode;
+  color: string;
+  sr: string;
+  active: boolean;
+} {
+  switch (state) {
+    case "done":
+    case "success":
+      return { icon: <Check className="h-3 w-3" />, color: "var(--success)", sr: "réussi", active: false };
+    case "warning":
+    case "partial_success":
+      return { icon: <AlertTriangle className="h-3 w-3" />, color: "var(--warning, #d9a441)", sr: "partiel", active: false };
+    case "failed":
+    case "expired":
+      return { icon: <CircleX className="h-3 w-3" />, color: "var(--error)", sr: "échec", active: false };
+    case "cancelled":
+      return { icon: <CircleX className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "annulé", active: false };
+    case "running":
+    case "verifying":
+    case "preparing":
+    case "queued":
+      return { icon: <LoaderCircle className="h-3 w-3 animate-spin" />, color: "var(--primary)", sr: "en cours", active: true };
+    case "awaiting_confirmation":
+    case "pending":
+    default:
+      return { icon: <Circle className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "en attente", active: false };
+  }
+}
 
-/** Les actions réellement exécutées pendant ce tour, dans l'ordre.
- *
- * Le libellé et l'état viennent du journal serveur : une étape n'apparaît
- * « ✓ » que si le connecteur a été relu et confirme le changement. Une action
- * acceptée mais non relue reste « ! ». C'est ce qui empêche l'écran de dire
- * « Photo ajoutée » quand elle ne l'est pas. */
-function ActionsBlock({ steps }: { steps: ActionStep[] }) {
+/**
+ * Timeline des opérations réellement connues du backend. Une demande composée
+ * (ex. « ajoute Ali puis envoie bonsoir ») reste dans UNE carte et chaque étape
+ * évolue indépendamment, au lieu de créer plusieurs gros messages successifs.
+ */
+function ActionsBlock({
+  steps,
+  title,
+}: {
+  steps: ActionStep[];
+  title?: string;
+}) {
   if (!steps.length) return null;
+  const succeeded = steps.filter((step) => ["done", "success"].includes(step.state)).length;
+  const failed = steps.filter((step) => ["failed", "expired"].includes(step.state)).length;
+  const partial = steps.some((step) => ["warning", "partial_success"].includes(step.state));
+  const active = steps.some((step) => ["preparing", "queued", "running", "verifying"].includes(step.state));
+
+  const summary = active
+    ? "Exécution en cours"
+    : failed || partial
+      ? `Terminé avec ${failed + (partial ? 1 : 0)} point${failed + (partial ? 1 : 0) > 1 ? "s" : ""} à vérifier`
+      : `${succeeded || steps.length} action${(succeeded || steps.length) > 1 ? "s" : ""} terminée${(succeeded || steps.length) > 1 ? "s" : ""}`;
+
   return (
-    <section className="mt-3 max-w-md rounded-xl border border-[var(--border)] px-3 py-2.5" aria-label="Actions exécutées">
-      <ol className="space-y-1.5">
-        {steps.slice(0, 12).map((step, index) => {
-          const etat = ETAT_ACTION[step.state] ?? ETAT_ACTION.pending;
+    <section className="mt-3 w-full max-w-[560px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]" aria-label="Actions exécutées">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{title || summary}</p>
+          {title ? <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{summary}</p> : null}
+        </div>
+        <span className="shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">
+          {steps.length} étape{steps.length > 1 ? "s" : ""}
+        </span>
+      </div>
+      <ol className="border-t border-[var(--border)] px-4 py-2.5">
+        {steps.slice(0, 20).map((step, index) => {
+          const visual = stateVisual(step.state);
           return (
-            <li key={step.action_id || `${step.capability}-${index}`} className="flex items-start gap-2 text-[13px]">
+            <li key={step.action_id || `${step.capability}-${index}`} className="relative flex min-h-9 items-start gap-3 py-1.5">
+              {index < Math.min(steps.length, 20) - 1 ? (
+                <span className="absolute left-[7px] top-7 h-[calc(100%-13px)] w-px bg-[var(--border)]" aria-hidden="true" />
+              ) : null}
               <span
+                className="relative mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--card)]"
+                style={{ color: visual.color }}
                 aria-hidden="true"
-                className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                style={{ color: etat.color, border: `1px solid ${etat.color}` }}
               >
-                {etat.icon}
+                {visual.icon}
               </span>
-              <span className="text-[var(--text-primary)]">
-                {step.label}
-                <span className="sr-only"> — {etat.sr}</span>
-              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] leading-5 text-[var(--text-primary)]">
+                  {step.label}
+                  <span className="sr-only"> — {visual.sr}</span>
+                </p>
+                {(step.detail || step.target) ? (
+                  <p className="truncate text-[10px] text-[var(--text-tertiary)]">{step.detail || step.target}</p>
+                ) : null}
+              </div>
             </li>
           );
         })}
@@ -234,45 +212,43 @@ function ActionsBlock({ steps }: { steps: ActionStep[] }) {
   );
 }
 
-function WidgetBlock({ widget }: { widget: ResponseWidget }) {
-  if (widget.type === "weather" && widget.data && typeof widget.data === "object" && !Array.isArray(widget.data)) {
-    return <WeatherWidget data={widget.data as Record<string, unknown>} />;
-  }
+function FileBlock({ block }: { block: Extract<ResponseBlock, { type: "file" }> }) {
+  const file = block.file;
+  const detail = [
+    file.mime_type,
+    file.pages ? `${file.pages} page${file.pages > 1 ? "s" : ""}` : "",
+    file.sheets ? `${file.sheets} feuille${file.sheets > 1 ? "s" : ""}` : "",
+    file.rows ? `${file.rows.toLocaleString("fr-FR")} lignes` : "",
+    file.duration,
+  ].filter(Boolean).join(" · ");
 
-  if (widget.type === "table" && Array.isArray(widget.data)) {
-    const rows = widget.data.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row));
-    const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).slice(0, 8);
-    if (!rows.length || !columns.length) return null;
-    return (
-      <section className="mt-3 overflow-hidden rounded-xl border border-[var(--border)]" aria-label={widget.title || "Tableau"}>
-        {widget.title ? <h3 className="px-3 py-2 text-sm font-medium text-[var(--text-primary)]">{widget.title}</h3> : null}
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead className="bg-[var(--card)] text-[var(--text-secondary)]">
-              <tr>{columns.map((c) => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>)}</tr>
-            </thead>
-            <tbody>
-              {rows.slice(0, 100).map((row, i) => (
-                <tr key={i} className="border-t border-[var(--border)]">
-                  {columns.map((c) => <td key={c} className="max-w-[18rem] px-3 py-2 align-top text-[var(--text-primary)]">{String(row[c] ?? "")}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    );
-  }
-
+  const href = safeHttpUrl(file.url);
   return (
-    <section className="mt-3 rounded-xl border border-[var(--border)] px-3 py-2.5" aria-label={widget.title || "Widget"}>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">Widget · {widget.type}</p>
-      {widget.title ? <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">{widget.title}</p> : null}
+    <section className="mt-3 flex w-full max-w-[560px] items-start gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3" aria-label={`Fichier ${file.name}`}>
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--background)]/45 text-[var(--text-secondary)]">
+        <FileText className="h-4.5 w-4.5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{file.name}</p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
+          {file.status === "processing" ? "Analyse en cours…" : detail || "Fichier prêt"}
+        </p>
+        {file.error ? <p role="alert" className="mt-1 text-[11px] text-[var(--error)]">{file.error}</p> : null}
+        {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[11px] font-medium text-[var(--primary)] hover:underline">Ouvrir le fichier</a> : null}
+      </div>
     </section>
   );
 }
 
-export function RichResponseBlocks({ blocks }: { blocks?: ResponseBlock[] }) {
+export function RichResponseBlocks({
+  blocks,
+  hideConfirmation = false,
+}: {
+  blocks?: ResponseBlock[];
+  /** ChatMessage legacy peut encore posséder toolConfirmation. Pendant la migration,
+   * ce flag empêche le même pending_id d'être rendu deux fois. */
+  hideConfirmation?: boolean;
+}) {
   if (!blocks?.length) return null;
   return (
     <>
@@ -290,24 +266,15 @@ export function RichResponseBlocks({ blocks }: { blocks?: ResponseBlock[] }) {
               </div>
             ) : null;
           case "widget":
-            return <WidgetBlock key={key} widget={block.widget} />;
+            return <WidgetRenderer key={key} widget={block.widget} />;
           case "actions":
-            return <ActionsBlock key={key} steps={block.steps} />;
+            return <ActionsBlock key={key} steps={block.steps} title={block.title} />;
           case "file":
-            return (
-              <div key={key} className="mt-3 rounded-xl border border-[var(--border)] px-3 py-2.5">
-                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{block.file.name}</p>
-                <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{block.file.mime_type || "Fichier"}</p>
-                {block.file.error ? (
-                  <p role="alert" className="mt-1 text-xs text-[var(--error)]">
-                    {block.file.error}
-                  </p>
-                ) : null}
-              </div>
-            );
+            return <FileBlock key={key} block={block} />;
           case "activity":
+            return <ActivityBlock key={key} block={block} />;
           case "tool_confirmation":
-            return null;
+            return hideConfirmation ? null : <ActionExecutionCard key={key} confirmation={block.confirmation} />;
         }
       })}
     </>
