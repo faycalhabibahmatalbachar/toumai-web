@@ -335,10 +335,43 @@ function QuotaWidget({ data }: { data: Record<string, unknown> }) {
   const remaining = number(data.remaining);
   const reset = string(data.reset_at || data.renews_at);
   const label = string(data.label || data.resource) || "Limite d’utilisation";
-  const ratio = used !== null && limit !== null && limit > 0 ? Math.min(100, Math.max(0, (used / limit) * 100)) : null;
+  const message = string(data.message);
+  const explicitlyExcluded = data.included === false;
+  const excluded = explicitlyExcluded || (limit !== null && limit <= 0);
+  const ratio = !excluded && used !== null && limit !== null && limit > 0
+    ? Math.min(100, Math.max(0, (used / limit) * 100))
+    : null;
+
   return (
-    <WidgetShell title={label} subtitle={reset ? `Renouvellement · ${reset}` : undefined} icon={<ShieldCheck className="h-4.5 w-4.5" />}>
-      <div className="px-4 py-3">{used !== null && limit !== null ? <><div className="flex justify-between gap-3 text-[11px] text-[var(--text-secondary)]"><span>{used.toLocaleString("fr-FR")} / {limit.toLocaleString("fr-FR")}</span><span>{remaining !== null ? `${remaining.toLocaleString("fr-FR")} restant${remaining > 1 ? "s" : ""}` : ""}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]"><div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${ratio ?? 0}%` }} /></div></> : <p className="text-[12px] text-[var(--text-secondary)]">La limite n’est pas disponible actuellement.</p>}</div>
+    <WidgetShell
+      title={label}
+      subtitle={!excluded && reset ? `Renouvellement · ${reset}` : undefined}
+      icon={<ShieldCheck className="h-4.5 w-4.5" />}
+    >
+      <div className="px-4 py-3">
+        {excluded ? (
+          <div className="flex items-start gap-2.5">
+            <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden="true" />
+            <p className="text-[12px] leading-5 text-[var(--text-secondary)]">
+              {message || `${label} non inclus dans votre formule actuelle.`}
+            </p>
+          </div>
+        ) : used !== null && limit !== null && limit > 0 ? (
+          <>
+            <div className="flex justify-between gap-3 text-[11px] text-[var(--text-secondary)]">
+              <span>{used.toLocaleString("fr-FR")} / {limit.toLocaleString("fr-FR")}</span>
+              <span>{remaining !== null ? `${remaining.toLocaleString("fr-FR")} restant${remaining > 1 ? "s" : ""}` : ""}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--background)]">
+              <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${ratio ?? 0}%` }} />
+            </div>
+          </>
+        ) : (
+          <p className="text-[12px] leading-5 text-[var(--text-secondary)]">
+            {message || "La limite n’est pas disponible actuellement."}
+          </p>
+        )}
+      </div>
     </WidgetShell>
   );
 }
