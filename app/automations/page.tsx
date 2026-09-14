@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
@@ -14,9 +14,7 @@ import {
   Pause,
   Play,
   RefreshCw,
-  RotateCcw,
   Search,
-  Send,
   Trash2,
   X,
 } from "lucide-react";
@@ -236,7 +234,7 @@ export default function AutomationsPage() {
   );
 }
 
-function Metric({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return <div className="rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-4"><span className="text-[var(--cx-accent-text)] [&>svg]:h-4 [&>svg]:w-4">{icon}</span><p className="mt-4 text-2xl font-semibold tabular-nums text-[var(--cx-text-primary)]">{value}</p><p className="mt-1 text-xs text-[var(--cx-text-muted)]">{label}</p></div>;
 }
 
