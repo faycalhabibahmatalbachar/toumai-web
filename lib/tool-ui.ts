@@ -22,6 +22,13 @@ function first(args: Record<string, unknown>, ...keys: string[]): string {
   return "";
 }
 
+function firstArrayString(args: Record<string, unknown>, key: string): string {
+  const value = args[key];
+  if (!Array.isArray(value)) return "";
+  const item = value.find((entry) => typeof entry === "string" && entry.trim());
+  return typeof item === "string" ? item.trim() : "";
+}
+
 function shortPhone(value: string): string {
   const compact = value.replace(/\s+/g, "");
   if (!compact) return "";
@@ -46,7 +53,7 @@ function withTarget(base: string, args: Record<string, unknown>, prep = "dans"):
   return t ? `${base} ${prep} ${t}` : base;
 }
 
-const EXACT: Record<string, Omit<ToolUiDescriptor, "title"> & { title: string }> = {
+const EXACT: Record<string, ToolUiDescriptor> = {
   send_whatsapp: {
     title: "Envoyer un message WhatsApp",
     awaiting: "Message prêt à être envoyé",
@@ -84,12 +91,12 @@ const EXACT: Record<string, Omit<ToolUiDescriptor, "title"> & { title: string }>
     risk: "write",
   },
   whatsapp_set_status: {
-    title: "Modifier le statut WhatsApp",
+    title: "Publier un statut WhatsApp",
     awaiting: "Statut prêt à être publié",
-    running: "Mise à jour du statut…",
+    running: "Publication du statut…",
     verifying: "Vérification du statut…",
-    success: "Statut mis à jour",
-    cancelled: "Mise à jour annulée",
+    success: "Statut publié",
+    cancelled: "Publication annulée",
     risk: "write",
   },
   whatsapp_group_create: {
@@ -211,18 +218,37 @@ const EXACT: Record<string, Omit<ToolUiDescriptor, "title"> & { title: string }>
   },
 };
 
+function memberLabel(args: Record<string, unknown>): string {
+  const direct = first(args, "participant", "participant_name", "phone", "to");
+  const fromList = firstArrayString(args, "participants");
+  const raw = direct || fromList;
+  return raw ? shortPhone(raw) : "";
+}
+
 function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescriptor | null {
   const action = first(args, "action", "operation").toLowerCase();
   if (!action) return null;
-  const value = first(args, "value", "participant", "phone", "to");
-  const who = value ? shortPhone(value) : "le membre";
+  const who = memberLabel(args);
+
+  if (["create", "creer", "créer"].includes(action)) {
+    const name = first(args, "value", "group", "group_name");
+    return {
+      title: "Créer un groupe WhatsApp",
+      awaiting: name ? `Création de « ${name} » prête` : "Création du groupe prête",
+      running: name ? `Création de « ${name} »…` : "Création du groupe…",
+      verifying: "Vérification du groupe et de ses membres…",
+      success: name ? `Groupe « ${name} » créé` : "Groupe créé",
+      cancelled: "Création annulée",
+      risk: "admin",
+    };
+  }
   if (["add", "ajouter", "invite", "participant_add"].includes(action)) {
     return {
       title: "Ajouter un membre",
-      awaiting: `Ajout de ${who} prêt`,
-      running: `Ajout de ${who} au groupe…`,
+      awaiting: who ? `Ajout de ${who} prêt` : "Ajout du membre prêt",
+      running: who ? `Ajout de ${who} au groupe…` : "Ajout du membre au groupe…",
       verifying: "Vérification de la liste des membres…",
-      success: `${who} ajouté au groupe`,
+      success: who ? `${who} ajouté au groupe` : "Membre ajouté au groupe",
       cancelled: "Ajout annulé",
       risk: "admin",
     };
@@ -230,10 +256,10 @@ function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescript
   if (["remove", "retirer", "kick", "participant_remove"].includes(action)) {
     return {
       title: "Retirer un membre",
-      awaiting: `Retrait de ${who} prêt`,
-      running: `Retrait de ${who} du groupe…`,
+      awaiting: who ? `Retrait de ${who} prêt` : "Retrait du membre prêt",
+      running: who ? `Retrait de ${who} du groupe…` : "Retrait du membre du groupe…",
       verifying: "Vérification de la liste des membres…",
-      success: `${who} retiré du groupe`,
+      success: who ? `${who} retiré du groupe` : "Membre retiré du groupe",
       cancelled: "Retrait annulé",
       risk: "destructive",
     };
@@ -241,10 +267,10 @@ function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescript
   if (["promote", "admin", "promouvoir"].includes(action)) {
     return {
       title: "Nommer un administrateur",
-      awaiting: `Promotion de ${who} prête`,
-      running: `Attribution des droits administrateur à ${who}…`,
+      awaiting: who ? `Promotion de ${who} prête` : "Promotion du membre prête",
+      running: who ? `Attribution des droits administrateur à ${who}…` : "Attribution des droits administrateur…",
       verifying: "Vérification des administrateurs…",
-      success: `${who} est administrateur`,
+      success: who ? `${who} est administrateur` : "Administrateur nommé",
       cancelled: "Promotion annulée",
       risk: "admin",
     };
@@ -252,10 +278,10 @@ function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescript
   if (["demote", "retrograder", "rétrograder"].includes(action)) {
     return {
       title: "Retirer les droits administrateur",
-      awaiting: `Retrait des droits de ${who} prêt`,
-      running: `Retrait des droits administrateur de ${who}…`,
+      awaiting: who ? `Retrait des droits de ${who} prêt` : "Retrait des droits administrateur prêt",
+      running: who ? `Retrait des droits administrateur de ${who}…` : "Retrait des droits administrateur…",
       verifying: "Vérification des administrateurs…",
-      success: `Droits administrateur retirés à ${who}`,
+      success: who ? `Droits administrateur retirés à ${who}` : "Droits administrateur retirés",
       cancelled: "Modification annulée",
       risk: "destructive",
     };
@@ -271,7 +297,7 @@ function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescript
       risk: "admin",
     };
   }
-  if (["description", "desc"].includes(action)) {
+  if (["description", "describe", "desc"].includes(action)) {
     return {
       title: "Modifier la description du groupe",
       awaiting: "Nouvelle description prête",
@@ -290,6 +316,72 @@ function descriptorForGroupManage(args: Record<string, unknown>): ToolUiDescript
       verifying: "Vérification de la photo…",
       success: "Photo du groupe mise à jour",
       cancelled: "Modification annulée",
+      risk: "admin",
+    };
+  }
+  if (["settings", "access"].includes(action)) {
+    return {
+      title: "Modifier les règles du groupe",
+      awaiting: "Nouveau réglage prêt",
+      running: "Mise à jour des règles du groupe…",
+      verifying: "Vérification des règles…",
+      success: "Règles du groupe mises à jour",
+      cancelled: "Modification annulée",
+      risk: "admin",
+    };
+  }
+  if (["ephemeral"].includes(action)) {
+    return {
+      title: "Modifier les messages éphémères",
+      awaiting: "Durée prête à être appliquée",
+      running: "Mise à jour des messages éphémères…",
+      verifying: "Vérification de la durée…",
+      success: "Messages éphémères mis à jour",
+      cancelled: "Modification annulée",
+      risk: "admin",
+    };
+  }
+  if (["approve"].includes(action)) {
+    return {
+      title: "Accepter une demande d’adhésion",
+      awaiting: "Demande prête à être acceptée",
+      running: "Acceptation de la demande…",
+      verifying: "Vérification des membres…",
+      success: "Demande d’adhésion acceptée",
+      cancelled: "Action annulée",
+      risk: "admin",
+    };
+  }
+  if (["reject"].includes(action)) {
+    return {
+      title: "Refuser une demande d’adhésion",
+      awaiting: "Demande prête à être refusée",
+      running: "Refus de la demande…",
+      verifying: "Vérification de la demande…",
+      success: "Demande d’adhésion refusée",
+      cancelled: "Action annulée",
+      risk: "destructive",
+    };
+  }
+  if (["revoke_invite"].includes(action)) {
+    return {
+      title: "Révoquer le lien d’invitation",
+      awaiting: "Révocation du lien prête",
+      running: "Révocation du lien d’invitation…",
+      verifying: "Vérification du nouveau lien…",
+      success: "Lien d’invitation révoqué",
+      cancelled: "Révocation annulée",
+      risk: "destructive",
+    };
+  }
+  if (["join"].includes(action)) {
+    return {
+      title: "Rejoindre le groupe",
+      awaiting: "Demande prête",
+      running: "Connexion au groupe…",
+      verifying: "Vérification de l’adhésion…",
+      success: "Groupe rejoint",
+      cancelled: "Action annulée",
       risk: "admin",
     };
   }
@@ -312,12 +404,12 @@ export function describeTool(tool: string, args: Record<string, unknown> = {}): 
     const actions = Array.isArray(args.actions)
       ? args.actions.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
       : [];
-    const destructive = actions.some((item) => item.risk === "destructive");
+    const destructive = actions.some((item) => item.risk === "destructive" || String(item.capability || "").includes("remove"));
     const count = actions.length;
     return {
       title: count ? `${count} actions à exécuter` : "Plusieurs actions à exécuter",
-      awaiting: count ? `${count} actions prêtes` : "Actions prêtes",
-      running: "Exécution des actions…",
+      awaiting: count ? `${count} actions à confirmer` : "Actions à confirmer",
+      running: count ? `Exécution de ${count} actions…` : "Exécution des actions…",
       verifying: "Vérification des actions…",
       success: count ? `${count} actions terminées` : "Actions terminées",
       cancelled: "Actions annulées",
