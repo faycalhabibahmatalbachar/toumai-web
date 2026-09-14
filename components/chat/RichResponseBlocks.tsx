@@ -101,8 +101,8 @@ function ActivityBlock({ block }: { block: Extract<ResponseBlock, { type: "activ
   return (
     <div className="mt-2 flex max-w-[560px] items-center gap-2 text-[12px] text-[var(--text-tertiary)]" aria-live="polite">
       <span className="relative inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
-        <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[var(--primary)]/20" />
-        <LoaderCircle className="relative h-3.5 w-3.5 animate-spin" />
+        <span className="absolute h-2.5 w-2.5 animate-ping rounded-full bg-[var(--primary)]/20 motion-reduce:animate-none" />
+        <LoaderCircle className="relative h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
       </span>
       <span>{block.label || activityLabel(block.activity, block.detail)}</span>
     </div>
@@ -118,92 +118,209 @@ function stateVisual(state: ActionState): {
   switch (state) {
     case "done":
     case "success":
-      return { icon: <Check className="h-3 w-3" />, color: "var(--success)", sr: "réussi", active: false };
+      return { icon: <Check className="h-4 w-4" />, color: "var(--success)", sr: "réussi", active: false };
     case "warning":
     case "partial_success":
-      return { icon: <AlertTriangle className="h-3 w-3" />, color: "var(--warning, #d9a441)", sr: "partiel", active: false };
+      return { icon: <AlertTriangle className="h-4 w-4" />, color: "var(--warning, #d9a441)", sr: "partiel", active: false };
     case "failed":
     case "expired":
-      return { icon: <CircleX className="h-3 w-3" />, color: "var(--error)", sr: "échec", active: false };
+      return { icon: <CircleX className="h-4 w-4" />, color: "var(--error)", sr: "échec", active: false };
     case "blocked":
-      return { icon: <CircleX className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "non exécuté", active: false };
+      return { icon: <Circle className="h-3.5 w-3.5" />, color: "var(--text-tertiary)", sr: "non exécuté", active: false };
     case "cancelled":
-      return { icon: <CircleX className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "annulé", active: false };
+      return { icon: <CircleX className="h-4 w-4" />, color: "var(--text-tertiary)", sr: "annulé", active: false };
     case "running":
     case "verifying":
     case "preparing":
     case "queued":
-      return { icon: <LoaderCircle className="h-3 w-3 animate-spin" />, color: "var(--primary)", sr: "en cours", active: true };
+      return { icon: <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />, color: "var(--primary)", sr: "en cours", active: true };
     case "awaiting_confirmation":
     case "pending":
     default:
-      return { icon: <Circle className="h-3 w-3" />, color: "var(--text-tertiary)", sr: "en attente", active: false };
+      return { icon: <Circle className="h-3.5 w-3.5" />, color: "var(--text-tertiary)", sr: "en attente", active: false };
   }
+}
+
+function truncateText(raw: string, max = 92): string {
+  const value = (raw || "").replace(/\s+/g, " ").trim();
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
+
+function maskPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length < 7) return raw;
+  if (digits.length >= 11 && digits.startsWith("235")) {
+    return `+235 ${digits.slice(3, 5)}•••${digits.slice(-3)}`;
+  }
+  return `+${digits.slice(0, Math.max(2, digits.length - 8))} ${digits.slice(-8, -6)}•••${digits.slice(-3)}`;
+}
+
+function safeActionText(raw?: string): string {
+  let value = raw || "";
+  value = value.replace(/\b\d{8,20}@g\.us\b/gi, "groupe WhatsApp");
+  value = value.replace(/\+?\d{8,15}/g, (phone) => maskPhone(phone));
+  if (/messages?\s+whatsapp.*non inclus|non inclus.*formule/i.test(value)) {
+    return "Non inclus dans votre formule.";
+  }
+  return truncateText(value, 110);
+}
+
+function stepTitle(step: ActionStep): string {
+  const success = ["done", "success"].includes(step.state);
+  const active = ["preparing", "queued", "running", "verifying"].includes(step.state);
+  const blocked = step.state === "blocked";
+  const failed = ["failed", "expired"].includes(step.state);
+  const capability = step.capability || "";
+
+  if (capability === "whatsapp.group.create") {
+    if (success) return "Groupe créé";
+    if (active) return "Création du groupe…";
+    if (blocked) return "Création non exécutée";
+    if (failed) return "Création du groupe échouée";
+    return "Créer le groupe";
+  }
+  if (capability === "whatsapp.message.send") {
+    if (success) return "Message envoyé";
+    if (active) return "Envoi du message…";
+    if (blocked || failed) return "Message non envoyé";
+    return "Envoyer le message";
+  }
+  if (capability.includes("participant.add")) {
+    if (success) return "Membre ajouté";
+    if (active) return "Ajout du membre…";
+    if (blocked || failed) return "Membre non ajouté";
+    return "Ajouter un membre";
+  }
+  if (capability.includes("participant.remove")) {
+    if (success) return "Membre retiré";
+    if (active) return "Retrait du membre…";
+    if (blocked || failed) return "Membre non retiré";
+    return "Retirer un membre";
+  }
+  if (capability.includes("rename")) {
+    if (success) return "Groupe renommé";
+    if (active) return "Renommage du groupe…";
+    return failed ? "Renommage échoué" : "Renommer le groupe";
+  }
+
+  return safeActionText(step.label) || "Action";
+}
+
+function stepDetail(step: ActionStep): string {
+  const raw = step.detail || step.target || "";
+  if (!raw) return "";
+
+  if (step.capability === "whatsapp.group.create" && ["done", "success"].includes(step.state)) {
+    const group = raw.match(/Groupe\s+[«\"]([^»\"]+)[»\"]/i)?.[1];
+    const count = raw.match(/\((\d+)\s+membre/i)?.[1];
+    if (group && count) return `${truncateText(group, 54)} · ${count} participant${count === "1" ? "" : "s"}`;
+    if (group) return truncateText(group, 64);
+    if (count) return `${count} participant${count === "1" ? "" : "s"}`;
+  }
+
+  return safeActionText(raw);
+}
+
+function aggregateIcon(active: boolean, problems: number, failed: number) {
+  if (active) return <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />;
+  if (failed > 0) return <CircleX className="h-4 w-4" aria-hidden="true" />;
+  if (problems > 0) return <AlertTriangle className="h-4 w-4" aria-hidden="true" />;
+  return <Check className="h-4 w-4" aria-hidden="true" />;
 }
 
 function ActionsBlock({
   steps,
-  title,
 }: {
   steps: ActionStep[];
-  title?: string;
 }) {
   if (!steps.length) return null;
+
   const succeeded = steps.filter((step) => ["done", "success"].includes(step.state)).length;
   const failed = steps.filter((step) => ["failed", "expired"].includes(step.state)).length;
   const blocked = steps.filter((step) => step.state === "blocked").length;
-  const partial = steps.some((step) => ["warning", "partial_success"].includes(step.state));
+  const partial = steps.filter((step) => ["warning", "partial_success"].includes(step.state)).length;
   const active = steps.some((step) => ["preparing", "queued", "running", "verifying"].includes(step.state));
+  const problems = failed + partial || (blocked ? 1 : 0);
+  const allSuccess = !active && problems === 0 && blocked === 0 && succeeded === steps.length;
 
   const summary = active
-    ? "Exécution en cours"
-    : failed
-      ? `Workflow interrompu · ${succeeded}/${steps.length} étape${steps.length > 1 ? "s" : ""} réussie${succeeded > 1 ? "s" : ""}`
-      : blocked
-        ? `Workflow incomplet · ${blocked} étape${blocked > 1 ? "s" : ""} non exécutée${blocked > 1 ? "s" : ""}`
-        : partial
-          ? "Workflow terminé avec un résultat partiel"
-          : `${succeeded || steps.length} action${(succeeded || steps.length) > 1 ? "s" : ""} terminée${(succeeded || steps.length) > 1 ? "s" : ""}`;
+    ? "Exécution…"
+    : problems > 0
+      ? `Terminé avec ${problems} problème${problems > 1 ? "s" : ""}`
+      : allSuccess
+        ? `${steps.length} action${steps.length > 1 ? "s" : ""} terminée${steps.length > 1 ? "s" : ""}`
+        : "Workflow terminé";
+
+  const accent = failed > 0
+    ? "border-l-red-500/70"
+    : problems > 0 || blocked > 0
+      ? "border-l-amber-500/70"
+      : allSuccess
+        ? "border-l-emerald-500/70"
+        : "border-l-[var(--border)]";
+
+  const showRows = active || problems > 0 || blocked > 0;
 
   return (
-    <section className="mt-3 w-full max-w-[560px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]" aria-label="Actions exécutées">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{title || summary}</p>
-          {title ? <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{summary}</p> : null}
-        </div>
-        <span className="shrink-0 rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">
-          {steps.length} étape{steps.length > 1 ? "s" : ""}
-        </span>
-      </div>
-      <ol className="border-t border-[var(--border)] px-4 py-2.5">
-        {steps.slice(0, 20).map((step, index) => {
-          const visual = stateVisual(step.state);
-          return (
-            <li key={step.action_id || `${step.capability}-${index}`} className="relative flex min-h-9 items-start gap-3 py-1.5">
-              {index < Math.min(steps.length, 20) - 1 ? (
-                <span className="absolute left-[7px] top-7 h-[calc(100%-13px)] w-px bg-[var(--border)]" aria-hidden="true" />
-              ) : null}
-              <span
-                className="relative mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--card)]"
-                style={{ color: visual.color }}
-                aria-hidden="true"
-              >
-                {visual.icon}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[12px] leading-5 text-[var(--text-primary)]">
-                  {step.label}
-                  <span className="sr-only"> — {visual.sr}</span>
-                </p>
-                {(step.detail || step.target) ? (
-                  <p className="text-[10px] leading-4 text-[var(--text-tertiary)]">{step.detail || step.target}</p>
-                ) : null}
+    <section
+      className={`mt-2.5 w-full max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] border-l-2 bg-[var(--card)] ${accent}`}
+      aria-label="Résultat des actions"
+      aria-live="polite"
+      role={failed > 0 && succeeded === 0 ? "alert" : undefined}
+    >
+      <div className="px-3.5 py-2.5">
+        <div className="flex min-h-8 items-center gap-2.5">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--background)] text-[var(--text-secondary)]">
+            {aggregateIcon(active, problems + blocked, failed)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{summary}</p>
+            <p className="mt-0.5 text-[10.5px] text-[var(--text-tertiary)]">
+              {steps.length} action{steps.length > 1 ? "s" : ""}
+            </p>
+          </div>
+          {!active ? (
+            <details className="group relative shrink-0">
+              <summary className="min-h-8 cursor-pointer list-none rounded-lg px-2 py-1.5 text-[10.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
+                Détails
+              </summary>
+              <div className="absolute right-0 top-9 z-20 w-[min(320px,80vw)] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-[10px] leading-4 text-[var(--text-tertiary)] shadow-xl">
+                {steps.slice(0, 20).map((step, index) => (
+                  <p key={`${step.action_id || step.capability}-${index}`} className={index ? "mt-2" : undefined}>
+                    <span className="font-medium text-[var(--text-secondary)]">{stepTitle(step)}</span>
+                    {step.status ? ` · ${safeActionText(step.status)}` : ""}
+                    {step.verified === true ? " · vérifié" : ""}
+                    {step.verified === false ? " · non vérifié" : ""}
+                  </p>
+                ))}
               </div>
-            </li>
-          );
-        })}
-      </ol>
+            </details>
+          ) : null}
+        </div>
+
+        {showRows ? (
+          <ol className="mt-2 space-y-0.5" aria-label="Étapes du workflow">
+            {steps.slice(0, 20).map((step, index) => {
+              const visual = stateVisual(step.state);
+              const detail = stepDetail(step);
+              return (
+                <li key={step.action_id || `${step.capability}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
+                  <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center" style={{ color: visual.color }} aria-hidden="true">
+                    {visual.icon}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11.5px] font-medium leading-4 text-[var(--text-primary)]">
+                      {stepTitle(step)}
+                      <span className="sr-only"> — {visual.sr}</span>
+                    </p>
+                    {detail ? <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-tertiary)]">{detail}</p> : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -241,8 +358,9 @@ export function RichResponseBlocks({
   hideConfirmation = false,
 }: {
   blocks?: ResponseBlock[];
-  /** ChatMessage legacy peut encore posséder toolConfirmation. Pendant la migration,
-   * ce flag empêche le même pending_id d'être rendu deux fois. */
+  /** ChatMessage peut encore porter toolConfirmation pendant la migration.
+   * Quand il existe, ActionExecutionCard est l'unique surface du runtime :
+   * ni le bloc de confirmation ni le bloc actions ne doivent être dupliqués. */
   hideConfirmation?: boolean;
 }) {
   if (!blocks?.length) return null;
@@ -264,7 +382,7 @@ export function RichResponseBlocks({
           case "widget":
             return <WidgetRenderer key={key} widget={block.widget} />;
           case "actions":
-            return <ActionsBlock key={key} steps={block.steps} title={block.title} />;
+            return hideConfirmation ? null : <ActionsBlock key={key} steps={block.steps} />;
           case "file":
             return <FileBlock key={key} block={block} />;
           case "activity":
