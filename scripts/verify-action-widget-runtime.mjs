@@ -2,6 +2,8 @@ import fs from "node:fs";
 
 const path = "components/chat/widgets/ActionExecutionCard.tsx";
 const source = fs.readFileSync(path, "utf8");
+const richPath = "components/chat/RichResponseBlocks.tsx";
+const richSource = fs.readFileSync(richPath, "utf8");
 
 function expect(condition, message) {
   if (!condition) {
@@ -29,6 +31,15 @@ expect(source.includes('groupe WhatsApp'), "internal group JIDs are sanitized fr
 expect(source.includes('focus-visible:ring-2'), "keyboard focus remains visible");
 expect(source.includes('aria-live="polite"'), "runtime updates are announced politely");
 expect(source.includes('role={state === "failed" ? "alert" : undefined}'), "alert role is reserved for real failures");
+
+expect(richSource.includes('max-w-[480px]'), "server action result blocks use the same compact width");
+expect(richSource.includes('return hideConfirmation ? null : <ActionsBlock'), "action result blocks are suppressed when ActionExecutionCard owns the turn");
+expect(!richSource.includes('Workflow terminé avec un résultat partiel'), "legacy verbose partial-success heading is removed");
+expect(richSource.includes('Terminé avec ${problems} problème'), "rich action blocks use the concise problem summary");
+expect(richSource.includes('Non inclus dans votre formule.'), "rich action blocks normalize quota failures");
+expect(richSource.includes('safeActionText'), "rich action blocks sanitize backend display text");
+expect(richSource.includes('motion-reduce:animate-none'), "rich action block progress respects reduced motion");
+expect(richSource.includes('role={failed > 0 && succeeded === 0 ? "alert" : undefined}'), "partial success does not misuse alert role");
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log("Action widget runtime regression checks passed.");
