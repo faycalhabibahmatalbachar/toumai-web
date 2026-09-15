@@ -88,6 +88,59 @@ export interface LegacyRichMetadata {
   action_steps?: ActionStep[];
   blocks?: ResponseBlock[];
   widgets?: ResponseWidget[];
+  /** Télémétrie Research V3 calculée par le serveur. Le pont n'en expose au
+   * widget qu'un sous-ensemble explicitement autorisé : aucun planner brut,
+   * passage privé ni donnée de vérificateur ne doit atteindre l'UI. */
+  grounded_synthesis_canary?: Record<string, unknown>;
+  research_progress?: Record<string, unknown>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function safeResearchTelemetry(meta: LegacyRichMetadata): Record<string, unknown> {
+  const telemetry = isRecord(meta.grounded_synthesis_canary)
+    ? meta.grounded_synthesis_canary
+    : isRecord(meta.research_progress)
+      ? meta.research_progress
+      : {};
+  const out: Record<string, unknown> = {};
+  const numberFields = [
+    "citation_coverage",
+    "independent_domain_count",
+    "cited_domain_count",
+    "research_round_count",
+    "resolution_query_count",
+    "elapsed_ms",
+  ];
+  const stringFields = ["status", "evidence_band", "error_code"];
+
+  for (const key of numberFields) {
+    const value = telemetry[key];
+    if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+  }
+  for (const key of stringFields) {
+    const value = telemetry[key];
+    if (typeof value === "string" && value) out[key] = value;
+  }
+  if (typeof telemetry.used_strict === "boolean") out.used_strict = telemetry.used_strict;
+
+  // Le statut Research devient un résultat de publication explicite. Le
+  // renderer peut ainsi distinguer une réponse vérifiée d'une abstention sans
+  // essayer de l'inférer depuis le texte du modèle.
+  if (typeof telemetry.status === "string" && telemetry.status) {
+    out.publication_status = telemetry.status;
+  }
+  return out;
+}
+
+function enrichResearchWidget(widget: ResponseWidget, meta: LegacyRichMetadata): ResponseWidget {
+  if (widget.type !== "search_activity" && widget.type !== "web_search") return widget;
+  const telemetry = safeResearchTelemetry(meta);
+  if (!Object.keys(telemetry).length) return widget;
+  const data = isRecord(widget.data) ? widget.data : {};
+  return { ...widget, data: { ...data, ...telemetry } };
 }
 
 /**
@@ -125,7 +178,7 @@ export function blocksFromMetadata(meta?: LegacyRichMetadata | null): ResponseBl
     blocks.push(...meta.widgets.map((widget, index) => ({
       type: "widget" as const,
       id: `widget:${widget.type}:${index}`,
-      widget,
+      widget: enrichResearchWidget(widget, meta),
     })));
   }
   if (meta.tool_confirmation) {
