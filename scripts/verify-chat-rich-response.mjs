@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const response = fs.readFileSync("lib/chat-response.ts", "utf8");
 const renderer = fs.readFileSync("components/chat/RichResponseBlocks.tsx", "utf8");
+const widgetRenderer = fs.readFileSync("components/chat/widgets/WidgetRenderer.tsx", "utf8");
 const stream = fs.readFileSync("lib/chat-stream.ts", "utf8");
 const chat = fs.readFileSync("app/chat/page.tsx", "utf8");
 const dropZone = fs.readFileSync("components/chat/media/DropZone.tsx", "utf8");
@@ -21,6 +22,13 @@ const checks = [
   ["source numbering stays visible", renderer.includes("[{index + 1}]")],
   ["weather widget", renderer.includes('widget.type === "weather"')],
   ["table widget", renderer.includes('widget.type === "table"')],
+  ["research activity widget", widgetRenderer.includes('case "search_activity"') && widgetRenderer.includes("Recherche approfondie")],
+  ["research phases", ["Chercher", "Lire", "Recouper", "Vérifier"].every((label) => widgetRenderer.includes(label))],
+  ["research counters", ["Pages consultées", "Faits vérifiés", "Recherches +", "Contradictions"].every((label) => widgetRenderer.includes(label))],
+  ["research contradiction signal", widgetRenderer.includes("conflict_count") && widgetRenderer.includes("AlertTriangle")],
+  ["research evidence metrics", widgetRenderer.includes("citation_coverage") && widgetRenderer.includes("independent_domain_count")],
+  ["research abstention is explicit", widgetRenderer.includes("niveau de preuve requis") && widgetRenderer.includes("error_code")],
+  ["research UI does not expose chain of thought", !widgetRenderer.includes("chain_of_thought") && !widgetRenderer.includes("chain-of-thought")],
   ["SSE accepts blocks", stream.includes("blocks?: ResponseBlock[]")],
   ["multi-document stream", stream.includes("document_ids: params.documentIds")],
   ["composer max five", chat.includes("5 - attachedDocs.length")],
