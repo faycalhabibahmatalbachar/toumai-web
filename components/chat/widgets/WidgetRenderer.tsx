@@ -258,13 +258,110 @@ function MapWidget({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+function ResearchStage({
+  label,
+  state,
+}: {
+  label: string;
+  state: "done" | "active" | "pending";
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span
+        aria-hidden="true"
+        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+          state === "done"
+            ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            : state === "active"
+              ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--primary)]"
+              : "border-[var(--border)] bg-[var(--background)] text-[var(--text-tertiary)]"
+        }`}
+      >
+        {state === "done" ? <Check className="h-2.5 w-2.5" /> : state === "active" ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current motion-reduce:animate-none" /> : <span className="h-1 w-1 rounded-full bg-current opacity-40" />}
+      </span>
+      <span className={`truncate text-[10px] ${state === "active" ? "font-semibold text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"}`}>{label}</span>
+    </div>
+  );
+}
+
 function SearchActivityWidget({ data }: { data: Record<string, unknown> }) {
   const query = string(data.query);
-  const count = number(data.sources_count ?? data.count);
-  const status = string(data.status);
+  const status = string(data.status) || "running";
+  const phase = string(data.phase) || (status === "done" ? "complete" : "searching");
+  const summary = string(data.summary);
+  const resultCount = number(data.result_count ?? data.count);
+  const visitedCount = number(data.visited_count ?? data.sources_count);
+  const extraQueryCount = number(data.extra_query_count);
+  const conflictCount = number(data.conflict_count);
+  const groundedClaimCount = number(data.grounded_claim_count);
+  const citationCoverage = number(data.citation_coverage);
+  const independentDomains = number(data.independent_domain_count ?? data.cited_domain_count);
+  const evidenceBand = string(data.evidence_band);
+  const errorCode = string(data.error_code);
+  const publicationStatus = string(data.publication_status || data.outcome);
+  const done = status === "done" || phase === "complete";
+  const abstained = publicationStatus === "abstained" || Boolean(errorCode);
+
+  const stageRank = phase === "complete" ? 4 : phase === "cross_checking" ? 3 : phase === "reading" ? 2 : 1;
+  const stages = [
+    { label: "Chercher", rank: 1 },
+    { label: "Lire", rank: 2 },
+    { label: "Recouper", rank: 3 },
+    { label: "Vérifier", rank: 4 },
+  ];
+  const stageState = (rank: number): "done" | "active" | "pending" => {
+    if (done) return "done";
+    if (rank < stageRank) return "done";
+    if (rank === stageRank) return "active";
+    return "pending";
+  };
+
+  const fallbackSummary = done
+    ? `${visitedCount ?? 0} page${visitedCount === 1 ? "" : "s"} consultée${visitedCount === 1 ? "" : "s"} · ${groundedClaimCount ?? 0} fait${groundedClaimCount === 1 ? "" : "s"} vérifié${groundedClaimCount === 1 ? "" : "s"}`
+    : "Recherche, lecture et vérification croisée des sources en cours…";
+
   return (
-    <WidgetShell title={status === "done" ? "Recherche terminée" : "Recherche Web"} subtitle={query || undefined} icon={status === "done" ? <Check className="h-4.5 w-4.5" /> : <Search className="h-4.5 w-4.5" />}>
-      <div className="px-4 py-3"><p className="text-[12px] text-[var(--text-secondary)]">{count !== null ? `${count} source${count > 1 ? "s" : ""} consultée${count > 1 ? "s" : ""}` : "Consultation des sources…"}</p></div>
+    <WidgetShell
+      title={done ? (abstained ? "Recherche terminée avec limites" : "Recherche approfondie terminée") : "Recherche approfondie"}
+      subtitle={query || undefined}
+      icon={done ? (abstained ? <AlertTriangle className="h-4.5 w-4.5" /> : <ShieldCheck className="h-4.5 w-4.5" />) : <Search className="h-4.5 w-4.5" />}
+      label="Progression de la recherche approfondie"
+    >
+      <div className="px-4 py-3.5" aria-live="polite">
+        <div className="grid grid-cols-4 gap-2" aria-label="Étapes de recherche">
+          {stages.map((stage) => <ResearchStage key={stage.label} label={stage.label} state={stageState(stage.rank)} />)}
+        </div>
+
+        <p className="mt-3 text-[12px] leading-5 text-[var(--text-secondary)]">{summary || fallbackSummary}</p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Mesures de la recherche">
+          <Metric label="Résultats" value={resultCount !== null ? resultCount.toLocaleString("fr-FR") : "—"} />
+          <Metric label="Pages consultées" value={visitedCount !== null ? visitedCount.toLocaleString("fr-FR") : "—"} />
+          <Metric label="Faits vérifiés" value={groundedClaimCount !== null ? groundedClaimCount.toLocaleString("fr-FR") : "—"} />
+          <Metric label="Recherches +" value={extraQueryCount !== null ? extraQueryCount.toLocaleString("fr-FR") : "—"} />
+        </div>
+
+        {(conflictCount !== null || citationCoverage !== null || independentDomains !== null || evidenceBand) ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-[var(--background)]/45 px-3 py-2 text-[10.5px] text-[var(--text-tertiary)]">
+            {conflictCount !== null ? (
+              <span className={conflictCount > 0 ? "inline-flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400" : "inline-flex items-center gap-1"}>
+                {conflictCount > 0 ? <AlertTriangle className="h-3 w-3" aria-hidden="true" /> : <Check className="h-3 w-3" aria-hidden="true" />}
+                {conflictCount} contradiction{conflictCount === 1 ? "" : "s"}
+              </span>
+            ) : null}
+            {citationCoverage !== null ? <span>Citations {Math.round(citationCoverage * 100)} %</span> : null}
+            {independentDomains !== null ? <span>{independentDomains} domaine{independentDomains === 1 ? "" : "s"} indépendant{independentDomains === 1 ? "" : "s"}</span> : null}
+            {evidenceBand ? <span>Preuves · {evidenceBand}</span> : null}
+          </div>
+        ) : null}
+
+        {done && abstained ? (
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] leading-4 text-[var(--text-secondary)]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span>La recherche n’a pas atteint le niveau de preuve requis pour publier une conclusion certaine.</span>
+          </div>
+        ) : null}
+      </div>
     </WidgetShell>
   );
 }
