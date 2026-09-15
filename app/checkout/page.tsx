@@ -47,6 +47,10 @@ function CheckoutContent() {
   const [serverPrice, setServerPrice] = useState<number | null>(null);
   const [priceError, setPriceError] = useState(false);
   const [sandbox, setSandbox] = useState(false);
+  /* Ce que le serveur déclare RÉELLEMENT payable. L’activation du compte
+   * Moneroo n’y suffit pas : il faut une passerelle carte ou crypto branchée.
+   * Sans elle, afficher « Visa · Mastercard » serait une promesse creuse. */
+  const [moyens, setMoyens] = useState<{ carte: boolean; crypto: boolean }>({ carte: false, crypto: false });
   const [accountEmail] = useState(() => cacheSeed<UserProfile>("user:profile")?.email?.trim() ?? "");
   const checkoutLock = useRef(false);
 
@@ -88,8 +92,15 @@ function CheckoutContent() {
       .then((response) => response.json())
       .then((payload) => {
         if (!active) return;
-        setSandbox(payload?.data?.moneroo?.mode === "sandbox");
-        setPaymentState(payload?.data?.moneroo?.configure ? "ready" : "unavailable");
+        const moneroo = payload?.data?.moneroo;
+        const estSandbox = moneroo?.mode === "sandbox";
+        const declares = { carte: moneroo?.moyens?.carte === true, crypto: moneroo?.moyens?.crypto === true };
+        setSandbox(estSandbox);
+        setMoyens(declares);
+        // En live, le bouton n’apparaît que si au moins un moyen est branché :
+        // sinon la page Moneroo s’ouvrirait sans rien à payer.
+        const payable = estSandbox || declares.carte || declares.crypto;
+        setPaymentState(moneroo?.configure && payable ? "ready" : "unavailable");
       })
       .catch(() => {
         if (active) setPaymentState("unavailable");
@@ -203,12 +214,23 @@ function CheckoutContent() {
 
             <section className={styles.formSection}>
               <h2>Paiement</h2>
-              <p className={styles.fieldLabel}>{sandbox ? "Moyens prévus après activation" : "Choix du moyen de paiement chez Moneroo"}</p>
-              <div className={styles.paymentOptions}>
-                <div className={styles.paymentOption}><CreditCard size={22} /><strong>Carte bancaire</strong><span>Visa · Mastercard</span></div>
-                <div className={styles.paymentOption}><Coins size={22} /><strong>Cryptomonnaie</strong><span>Crypto XAF</span></div>
-              </div>
-              <p className={styles.activationNote}>{sandbox ? "Simulation Moneroo uniquement · carte et crypto non activées" : "Ces encarts ne sélectionnent pas une méthode. Les moyens activés sont proposés sur la page Moneroo."}</p>
+              {sandbox ? (
+                <>
+                  <p className={styles.fieldLabel}>Environnement de test</p>
+                  <p className={styles.activationNote}>Simulation Moneroo uniquement. Aucun paiement réel, carte et crypto non branchées.</p>
+                </>
+              ) : moyens.carte || moyens.crypto ? (
+                <>
+                  <p className={styles.fieldLabel}>Moyens acceptés</p>
+                  <div className={styles.paymentOptions}>
+                    {moyens.carte ? <div className={styles.paymentOption}><CreditCard size={22} /><strong>Carte bancaire</strong><span>Visa · Mastercard</span></div> : null}
+                    {moyens.crypto ? <div className={styles.paymentOption}><Coins size={22} /><strong>Cryptomonnaie</strong><span>Réglée en XAF</span></div> : null}
+                  </div>
+                  <p className={styles.activationNote}>Vous choisirez le moyen sur la page sécurisée Moneroo.</p>
+                </>
+              ) : (
+                <p className={styles.activationNote}>Les moyens de paiement en ligne sont en cours de branchement.</p>
+              )}
             </section>
 
             <p className={styles.legalCopy}>
