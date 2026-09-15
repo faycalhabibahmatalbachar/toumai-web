@@ -21,6 +21,7 @@ import {
   Wind,
   Zap,
 } from "lucide-react";
+import { automationStatus, contentLabel, formatWhen, scheduleLabel, type Automation, type AutomationTrigger } from "@/lib/automations-api";
 import type { ResponseWidget } from "@/lib/chat-response";
 
 function record(value: unknown): Record<string, unknown> {
@@ -307,14 +308,22 @@ function CalendarWidget({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-function AutomationWidget({ data }: { data: Record<string, unknown> }) {
-  const name = string(data.name || data.title) || "Automatisation";
-  const status = string(data.status || data.state);
-  const schedule = string(data.schedule || data.when || data.next_run);
-  const enabled = typeof data.enabled === "boolean" ? data.enabled : null;
+function AutomationWidget({ data, title }: { data: Record<string, unknown>; title?: string }) {
+  // Projeté par le serveur après automation_schedule_whatsapp / automation_manage.
+  // Mêmes libellés que la page Automatisations et l’application mobile.
+  const trigger = (data.trigger && typeof data.trigger === "object" ? data.trigger : {}) as AutomationTrigger;
+  const next = string(data.next_run_at || data.schedule || data.when);
+  const summary = { trigger, next_run_at: next || null };
+  const status = automationStatus({ status: (string(data.status) || "active") as Automation["status"], next_run_at: next || null, trigger } as Automation);
+  const recipient = string(data.recipient);
+  const id = string(data.id);
+  const schedule = trigger.kind ? scheduleLabel(summary) : next ? formatWhen(next) : "";
   return (
-    <WidgetShell title={name} subtitle={schedule || undefined} icon={<Zap className="h-4.5 w-4.5" />}>
-      <div className="flex items-center justify-between gap-3 px-4 py-3"><p className="text-[12px] text-[var(--text-secondary)]">{status || (enabled === false ? "Désactivée" : "Active")}</p>{enabled !== null ? <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-[var(--background)] text-[var(--text-tertiary)]"}`}>{enabled ? "Active" : "Inactive"}</span> : null}</div>
+    <WidgetShell title={string(title) || (data.action ? "Automatisation mise à jour" : "Automatisation programmée")} subtitle={[recipient, schedule].filter(Boolean).join(" · ") || undefined} icon={<Zap className="h-4.5 w-4.5" />}>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <span className="text-[12px] text-[var(--text-secondary)]">{contentLabel(string(data.media_type), string(data.source_kind))} · {status.label}</span>
+        {id ? <a href="/automations" className="rounded-lg px-2 py-1 text-[12px] font-semibold text-[var(--primary)] hover:underline">Voir</a> : null}
+      </div>
     </WidgetShell>
   );
 }
@@ -475,7 +484,7 @@ export function WidgetRenderer({ widget }: { widget: ResponseWidget }) {
     case "calendar":
     case "events": return <CalendarWidget data={data} />;
     case "automation":
-    case "scheduled_task": return <AutomationWidget data={data} />;
+    case "scheduled_task": return <AutomationWidget data={data} title={widget.title} />;
     case "auth_required":
     case "connector_auth": return <AuthRequiredWidget data={data} />;
     case "quota":

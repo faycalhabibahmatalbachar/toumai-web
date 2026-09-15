@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
+  Archive,
   CalendarClock,
-  CheckCircle2,
   ChevronRight,
   CircleAlert,
-  ExternalLink,
+  Copy,
   History,
-  ShieldCheck,
-  WifiOff,
-  FileText,
   LoaderCircle,
   MessageCircle,
   MoreHorizontal,
@@ -20,77 +17,88 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  WifiOff,
   X,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
+import { HttpError } from "@/lib/errors";
 import {
-  cancelWhatsAppAutomation,
-  getWhatsAppAutomationHistory,
-  getWhatsAppAutomations,
-  pauseWhatsAppAutomation,
-  resumeWhatsAppAutomation,
-  updateWhatsAppAutomation,
-  type WhatsAppAutomation,
-  type WhatsAppAutomationHistoryEntry,
-  type WhatsAppAutomationStatus,
-} from "@/lib/connectors-api";
+  activateAutomation,
+  archiveAutomation,
+  automationStatus,
+  cancelAutomation,
+  contentLabel,
+  contentPreview,
+  decideApproval,
+  duplicateAutomation,
+  errorMessage,
+  formatWhen,
+  getAutomation,
+  inFilter,
+  listApprovals,
+  listAutomations,
+  newRequestId,
+  pauseAutomation,
+  runAutomationNow,
+  runStatus,
+  scheduleLabel,
+  updateAutomationTrigger,
+  viaWhatsApp,
+  type Automation,
+  type AutomationApproval,
+  type Filter,
+  type Tone,
+} from "@/lib/automations-api";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { cxDisplayStyle, cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
 
-const FILTERS: { value: "" | WhatsAppAutomationStatus; label: string }[] = [
-  { value: "", label: "Toutes" },
-  { value: "pending", label: "À venir" },
-  { value: "processing", label: "En cours" },
-  { value: "paused", label: "Suspendues" },
-  { value: "sent", label: "Terminées" },
+/*
+ * Toumaï Automations : client Web d'Automation OS.
+ *
+ * Même source (`/automations/v2`), mêmes filtres, mêmes libellés et mêmes
+ * actions que l'application mobile : ce qui est créé, suspendu ou annulé d'un
+ * côté apparaît de l'autre au prochain rafraîchissement (30 s ici).
+ */
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "upcoming", label: "À venir" },
+  { value: "attention", label: "Action requise" },
+  { value: "paused", label: "En pause" },
+  { value: "done", label: "Terminées" },
   { value: "failed", label: "Échecs" },
+  { value: "all", label: "Toutes" },
 ];
 
-const STATUS: Record<WhatsAppAutomationStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: "Planifiée", color: "#b45309", bg: "rgba(245,158,11,.12)" },
-  processing: { label: "En cours", color: "#2563eb", bg: "rgba(59,130,246,.12)" },
-  paused: { label: "Suspendue", color: "#6b7280", bg: "rgba(107,114,128,.12)" },
-  sent: { label: "Envoyée", color: "#15803d", bg: "rgba(34,197,94,.12)" },
-  failed: { label: "Échec", color: "#b91c1c", bg: "rgba(239,68,68,.12)" },
-  cancelled: { label: "Annulée", color: "#6b7280", bg: "rgba(107,114,128,.10)" },
+const TONES: Record<Tone, { color: string; bg: string }> = {
+  neutral: { color: "#6b7280", bg: "rgba(107,114,128,.12)" },
+  active: { color: "#2563eb", bg: "rgba(59,130,246,.12)" },
+  attention: { color: "#b45309", bg: "rgba(245,158,11,.14)" },
+  success: { color: "#15803d", bg: "rgba(34,197,94,.12)" },
+  error: { color: "#b91c1c", bg: "rgba(239,68,68,.12)" },
 };
 
-function formatDate(value?: string | null) {
-  if (!value) return "Date inconnue";
-  return new Intl.DateTimeFormat("fr-FR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Africa/Ndjamena",
-  }).format(new Date(value));
+function serverMessage(error: unknown, fallback: string) {
+  return error instanceof HttpError && error.message ? error.message : fallback;
 }
 
-function recurrenceLabel(task: WhatsAppAutomation) {
-  const labels = {
-    none: "Une seule fois",
-    daily: "Tous les jours",
-    weekly: "Chaque semaine",
-    monthly: "Chaque mois",
-    cron: "Récurrence personnalisée",
-  };
-  return labels[task.recurrence];
+function Pill({ label, tone }: { label: string; tone: Tone }) {
+  const t = TONES[tone];
+  return <span className="whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold" style={{ color: t.color, background: t.bg }}>{label}</span>;
 }
 
 export default function AutomationsPage() {
   const { session, loading } = useAuth();
   useExigerCompte();
-  const [tasks, setTasks] = useState<WhatsAppAutomation[]>([]);
-  const [filter, setFilter] = useState<"" | WhatsAppAutomationStatus>("");
+  const [items, setItems] = useState<Automation[]>([]);
+  const [approvals, setApprovals] = useState<AutomationApproval[]>([]);
+  const [filter, setFilter] = useState<Filter | null>(null);
   const [query, setQuery] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState("");
-  const [editing, setEditing] = useState<WhatsAppAutomation | null>(null);
-  const [cancelling, setCancelling] = useState<WhatsAppAutomation | null>(null);
-  const [menuId, setMenuId] = useState("");
-  const [selected, setSelected] = useState<WhatsAppAutomation | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [selectedId, setSelectedId] = useState("");
   const [isOnline, setIsOnline] = useState(true);
 
   const load = useCallback(async (quiet = false) => {
@@ -98,249 +106,282 @@ export default function AutomationsPage() {
     if (!quiet) setFetching(true);
     setError("");
     try {
-      const result = await getWhatsAppAutomations({
-        status: filter || undefined,
-        limit: 100,
-      });
-      setTasks(result.tasks);
-      setLastSyncedAt(new Date());
+      const [list, pending] = await Promise.all([listAutomations(), listApprovals().catch(() => [])]);
+      setItems(list);
+      setApprovals(pending);
     } catch {
       setError("Impossible de charger les automatisations pour le moment.");
     } finally {
       if (!quiet) setFetching(false);
     }
-  }, [filter, session]);
+  }, [session]);
+
+  // Hors du rendu de l'effet : le chargement met à jour l'état.
+  useEffect(() => { if (!loading && session) void Promise.resolve().then(() => load()); }, [load, loading, session]);
 
   useEffect(() => {
-    if (!loading && session) void load();
-  }, [load, loading, session]);
-
-  useEffect(() => {
-    const syncNetwork = () => setIsOnline(window.navigator.onLine);
-    syncNetwork();
-    window.addEventListener("online", syncNetwork);
-    window.addEventListener("offline", syncNetwork);
-    return () => { window.removeEventListener("online", syncNetwork); window.removeEventListener("offline", syncNetwork); };
+    const sync = () => setIsOnline(window.navigator.onLine);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => { window.removeEventListener("online", sync); window.removeEventListener("offline", sync); };
   }, []);
 
+  // Synchronisation avec le mobile et l'exécuteur : relecture régulière tant
+  // que la page est visible.
   useEffect(() => {
-    if (!session || !tasks.some((task) => ["pending", "processing"].includes(task.status))) return;
-    const timer = window.setInterval(() => void load(true), 30_000);
+    if (!session) return;
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void load(true); }, 30_000);
     return () => window.clearInterval(timer);
-  }, [load, session, tasks]);
+  }, [load, session]);
+
+  const pending = useMemo(() => new Set(approvals.map((a) => a.automation_id).filter(Boolean) as string[]), [approvals]);
+  const activeFilter: Filter = filter ?? (["attention", "upcoming", "failed"] as Filter[]).find((f) => items.some((a) => inFilter(a, f, pending))) ?? "all";
+  const count = (f: Filter) => items.filter((a) => inFilter(a, f, pending)).length;
 
   const visible = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase("fr");
-    if (!normalized) return tasks;
-    return tasks.filter((task) =>
-      [task.title, task.recipient, task.message_preview, task.filename]
-        .filter(Boolean)
-        .some((value) => String(value).toLocaleLowerCase("fr").includes(normalized)),
-    );
-  }, [query, tasks]);
-
-  const mutate = async (
-    task: WhatsAppAutomation,
-    action: () => Promise<WhatsAppAutomation>,
-  ) => {
-    setBusyId(task.id);
-    setMenuId("");
-    setError("");
-    try {
-      const updated = await action();
-      setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-    } catch {
-      setError("L'action n'a pas été appliquée. Actualisez puis réessayez.");
-    } finally {
-      setBusyId("");
-    }
-  };
+    const q = query.trim().toLocaleLowerCase("fr");
+    return items
+      .filter((a) => inFilter(a, activeFilter, pending))
+      .filter((a) => !q || [a.name, a.recipient, a.original_request].filter(Boolean).some((v) => String(v).toLocaleLowerCase("fr").includes(q)))
+      .sort((a, b) => {
+        if (a.next_run_at && b.next_run_at) return a.next_run_at.localeCompare(b.next_run_at);
+        if (a.next_run_at) return -1;
+        if (b.next_run_at) return 1;
+        return String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? ""));
+      });
+  }, [items, activeFilter, pending, query]);
 
   if (loading || (!session && fetching)) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <LoaderCircle className="h-6 w-6 animate-spin text-neutral-500" aria-label="Chargement" />
-      </div>
-    );
+    return <div className="flex min-h-dvh items-center justify-center"><LoaderCircle className="h-6 w-6 animate-spin text-neutral-500" aria-label="Chargement" /></div>;
   }
 
   return (
     <div className={`${cxScopeClass} min-h-dvh`} style={cxScopeStyle}>
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--cx-border-subtle)] bg-[var(--background)]/92 px-4 py-3 backdrop-blur md:px-8">
         <div className="flex items-center gap-2 text-sm text-[var(--cx-text-faint)]">
-          <Link href="/chat" className="rounded-full p-2 transition hover:bg-[var(--cx-hover)]" aria-label="Retour au chat">
-            <ChevronRight className="h-4 w-4 rotate-180" />
-          </Link>
-          <span>Toumaï AI</span><span>/</span>
-          <span className="text-[var(--cx-text-secondary)]">Automatisations</span>
+          <Link href="/chat" className="rounded-full p-2 transition hover:bg-[var(--cx-hover)]" aria-label="Retour au chat"><ChevronRight className="h-4 w-4 rotate-180" /></Link>
+          <span>Toumaï AI</span><span>/</span><span className="text-[var(--cx-text-secondary)]">Automatisations</span>
         </div>
         <ThemeToggle />
       </header>
 
-      <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-8 md:px-8">
-        {!isOnline && <div role="status" className="mb-5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><WifiOff className="h-4 w-4" />Mode hors connexion — les dernières données synchronisées restent visibles, mais les actions sont désactivées.</div>}
+      <main className="mx-auto w-full max-w-[1080px] px-4 pb-20 pt-8 md:px-8">
+        {!isOnline && <div role="status" className="mb-5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><WifiOff className="h-4 w-4" />Hors connexion : les actions sont désactivées.</div>}
         <section className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--cx-border-default)] bg-white shadow-sm">
-              <WhatsAppIcon size={25} />
-            </div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-[var(--cx-accent-text)]">
-              Toumaï Automations
-            </p>
-            <h1 className="max-w-2xl text-3xl font-medium tracking-[-.025em] text-[var(--cx-text-primary)] sm:text-4xl" style={cxDisplayStyle}>
-              Vos tâches WhatsApp, maîtrisées de bout en bout.
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cx-text-muted)]">
-              Consultez ce qui doit partir, suspendez une tâche ou corrigez son heure. Toumaï ne présente jamais une programmation comme un envoi réussi.
-            </p>
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--cx-border-default)] bg-white shadow-sm"><WhatsAppIcon size={25} /></div>
+            <h1 className="max-w-2xl text-3xl font-medium tracking-[-.025em] text-[var(--cx-text-primary)] sm:text-4xl" style={cxDisplayStyle}>Automatisations</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cx-text-muted)]">Ce qui partira, vers qui et quand, puis ce qui s’est réellement passé. Les mêmes tâches que dans l’application mobile.</p>
           </div>
-          <Link href="/chat?automation=whatsapp" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--cx-accent)] px-5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(232,104,58,.22)] transition hover:brightness-105">
-            <CalendarClock className="h-4 w-4" />
-            Créer dans le chat
-          </Link>
+          <Link href="/chat?automation=whatsapp" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--cx-accent)] px-5 text-sm font-semibold text-white transition hover:brightness-105"><CalendarClock className="h-4 w-4" />Programmer dans le chat</Link>
         </section>
 
-        <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="À venir" value={tasks.filter((t) => t.status === "pending").length} icon={<CalendarClock />} />
-          <Metric label="En cours" value={tasks.filter((t) => t.status === "processing").length} icon={<RefreshCw />} />
-          <Metric label="Envoyées" value={tasks.filter((t) => t.status === "sent").length} icon={<CheckCircle2 />} />
-          <Metric label="À vérifier" value={tasks.filter((t) => t.status === "failed").length} icon={<CircleAlert />} />
-        </section>
-
-        <section className="mt-6 overflow-visible rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+        <section className="mt-8 overflow-visible rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
           <div className="flex flex-col gap-3 border-b border-[var(--cx-border-subtle)] p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0">
-              {FILTERS.map((item) => (
-                <button key={item.value || "all"} onClick={() => setFilter(item.value)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${filter === item.value ? "bg-[var(--cx-accent-bg)] text-[var(--cx-accent-text)]" : "text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]"}`}>
-                  {item.label}
-                </button>
-              ))}
+            <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0" role="tablist">
+              {FILTERS.map((f) => {
+                const n = count(f.value);
+                return <button key={f.value} role="tab" aria-selected={activeFilter === f.value} onClick={() => setFilter(f.value)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${activeFilter === f.value ? "bg-[var(--cx-accent-bg)] text-[var(--cx-accent-text)]" : "text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]"}`}>{f.label}{n > 0 && f.value !== "all" ? ` · ${n}` : ""}</button>;
+              })}
             </div>
             <div className="flex items-center gap-2">
               <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 lg:w-64">
                 <Search className="h-4 w-4 shrink-0 text-[var(--cx-text-faint)]" />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher…" className="min-w-0 flex-1 bg-transparent text-sm text-[var(--cx-text-primary)] outline-none placeholder:text-[var(--cx-text-faint)]" />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher…" className="min-w-0 flex-1 bg-transparent text-sm text-[var(--cx-text-primary)] outline-none placeholder:text-[var(--cx-text-faint)]" />
               </label>
-              <button onClick={() => void load()} className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--cx-border-default)] text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label="Actualiser">
-                <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
-              </button>
+              <button onClick={() => void load()} className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--cx-border-default)] text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label="Actualiser"><RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} /></button>
             </div>
           </div>
 
           {error && <div role="alert" className="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span>{error}</span><button onClick={() => void load()} className="shrink-0 rounded-lg px-3 py-1.5 font-semibold hover:bg-red-100">Réessayer</button></div>}
 
-          {fetching && !tasks.length ? (
+          {fetching && !items.length ? (
             <div className="flex min-h-56 items-center justify-center"><LoaderCircle className="h-6 w-6 animate-spin text-[var(--cx-text-faint)]" /></div>
           ) : !visible.length ? (
             <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
               <CalendarClock className="h-8 w-8 text-[var(--cx-text-faint)]" />
-              <h2 className="mt-4 text-base font-semibold text-[var(--cx-text-primary)]">Aucune automatisation ici</h2>
-              <p className="mt-1 max-w-md text-sm text-[var(--cx-text-muted)]">Demandez à Toumaï de programmer un message ou un fichier WhatsApp. La tâche apparaîtra ici après confirmation.</p>
+              <h2 className="mt-4 text-base font-semibold text-[var(--cx-text-primary)]">Rien ici pour le moment.</h2>
+              <p className="mt-1 max-w-md text-sm text-[var(--cx-text-muted)]">Écrivez dans le chat « Envoie bonjour à Ali demain à 8h ».</p>
             </div>
           ) : (
             <div className="divide-y divide-[var(--cx-border-subtle)]">
-              {visible.map((task) => (
-                <TaskRow key={task.id} task={task} online={isOnline} onInspect={() => setSelected(task)} busy={busyId === task.id} menuOpen={menuId === task.id} onMenu={() => setMenuId((id) => id === task.id ? "" : task.id)} onPause={() => void mutate(task, () => pauseWhatsAppAutomation(task.id))} onResume={() => void mutate(task, () => resumeWhatsAppAutomation(task.id))} onEdit={() => { setMenuId(""); setEditing(task); }} onCancel={() => { setMenuId(""); setCancelling(task); }} />
-              ))}
+              {visible.map((a) => {
+                const st = pending.has(a.id) ? { label: "Validation requise", tone: "attention" as Tone } : automationStatus(a);
+                return (
+                  <button key={a.id} onClick={() => setSelectedId(a.id)} className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 p-4 text-left transition hover:bg-[var(--cx-hover-row)] md:p-5">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--cx-accent-bg)] text-[var(--cx-accent-text)]"><MessageCircle className="h-5 w-5" /></span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-[var(--cx-text-primary)]">{a.name}</span>
+                      <span className="mt-1 block truncate text-sm text-[var(--cx-text-muted)]">{[a.recipient, scheduleLabel(a)].filter(Boolean).join(" · ")}</span>
+                      {a.last_run && ["failed", "timed_out", "ambiguous"].includes(a.last_run.status) && <span className="mt-1.5 line-clamp-1 block text-xs text-red-600">{errorMessage(a.last_run.error, a.last_run.error_category, a.last_run.status)}</span>}
+                    </span>
+                    <Pill {...st} />
+                  </button>
+                );
+              })}
             </div>
           )}
         </section>
       </main>
 
-      {selected && <DetailPanel task={tasks.find((item) => item.id === selected.id) ?? selected} lastSyncedAt={lastSyncedAt} onClose={() => setSelected(null)} />}
-      {editing && <EditDialog task={editing} onClose={() => setEditing(null)} onSaved={(updated) => { setTasks((items) => items.map((item) => item.id === updated.id ? updated : item)); setEditing(null); }} />}
-      {cancelling && <ConfirmDialog task={cancelling} busy={busyId === cancelling.id} onClose={() => setCancelling(null)} onConfirm={() => void mutate(cancelling, () => cancelWhatsAppAutomation(cancelling.id)).then(() => setCancelling(null))} />}
+      {selectedId && <DetailPanel id={selectedId} online={isOnline} approvals={approvals.filter((v) => v.automation_id === selectedId)} onClose={() => setSelectedId("")} onChanged={() => void load(true)} />}
     </div>
   );
 }
 
-function Metric({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
-  return <div className="rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-4"><span className="text-[var(--cx-accent-text)] [&>svg]:h-4 [&>svg]:w-4">{icon}</span><p className="mt-4 text-2xl font-semibold tabular-nums text-[var(--cx-text-primary)]">{value}</p><p className="mt-1 text-xs text-[var(--cx-text-muted)]">{label}</p></div>;
+type Action = "pause" | "resume" | "activate" | "run" | "reschedule" | "duplicate" | "archive" | "cancel";
+
+const ACTION_LABELS: Record<Action, { label: string; icon: ReactNode; danger?: boolean }> = {
+  pause: { label: "Mettre en pause", icon: <Pause className="h-4 w-4" /> },
+  resume: { label: "Reprendre", icon: <Play className="h-4 w-4" /> },
+  activate: { label: "Activer", icon: <Play className="h-4 w-4" /> },
+  run: { label: "Exécuter maintenant", icon: <Zap className="h-4 w-4" /> },
+  reschedule: { label: "Changer l’horaire", icon: <CalendarClock className="h-4 w-4" /> },
+  duplicate: { label: "Dupliquer", icon: <Copy className="h-4 w-4" /> },
+  archive: { label: "Archiver", icon: <Archive className="h-4 w-4" /> },
+  cancel: { label: "Annuler l’automatisation", icon: <Trash2 className="h-4 w-4" />, danger: true },
+};
+
+function actionsFor(a: Automation): Action[] {
+  const timed = ["exact_time", "flexible_time", "recurrence"].includes(String(a.trigger?.kind));
+  switch (a.status) {
+    case "active": return ["pause", "run", ...(timed ? ["reschedule" as Action] : []), "duplicate", "archive", "cancel"];
+    case "paused": return ["resume", ...(timed ? ["reschedule" as Action] : []), "duplicate", "archive", "cancel"];
+    case "draft":
+    case "awaiting_confirmation": return ["activate", ...(timed ? ["reschedule" as Action] : []), "cancel"];
+    default: return ["duplicate"];
+  }
 }
 
-function TaskRow({ task, online, onInspect, busy, menuOpen, onMenu, onPause, onResume, onEdit, onCancel }: { task: WhatsAppAutomation; online: boolean; onInspect: () => void; busy: boolean; menuOpen: boolean; onMenu: () => void; onPause: () => void; onResume: () => void; onEdit: () => void; onCancel: () => void }) {
-  const state = STATUS[task.status];
-  const mutable = task.status === "pending" || task.status === "paused";
-  return (
-    <article className="relative grid gap-4 p-4 transition hover:bg-[var(--cx-hover-row)] sm:grid-cols-[auto_1fr_auto] sm:items-center md:p-5">
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--cx-accent-bg)] text-[var(--cx-accent-text)]">{task.action_type === "send_media" ? <FileText className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}</span>
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-semibold text-[var(--cx-text-primary)]">{task.title}</h2><span className="rounded-full px-2 py-1 text-[10px] font-bold" style={{ color: state.color, background: state.bg }}>{busy ? "Mise à jour…" : state.label}</span></div>
-        <p className="mt-1 truncate text-sm text-[var(--cx-text-muted)]">{task.recipient}{task.message_preview ? ` — ${task.message_preview}` : ""}</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--cx-text-faint)]"><span>{formatDate(task.send_at)}</span><span>{recurrenceLabel(task)}</span>{task.attempts > 0 && <span>{task.attempts} tentative{task.attempts > 1 ? "s" : ""}</span>}</div>
-        {task.last_error && <p className="mt-2 line-clamp-2 text-xs text-red-600">{task.last_error}</p>}
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <button onClick={onInspect} className="rounded-lg px-2.5 py-2 text-xs font-semibold text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label={"Consulter " + task.title}>Détails</button>
-        {task.status === "pending" && <button disabled={busy || !online} onClick={onPause} className="rounded-lg border border-[var(--cx-border-default)] p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Suspendre"><Pause className="h-4 w-4" /></button>}
-        {task.status === "paused" && <button disabled={busy || !online} onClick={onResume} className="rounded-lg border border-[var(--cx-border-default)] p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Reprendre"><Play className="h-4 w-4" /></button>}
-        {mutable && <button disabled={busy || !online} onClick={onMenu} className="rounded-lg p-2 text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]" aria-label="Plus d'actions"><MoreHorizontal className="h-5 w-5" /></button>}
-      </div>
-      {menuOpen && <div className="absolute right-4 top-14 z-20 w-48 rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] p-1.5 shadow-xl"><button onClick={onEdit} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--cx-text-secondary)] hover:bg-[var(--cx-hover)]"><CalendarClock className="h-4 w-4" />Modifier</button><button onClick={onCancel} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" />Annuler la tâche</button></div>}
-    </article>
-  );
+function toLocalInput(value?: string | null) {
+  const d = value ? new Date(value) : new Date(Date.now() + 3_600_000);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
 }
 
+/** Date locale saisie → ISO avec décalage explicite (jamais une heure nue). */
+function withOffset(local: string) {
+  const d = new Date(local);
+  const off = -d.getTimezoneOffset();
+  const sign = off >= 0 ? "+" : "-";
+  const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0");
+  const mm = String(Math.abs(off) % 60).padStart(2, "0");
+  return `${local}:00${sign}${hh}:${mm}`;
+}
 
-function DetailPanel({ task, lastSyncedAt, onClose }: { task: WhatsAppAutomation; lastSyncedAt: Date | null; onClose: () => void }) {
-  const [history, setHistory] = useState<WhatsAppAutomationHistoryEntry[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
-  const [historyError, setHistoryError] = useState("");
-  useEffect(() => {
-    let active = true;
-    getWhatsAppAutomationHistory(task.id)
-      .then((result) => { if (active) setHistory(result.entries); })
-      .catch(() => { if (active) setHistoryError("Historique momentanément indisponible."); })
-      .finally(() => { if (active) setLoadingHistory(false); });
-    return () => { active = false; };
-  }, [task.id]);
-  const state = STATUS[task.status];
-  const events: WhatsAppAutomationHistoryEntry[] = history.length ? history : [{ action: "scheduled", success: true, error: "", source: "Toumaï AI", result: {}, created_at: task.created_at || task.send_at }];
-  return <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-labelledby="detail-title" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+function DetailPanel({ id, online, approvals, onClose, onChanged }: { id: string; online: boolean; approvals: AutomationApproval[]; onClose: () => void; onChanged: () => void }) {
+  const [a, setA] = useState<Automation | null>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState<Action | "">("");
+  const [menu, setMenu] = useState(false);
+  const [confirm, setConfirm] = useState<"cancel" | "run" | "">("");
+  const [editing, setEditing] = useState(false);
+  const [when, setWhen] = useState("");
+  const [runKey, setRunKey] = useState("");
+
+  const reload = useCallback(async () => {
+    try { setA(await getAutomation(id)); setErr(""); } catch (e) { setErr(serverMessage(e, "Automatisation indisponible.")); }
+  }, [id]);
+  useEffect(() => { void Promise.resolve().then(reload); }, [reload]);
+
+  const act = async (action: Action) => {
+    if (!a || busy) return;
+    setMenu(false);
+    if ((action === "cancel" || action === "run") && confirm !== action) { setConfirm(action); return; }
+    if (action === "reschedule" && !editing) {
+      setWhen(toLocalInput(String(a.trigger?.at ?? a.next_run_at ?? "")));
+      setEditing(true);
+      return;
+    }
+    setConfirm("");
+    setBusy(action);
+    setErr("");
+    try {
+      if (action === "pause") await pauseAutomation(a.id);
+      if (action === "resume" || action === "activate") await activateAutomation(a.id);
+      if (action === "archive") await archiveAutomation(a.id);
+      if (action === "cancel") await cancelAutomation(a.id);
+      if (action === "duplicate") await duplicateAutomation(a.id);
+      if (action === "run") {
+        const key = runKey || newRequestId("web-run");
+        setRunKey(key);
+        await runAutomationNow(a.id, key);
+        setRunKey("");
+      }
+      if (action === "reschedule") {
+        const t = { ...a.trigger };
+        if (t.kind === "recurrence") {
+          const parts = String(t.cron ?? "").split(/\s+/);
+          const [hh, mm] = when.slice(11, 16).split(":");
+          if (parts.length === 5) { parts[0] = String(Number(mm)); parts[1] = String(Number(hh)); t.cron = parts.join(" "); }
+        } else {
+          if (new Date(when) <= new Date()) throw new Error("past");
+          t.kind = t.kind === "flexible_time" ? "flexible_time" : "exact_time";
+          t.at = withOffset(when);
+        }
+        await updateAutomationTrigger(a.id, t);
+        setEditing(false);
+      }
+      await reload();
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error && e.message === "past" ? "Cette heure est déjà passée." : serverMessage(e, "L’action n’a pas été appliquée."));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const actions = a ? actionsFor(a) : [];
+  const primary = actions[0];
+  const wa = a ? viaWhatsApp(a) : false;
+  const lastBad = a?.runs?.[0] && ["failed", "timed_out", "ambiguous"].includes(a.runs[0].status) ? a.runs[0] : null;
+
+  return <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]" role="dialog" aria-modal="true" aria-labelledby="detail-title" onMouseDown={(e) => { if (e.currentTarget === e.target) onClose(); }}>
     <aside className="ml-auto flex h-full w-full max-w-xl flex-col border-l border-[var(--cx-border-default)] bg-[var(--cx-surface)] shadow-2xl">
-      <header className="flex items-start justify-between border-b border-[var(--cx-border-subtle)] p-5">
-        <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[.12em] text-[var(--cx-text-faint)]">Détail de la tâche</p><h2 id="detail-title" className="mt-2 truncate text-xl font-semibold text-[var(--cx-text-primary)]">{task.title}</h2></div>
-        <button onClick={onClose} className="rounded-lg p-2 hover:bg-[var(--cx-hover)]" aria-label="Fermer le détail"><X className="h-5 w-5" /></button>
+      <header className="flex items-start justify-between gap-3 border-b border-[var(--cx-border-subtle)] p-5">
+        <div className="min-w-0">
+          <h2 id="detail-title" className="truncate text-xl font-semibold text-[var(--cx-text-primary)]">{a?.name ?? "Automatisation"}</h2>
+          {a && <div className="mt-2 flex flex-wrap items-center gap-2"><Pill {...automationStatus(a)} /><span className="text-sm text-[var(--cx-text-muted)]">{scheduleLabel(a)}</span></div>}
+        </div>
+        <div className="relative flex items-center gap-1">
+          {actions.length > 1 && <button disabled={!online || !!busy} onClick={() => setMenu((m) => !m)} className="rounded-lg p-2 hover:bg-[var(--cx-hover)] disabled:opacity-50" aria-label="Plus d'actions"><MoreHorizontal className="h-5 w-5" /></button>}
+          <button onClick={onClose} className="rounded-lg p-2 hover:bg-[var(--cx-hover)]" aria-label="Fermer"><X className="h-5 w-5" /></button>
+          {menu && <div className="absolute right-0 top-11 z-20 w-56 rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] p-1.5 shadow-xl">{actions.slice(1).map((item) => <button key={item} onClick={() => void act(item)} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-[var(--cx-hover)] ${ACTION_LABELS[item].danger ? "text-red-600" : "text-[var(--cx-text-secondary)]"}`}>{ACTION_LABELS[item].icon}{ACTION_LABELS[item].label}</button>)}</div>}
+        </div>
       </header>
       <div className="flex-1 overflow-y-auto p-5">
-        <div className="flex items-center justify-between rounded-2xl border border-[var(--cx-border-subtle)] p-4"><div><p className="text-xs text-[var(--cx-text-faint)]">État réel</p><p className="mt-1 text-sm font-semibold" style={{ color: state.color }}>{state.label}</p></div><ShieldCheck className="h-6 w-6 text-[var(--cx-accent-text)]" /></div>
-        <dl className="mt-5 grid gap-4 rounded-2xl bg-[var(--cx-hover-row)] p-4 text-sm">
-          <Detail label="Destinataire" value={task.recipient} /><Detail label="Prochaine exécution" value={formatDate(task.send_at)} /><Detail label="Récurrence" value={recurrenceLabel(task)} /><Detail label="Fuseau de référence" value={task.timezone || "Africa/Ndjamena"} /><Detail label={task.action_type === "send_media" ? "Fichier" : "Message"} value={task.filename || task.message_preview || "Aucun aperçu"} />{task.attempts > 0 && <Detail label="Tentatives" value={String(task.attempts)} />}
-        </dl>
-        {task.last_error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"><p className="text-xs font-semibold text-red-800">Dernière erreur</p><p className="mt-1 break-words text-sm text-red-700">{task.last_error}</p></div>}
-        <section className="mt-7" aria-labelledby="history-title">
-          <div className="flex items-center justify-between"><h3 id="history-title" className="flex items-center gap-2 text-sm font-semibold text-[var(--cx-text-primary)]"><History className="h-4 w-4" />Historique d’exécution</h3>{lastSyncedAt && <span className="text-[11px] text-[var(--cx-text-faint)]">Synchronisé à {lastSyncedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}</div>
-          {loadingHistory ? <div className="mt-4 space-y-3" aria-label="Chargement de l’historique">{[1,2,3].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-[var(--cx-hover)]" />)}</div> : historyError ? <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{historyError}</p> : <ol className="mt-4 space-y-3">{events.map((event, index) => <li key={event.created_at + index} className="flex gap-3"><span className={"mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full " + (event.success ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>{event.success ? <CheckCircle2 className="h-4 w-4" /> : <CircleAlert className="h-4 w-4" />}</span><div className="min-w-0"><p className="text-sm font-medium text-[var(--cx-text-secondary)]">{historyActionLabel(event.action)}</p><p className="mt-0.5 text-xs text-[var(--cx-text-faint)]">{formatDate(event.created_at)} · {event.source || "Toumaï AI"}</p>{event.error && <p className="mt-1 break-words text-xs text-red-600">{event.error}</p>}</div></li>)}</ol>}
-        </section>
+        {!a && !err && <div className="flex min-h-40 items-center justify-center"><LoaderCircle className="h-5 w-5 animate-spin text-[var(--cx-text-faint)]" /></div>}
+        {err && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{err}</p>}
+        {a && <>
+          {approvals.map((v) => <div key={v.id} className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold">Validation requise · {v.step_name}</p>{v.reason && <p className="mt-1">{v.reason}</p>}<div className="mt-3 flex justify-end gap-2"><button onClick={() => void decideApproval(v.id, false).then(onChanged)} className="rounded-lg px-3 py-1.5 font-semibold hover:bg-amber-100">Refuser</button><button onClick={() => void decideApproval(v.id, true).then(onChanged)} className="rounded-lg bg-amber-600 px-3 py-1.5 font-semibold text-white">Autoriser</button></div></div>)}
+          {lastBad && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />{errorMessage(lastBad.error, lastBad.error_category, lastBad.status)}</div>}
+
+          {confirm && <div className="mb-4 rounded-xl border border-[var(--cx-border-default)] p-4 text-sm"><p className="font-semibold text-[var(--cx-text-primary)]">{confirm === "cancel" ? "Annuler cette automatisation ?" : "Exécuter maintenant ?"}</p><p className="mt-1 text-[var(--cx-text-muted)]">{confirm === "cancel" ? "Elle ne s’exécutera plus et ne pourra pas être réactivée." : `L’action part tout de suite vers ${a.recipient ?? "WhatsApp"}.`}</p><div className="mt-3 flex justify-end gap-2"><button onClick={() => setConfirm("")} className="rounded-lg px-3 py-1.5 font-semibold text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]">Garder</button><button onClick={() => void act(confirm)} className={`rounded-lg px-3 py-1.5 font-semibold text-white ${confirm === "cancel" ? "bg-red-600" : "bg-[var(--cx-accent)]"}`}>{confirm === "cancel" ? "Annuler l’automatisation" : "Exécuter"}</button></div></div>}
+
+          {editing && <div className="mb-4 rounded-xl border border-[var(--cx-border-default)] p-4 text-sm"><label className="block text-xs font-semibold text-[var(--cx-text-secondary)]">{a.trigger?.kind === "recurrence" ? "Nouvelle heure" : "Nouvelle date et heure"}<input type={a.trigger?.kind === "recurrence" ? "time" : "datetime-local"} value={a.trigger?.kind === "recurrence" ? when.slice(11, 16) : when} onChange={(e) => setWhen(a.trigger?.kind === "recurrence" ? `${when.slice(0, 11)}${e.target.value}` : e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 outline-none focus:border-[var(--cx-accent)]" /></label><div className="mt-3 flex justify-end gap-2"><button onClick={() => setEditing(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]">Fermer</button><button disabled={!!busy} onClick={() => void act("reschedule")} className="rounded-lg bg-[var(--cx-accent)] px-3 py-1.5 font-semibold text-white disabled:opacity-50">Enregistrer</button></div></div>}
+
+          {primary && <button disabled={!online || !!busy} onClick={() => void act(primary)} className="mb-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--cx-text-primary)] text-sm font-semibold text-[var(--background)] disabled:opacity-50">{busy === primary ? <LoaderCircle className="h-4 w-4 animate-spin" /> : ACTION_LABELS[primary].icon}{ACTION_LABELS[primary].label}</button>}
+
+          <dl className="grid gap-4 rounded-2xl bg-[var(--cx-hover-row)] p-4 text-sm">
+            <Detail label="Action" value={contentLabel(a.media_type, a.source_kind)} extra={contentPreview(a)} />
+            {a.recipient && <Detail label="Destinataire" value={a.recipient} extra="WhatsApp" />}
+            <Detail label="Prochaine exécution" value={a.next_run_at ? formatWhen(a.next_run_at) : "Aucune"} extra={a.trigger?.timezone ? `Fuseau : ${a.trigger.timezone}` : undefined} />
+            {a.original_request && <Detail label="Demande d’origine" value={`« ${a.original_request} »`} />}
+            {a.created_at && <Detail label="Créée" value={formatWhen(a.created_at)} />}
+          </dl>
+
+          <section className="mt-7" aria-labelledby="history-title">
+            <h3 id="history-title" className="flex items-center gap-2 text-sm font-semibold text-[var(--cx-text-primary)]"><History className="h-4 w-4" />Historique</h3>
+            {!a.runs?.length ? <p className="mt-3 text-sm text-[var(--cx-text-muted)]">Aucune exécution pour le moment.</p> : <ol className="mt-3 divide-y divide-[var(--cx-border-subtle)] rounded-xl border border-[var(--cx-border-subtle)]">{a.runs.slice(0, 20).map((r) => { const st = runStatus(r.status, wa); const bad = ["failed", "timed_out", "ambiguous", "cancelled"].includes(r.status) && (r.error || r.error_category); return <li key={r.id} className="p-3"><div className="flex items-center justify-between gap-3"><span className="text-sm text-[var(--cx-text-secondary)]">{formatWhen(r.finished_at || r.started_at || r.scheduled_for) || "—"}</span><Pill {...st} /></div>{bad && <p className="mt-1 text-xs text-[var(--cx-text-muted)]">{errorMessage(r.error, r.error_category, r.status)}</p>}</li>; })}</ol>}
+            {wa && a.runs?.some((r) => r.status === "succeeded") && <p className="mt-2 text-xs text-[var(--cx-text-faint)]">« Acceptée » : WhatsApp a pris l’envoi en charge. La réception par le destinataire n’est pas confirmée.</p>}
+          </section>
+        </>}
       </div>
-      <footer className="border-t border-[var(--cx-border-subtle)] p-4"><Link href="/chat?automation=whatsapp" className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--cx-accent)] px-4 text-sm font-semibold text-white"><ExternalLink className="h-4 w-4" />Créer une nouvelle tâche</Link></footer>
     </aside>
   </div>;
 }
-function Detail({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-[var(--cx-text-faint)]">{label}</dt><dd className="mt-1 break-words font-medium text-[var(--cx-text-secondary)]">{value}</dd></div>; }
-function historyActionLabel(action: string) { const labels: Record<string, string> = { scheduled: "Tâche programmée", claim: "Exécution démarrée", sent: "Message remis au fournisseur", failed: "Échec d’exécution", paused: "Tâche suspendue", resumed: "Tâche reprise", cancelled: "Tâche annulée", updated: "Tâche modifiée" }; return labels[action] || action.replaceAll("_", " "); }
 
-function EditDialog({ task, onClose, onSaved }: { task: WhatsAppAutomation; onClose: () => void; onSaved: (task: WhatsAppAutomation) => void }) {
-  const local = new Date(task.send_at);
-  local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-  const [date, setDate] = useState(local.toISOString().slice(0, 16));
-  const [message, setMessage] = useState(task.message_preview);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const save = async () => {
-    setSaving(true); setError("");
-    try {
-      const updated = await updateWhatsAppAutomation(task.id, {
-        send_at: new Date(date).toISOString(),
-        ...(task.action_type === "send_text" ? { message } : {}),
-      });
-      onSaved(updated);
-    } catch { setError("Modification impossible. Vérifiez la date et réessayez."); }
-    finally { setSaving(false); }
-  };
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="edit-title"><div className="w-full max-w-lg rounded-t-2xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] p-5 shadow-2xl sm:rounded-2xl"><div className="flex items-center justify-between"><h2 id="edit-title" className="text-lg font-semibold text-[var(--cx-text-primary)]">Modifier l’automatisation</h2><button onClick={onClose} className="rounded-lg p-2 hover:bg-[var(--cx-hover)]" aria-label="Fermer"><X className="h-4 w-4" /></button></div><p className="mt-1 text-sm text-[var(--cx-text-muted)]">{task.recipient}</p><label className="mt-5 block text-xs font-semibold text-[var(--cx-text-secondary)]">Date et heure<input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 text-sm outline-none focus:border-[var(--cx-accent)]" /></label>{task.action_type === "send_text" && <label className="mt-4 block text-xs font-semibold text-[var(--cx-text-secondary)]">Message<textarea value={message} maxLength={4096} onChange={(e) => setMessage(e.target.value)} rows={4} className="mt-2 w-full resize-none rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] p-3 text-sm outline-none focus:border-[var(--cx-accent)]" /></label>}{error && <p className="mt-3 text-sm text-red-600">{error}</p>}<div className="mt-6 flex justify-end gap-2"><button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]">Fermer</button><button disabled={saving || !date || (task.action_type === "send_text" && !message.trim())} onClick={() => void save()} className="rounded-xl bg-[var(--cx-accent)] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Enregistrement…" : "Enregistrer"}</button></div></div></div>;
-}
-
-function ConfirmDialog({ task, busy, onClose, onConfirm }: { task: WhatsAppAutomation; busy: boolean; onClose: () => void; onConfirm: () => void }) {
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="alertdialog" aria-modal="true" aria-labelledby="cancel-title"><div className="w-full max-w-md rounded-t-2xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] p-5 shadow-2xl sm:rounded-2xl"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600"><Trash2 className="h-5 w-5" /></span><h2 id="cancel-title" className="mt-4 text-lg font-semibold text-[var(--cx-text-primary)]">Annuler définitivement ?</h2><p className="mt-2 text-sm leading-6 text-[var(--cx-text-muted)]">Le contenu ne sera pas envoyé à {task.recipient}. Une tâche déjà partie ne peut pas être rappelée.</p><div className="mt-6 flex justify-end gap-2"><button disabled={busy} onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-[var(--cx-text-muted)] hover:bg-[var(--cx-hover)]">Conserver</button><button disabled={busy} onClick={onConfirm} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Annulation…" : "Annuler la tâche"}</button></div></div></div>;
+function Detail({ label, value, extra }: { label: string; value: string; extra?: string }) {
+  return <div><dt className="text-xs text-[var(--cx-text-faint)]">{label}</dt><dd className="mt-1 break-words font-medium text-[var(--cx-text-secondary)]">{value}</dd>{extra && <dd className="mt-0.5 break-words text-xs text-[var(--cx-text-muted)]">{extra}</dd>}</div>;
 }
