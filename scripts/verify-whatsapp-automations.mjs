@@ -3,6 +3,7 @@ import fs from "node:fs";
 const page = fs.readFileSync("app/automations/page.tsx", "utf8");
 const api = fs.readFileSync("lib/connectors-api.ts", "utf8");
 const sidebar = fs.readFileSync("components/Sidebar.tsx", "utf8");
+const redirects = fs.readFileSync("public/_redirects", "utf8");
 
 const requiredPageContracts = [
   'getWhatsAppAutomations',
@@ -37,6 +38,16 @@ for (const endpoint of [
 
 if (!sidebar.includes('href: "/automations"')) {
   throw new Error("La page Automatisations n'est pas accessible depuis la navigation.");
+}
+
+const redirectsAutomationsAway = redirects
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .filter((line) => line && !line.startsWith("#"))
+  .some((line) => /^\/automations(?:\/\*)?\s+\/(?:\s+|$)/.test(line));
+
+if (redirectsAutomationsAway) {
+  throw new Error("La page Automatisations ne doit pas être redirigée vers l’accueil.");
 }
 
 if (!page.includes('disabled={busy || !online}')) {
