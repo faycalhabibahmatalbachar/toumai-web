@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/automations/**'
       - 'lib/automation-ux-api.ts'
+      - 'lib/automation-gate-h-types.d.ts'
       - 'lib/automations-api.ts'
       - '.github/workflows/gate-h-automation-ux.yml'
   pull_request:
