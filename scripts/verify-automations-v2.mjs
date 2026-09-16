@@ -76,8 +76,11 @@ const widget = fs.readFileSync("components/chat/widgets/WidgetRenderer.tsx", "ut
 expect(client.includes('const BASE = "/automations/v2"'), "web client targets Automation OS v2");
 expect(page.includes('from "@/lib/automations-api"'), "automations page uses the v2 client");
 expect(!page.includes("getWhatsAppAutomations"), "legacy wa_scheduled_messages list is no longer the page source");
-expect(page.includes("runAutomationNow(a.id, key)"), "run now carries an idempotency key");
-expect(page.includes("Annuler cette automatisation ?"), "cancel is confirmed");
+expect(
+  page.includes('runAutomationNow(id, newRequestId("web"))') || page.includes("runAutomationNow(a.id, key)"),
+  "run now carries an idempotency key",
+);
+expect(client.includes("Annuler cette automatisation ?"), "cancel is confirmed at the shared Web client boundary");
 expect(widget.includes("scheduleLabel(summary)"), "chat automation widget uses the shared schedule wording");
 
 if (failures) {
