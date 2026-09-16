@@ -77,7 +77,8 @@ expect(page.includes('from "@/lib/automations-api"'), "automations page uses the
 expect(page.includes('from "@/lib/automation-ux-api"'), "automations page uses server-owned Inbox/preview contract");
 expect(!page.includes("getWhatsAppAutomations"), "legacy wa_scheduled_messages list is no longer the page source");
 expect(page.includes('runAutomationNow(id, newRequestId("web"))'), "run now carries an idempotency key");
-expect(client.includes("Annuler cette automatisation ?"), "cancel is confirmed at the shared client boundary");
+expect(uxClient.includes("Annuler cette automatisation ?"), "cancel is confirmed at the Gate H UX boundary");
+expect(page.includes("cancelAutomationWithConfirmation(id)"), "detail uses the guarded cancel boundary");
 expect(page.includes('new URLSearchParams(window.location.search).get("id")'), "widget deep-link remains supported");
 expect(widget.includes("scheduleLabel(automation)"), "current unified chat widget uses the shared schedule wording");
 expect(uxClient.includes('`${BASE}/stream`'), "authenticated realtime Inbox stream is wired");
