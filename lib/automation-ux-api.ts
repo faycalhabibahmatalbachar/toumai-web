@@ -66,6 +66,12 @@ export const getAutomationTemplates = (locale = "fr-TD") =>
 export const getAutomationCalendar = (start: string, end: string) =>
   http.get<{ start: string; end: string; events: Automation[] }>(`${BASE}/calendar?start=${enc(start)}&end=${enc(end)}`);
 
+/** Cancellation is destructive at the UX boundary: never hide it behind a raw POST. */
+export async function cancelAutomationWithConfirmation(id: string): Promise<Automation | null> {
+  if (typeof window !== "undefined" && !window.confirm("Annuler cette automatisation ?")) return null;
+  return http.post<Automation>(`${BASE}/${enc(id)}/cancel`);
+}
+
 /** Authenticated SSE reader. EventSource cannot attach Toumaï's Bearer token. */
 export async function streamAutomationInbox(
   onSnapshot: (snapshot: AutomationInbox) => void,
