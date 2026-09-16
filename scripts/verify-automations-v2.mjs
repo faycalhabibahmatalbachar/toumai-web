@@ -1,7 +1,4 @@
 // Automatisations Web : client d'Automation OS, lecture identique au mobile.
-//
-// La logique de `lib/automations-api.ts` est transpilée puis EXÉCUTÉE : on
-// vérifie ce que l'écran affichera, pas seulement la présence de mots.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -72,14 +69,20 @@ expect(api.newRequestId("web") !== api.newRequestId("web"), "request ids are uni
 
 const page = fs.readFileSync("app/automations/page.tsx", "utf8");
 const client = fs.readFileSync("lib/automations-api.ts", "utf8");
+const uxClient = fs.readFileSync("lib/automation-ux-api.ts", "utf8");
 const widget = fs.readFileSync("components/chat/widgets/kinds/AutomationWidget.tsx", "utf8");
 expect(client.includes('const BASE = "/automations/v2"'), "web client targets Automation OS v2");
+expect(uxClient.includes('const BASE = "/automations/v2"'), "Gate H UX client targets same Automation OS v2");
 expect(page.includes('from "@/lib/automations-api"'), "automations page uses the v2 client");
+expect(page.includes('from "@/lib/automation-ux-api"'), "automations page uses server-owned Inbox/preview contract");
 expect(!page.includes("getWhatsAppAutomations"), "legacy wa_scheduled_messages list is no longer the page source");
-expect(page.includes("runAutomationNow(a.id, key)"), "run now carries an idempotency key");
-expect(page.includes("Annuler cette automatisation ?"), "cancel is confirmed");
-expect(widget.includes("scheduleLabel(automation)"), "chat automation widget uses the shared schedule wording");
+expect(page.includes('runAutomationNow(id, newRequestId("web"))'), "run now carries an idempotency key");
+expect(uxClient.includes("Annuler cette automatisation ?"), "cancel is confirmed at the Gate H UX boundary");
+expect(page.includes("cancelAutomationWithConfirmation(id)"), "detail uses the guarded cancel boundary");
+expect(page.includes('new URLSearchParams(window.location.search).get("id")'), "widget deep-link remains supported");
+expect(widget.includes("scheduleLabel(automation)"), "current unified chat widget uses the shared schedule wording");
+expect(uxClient.includes('`${BASE}/stream`'), "authenticated realtime Inbox stream is wired");
+expect(uxClient.includes('/preview`'), "dry-run preview is wired");
+expect(uxClient.includes('/rollback`'), "immutable rollback is wired");
 
-if (failures) {
-  process.exitCode = 1;
-}
+if (failures) process.exitCode = 1;

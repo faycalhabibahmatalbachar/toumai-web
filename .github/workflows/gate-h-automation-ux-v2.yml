@@ -1,0 +1,36 @@
+name: Gate H Automation UX Web V2
+
+on:
+  push:
+    branches: [gate-h-automation-ux-v2]
+    paths:
+      - 'app/automations/**'
+      - 'lib/automation-ux-api.ts'
+      - 'lib/automation-gate-h-types.d.ts'
+      - 'lib/automations-api.ts'
+      - 'scripts/verify-automations-v2.mjs'
+      - '.github/workflows/gate-h-automation-ux-v2.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-ux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Automation contract
+        run: node scripts/verify-automations-v2.mjs
+      - name: Production build
+        run: npm run build
