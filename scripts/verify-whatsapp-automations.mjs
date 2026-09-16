@@ -8,7 +8,7 @@ const redirects = fs.readFileSync("public/_redirects", "utf8");
 
 // Gate H moved the page from the legacy /whatsapp/automations implementation
 // to the canonical Automation OS v2 contract. This verifier intentionally
-// checks product guarantees, not old function names.
+// checks product guarantees, not old function names or obsolete copy.
 const requiredPageContracts = [
   "getAutomationInbox",
   "getAutomationPreview",
@@ -19,10 +19,11 @@ const requiredPageContracts = [
   "cancelAutomationWithConfirmation",
   "rollbackAutomation",
   "runAutomationNow",
-  "Historique",
+  "Versions",
+  "Restaurer",
   "Calendrier",
   "Recettes",
-  "Simulation",
+  "Simulation sans effet",
   "Réessayer",
 ];
 
