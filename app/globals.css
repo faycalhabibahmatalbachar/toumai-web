@@ -1122,6 +1122,99 @@ svg {
   }
 }
 
+/* ── Le sélecteur de modèle ─────────────────────────────────────────────────
+ *
+ * Même grammaire que la carte « + » — rangées qui respirent, survol discret,
+ * focus visible — avec une règle de plus : le modèle ACTIF se lit sans
+ * chercher. Sa rangée est teintée et son nom prend l'accent, parce qu'une
+ * coche à droite d'un texte de longueur variable se cherche.
+ */
+.model-trigger {
+  display: flex;
+  height: 2.25rem;
+  flex: none;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  padding: 0 0.75rem;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.model-trigger:hover,
+.model-trigger[data-open="true"] {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+.model-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.model-menu {
+  transform-origin: bottom right;
+  animation: model-menu-in 120ms ease-out;
+}
+@keyframes model-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+.model-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.9rem;
+  /* 2,75 rem de haut au minimum : c'est une cible qu'on vise aussi au doigt. */
+  min-height: 2.75rem;
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
+}
+.model-row:hover {
+  background: var(--hover);
+  transform: translateX(1px);
+}
+.model-row:active {
+  transform: translateX(1px) scale(0.99);
+}
+.model-row:focus-visible {
+  background: var(--hover);
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: -2px;
+}
+.model-row[data-active="true"] {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.model-row-name {
+  color: var(--text-primary);
+}
+.model-row[data-active="true"] .model-row-name,
+.model-row-check {
+  color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-menu {
+    animation: none;
+  }
+  .model-row {
+    transition: none;
+  }
+  .model-row:hover,
+  .model-row:active {
+    transform: none;
+  }
+}
+
 /* Pastille de gauche du couple envoi/voix : au repos (champ vide), le bouton
  * lance le mode vocal — il reste neutre, l'accent est reserve a l'envoi. */
 .chat-voice {
