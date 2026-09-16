@@ -51,6 +51,8 @@ export interface Automation {
   status: AutomationStatus;
   enabled: boolean;
   trigger: AutomationTrigger;
+  version?: number;
+  inbox_section?: "attention" | "upcoming" | "paused" | "failed" | "done";
   next_run_at?: string | null;
   last_run_at?: string | null;
   recipient?: string | null;
@@ -97,7 +99,15 @@ export const decideApproval = (id: string, approved: boolean) =>
   http.post(`${BASE}/approvals/${enc(id)}/decision`, { approved });
 export const pauseAutomation = (id: string) => http.post<Automation>(`${BASE}/${enc(id)}/pause`);
 export const activateAutomation = (id: string) => http.post<Automation>(`${BASE}/${enc(id)}/activate`);
-export const cancelAutomation = (id: string) => http.post<Automation>(`${BASE}/${enc(id)}/cancel`);
+/**
+ * Annulation = transition destructive au sens Automation OS. La confirmation
+ * vit au niveau du client partagé pour qu'aucun écran Web ne puisse oublier
+ * cette barrière en appelant directement la route.
+ */
+export async function cancelAutomation(id: string): Promise<Automation | null> {
+  if (typeof window !== "undefined" && !window.confirm("Annuler cette automatisation ?")) return null;
+  return http.post<Automation>(`${BASE}/${enc(id)}/cancel`);
+}
 export const archiveAutomation = (id: string) => http.post<Automation>(`${BASE}/${enc(id)}/archive`);
 export const duplicateAutomation = (id: string) => http.post<Automation>(`${BASE}/${enc(id)}/duplicate`, {});
 /** La même clé pour un même geste : une seule exécution côté serveur. */
