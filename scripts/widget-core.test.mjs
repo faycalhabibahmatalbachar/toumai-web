@@ -1,8 +1,19 @@
 // Tests de comportement du noyau des widgets (lib/widgets/core.ts).
-// Node 24 lit le TypeScript directement : aucune compilation intermédiaire.
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import ts from "typescript";
+
+// Transpilé à la volée : le test tourne aussi sur Node 20 (CI).
+const { outputText } = ts.transpileModule(fs.readFileSync("lib/widgets/core.ts", "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+});
+const tmp = path.join(os.tmpdir(), `widgets-core-${process.pid}.mjs`);
+fs.writeFileSync(tmp, outputText);
+const {
   aqiTone,
   cellText,
   detectTableKind,
@@ -21,7 +32,8 @@ import {
   tableColumns,
   toneOf,
   weatherIcon,
-} from "../lib/widgets/core.ts";
+} = await import(pathToFileURL(tmp).href);
+fs.rmSync(tmp, { force: true });
 
 test("la lecture tolère toutes les formes absentes ou fausses", () => {
   assert.deepEqual(rec(null), {});
