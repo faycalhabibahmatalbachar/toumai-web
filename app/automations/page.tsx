@@ -28,7 +28,6 @@ import {
   activateAutomation,
   archiveAutomation,
   automationStatus,
-  cancelAutomation,
   duplicateAutomation,
   errorMessage,
   getAutomation,
@@ -41,6 +40,7 @@ import {
   type Tone,
 } from "@/lib/automations-api";
 import {
+  cancelAutomationWithConfirmation,
   getAutomationCalendar,
   getAutomationInbox,
   getAutomationPreview,
@@ -98,8 +98,6 @@ export default function AutomationsPage() {
   const [calendar, setCalendar] = useState<Automation[]>([]);
   const [templates, setTemplates] = useState<AutomationTemplate[]>([]);
 
-  // Preserve the current widget deep-link contract: a chat AutomationWidget can
-  // open this page directly on the durable Automation OS object.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
     if (id && /^[\w-]{6,64}$/.test(id)) void Promise.resolve().then(() => setSelectedId(id));
@@ -229,7 +227,7 @@ function Detail({ id, onClose, onChanged }: { id: string; onClose: () => void; o
       else if (name === "run") await runAutomationNow(id, newRequestId("web"));
       else if (name === "duplicate") await duplicateAutomation(id);
       else if (name === "archive") await archiveAutomation(id);
-      else if (name === "cancel") await cancelAutomation(id);
+      else if (name === "cancel") await cancelAutomationWithConfirmation(id);
       await load(); onChanged();
     } catch { setError("Action impossible pour le moment."); }
     finally { setBusy(""); }
