@@ -4,6 +4,9 @@ const path = "components/chat/widgets/ActionExecutionCard.tsx";
 const source = fs.readFileSync(path, "utf8");
 const richPath = "components/chat/RichResponseBlocks.tsx";
 const richSource = fs.readFileSync(richPath, "utf8");
+const primitives = fs.readFileSync("components/chat/widgets/primitives.tsx", "utf8");
+const steps = fs.readFileSync("components/chat/widgets/kinds/ActionStepsWidget.tsx", "utf8");
+const runtime = fs.readFileSync("components/chat/widgets/runtime.tsx", "utf8");
 
 function expect(condition, message) {
   if (!condition) {
@@ -18,7 +21,7 @@ expect(source.includes('max-w-[480px]'), "action card is capped at a compact des
 expect(!source.includes('max-w-[560px]'), "legacy oversized 560px action card is removed");
 expect(source.includes('min-h-11'), "confirmation controls keep >=44px touch targets");
 expect(source.includes('useReducedMotion'), "reduced-motion preference is respected");
-expect(source.includes('/agent/actions/pending/status'), "persistent confirmation is reconciled after reload");
+expect(source.includes('runtime.tools.pendingStatus(') && runtime.includes('/agent/actions/pending/status'), "persistent confirmation is reconciled after reload");
 expect(source.includes('confirmation.pending_id'), "pending_id remains the server authority for confirmation");
 expect(source.includes('__toumai_batch__'), "batch workflows stay rendered as one action surface");
 expect(source.includes('data-action-runtime="true"'), "action runtime marks its single visual surface");
@@ -29,17 +32,18 @@ expect(source.includes('Terminé avec ${Math.max(1, problems)} problème'), "par
 expect(source.includes('Non inclus dans votre formule.'), "quota failure is reduced to a user-facing concise detail");
 expect(source.includes('groupe WhatsApp'), "internal group JIDs are sanitized from details");
 expect(source.includes('focus-visible:ring-2'), "keyboard focus remains visible");
-expect(source.includes('aria-live="polite"'), "runtime updates are announced politely");
-expect(source.includes('role={state === "failed" ? "alert" : undefined}'), "alert role is reserved for real failures");
+// Les cartes reposent sur WidgetCard : live = aria-live polite, alert = role alert.
+expect(primitives.includes('aria-live={live ? "polite" : undefined}') && /\n\s+live\r?\n/.test(source), "runtime updates are announced politely");
+expect(primitives.includes('role={alert ? "alert" : undefined}') && source.includes('alert={state === "failed"}'), "alert role is reserved for real failures");
 
-expect(richSource.includes('max-w-[480px]'), "server action result blocks use the same compact width");
-expect(richSource.includes('return hideConfirmation ? null : <ActionsBlock'), "action result blocks are suppressed when ActionExecutionCard owns the turn");
-expect(!richSource.includes('Workflow terminé avec un résultat partiel'), "legacy verbose partial-success heading is removed");
-expect(richSource.includes('Terminé avec ${problems} problème'), "rich action blocks use the concise problem summary");
-expect(richSource.includes('Non inclus dans votre formule.'), "rich action blocks normalize quota failures");
-expect(richSource.includes('safeActionText'), "rich action blocks sanitize backend display text");
-expect(richSource.includes('motion-reduce:animate-none'), "rich action block progress respects reduced motion");
-expect(richSource.includes('role={failed > 0 && succeeded === 0 ? "alert" : undefined}'), "partial success does not misuse alert role");
+expect(steps.includes('max-w-[30rem]'), "server action result blocks use a compact width");
+expect(richSource.includes('return hideConfirmation ? null : <ActionStepsWidget'), "action result blocks are suppressed when ActionExecutionCard owns the turn");
+expect(!richSource.includes('Workflow terminé avec un résultat partiel') && !steps.includes('Workflow terminé avec un résultat partiel'), "legacy verbose partial-success heading is removed");
+expect(steps.includes('`Terminé avec ${problems'), "rich action blocks use the concise problem summary");
+expect(steps.includes('Non inclus dans votre formule.'), "rich action blocks normalize quota failures");
+expect(steps.includes('displayText('), "rich action blocks sanitize backend display text");
+expect(primitives.includes('motion-reduce:animate-none'), "rich action block progress respects reduced motion");
+expect(steps.includes('alert={s.overall === "failed"}'), "partial success does not misuse alert role");
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log("Action widget runtime regression checks passed.");

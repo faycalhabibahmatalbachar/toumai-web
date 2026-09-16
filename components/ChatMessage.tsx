@@ -12,7 +12,10 @@ import { parseProject, hasPatches, parseSearchReplace, applyPatches } from "@/li
 import { MediaMessage, imagesFromUrls } from "./chat/media/MediaMessage";
 import type { ChatImage } from "./chat/media/types";
 import type { ResponseBlock } from "@/lib/chat-response";
+import { activityLabel } from "@/lib/tool-ui";
 import { RichResponseBlocks } from "./chat/RichResponseBlocks";
+import { SourcesCard } from "./chat/widgets/kinds/ResearchWidgets";
+import { InlineProgress } from "./chat/widgets/primitives";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
 import { ActionExecutionCard } from "./chat/widgets/ActionExecutionCard";
 import { Logo } from "./Logo";
@@ -196,81 +199,10 @@ function RegenerateIcon() {
   );
 }
 
-function LinkIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 10-7.07-7.07L11.5 4.5M14 11a5 5 0 00-7.07 0L4.1 13.83a5 5 0 107.07 7.07L12.5 19.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
-function domainFromUrl(url: string): string {
-  try {
-    return new URL(url).host.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
-function ActivityLine({ label }: { label: string }) {
-  return (
-    <p className="mb-2 flex items-center gap-2 text-[13px] text-[var(--text-tertiary)]">
-      <span className="activity-globe flex" aria-hidden="true"><GlobeSmallIcon /></span>
-      {label}
-    </p>
-  );
-}
 
-function GlobeSmallIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
-    </svg>
-  );
-}
 
-function sourceUrl(raw?: string): string | null {
-  if (!raw) return null;
-  try {
-    const parsed = new URL(raw);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-function WebSourcesRow({ sources }: { sources: WebSource[] }) {
-  const items = sources
-    .map((source) => ({ source, url: sourceUrl(source.url) }))
-    .filter((item): item is { source: WebSource; url: string } => Boolean(item.url))
-    .slice(0, 6);
-  if (items.length === 0) return null;
-
-  return (
-    <section className="mt-3" aria-label="Sources Web">
-      <p className="mb-1.5 flex items-center gap-1.5 text-[12px] text-[var(--text-tertiary)]"><GlobeSmallIcon />Sources — {items.length}</p>
-      <div className="space-y-1">
-        {items.map(({ source: source, url }, index) => {
-          const domain = domainFromUrl(url);
-          return (
-            <details id={`source-${index + 1}`} key={url + index} className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]">
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-[var(--hover)] px-1 font-semibold text-[var(--text-primary)]" aria-label={`Source ${index + 1}`}>[{index + 1}]</span>
-                <span className="min-w-0 flex-1 truncate">{source.title || domain}</span>
-                <span className="max-w-[35%] truncate text-[11px] text-[var(--text-tertiary)]">{domain}</span>
-              </summary>
-              <div className="border-t border-[var(--border)] px-3 py-2.5">
-                {source.snippet ? <p className="mb-2 text-[12px] leading-relaxed text-[var(--text-secondary)]">{source.snippet}</p> : null}
-                <a href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-medium text-[var(--primary)] hover:underline"><LinkIcon /><span className="truncate">{url}</span></a>
-              </div>
-            </details>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
 function TypingDots() {
   return (
@@ -406,7 +338,7 @@ export function ChatMessage({
       {message.whatsappConnector && <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />}
       <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && message.activity ? (
-          <ActivityLine label={message.activity === "deep_web_search" ? "Recherche approfondie sur le Web…" : message.activity === "document_analysis" ? "Analyse du document…" : "Recherche sur le Web…"} />
+          <InlineProgress label={activityLabel(message.activity)} />
         ) : null}
         {message.streaming && !message.content ? <TypingDots /> : (
           <div className="prose-toumai">
@@ -454,14 +386,14 @@ export function ChatMessage({
 
       {!message.streaming && message.toolConfirmation && <ActionExecutionCard confirmation={message.toolConfirmation} />}
       {message.blocks?.length ? (
-        <RichResponseBlocks blocks={message.blocks} hideConfirmation={Boolean(message.toolConfirmation)} />
+        <RichResponseBlocks blocks={message.blocks} hideConfirmation={Boolean(message.toolConfirmation)} streaming={Boolean(message.streaming)} />
       ) : !message.streaming ? (
         <>
           {standaloneImageUrls.length > 0 && <div className="mt-2"><MediaMessage images={imagesFromUrls(standaloneImageUrls, { alt: "Image générée par Toumaï AI" })} /></div>}
           {message.searchImages && message.searchImages.length > 0 && (
             <div className="mt-2"><MediaMessage images={message.searchImages.map((image, index): ChatImage => ({ id: `${image.url}-${index}`, url: image.url, alt: image.title, sourceUrl: image.source_url, sourceTitle: image.title }))} /></div>
           )}
-          {message.sources && message.sources.length > 0 && <WebSourcesRow sources={message.sources} />}
+          {message.sources && message.sources.length > 0 && <SourcesCard sources={message.sources} />}
         </>
       ) : null}
       {!message.streaming && message.modelNotice && <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>}

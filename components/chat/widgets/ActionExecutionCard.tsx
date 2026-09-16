@@ -2,20 +2,21 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle,
-  Check,
+  CalendarDays,
   ChevronDown,
-  Circle,
-  CircleX,
-  LoaderCircle,
+  Mail,
+  MessageCircle,
   ShieldAlert,
-  X,
+  Users,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ToolConfirmation } from "@/lib/chat-stream";
-import { authFetch } from "@/lib/http";
-import { cancelToolAction } from "@/lib/chat-api";
+import { useWidgetRuntime } from "./runtime";
 import { describeTool, riskLabel } from "@/lib/tool-ui";
+import { normalizeStatus, toneOf, type StatusKey } from "@/lib/widgets/core";
+import { ActionBar, ProgressSteps, WidgetCard, WidgetHeader, type ProgressStep } from "./primitives";
 
 export type ActionRuntimeState =
   | "awaiting_confirmation"
@@ -157,10 +158,13 @@ function rowForAction(tool: string, args: Record<string, unknown>, capability = 
     return { title: "Modifier le groupe", detail: group || undefined };
   }
 
+  // Le DESTINATAIRE est l'information qu'on vérifie avant de confirmer : il
+  // figure dans le titre de la ligne, jamais seulement dans les arguments.
+  const who = group || (recipient ? (/\d{7,}/.test(recipient) ? maskPhone(recipient) : truncate(recipient, 40)) : "");
   if (tool === "send_whatsapp" || capability === "whatsapp.message.send") {
-    return { title: "Envoyer le message", detail: quote(message) || undefined };
+    return { title: who ? `Envoyer à ${who}` : "Envoyer le message", detail: quote(message) || undefined };
   }
-  if (tool === "whatsapp_send_media") return { title: "Envoyer le média", detail: group || (recipient ? maskPhone(recipient) : undefined) };
+  if (tool === "whatsapp_send_media") return { title: who ? `Envoyer un média à ${who}` : "Envoyer le média", detail: value(args, "caption") ? quote(value(args, "caption")) : undefined };
   if (tool === "whatsapp_set_status") return { title: "Publier le statut", detail: quote(message) || undefined };
   if (tool === "send_email" || tool === "send_mail") {
     return { title: "Envoyer l’e-mail", detail: value(args, "subject", "title") || undefined, meta: recipient || undefined };
@@ -242,28 +246,8 @@ function normalizedState(response: ConfirmationResponse): {
   return { state: "success", action, message };
 }
 
-function StateIcon({ state }: { state: ActionRuntimeState }) {
-  if (state === "running" || state === "verifying") return <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />;
-  if (state === "success" || state === "already_processed") return <Check className="h-4 w-4" aria-hidden="true" />;
-  if (state === "partial_success") return <AlertTriangle className="h-4 w-4" aria-hidden="true" />;
-  if (state === "failed" || state === "expired") return <CircleX className="h-4 w-4" aria-hidden="true" />;
-  if (state === "cancelled") return <X className="h-4 w-4" aria-hidden="true" />;
-  return <ShieldAlert className="h-4 w-4" aria-hidden="true" />;
-}
 
-function stateAccent(state: ActionRuntimeState): string {
-  if (state === "success") return "border-l-emerald-500/70";
-  if (state === "partial_success") return "border-l-amber-500/70";
-  if (state === "failed" || state === "expired") return "border-l-red-500/70";
-  return "border-l-[var(--border)]";
-}
 
-function StepStatusIcon({ state }: { state?: string }) {
-  if (state === "success" || state === "done") return <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />;
-  if (state === "blocked") return <Circle className="h-3.5 w-3.5 text-[var(--text-tertiary)]" aria-hidden="true" />;
-  if (state === "partial_success" || state === "warning") return <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden="true" />;
-  return <CircleX className="h-4 w-4 text-red-600 dark:text-red-400" aria-hidden="true" />;
-}
 
 export function ActionExecutionCard({
   confirmation,
@@ -276,6 +260,7 @@ export function ActionExecutionCard({
   const descriptor = useMemo(() => describeTool(confirmation.tool, args), [confirmation.tool, confirmation.args]);
   const rows = useMemo(() => previewRows(confirmation.tool, args), [confirmation.tool, confirmation.args]);
   const reduceMotion = useReducedMotion();
+  const runtime = useWidgetRuntime();
   const [state, setState] = useState<ActionRuntimeState>("awaiting_confirmation");
   const [resultMessage, setResultMessage] = useState("");
   const [action, setAction] = useState<ActionPayload | undefined>();
@@ -296,12 +281,8 @@ export function ActionExecutionCard({
 
     const reconcile = async () => {
       try {
-        const res = await authFetch("/agent/actions/pending/status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pending_id: pendingId }),
-        });
-        const body = (await res.json().catch(() => ({}))) as PendingStatusResponse;
+        const res = await runtime.tools.pendingStatus(pendingId);
+        const body = res.body as PendingStatusResponse;
         if (disposed || !res.ok || body.success === false) return;
         const status = body.data?.status || "unknown";
         if (status === "awaiting_confirmation") return;
@@ -339,24 +320,20 @@ export function ActionExecutionCard({
       disposed = true;
       if (timer) clearTimeout(timer);
     };
-  }, [confirmation.pending_id]);
+  }, [confirmation.pending_id, runtime]);
 
   async function confirm() {
     if (state !== "awaiting_confirmation") return;
     setState("running");
     setResultMessage("");
     try {
-      const res = await authFetch("/chat/tool/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tool: confirmation.tool,
-          args: confirmation.args,
-          pending_id: confirmation.pending_id || undefined,
-        }),
+      const res = await runtime.tools.confirm({
+        tool: confirmation.tool,
+        args: confirmation.args,
+        pending_id: confirmation.pending_id || undefined,
       });
-      const body = (await res.json().catch(() => ({}))) as ConfirmationResponse;
-      if (!res.ok) throw new Error(body.message || `Erreur ${res.status}`);
+      const body = res.body as ConfirmationResponse;
+      if (!res.ok) throw new Error(body.message || "Impossible d’exécuter l’action.");
       const normalized = normalizedState(body);
       setAction(normalized.action);
       setResultSteps(Array.isArray(body.data?.action_steps) ? body.data!.action_steps! : []);
@@ -371,7 +348,7 @@ export function ActionExecutionCard({
   async function cancel() {
     if (state !== "awaiting_confirmation") return;
     setState("cancelled");
-    if (confirmation.pending_id) await cancelToolAction(confirmation.pending_id);
+    if (confirmation.pending_id) await runtime.tools.cancel(confirmation.pending_id);
   }
 
   const headline = (() => {
@@ -390,6 +367,32 @@ export function ActionExecutionCard({
   const verified = action?.verified === true;
   const showPreview = state === "awaiting_confirmation" || state === "running" || state === "verifying";
   const showOutcomeRows = resultSteps.length > 0 && (state === "partial_success" || state === "failed" || detailsOpen);
+  const destructive = descriptor.risk === "destructive";
+  const status = RUNTIME_STATUS[state];
+  const tone = toneOf(status);
+  const subtitle = compactSuccess && subject
+    ? subject
+    : state === "awaiting_confirmation"
+      ? channelLabel(confirmation.tool) || riskLabel(descriptor.risk)
+      : state === "running"
+        ? `${batchCount || 1} action${(batchCount || 1) > 1 ? "s" : ""}`
+        : subject || descriptor.title;
+
+  const previewSteps: ProgressStep[] = rows.map((row, index) => ({
+    key: `${row.title}-${index}`,
+    label: row.meta ? `${row.title} · ${row.meta}` : row.title,
+    detail: row.detail,
+    status: state === "running" && index === 0 ? "running" : "pending",
+  }));
+  const outcomeSteps: ProgressStep[] = resultSteps.slice(0, 8).map((step, index) => {
+    const normalized = normalizeStatus(step.state);
+    return {
+      key: `${step.capability || step.label || "action"}-${index}`,
+      label: resultTitle(step),
+      detail: resultDetail(step) || undefined,
+      status: normalized === "unknown" ? "failed" : normalized,
+    };
+  });
 
   return (
     <>
@@ -397,49 +400,39 @@ export function ActionExecutionCard({
           dans le même tour. Cela supprime la duplication texte + carte sans
           toucher aux réponses ordinaires, aux sources ou au raisonnement. */}
       <style>{`.msg-row:has([data-action-runtime="true"]) .prose-toumai{display:none}`}</style>
-      <motion.section
+      <motion.div
         data-action-runtime="true"
         layout
         transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
-        className={`mt-2.5 w-full max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] border-l-2 bg-[var(--card)] ${stateAccent(state)}`}
-        aria-live="polite"
-        aria-label={descriptor.title}
-        role={state === "failed" ? "alert" : undefined}
+        className="max-w-[480px]"
       >
-        <motion.div layout className={compactSuccess ? "px-3.5 py-2.5" : "px-3.5 py-3"}>
-          <div className="flex min-h-8 min-w-0 items-center gap-2.5">
-            <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-              state === "success" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : state === "partial_success" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                  : state === "failed" || state === "expired" ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                    : "bg-[var(--background)] text-[var(--text-secondary)]"
-            }`}>
-              <StateIcon state={state} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{headline}</p>
-              <p className="mt-0.5 truncate text-[10.5px] text-[var(--text-tertiary)]">
-                {compactSuccess && subject
-                  ? subject
-                  : state === "awaiting_confirmation"
-                    ? (batchCount ? "WhatsApp" : riskLabel(descriptor.risk))
-                    : state === "running"
-                      ? `${batchCount || 1} action${(batchCount || 1) > 1 ? "s" : ""}`
-                      : subject || descriptor.title}
-              </p>
-            </div>
-            {done ? (
+        <WidgetCard
+          label={descriptor.title}
+          tone={tone}
+          accent={state !== "awaiting_confirmation"}
+          live
+          alert={state === "failed"}
+          testId="action_execution"
+        >
+          <WidgetHeader
+            icon={toolIcon(confirmation.tool, destructive)}
+            tone={state === "awaiting_confirmation" && destructive ? "error" : undefined}
+            title={headline}
+            subtitle={subtitle}
+            status={state === "awaiting_confirmation" ? undefined : status}
+            statusLabel={state === "already_processed" ? "Déjà traitée" : undefined}
+            trailing={done ? (
               <button
                 type="button"
                 onClick={() => setDetailsOpen((current) => !current)}
-                className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-[11.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                 aria-expanded={detailsOpen}
               >
                 Détails
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
               </button>
-            ) : null}
-          </div>
+            ) : undefined}
+          />
 
           <AnimatePresence initial={false}>
             {showPreview ? (
@@ -449,66 +442,35 @@ export function ActionExecutionCard({
                 animate={{ opacity: 1, height: "auto" }}
                 exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
                 transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
-                className="mt-2.5 overflow-hidden"
+                className="overflow-hidden"
               >
-                <ol className="space-y-0.5" aria-label={batchCount ? "Actions du workflow" : "Action à exécuter"}>
-                  {rows.map((row, index) => {
-                    const active = state === "running" && index === 0;
-                    return (
-                      <li key={`${row.title}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
-                        <span className={`mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center ${active ? "text-[var(--primary)]" : "text-[var(--text-tertiary)]"}`} aria-hidden="true">
-                          {active ? <LoaderCircle className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : <Circle className="h-3 w-3" />}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-baseline justify-between gap-2">
-                            <p className="min-w-0 truncate text-[12px] font-medium text-[var(--text-primary)]">{row.title}</p>
-                            {row.meta ? <span className="shrink-0 text-[9.5px] text-[var(--text-tertiary)]">{row.meta}</span> : null}
-                          </div>
-                          {row.detail ? <p className="mt-0.5 break-words text-[10.5px] leading-4 text-[var(--text-tertiary)]">{row.detail}</p> : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-
+                <ProgressSteps steps={previewSteps} label={batchCount ? "Actions du workflow" : "Action à exécuter"} />
                 {state === "awaiting_confirmation" ? (
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void confirm()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-[12px] font-semibold text-white outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]"
-                    >
-                      {batchCount > 1 ? `Confirmer les ${batchCount}` : "Confirmer"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void cancel()}
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl px-3.5 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                    >
-                      Annuler
-                    </button>
-                  </div>
+                  <>
+                    {destructive ? <p className="px-3.5 pb-2.5 text-[12px] text-[var(--text-secondary)]">Cette action ne pourra pas être annulée.</p> : null}
+                    <ActionBar>
+                      <button
+                        type="button"
+                        onClick={() => void confirm()}
+                        className={`inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-[12.5px] font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)] ${destructive ? "tmw-btn-danger" : "tmw-btn-primary"}`}
+                      >
+                        {batchCount > 1 ? `Confirmer les ${batchCount}` : "Confirmer"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void cancel()}
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl px-3.5 text-[12.5px] font-medium text-[var(--text-secondary)] outline-none transition hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                      >
+                        Annuler
+                      </button>
+                    </ActionBar>
+                  </>
                 ) : null}
               </motion.div>
             ) : null}
           </AnimatePresence>
 
-          {showOutcomeRows ? (
-            <ol className="mt-2.5 space-y-0.5" aria-label="Résultat des actions">
-              {resultSteps.slice(0, 8).map((step, index) => {
-                const detail = resultDetail(step);
-                return (
-                  <li key={`${step.capability || step.label || "action"}-${index}`} className="flex min-w-0 items-start gap-2 py-1.5">
-                    <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center"><StepStatusIcon state={step.state} /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11.5px] font-medium leading-4 text-[var(--text-primary)]">{resultTitle(step)}</p>
-                      {detail ? <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-tertiary)]">{detail}</p> : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : null}
+          {showOutcomeRows ? <ProgressSteps steps={outcomeSteps} label="Résultat des actions" /> : null}
 
           <AnimatePresence initial={false}>
             {detailsOpen ? (
@@ -520,16 +482,46 @@ export function ActionExecutionCard({
                 transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
                 className="overflow-hidden"
               >
-                <div className="mt-2.5 border-t border-[var(--border)] pt-2.5 text-[10px] leading-4 text-[var(--text-tertiary)]">
+                <div className="border-t border-[var(--border)] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--text-tertiary)]">
                   {technicalMessage ? <p>{technicalMessage}</p> : null}
-                  {verified ? <p className="mt-1 text-emerald-600 dark:text-emerald-400">Résultat vérifié auprès du connecteur.</p> : null}
+                  {verified ? <p className="mt-1 text-[var(--tmw-success)]">Résultat vérifié auprès du connecteur.</p> : null}
                   {state === "already_processed" ? <p className="mt-1">La confirmation a déjà été consommée : aucune seconde exécution n’est possible.</p> : null}
+                  {!technicalMessage && !verified && state !== "already_processed" ? <p>Aucun détail supplémentaire.</p> : null}
                 </div>
               </motion.div>
             ) : null}
           </AnimatePresence>
-        </motion.div>
-      </motion.section>
+        </WidgetCard>
+      </motion.div>
     </>
   );
+}
+
+const RUNTIME_STATUS: Record<ActionRuntimeState, StatusKey> = {
+  awaiting_confirmation: "awaiting_confirmation",
+  running: "running",
+  verifying: "verifying",
+  success: "success",
+  partial_success: "partial_success",
+  failed: "failed",
+  cancelled: "cancelled",
+  expired: "expired",
+  already_processed: "success",
+};
+
+/** Le canal touché, en clair : c'est ce qu'on lit en premier sous le titre. */
+function channelLabel(tool: string): string {
+  if (tool.includes("whatsapp") || tool === "__toumai_batch__") return "WhatsApp";
+  if (tool.includes("mail")) return "E-mail";
+  if (tool.includes("calendar") || tool.includes("event")) return "Google Agenda";
+  return "";
+}
+
+function toolIcon(tool: string, destructive: boolean): LucideIcon {
+  if (destructive) return ShieldAlert;
+  if (tool.includes("group")) return Users;
+  if (tool.includes("mail")) return Mail;
+  if (tool.includes("calendar") || tool.includes("event")) return CalendarDays;
+  if (tool.includes("whatsapp") || tool === "__toumai_batch__") return MessageCircle;
+  return Zap;
 }

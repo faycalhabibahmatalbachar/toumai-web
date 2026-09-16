@@ -6,6 +6,9 @@ const stream = fs.readFileSync("lib/chat-stream.ts", "utf8");
 const chat = fs.readFileSync("app/chat/page.tsx", "utf8");
 const dropZone = fs.readFileSync("components/chat/media/DropZone.tsx", "utf8");
 const actionCard = fs.readFileSync("components/chat/widgets/ActionExecutionCard.tsx", "utf8");
+const registry = fs.readFileSync("components/chat/widgets/registry.tsx", "utf8");
+const research = fs.readFileSync("components/chat/widgets/kinds/ResearchWidgets.tsx", "utf8");
+const i18n = fs.readFileSync("lib/widgets/i18n.ts", "utf8");
 
 const checks = [
   ["typed sources block", response.includes('type: "sources"')],
@@ -14,13 +17,14 @@ const checks = [
   ["legacy bridge", response.includes("blocksFromMetadata")],
   ["block merge", response.includes("mergeResponseBlocks")],
   ["safe external URL gate", renderer.includes("safeHttpUrl")],
-  ["web research header", renderer.includes("Recherche sur le Web")],
-  ["visited websites", renderer.includes('aria-label="Sites visités"') && renderer.includes("Consulté ·")],
-  ["site icons", renderer.includes("SourceIcon") && renderer.includes("favicon_url")],
-  ["expandable source websites", renderer.includes("Sources · {sources.length}") && renderer.includes("Afficher")],
-  ["source numbering stays visible", renderer.includes("[{index + 1}]")],
-  ["weather widget", renderer.includes('widget.type === "weather"')],
-  ["table widget", renderer.includes('widget.type === "table"')],
+  ["web research header", i18n.includes('title: "Recherche sur le Web"') && research.includes("t.search.title")],
+  ["visited websites", research.includes("readCount") && research.includes("t.search.visited")],
+  ["site icons", research.includes("SourceFavicon") && research.includes("favicon_url") && research.includes("safeHttpUrl(favicon)")],
+  ["expandable source websites", research.includes("aria-expanded") && renderer.includes("<SourcesCard")],
+  ["source numbering stays visible", research.includes("{index + 1}")],
+  ["weather widget", registry.includes("weather: {") && registry.includes("WeatherWidget")],
+  ["table widget", registry.includes("table: {") && registry.includes("TableWidget")],
+  ["unknown widget falls back safely", registry.includes("GenericWidget")],
   ["SSE accepts blocks", stream.includes("blocks?: ResponseBlock[]")],
   ["multi-document stream", stream.includes("document_ids: params.documentIds")],
   ["composer max five", chat.includes("5 - attachedDocs.length")],
@@ -36,14 +40,14 @@ const checks = [
   ["unmount upload cleanup", chat.includes("attachedDocsRef.current") && chat.includes("controller.abort()")],
   ["active uploads count toward limit", chat.includes("5 - attachedDocs.length - uploadsActifs")],
   ["typed actions block", response.includes('type: "actions"') && response.includes("interface ActionStep")],
-  ["actions block rendered", renderer.includes("ActionsBlock") && renderer.includes('case "actions"')],
+  ["actions block rendered", renderer.includes("<ActionStepsWidget") && renderer.includes('"actions"')],
   ["legacy action_steps bridge", response.includes("meta.action_steps")],
   ["confirmation carries pending_id", stream.includes("pending_id?: string | null")],
   ["confirm sends pending_id", actionCard.includes("pending_id: confirmation.pending_id")],
-  ["cancel releases pending action", actionCard.includes("cancelToolAction(confirmation.pending_id)")],
-  ["pending action reconciled after reload", actionCard.includes("/agent/actions/pending/status")],
+  ["cancel releases pending action", actionCard.includes("runtime.tools.cancel(confirmation.pending_id)")],
+  ["pending action reconciled after reload", actionCard.includes("runtime.tools.pendingStatus(pendingId)") && fs.readFileSync("components/chat/widgets/runtime.tsx", "utf8").includes("/agent/actions/pending/status")],
   ["processed action is not shown as expired", actionCard.includes('"already_processed"') && actionCard.includes("Action déjà traitée")],
-  ["blocked workflow step rendered", actionCard.includes('step.state === "blocked"') && actionCard.includes("Non exécutée")],
+  ["blocked workflow step rendered", actionCard.includes('step.state === "blocked"') && actionCard.includes("Non exécuté")],
 ];
 
 const failed = checks.filter(([, ok]) => !ok);

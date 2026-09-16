@@ -167,23 +167,23 @@ export interface Source {
 }
 
 export function RangeeSources({ sources }: { sources: Source[] }) {
+  // Même carte que `SourcesCard` du chat (système de widgets `.tmw-*`) :
+  // pastilles de domaines et résumé, la liste complète restant repliée.
   return (
-    <div className="mt-3">
-      <p className="mb-1.5 flex items-center gap-1.5 text-[12px] text-[var(--text-tertiary)]">
-        <IconeGlobe />
-        Web consulté — {sources.length} source{sources.length > 1 ? "s" : ""}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {sources.map((s) => (
+    <div className="tmw-card mt-3 flex min-h-11 items-center gap-2.5 px-3.5 py-2">
+      <span className="flex -space-x-1.5" aria-hidden="true">
+        {sources.slice(0, 4).map((s) => (
           <span
             key={s.titre}
-            className="flex max-w-[200px] items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)]"
+            className="tmw-inset inline-flex h-5 w-5 items-center justify-center rounded-[5px] border border-[var(--border)] text-[9px] font-semibold text-[var(--text-secondary)] ring-2 ring-[var(--card)]"
           >
-            <IconeLien />
-            <span className="truncate">{s.titre}</span>
+            {s.domaine.charAt(0).toUpperCase()}
           </span>
         ))}
-      </div>
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[var(--text-secondary)]">
+        {sources.length} source{sources.length > 1 ? "s" : ""} · {sources.map((s) => s.domaine).join(", ")}
+      </span>
     </div>
   );
 }
@@ -212,34 +212,34 @@ export function CarteConfirmation({
   action: string;
   confirme?: boolean;
 }) {
+  // Même anatomie que `ActionExecutionCard` : tuile d'icône, titre d'état,
+  // canal, barre d'actions. Reproduction : les boutons sont des `span`.
   return (
-    <div className="mt-3 max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-      <div className="px-4 pb-3 pt-3.5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-          Action nécessitant votre confirmation
-        </p>
-        <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-          {action}. Dans Toumaï AI, aucun message ne part avant votre validation.
-        </p>
+    <div className="tmw-card mt-3 !max-w-md">
+      <div className="flex items-start gap-3 px-3.5 py-3">
+        <span className="tmw-inset inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border)] text-[var(--text-secondary)]" aria-hidden="true">
+          <IconeLien />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-semibold leading-5 text-[var(--text-primary)]">
+            {confirme ? "Action confirmée" : "Action à confirmer"}
+          </p>
+          <p className="mt-0.5 text-[12px] leading-[18px] text-[var(--text-tertiary)]">
+            {action}. Dans Toumaï AI, aucun message ne part avant votre validation.
+          </p>
+        </div>
       </div>
-      <div className="flex items-center gap-2 border-t border-[var(--border)] px-4 py-3">
+      <div className="flex items-center gap-2 border-t border-[var(--border)] px-3.5 py-2.5">
         {confirme ? (
-          <span className="text-xs text-[var(--text-secondary)]">
+          <span className="text-[12px] text-[var(--text-secondary)]">
             Après confirmation : le message part, et la conversation se met à jour.
           </span>
         ) : (
           <>
-            <span
-              aria-hidden="true"
-              className="rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white"
-              style={{ background: "var(--primary)" }}
-            >
+            <span aria-hidden="true" className="tmw-btn-primary inline-flex min-h-9 items-center rounded-[10px] px-3.5 text-[12.5px] font-semibold">
               Confirmer
             </span>
-            <span
-              aria-hidden="true"
-              className="rounded-lg border border-[var(--border)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
-            >
+            <span aria-hidden="true" className="inline-flex min-h-9 items-center rounded-[10px] px-3 text-[12.5px] font-medium text-[var(--text-secondary)]">
               Annuler
             </span>
           </>

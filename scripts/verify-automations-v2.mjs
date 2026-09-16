@@ -72,13 +72,13 @@ expect(api.newRequestId("web") !== api.newRequestId("web"), "request ids are uni
 
 const page = fs.readFileSync("app/automations/page.tsx", "utf8");
 const client = fs.readFileSync("lib/automations-api.ts", "utf8");
-const widget = fs.readFileSync("components/chat/widgets/WidgetRenderer.tsx", "utf8");
+const widget = fs.readFileSync("components/chat/widgets/kinds/AutomationWidget.tsx", "utf8");
 expect(client.includes('const BASE = "/automations/v2"'), "web client targets Automation OS v2");
 expect(page.includes('from "@/lib/automations-api"'), "automations page uses the v2 client");
 expect(!page.includes("getWhatsAppAutomations"), "legacy wa_scheduled_messages list is no longer the page source");
 expect(page.includes("runAutomationNow(a.id, key)"), "run now carries an idempotency key");
 expect(page.includes("Annuler cette automatisation ?"), "cancel is confirmed");
-expect(widget.includes("scheduleLabel(summary)"), "chat automation widget uses the shared schedule wording");
+expect(widget.includes("scheduleLabel(automation)"), "chat automation widget uses the shared schedule wording");
 
 if (failures) {
   process.exitCode = 1;

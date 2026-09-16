@@ -24,10 +24,16 @@
 import { readFileSync } from "node:fs";
 
 const CHAT = "components/ChatMessage.tsx";
+// Les cartes de résultats vivent désormais dans le système de widgets.
+const WIDGETS = [
+  "components/chat/widgets/primitives.tsx",
+  "components/chat/widgets/ActionExecutionCard.tsx",
+  "components/chat/widgets/kinds/ResearchWidgets.tsx",
+];
 const DEMO = "components/accueil/demo/primitives.tsx";
 const PREUVE = "components/accueil/demo/PreuveProduit.tsx";
 
-const chat = readFileSync(CHAT, "utf8");
+const chat = [CHAT, ...WIDGETS].map((f) => readFileSync(f, "utf8")).join("\n");
 const demo = readFileSync(DEMO, "utf8");
 const preuve = readFileSync(PREUVE, "utf8");
 
@@ -40,9 +46,10 @@ const echecs = [];
 const COMMUNES = [
   ["la bulle de l'utilisateur", "rounded-[20px] rounded-br-[8px]"],
   ["le coin arrondi du logo dans la signature", 'rounded-[5px]'],
-  ["la pastille de source", "rounded-full border border-[var(--border)] px-3 py-1.5"],
-  ["l'intitulé de la carte de confirmation", "uppercase tracking-[0.06em]"],
-  ["la carte de confirmation", "rounded-2xl border border-[var(--border)] bg-[var(--surface)]"],
+  ["le conteneur des cartes (widgets)", "tmw-card"],
+  ["le fond intérieur des cartes", "tmw-inset"],
+  ["le bouton principal des cartes", "tmw-btn-primary"],
+  ["la tuile d'icône des cartes", "rounded-[10px]"],
 ];
 
 for (const [quoi, valeur] of COMMUNES) {

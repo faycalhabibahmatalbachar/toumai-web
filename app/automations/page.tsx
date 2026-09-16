@@ -101,6 +101,14 @@ export default function AutomationsPage() {
   const [selectedId, setSelectedId] = useState("");
   const [isOnline, setIsOnline] = useState(true);
 
+  // Lien direct depuis une carte du chat : /automations?id=<id> ouvre le
+  // détail (historique compris). Lu après montage : la page est exportée en
+  // statique, les paramètres n'existent pas au rendu serveur.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id && /^[\w-]{6,64}$/.test(id)) void Promise.resolve().then(() => setSelectedId(id));
+  }, []);
+
   const load = useCallback(async (quiet = false) => {
     if (!session) return;
     if (!quiet) setFetching(true);

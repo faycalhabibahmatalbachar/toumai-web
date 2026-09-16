@@ -1649,3 +1649,101 @@ svg {
   }
 
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * SYSTÈME DE WIDGETS DU CHAT (`.tmw-*`)
+ *
+ * Une tonalité = une couleur, partout : succès, attention, erreur, en cours.
+ * Les couleurs de TEXTE sont choisies par thème pour tenir le contraste AA sur
+ * `--card` ; les fonds dérivent de la même teinte par `color-mix`, jamais d'une
+ * valeur écrite à la main dans un composant.
+ * Dans `@layer components` : hors calque, ces classes battraient les
+ * utilitaires Tailwind.
+ * ══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  :root {
+    --tmw-success: #34d399;
+    --tmw-warning: #e8b65a;
+    --tmw-error: #f58c8c;
+    --tmw-active: #e8956f;
+    --tmw-neutral: #b5ac9c;
+    /* Texte discret des cartes : `--text-tertiary` (3,34:1 sur --card) ne tient
+       pas l'AA à 12 px. Mesuré : 4,95:1 en sombre, 4,81:1 en clair. */
+    --tmw-muted: #a39a89;
+    /* Bouton principal : blanc sur --primary = 3,12:1 en sombre. 4,53:1 ici. */
+    --tmw-primary-strong: #b85c3e;
+    --tmw-primary-strong-hover: #a94f31;
+    --tmw-radius: 16px;
+    --tmw-max: 34rem;
+  }
+  [data-theme="light"] {
+    --tmw-success: #047857;
+    --tmw-warning: #8a4b08;
+    --tmw-error: #b42318;
+    --tmw-active: #9c4526;
+    --tmw-neutral: #5c564b;
+    --tmw-muted: #6f685c;
+    --tmw-primary-strong: #a94f31;
+    --tmw-primary-strong-hover: #9c4526;
+  }
+
+  .tmw-tone-neutral { --tmw-tone: var(--tmw-neutral); }
+  .tmw-tone-progress,
+  .tmw-tone-active { --tmw-tone: var(--tmw-active); }
+  .tmw-tone-success { --tmw-tone: var(--tmw-success); }
+  .tmw-tone-warning,
+  .tmw-tone-attention { --tmw-tone: var(--tmw-warning); }
+  .tmw-tone-error { --tmw-tone: var(--tmw-error); }
+
+  .tmw-card {
+    --text-tertiary: var(--tmw-muted);
+    width: 100%;
+    max-width: var(--tmw-max);
+    overflow: hidden;
+    border-radius: var(--tmw-radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+  /* Le filet d'état : fin, à l'intérieur, jamais une bordure colorée entière. */
+  .tmw-card[data-accent="true"] {
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--tmw-tone) 75%, transparent);
+  }
+  [dir="rtl"] .tmw-card[data-accent="true"] {
+    box-shadow: inset -2px 0 0 color-mix(in srgb, var(--tmw-tone) 75%, transparent);
+  }
+
+  .tmw-badge {
+    color: var(--tmw-tone);
+    background: color-mix(in srgb, var(--tmw-tone) 13%, transparent);
+  }
+  .tmw-dot { background: var(--tmw-tone); }
+  .tmw-icon-soft {
+    color: var(--tmw-tone);
+    background: color-mix(in srgb, var(--tmw-tone) 12%, transparent);
+  }
+  .tmw-divide > * + * { border-top: 1px solid var(--border); }
+  .tmw-inset { background: color-mix(in srgb, var(--background) 45%, transparent); }
+
+  .tmw-btn-primary { background: var(--tmw-primary-strong); color: #fff; }
+  .tmw-btn-primary:hover { background: var(--tmw-primary-strong-hover); }
+  .tmw-btn-danger { color: var(--tmw-error); background: color-mix(in srgb, var(--tmw-error) 12%, transparent); }
+  .tmw-btn-danger:hover { background: color-mix(in srgb, var(--tmw-error) 20%, transparent); }
+
+  @keyframes tmw-enter {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes tmw-shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  .tmw-enter { animation: tmw-enter 180ms ease-out both; }
+  .tmw-skeleton {
+    background: linear-gradient(90deg, var(--hover) 25%, color-mix(in srgb, var(--text-primary) 12%, transparent) 50%, var(--hover) 75%);
+    background-size: 200% 100%;
+    animation: tmw-shimmer 1.4s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tmw-enter, .tmw-skeleton { animation: none; }
+  }
+}
