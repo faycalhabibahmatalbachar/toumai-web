@@ -16,6 +16,7 @@ import { activityLabel } from "@/lib/tool-ui";
 import { RichResponseBlocks } from "./chat/RichResponseBlocks";
 import { SourcesCard } from "./chat/widgets/kinds/ResearchWidgets";
 import { InlineProgress } from "./chat/widgets/primitives";
+import { TaskProgress, inferTaskActivity } from "./chat/TaskProgress";
 import { ReasoningPanel } from "./chat/ReasoningPanel";
 import { ActionExecutionCard } from "./chat/widgets/ActionExecutionCard";
 import { Logo } from "./Logo";
@@ -199,11 +200,6 @@ function RegenerateIcon() {
   );
 }
 
-
-
-
-
-
 function TypingDots() {
   return (
     <div className="flex items-center gap-1 py-1" aria-label="Toumaï AI réfléchit">
@@ -300,7 +296,7 @@ export function ChatMessage({
           <div className="msg-actions flex items-center gap-0.5">
             <button onClick={copy} aria-label={copied ? "Copié" : "Copier le message"} title={copied ? "Copié" : "Copier"} className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]">{copied ? <CheckIcon /> : <CopyIcon />}</button>
             {editable && onEdit && <button onClick={startEdit} aria-label="Modifier le message" title="Modifier" className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"><EditIcon /></button>}
-            {editable && onRetry && <button onClick={onRetry} aria-label="Renvoyer ce message" title="Renvoyer la même question" className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"><RegenerateIcon /></button>}
+            {editable && onRetry && <button onClick={onRetry} aria-label="Renvoyer ce message" title="Renvoyer" className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"><RegenerateIcon /></button>}
           </div>
         </div>
       </div>
@@ -322,6 +318,7 @@ export function ChatMessage({
   const isSite = Boolean(finishedHtml);
   const searchImageUrls = new Set((message.searchImages ?? []).map((image) => image.url));
   const standaloneImageUrls = (message.imageUrls ?? []).filter((url) => !searchImageUrls.has(url));
+  const inferredTaskActivity = message.streaming && !message.content ? inferTaskActivity(prevContent) : null;
 
   let visibleContent = message.content || "";
   if (building) visibleContent = visibleContent.replace(/```html[\s\S]*$/i, "").trimEnd();
@@ -338,9 +335,15 @@ export function ChatMessage({
       {message.whatsappConnector && <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />}
       <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && message.activity ? (
-          <InlineProgress label={activityLabel(message.activity)} />
+          message.activity.startsWith("whatsapp") && inferredTaskActivity ? (
+            <TaskProgress {...inferredTaskActivity} label={activityLabel(message.activity) || inferredTaskActivity.label} />
+          ) : (
+            <InlineProgress label={activityLabel(message.activity)} />
+          )
         ) : null}
-        {message.streaming && !message.content ? <TypingDots /> : (
+        {message.streaming && !message.content ? (
+          message.activity ? null : inferredTaskActivity ? <TaskProgress {...inferredTaskActivity} /> : <TypingDots />
+        ) : (
           <div className="prose-toumai">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
