@@ -15,6 +15,7 @@ import {
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import {
   archiveNotification,
+  getNotificationCapabilities,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -55,6 +56,7 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationInboxItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [upgradePending, setUpgradePending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,13 +64,21 @@ export default function NotificationsPage() {
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [page, count] = await Promise.all([
-        listNotifications(0, PAGE_SIZE),
-        unreadNotificationCount(),
-      ]);
+      const capabilities = await getNotificationCapabilities();
+      if (!capabilities?.inbox_v3 || !capabilities.read_actions) {
+        setUpgradePending(true);
+        setError(null);
+        return;
+      }
+
+      const page = await listNotifications(0, PAGE_SIZE);
+      const count = await unreadNotificationCount().catch(
+        () => page.items.filter((item) => !item.read_at).length,
+      );
       setItems(page.items);
       setHasMore(page.hasMore);
       setUnread(count);
+      setUpgradePending(false);
       setError(null);
     } catch (err) {
       if (!silent) {
@@ -201,7 +211,26 @@ export default function NotificationsPage() {
       </header>
 
       <section className="mx-auto max-w-3xl px-4 py-6">
-        {loading && items.length === 0 ? (
+        {upgradePending && items.length === 0 ? (
+          <div className="flex min-h-72 flex-col items-center justify-center text-center">
+            <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--surface)] text-[var(--text-tertiary)]">
+              <RefreshCw size={23} />
+            </span>
+            <h2 className="font-semibold">Mise à niveau des notifications en cours</h2>
+            <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--text-secondary)]">
+              Vos notifications Push existantes continuent de fonctionner. La nouvelle Inbox
+              apparaîtra automatiquement dès que Notifications v3 et son schéma seront activés
+              sur le serveur.
+            </p>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)]"
+            >
+              Vérifier à nouveau
+            </button>
+          </div>
+        ) : loading && items.length === 0 ? (
           <div className="flex min-h-72 items-center justify-center">
             <LoaderCircle className="animate-spin text-[var(--text-tertiary)]" />
           </div>
