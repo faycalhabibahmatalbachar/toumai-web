@@ -83,3 +83,35 @@ export const updateNotificationPreference = (
     `/notifications/preferences?category=${encodeURIComponent(category)}`,
     patch,
   );
+
+
+export interface ProductNotificationPreference {
+  key: string;
+  enabled: boolean;
+  locked: boolean;
+}
+
+export interface ProductNotificationPreferences {
+  categories: ProductNotificationPreference[];
+  quiet_hours: {
+    enabled: boolean;
+    start: string;
+    end: string;
+    timezone?: string | null;
+  };
+}
+
+export const getProductNotificationPreferences = () =>
+  http.get<ProductNotificationPreferences>("/preferences/notifications");
+
+export const updateProductNotificationPreferences = (
+  patch: {
+    categories?: Record<string, boolean>;
+    quiet_hours?: {
+      enabled?: boolean;
+      start?: string;
+      end?: string;
+    };
+  },
+) =>
+  http.put<ProductNotificationPreferences>("/preferences/notifications", patch);
