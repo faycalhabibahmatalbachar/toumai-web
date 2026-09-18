@@ -1,0 +1,37 @@
+name: No anonymous auth regression
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'scripts/verify-no-anonymous-auth.mjs'
+      - 'package.json'
+      - '.github/workflows/no-anonymous-auth.yml'
+  push:
+    branches: [security/no-anonymous-auth-regression]
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'scripts/verify-no-anonymous-auth.mjs'
+      - 'package.json'
+      - '.github/workflows/no-anonymous-auth.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Block anonymous auth regressions
+        run: node scripts/verify-no-anonymous-auth.mjs
