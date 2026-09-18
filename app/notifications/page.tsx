@@ -80,7 +80,7 @@ export default function NotificationsPage() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    const initialFrame = window.requestAnimationFrame(() => void refresh());
     const onFocus = () => void refresh(true);
     const onVisible = () => {
       if (document.visibilityState === "visible") void refresh(true);
@@ -88,6 +88,7 @@ export default function NotificationsPage() {
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      window.cancelAnimationFrame(initialFrame);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
