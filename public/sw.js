@@ -55,7 +55,7 @@
 // pendant une visite entiere apres son remplacement. Les fichiers qu on
 // remplace portent desormais leur version dans leur NOM ; ce numero-ci
 // efface ce que l ancienne strategie avait deja garde.
-const VERSION = "toumai-v3";
+const VERSION = "toumai-v4";
 const CACHE = `${VERSION}`;
 
 /**
@@ -235,6 +235,96 @@ self.addEventListener("fetch", (evenement) => {
     })(),
   );
 });
+
+/**
+ * WEB PUSH — fonctionne même quand aucun onglet Toumaï n'est ouvert.
+ *
+ * Le backend envoie uniquement titre/corps + métadonnées de navigation. Le
+ * service worker ne persiste aucune donnée de compte : il affiche, puis jette
+ * le payload. L'Inbox durable reste côté serveur.
+ */
+self.addEventListener("push", (evenement) => {
+  evenement.waitUntil(
+    (async () => {
+      let payload = {};
+      try {
+        payload = evenement.data ? evenement.data.json() : {};
+      } catch {
+        try {
+          payload = { body: evenement.data ? evenement.data.text() : "" };
+        } catch {}
+      }
+
+      const title =
+        typeof payload.title === "string" && payload.title.trim()
+          ? payload.title.slice(0, 200)
+          : "Toumaï AI";
+      const body =
+        typeof payload.body === "string" ? payload.body.slice(0, 1000) : "";
+      const notificationId =
+        typeof payload.notification_id === "string"
+          ? payload.notification_id
+          : undefined;
+
+      await self.registration.showNotification(title, {
+        body,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        tag: notificationId ? `toumai-notification-${notificationId}` : "toumai-notification",
+        renotify: Boolean(notificationId),
+        data: {
+          deep_link:
+            typeof payload.deep_link === "string" ? payload.deep_link : null,
+          notification_id: notificationId ?? null,
+          event:
+            payload.data && typeof payload.data === "object"
+              ? payload.data.event ?? payload.data.canonical_event ?? null
+              : null,
+        },
+      });
+    })(),
+  );
+});
+
+function destinationNotification(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return "/notifications";
+  try {
+    const url = new URL(raw, self.location.origin);
+    if (url.origin !== self.location.origin) return "/notifications";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/notifications";
+  }
+}
+
+self.addEventListener("notificationclick", (evenement) => {
+  evenement.notification.close();
+  evenement.waitUntil(
+    (async () => {
+      const destination = destinationNotification(
+        evenement.notification.data?.deep_link,
+      );
+      const url = new URL(destination, self.location.origin).href;
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of clients) {
+        try {
+          const current = new URL(client.url);
+          if (current.origin === self.location.origin) {
+            if ("navigate" in client) await client.navigate(url);
+            if ("focus" in client) await client.focus();
+            return;
+          }
+        } catch {}
+      }
+      if (self.clients.openWindow) await self.clients.openWindow(url);
+    })(),
+  );
+});
+
 
 /**
  * La porte de sortie. `postMessage({ type: "desinstaller" })` depuis la page
