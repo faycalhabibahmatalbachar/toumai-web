@@ -115,3 +115,30 @@ export const updateProductNotificationPreferences = (
   },
 ) =>
   http.put<ProductNotificationPreferences>("/preferences/notifications", patch);
+
+
+export interface NotificationCapabilities {
+  inbox_v3: boolean;
+  read_actions: boolean;
+  preferences_v3: boolean;
+  web_push_schema: boolean;
+  web_push_provider: boolean;
+}
+
+/**
+ * null = backend pré-v3 (route absente).
+ * Une autre panne est propagée : ne pas confondre indisponibilité réseau et
+ * rollout normal.
+ */
+export async function getNotificationCapabilities(): Promise<NotificationCapabilities | null> {
+  const res = await authFetch("/notifications/capabilities");
+  if (res.status === 404) return null;
+  const body = (await res.json().catch(() => ({}))) as {
+    success?: boolean;
+    data?: NotificationCapabilities;
+  };
+  if (!res.ok || body.success !== true || !body.data) {
+    throw new Error("État Notifications indisponible");
+  }
+  return body.data;
+}
