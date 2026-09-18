@@ -10,10 +10,15 @@ export type WebPushState = {
   configured: boolean;
 };
 
-function keyBytes(value: string): Uint8Array {
+function keyBytes(value: string): ArrayBuffer {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes.buffer;
 }
 
 async function serverKey(): Promise<{ configured: boolean; publicKey: string | null }> {
