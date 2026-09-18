@@ -401,6 +401,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           {[
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
             { href: "/automations", label: "Automatisations", icon: <AutomationIcon /> },
+            { href: "/notifications", label: "Notifications", icon: <BellIcon /> },
             { href: "/whatsapp", label: "WhatsApp", icon: <WhatsAppNavIcon /> },
             { href: "/settings?tab=connectors", label: "Connecteurs", icon: <PlugIcon /> },
           ].map((item) => (
@@ -975,6 +976,16 @@ function EditIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+
+function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 21h4" strokeLinecap="round" />
     </svg>
   );
 }
