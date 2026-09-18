@@ -53,7 +53,10 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+    const frame = window.requestAnimationFrame(() => {
+      setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function toggleCollapsed() {
@@ -120,8 +123,10 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
     //
     // On interroge le cache directement : la réponse ne dépend plus de
     // l'ordre dans lequel React applique les états.
-    setLoading(cacheRead("chat:sessions") == null);
-    setError(null);
+    const frame = window.requestAnimationFrame(() => {
+      setLoading(cacheRead("chat:sessions") == null);
+      setError(null);
+    });
     listSessions()
       .then((data) => {
         if (cancelled) return;
@@ -146,8 +151,8 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
       });
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(frame);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, refreshKey]);
 
   /** Range une conversation sans la détruire. */
