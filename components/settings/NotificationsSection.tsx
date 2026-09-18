@@ -1,151 +1,316 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getPreferences, updatePreferences, type Preferences } from "@/lib/preferences-api";
-import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { useEffect, useMemo, useState } from "react";
+
 import {
-  enableWebNotifications,
-  getWebNotifState,
-  isWebNotifEnabled,
-  notify,
-  setWebNotifEnabled,
-  type WebNotifState,
-} from "@/lib/web-notifications";
+  getNotificationPreference,
+  getProductNotificationPreferences,
+  updateNotificationPreference,
+  updateProductNotificationPreferences,
+  type NotificationPreference,
+  type ProductNotificationPreferences,
+} from "@/lib/notifications-api";
+import {
+  disableWebPush,
+  enableWebPush,
+  webPushState,
+  type WebPushState,
+} from "@/lib/web-push";
 import { CxSwitch, Panel, Row } from "./Rows";
 
+const LABELS: Record<string, { label: string; description: string }> = {
+  ai_tasks: {
+    label: "Assistant",
+    description: "Tâches terminées, erreurs et résultats importants.",
+  },
+  confirmations: {
+    label: "Actions à valider",
+    description: "Une action de l’agent attend votre décision.",
+  },
+  automations_success: {
+    label: "Automatisations réussies",
+    description: "Une exécution programmée s’est terminée.",
+  },
+  automations_failure: {
+    label: "Automatisations en échec",
+    description: "Une exécution a échoué ou demande votre attention.",
+  },
+  reminders: {
+    label: "Rappels",
+    description: "Alarmes, rendez-vous et rappels programmés.",
+  },
+  whatsapp_messages: {
+    label: "Messages WhatsApp",
+    description: "Messages et médias reçus ou événements de conversation.",
+  },
+  whatsapp_autopilot: {
+    label: "Auto-pilote WhatsApp",
+    description: "Suggestions et réponses automatiques.",
+  },
+  whatsapp_connection: {
+    label: "Connexion WhatsApp",
+    description: "Connexion perdue, restaurée ou session à renouveler.",
+  },
+  mail: {
+    label: "E-mail",
+    description: "Envois et événements liés à votre messagerie.",
+  },
+  calendar: {
+    label: "Agenda",
+    description: "Événements et rappels de calendrier.",
+  },
+  usage: {
+    label: "Usage et limites",
+    description: "Quota bientôt atteint, atteint ou réinitialisé.",
+  },
+  security: {
+    label: "Sécurité du compte",
+    description: "Connexions, sessions et changements sensibles.",
+  },
+  product: {
+    label: "Toumaï AI",
+    description: "Mises à jour produit et informations système utiles.",
+  },
+};
+
+const EMPTY_WEB_PUSH: WebPushState = {
+  supported: false,
+  permission: "unsupported",
+  subscribed: false,
+  configured: false,
+};
+
 export function NotificationsSection() {
-  const [prefs, setPrefs] = useState<Preferences | null>(() => cacheSeed<Preferences>("user:prefs"));
+  const [global, setGlobal] = useState<NotificationPreference | null>(null);
+  const [product, setProduct] = useState<ProductNotificationPreferences | null>(null);
+  const [push, setPush] = useState<WebPushState>(EMPTY_WEB_PUSH);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getPreferences()
-      .then((p) => {
-        setPrefs(p);
-        cacheWrite("user:prefs", p);
+    let cancelled = false;
+    Promise.all([
+      getNotificationPreference("*"),
+      getProductNotificationPreferences(),
+      webPushState(),
+    ])
+      .then(([g, p, w]) => {
+        if (cancelled) return;
+        setGlobal(g);
+        setProduct(p);
+        setPush(w);
       })
-      .catch((err) =>
-        setPrefs((c) => {
-          if (!c) setError(err instanceof Error ? err.message : "Chargement impossible");
-          return c;
-        }),
-      );
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Chargement impossible");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function save(patch: Partial<Preferences>) {
-    if (!prefs) return;
-    const prev = prefs;
-    const next = { ...prefs, ...patch };
-    setPrefs(next);
+  const categories = useMemo(
+    () =>
+      (product?.categories ?? []).filter((item) => LABELS[item.key]),
+    [product],
+  );
+
+  async function saveGlobal(
+    patch: Partial<Omit<NotificationPreference, "user_id" | "category">>,
+  ) {
+    if (!global) return;
+    const previous = global;
+    setGlobal({ ...global, ...patch });
     setError(null);
     try {
-      await updatePreferences(patch);
-      cacheWrite("user:prefs", next);
+      const saved = await updateNotificationPreference(patch, "*");
+      setGlobal(saved);
     } catch (err) {
-      setPrefs(prev);
-      setError(err instanceof Error ? err.message : "Échec de l'enregistrement");
+      setGlobal(previous);
+      setError(err instanceof Error ? err.message : "Échec de l’enregistrement");
     }
   }
 
-  if (!prefs) {
-    return <div className="h-48 w-full animate-pulse rounded-[14px] bg-[var(--cx-surface)]" aria-hidden="true" />;
+  async function saveCategory(key: string, enabled: boolean) {
+    if (!product) return;
+    const previous = product;
+    setProduct({
+      ...product,
+      categories: product.categories.map((item) =>
+        item.key === key ? { ...item, enabled } : item,
+      ),
+    });
+    setError(null);
+    try {
+      const saved = await updateProductNotificationPreferences({
+        categories: { [key]: enabled },
+      });
+      setProduct(saved);
+    } catch (err) {
+      setProduct(previous);
+      setError(err instanceof Error ? err.message : "Échec de l’enregistrement");
+    }
   }
 
+  async function saveQuiet(
+    patch: Partial<ProductNotificationPreferences["quiet_hours"]>,
+  ) {
+    if (!product) return;
+    const previous = product;
+    const next = {
+      ...product,
+      quiet_hours: { ...product.quiet_hours, ...patch },
+    };
+    setProduct(next);
+    setError(null);
+    try {
+      const saved = await updateProductNotificationPreferences({
+        quiet_hours: patch,
+      });
+      setProduct(saved);
+    } catch (err) {
+      setProduct(previous);
+      setError(err instanceof Error ? err.message : "Échec de l’enregistrement");
+    }
+  }
+
+  async function toggleWebPush(enabled: boolean) {
+    setBusy("web_push");
+    setError(null);
+    try {
+      const next = enabled ? await enableWebPush() : await disableWebPush();
+      setPush(next);
+      const latest = await getNotificationPreference("*");
+      setGlobal(latest);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Web Push indisponible");
+      setPush(await webPushState().catch(() => EMPTY_WEB_PUSH));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!global || !product) {
+    return (
+      <div className="space-y-4">
+        <div className="h-32 w-full animate-pulse rounded-[14px] bg-[var(--cx-surface)]" />
+        <div className="h-64 w-full animate-pulse rounded-[14px] bg-[var(--cx-surface)]" />
+        {error && <p className="text-sm text-[var(--cx-error-text)]">{error}</p>}
+      </div>
+    );
+  }
+
+  const webPushDescription = !push.supported
+    ? "Ce navigateur ne prend pas en charge Web Push."
+    : !push.configured
+      ? "Le serveur n’a pas encore de clé VAPID active."
+      : push.permission === "denied"
+        ? "Bloqué par le navigateur. Réautorisez Toumaï AI dans ses réglages."
+        : "Fonctionne même lorsque l’onglet Toumaï AI est fermé.";
+
   return (
-    <div>
-      <Panel title="Cet appareil">
-        <WebNotifRow />
+    <div className="space-y-4">
+      <Panel title="Canaux">
+        <Row
+          label="Push mobile"
+          description="Autorise les alertes sur vos appareils mobiles enregistrés."
+        >
+          <CxSwitch
+            checked={global.push_enabled}
+            label="Push mobile"
+            onChange={(value) => void saveGlobal({ push_enabled: value })}
+          />
+        </Row>
+
+        <Row label="Web Push" description={webPushDescription}>
+          <CxSwitch
+            checked={push.subscribed && global.web_push_enabled}
+            label="Web Push"
+            disabled={
+              busy === "web_push" ||
+              !push.supported ||
+              !push.configured ||
+              push.permission === "denied"
+            }
+            onChange={(value) => void toggleWebPush(value)}
+          />
+        </Row>
+
+        <Row
+          label="E-mail"
+          description="Pour les événements qui autorisent explicitement ce canal."
+        >
+          <CxSwitch
+            checked={global.email_enabled}
+            label="E-mail"
+            onChange={(value) => void saveGlobal({ email_enabled: value })}
+          />
+        </Row>
       </Panel>
 
       <Panel title="Ce que Toumaï AI peut signaler">
+        {categories.map((item) => {
+          const copy = LABELS[item.key];
+          return (
+            <Row
+              key={item.key}
+              label={copy.label}
+              description={copy.description}
+            >
+              <CxSwitch
+                checked={item.enabled}
+                label={copy.label}
+                disabled={item.locked}
+                onChange={(value) => void saveCategory(item.key, value)}
+              />
+            </Row>
+          );
+        })}
+      </Panel>
+
+      <Panel title="Heures calmes">
         <Row
-          label="Suggestions proactives"
-          description="Toumaï AI vous propose des idées selon le contexte."
+          label="Ne pas déranger"
+          description="Les événements P0 restent prioritaires ; les autres canaux interruptifs sont silencés."
         >
           <CxSwitch
-            checked={prefs.notif_suggestions}
-            label="Suggestions proactives"
-            onChange={(v) => save({ notif_suggestions: v })}
+            checked={product.quiet_hours.enabled}
+            label="Heures calmes"
+            onChange={(value) => void saveQuiet({ enabled: value })}
           />
         </Row>
-        <Row label="Auto-pilote WhatsApp" description="Alertes liées aux réponses automatiques.">
-          <CxSwitch
-            checked={prefs.notif_wa}
-            label="Auto-pilote WhatsApp"
-            onChange={(v) => save({ notif_wa: v })}
-          />
-        </Row>
-        <Row label="Agenda" description="Rappels d'événements Google Agenda.">
-          <CxSwitch
-            checked={prefs.notif_calendar}
-            label="Agenda"
-            onChange={(v) => save({ notif_calendar: v })}
-          />
-        </Row>
+
+        {product.quiet_hours.enabled && (
+          <div className="grid grid-cols-2 gap-3 border-t border-[var(--cx-border-subtle)] px-4 py-4">
+            <label className="text-xs font-medium text-[var(--cx-text-secondary)]">
+              Début
+              <input
+                type="time"
+                value={product.quiet_hours.start}
+                onChange={(event) => void saveQuiet({ start: event.target.value })}
+                className="mt-1 block h-10 w-full rounded-xl border border-[var(--cx-border)] bg-[var(--cx-surface)] px-3 text-sm text-[var(--cx-text-primary)] outline-none focus:border-[var(--cx-accent)]"
+              />
+            </label>
+            <label className="text-xs font-medium text-[var(--cx-text-secondary)]">
+              Fin
+              <input
+                type="time"
+                value={product.quiet_hours.end}
+                onChange={(event) => void saveQuiet({ end: event.target.value })}
+                className="mt-1 block h-10 w-full rounded-xl border border-[var(--cx-border)] bg-[var(--cx-surface)] px-3 text-sm text-[var(--cx-text-primary)] outline-none focus:border-[var(--cx-accent)]"
+              />
+            </label>
+          </div>
+        )}
       </Panel>
+
+      <p className="px-1 text-xs leading-relaxed text-[var(--cx-text-tertiary)]">
+        L’Inbox reste durable même quand un canal externe est désactivé ou échoue.
+        Les réglages serveur s’appliquent à vos appareils connectés.
+      </p>
 
       {error && <p className="text-sm text-[var(--cx-error-text)]">{error}</p>}
     </div>
-  );
-}
-
-/** Notifications du navigateur — même moteur que le connecteur « Notifications
- * web » de l'onglet Connecteurs : permission navigateur + préférence locale. */
-function WebNotifRow() {
-  const [perm, setPerm] = useState<WebNotifState>("default");
-  const [enabled, setEnabled] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setPerm(getWebNotifState());
-      setEnabled(isWebNotifEnabled());
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  async function toggle(v: boolean) {
-    if (!v) {
-      setWebNotifEnabled(false);
-      setEnabled(false);
-      return;
-    }
-    setBusy(true);
-    const res = await enableWebNotifications();
-    setPerm(res);
-    const on = res === "granted";
-    setEnabled(on);
-    if (on) notify("Toumaï AI", "Les notifications sont activées — vous serez prévenu ici.");
-    setBusy(false);
-  }
-
-  const description =
-    perm === "unsupported"
-      ? "Votre navigateur ne prend pas en charge les notifications."
-      : perm === "denied"
-        ? "Bloquées par le navigateur — réautorisez le site dans ses réglages."
-        : "Recevez les alertes ci-dessous même quand l'onglet est en arrière-plan.";
-
-  return (
-    <Row label="Notifications du navigateur" description={description}>
-      {perm === "unsupported" || perm === "denied" ? (
-        <span
-          className="rounded-full border px-2.5 py-1 text-[11px] font-semibold"
-          style={{
-            color: "var(--cx-error-text)",
-            background: "var(--cx-error-bg)",
-            borderColor: "var(--cx-error-border)",
-          }}
-        >
-          {perm === "denied" ? "Bloquées" : "Non supportées"}
-        </span>
-      ) : (
-        <CxSwitch
-          checked={enabled}
-          label="Notifications du navigateur"
-          onChange={toggle}
-          disabled={busy}
-        />
-      )}
-    </Row>
   );
 }
