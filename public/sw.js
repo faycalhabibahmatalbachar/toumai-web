@@ -254,3 +254,123 @@ self.addEventListener("message", (evenement) => {
     );
   }
 });
+
+
+/* ==========================================================================
+ * NOTIFICATIONS V3 — WEB PUSH
+ * ==========================================================================
+ * Le même agent de service gère l'offline ET le Push. Deux workers sous le
+ * scope "/" se remplaceraient mutuellement et rendraient le comportement
+ * dépendant de l'ordre d'installation.
+ */
+
+function destinationNotification(data) {
+  const raw = data && typeof data.deep_link === "string" ? data.deep_link : "";
+  // Un backend compromis/bugué ne doit jamais transformer un Push en
+  // redirection vers un domaine tiers.
+  if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
+
+  const id =
+    data && typeof data.notification_id === "string"
+      ? data.notification_id
+      : "";
+  return id
+    ? `/notifications?notification=${encodeURIComponent(id)}`
+    : "/notifications";
+}
+
+self.addEventListener("push", (evenement) => {
+  evenement.waitUntil(
+    (async () => {
+      let payload = {};
+      try {
+        payload = evenement.data ? evenement.data.json() : {};
+      } catch {
+        try {
+          payload = { body: evenement.data ? evenement.data.text() : "" };
+        } catch {
+          payload = {};
+        }
+      }
+
+      const title =
+        typeof payload.title === "string" && payload.title.trim()
+          ? payload.title.trim()
+          : "Toumaï AI";
+      const body =
+        typeof payload.body === "string" ? payload.body.slice(0, 1000) : "";
+      const data =
+        payload && typeof payload === "object"
+          ? {
+              ...(payload.data && typeof payload.data === "object"
+                ? payload.data
+                : {}),
+              notification_id:
+                typeof payload.notification_id === "string"
+                  ? payload.notification_id
+                  : undefined,
+              deep_link:
+                typeof payload.deep_link === "string"
+                  ? payload.deep_link
+                  : undefined,
+              action:
+                typeof payload.action === "string"
+                  ? payload.action
+                  : undefined,
+            }
+          : {};
+
+      await self.registration.showNotification(title, {
+        body,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        tag:
+          typeof data.notification_id === "string"
+            ? `toumai:${data.notification_id}`
+            : "toumai",
+        data: {
+          ...data,
+          target: destinationNotification(data),
+        },
+      });
+    })(),
+  );
+});
+
+self.addEventListener("notificationclick", (evenement) => {
+  evenement.notification.close();
+  evenement.waitUntil(
+    (async () => {
+      const data = evenement.notification.data || {};
+      const target =
+        typeof data.target === "string"
+          ? data.target
+          : destinationNotification(data);
+      const destination = new URL(target, self.location.origin);
+
+      // Même origine seulement, même si un ancien Push contient des données
+      // inattendues.
+      if (destination.origin !== self.location.origin) {
+        destination.href = new URL("/notifications", self.location.origin).href;
+      }
+
+      const ouverts = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of ouverts) {
+        try {
+          const url = new URL(client.url);
+          if (url.origin !== self.location.origin) continue;
+          if ("navigate" in client) await client.navigate(destination.href);
+          if ("focus" in client) return client.focus();
+        } catch {
+          // On essaie le prochain onglet.
+        }
+      }
+
+      return self.clients.openWindow(destination.href);
+    })(),
+  );
+});
