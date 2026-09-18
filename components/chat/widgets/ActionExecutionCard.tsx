@@ -37,6 +37,15 @@ type ActionPayload = {
   verification?: Record<string, unknown>;
   error_type?: string | null;
   consigne?: string;
+  /**
+   * L'état canonique de l'opération, écrit par le serveur à partir de la preuve
+   * reçue : requested, dispatching, provider_accepted, sent, delivered, read,
+   * completed, unknown, failed… `status` reste l'ancien statut d'exécution ;
+   * les deux ne disent pas la même chose, et c'est celui-ci qui fait foi.
+   */
+  operation_state?: string;
+  /** La phrase écrite par le serveur. Elle s'affiche telle quelle. */
+  statement?: string;
 };
 
 type ResultStep = {
@@ -231,6 +240,25 @@ function normalizedState(response: ConfirmationResponse): {
   const raw = action?.status || "";
   const message = response.message || "";
 
+  // L'ÉTAT CANONIQUE L'EMPORTE SUR LE STATUT D'EXÉCUTION.
+  //
+  // « success » voulait dire « l'outil n'a pas levé d'erreur », et la carte en
+  // faisait un résultat réussi. Un message accepté par WhatsApp mais jamais
+  // remis tombait donc dans la même case qu'un message lu. Quand le serveur
+  // fournit l'état canonique, c'est lui qui décide.
+  const canonique = action?.operation_state || "";
+  if (canonique) {
+    if (["failed", "blocked", "expired", "needs_relink"].includes(canonique)) {
+      return { state: "failed", action, message };
+    }
+    if (canonique === "cancelled") return { state: "cancelled", action, message };
+    if (canonique === "awaiting_confirmation") return { state: "awaiting_confirmation", action, message };
+    // Ni réussi ni échoué : une issue inconnue ou partielle ne se peint pas en vert.
+    if (["unknown", "partial_success", "reconciling"].includes(canonique)) {
+      return { state: "partial_success", action, message };
+    }
+  }
+
   if (raw === "partial_success" || raw === "verification_failed") return { state: "partial_success", action, message };
   if (["failed", "timeout", "unsupported"].includes(raw)) return { state: "failed", action, message };
   if (raw === "cancelled") return { state: "cancelled", action, message };
@@ -364,7 +392,12 @@ export function ActionExecutionCard({
   })();
 
   const technicalMessage = safeDetail(resultMessage);
-  const verified = action?.verified === true;
+  // « Vérifié » est réservé à ce qui a été CONSTATÉ : remis, lu, ou relu auprès du
+  // connecteur. Un identifiant de message rendu par la passerelle ne l'est pas.
+  const etatCanonique = action?.operation_state || "";
+  const verified = etatCanonique
+    ? ["delivered", "read", "completed"].includes(etatCanonique)
+    : action?.verified === true;
   const showPreview = state === "awaiting_confirmation" || state === "running" || state === "verifying";
   const showOutcomeRows = resultSteps.length > 0 && (state === "partial_success" || state === "failed" || detailsOpen);
   const destructive = descriptor.risk === "destructive";
@@ -483,10 +516,11 @@ export function ActionExecutionCard({
                 className="overflow-hidden"
               >
                 <div className="border-t border-[var(--border)] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--text-tertiary)]">
+                  {action?.statement ? <p className="mb-1 text-[var(--text-secondary)]">{action.statement}</p> : null}
                   {technicalMessage ? <p>{technicalMessage}</p> : null}
                   {verified ? <p className="mt-1 text-[var(--tmw-success)]">Résultat vérifié auprès du connecteur.</p> : null}
                   {state === "already_processed" ? <p className="mt-1">La confirmation a déjà été consommée : aucune seconde exécution n’est possible.</p> : null}
-                  {!technicalMessage && !verified && state !== "already_processed" ? <p>Aucun détail supplémentaire.</p> : null}
+                  {!technicalMessage && !verified && !action?.statement && state !== "already_processed" ? <p>Aucun détail supplémentaire.</p> : null}
                 </div>
               </motion.div>
             ) : null}
