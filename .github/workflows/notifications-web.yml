@@ -1,0 +1,55 @@
+name: Notifications Web CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/notifications/**"
+      - "components/settings/NotificationsSection.tsx"
+      - "components/Sidebar.tsx"
+      - "lib/notifications-api.ts"
+      - "lib/web-push.ts"
+      - "public/sw.js"
+      - ".github/workflows/notifications-web.yml"
+  pull_request:
+    paths:
+      - "app/notifications/**"
+      - "components/settings/NotificationsSection.tsx"
+      - "components/Sidebar.tsx"
+      - "lib/notifications-api.ts"
+      - "lib/web-push.ts"
+      - "public/sw.js"
+      - ".github/workflows/notifications-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notifications-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci
+      - name: Lint notification surfaces
+        run: >
+          npx eslint
+          app/notifications/page.tsx
+          components/settings/NotificationsSection.tsx
+          components/Sidebar.tsx
+          lib/notifications-api.ts
+          lib/web-push.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
