@@ -84,27 +84,55 @@ export function NotificationsSection() {
   const [global, setGlobal] = useState<NotificationPreference | null>(null);
   const [product, setProduct] = useState<ProductNotificationPreferences | null>(null);
   const [push, setPush] = useState<WebPushState>(EMPTY_WEB_PUSH);
+  const [v3Available, setV3Available] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getNotificationPreference("*"),
-      getProductNotificationPreferences(),
-      webPushState(),
-    ])
-      .then(([g, p, w]) => {
+    void (async () => {
+      try {
+        const [p, w] = await Promise.all([
+          getProductNotificationPreferences(),
+          webPushState(),
+        ]);
+
+        let g: NotificationPreference;
+        let available = false;
+        try {
+          g = await getNotificationPreference("*");
+          available = true;
+        } catch {
+          // Compatibilité avec le backend pré-v3 : les catégories et heures
+          // calmes restent pleinement utilisables via /preferences/notifications.
+          // Les nouveaux canaux restent visibles mais non modifiables tant que
+          // /notifications/preferences n'est pas déployé.
+          g = {
+            category: "*",
+            inbox_enabled: true,
+            push_enabled: true,
+            web_push_enabled: false,
+            email_enabled: false,
+            quiet_hours_enabled: Boolean(p.quiet_hours?.enabled),
+            quiet_start: p.quiet_hours?.start ?? "22:00",
+            quiet_end: p.quiet_hours?.end ?? "07:00",
+            timezone: p.quiet_hours?.timezone ?? "Africa/Ndjamena",
+            locale: "fr",
+          };
+        }
+
         if (cancelled) return;
         setGlobal(g);
         setProduct(p);
         setPush(w);
-      })
-      .catch((err) => {
+        setV3Available(available);
+        setError(null);
+      } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Chargement impossible");
         }
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -119,7 +147,7 @@ export function NotificationsSection() {
   async function saveGlobal(
     patch: Partial<Omit<NotificationPreference, "user_id" | "category">>,
   ) {
-    if (!global) return;
+    if (!global || !v3Available) return;
     const previous = global;
     setGlobal({ ...global, ...patch });
     setError(null);
@@ -176,6 +204,7 @@ export function NotificationsSection() {
   }
 
   async function toggleWebPush(enabled: boolean) {
+    if (!v3Available) return;
     setBusy("web_push");
     setError(null);
     try {
@@ -214,11 +243,16 @@ export function NotificationsSection() {
       <Panel title="Canaux">
         <Row
           label="Push mobile"
-          description="Autorise les alertes sur vos appareils mobiles enregistrés."
+          description={
+            v3Available
+              ? "Autorise les alertes sur vos appareils mobiles enregistrés."
+              : "Disponible dès la mise à niveau Notifications v3 du serveur."
+          }
         >
           <CxSwitch
             checked={global.push_enabled}
             label="Push mobile"
+            disabled={!v3Available}
             onChange={(value) => void saveGlobal({ push_enabled: value })}
           />
         </Row>
@@ -228,6 +262,7 @@ export function NotificationsSection() {
             checked={push.subscribed && global.web_push_enabled}
             label="Web Push"
             disabled={
+              !v3Available ||
               busy === "web_push" ||
               !push.supported ||
               !push.configured ||
@@ -244,10 +279,18 @@ export function NotificationsSection() {
           <CxSwitch
             checked={global.email_enabled}
             label="E-mail"
+            disabled={!v3Available}
             onChange={(value) => void saveGlobal({ email_enabled: value })}
           />
         </Row>
       </Panel>
+
+      {!v3Available && (
+        <p className="rounded-xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] px-4 py-3 text-xs leading-relaxed text-[var(--cx-text-secondary)]">
+          Vos catégories et heures calmes restent actives. Les canaux Push Web et e-mail
+          seront modifiables dès que le backend Notifications v3 sera déployé.
+        </p>
+      )}
 
       <Panel title="Ce que Toumaï AI peut signaler">
         {categories.map((item) => {
