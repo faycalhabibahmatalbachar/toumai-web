@@ -4,6 +4,8 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "app/chat/page.tsx"
+      - "app/chat/page.tsx"
       - "components/ChatMessage.tsx"
       - "components/VoiceModeOverlay.tsx"
       - "components/LiveAvatarOverlay.tsx"
@@ -63,6 +65,7 @@ jobs:
       - name: Lint voice surfaces
         run: >
           npx eslint
+          app/chat/page.tsx
           components/ChatMessage.tsx
           components/VoiceModeOverlay.tsx
           components/notifications/RealtimeNotificationsBridge.tsx
