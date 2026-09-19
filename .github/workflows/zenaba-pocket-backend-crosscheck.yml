@@ -1,0 +1,60 @@
+name: Zenaba Pocket Backend Crosscheck
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/zenaba-pocket-backend-crosscheck.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout backend Voice V1 branch
+        uses: actions/checkout@v4
+        with:
+          repository: faycalhabibahmatalbachar/sayibiai_backend
+          ref: feat/toumai-voice-v1-zenaba
+          path: backend
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-test.txt
+      - name: Install backend test dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check -r requirements-test.txt
+      - name: Compile Zenaba backend surfaces
+        working-directory: backend
+        run: |
+          python -m py_compile             core/config.py             routers/preferences.py             routers/voice.py             services/tts_service.py             tests/test_toumai_voice_v1.py             voice-zenaba-pocket/app.py
+      - name: Run Zenaba Pocket contracts
+        working-directory: backend
+        run: python -m pytest -q tests/test_toumai_voice_v1.py
+
+  pocket-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout backend Voice V1 branch
+        uses: actions/checkout@v4
+        with:
+          repository: faycalhabibahmatalbachar/sayibiai_backend
+          ref: feat/toumai-voice-v1-zenaba
+          path: backend
+      - name: Build Pocket Zenaba image
+        working-directory: backend
+        run: >
+          docker build
+          -f voice-zenaba-pocket/Dockerfile
+          -t toumai-zenaba-pocket:test
+          voice-zenaba-pocket
