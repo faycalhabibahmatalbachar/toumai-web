@@ -31,6 +31,16 @@ export interface TodayTimeline {
   [key: string]: TodayItem[] | undefined;
 }
 
+export interface TodayBrief {
+  text: string;
+  fact_ids: string[];
+  generated_by: string;
+  provider?: string | null;
+  model?: string | null;
+  grounding_valid: boolean;
+  total_attention_items: number;
+}
+
 export interface TodayResponse {
   items: TodayItem[];
   counts?: Record<string, number>;
@@ -43,4 +53,8 @@ export interface TodayResponse {
 
 export function getToday(): Promise<TodayResponse> {
   return http.get<TodayResponse>("/today");
+}
+
+export function getTodayBrief(): Promise<TodayBrief> {
+  return http.get<TodayBrief>("/today/brief");
 }
