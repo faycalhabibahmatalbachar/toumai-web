@@ -635,10 +635,14 @@ export function VoiceModeOverlay({
         const outcome = await playToumaiVoice(clean, "voice-mode", speedRef.current);
         if (outcome === "error") {
           speechFailure = new Error("Zenaba est momentanément indisponible.");
+          // Inutile de continuer à générer du texte que personne ne pourra
+          // entendre dans ce tour vocal.
+          onCancel?.();
           return;
         }
         if (outcome === "stopped" && !interruptRef.current && myTurn === turnRef.current) {
           speechFailure = new Error("La lecture de Zenaba a été interrompue.");
+          onCancel?.();
         }
       });
     };
