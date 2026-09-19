@@ -1,0 +1,34 @@
+name: Web Push production final
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/webpush-production-final.yml"
+      - "scripts/webpush-production-final.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  webpush-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install browser driver only
+        run: npm install --no-save --ignore-scripts playwright-core
+      - name: Show Chrome version
+        run: |
+          google-chrome --version
+          which google-chrome
+      - name: Real Web Push E2E
+        env:
+          TOUMAI_API: https://api.toumaiai.com/api/v1
+          TOUMAI_WEB: https://toumaiai.com
+        run: xvfb-run -a node scripts/webpush-production-final.mjs
