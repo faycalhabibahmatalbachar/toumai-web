@@ -7,7 +7,12 @@ import { useMicLevels } from "./Waveform";
 import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
 import { NetworkBadge } from "./chat/NetworkBadge";
 import { MoniteurReseau, type QualiteReseau } from "@/lib/network-quality";
-import { playToumaiVoiceLive, stopToumaiVoice, textForToumaiVoice } from "@/lib/toumai-voice-player";
+import {
+  playToumaiVoiceLive,
+  setToumaiVoiceConversationActive,
+  stopToumaiVoice,
+  textForToumaiVoice,
+} from "@/lib/toumai-voice-player";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
@@ -287,8 +292,10 @@ export function VoiceModeOverlay({
 
   useEffect(() => {
     closedRef.current = false;
+    setToumaiVoiceConversationActive(true);
     startListening();
     return () => {
+      setToumaiVoiceConversationActive(false);
       closedRef.current = true;
       turnRef.current += 1;
       onCancel?.();
