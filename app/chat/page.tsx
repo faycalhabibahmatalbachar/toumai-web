@@ -789,6 +789,7 @@ export default function ChatPage() {
     userMsgId?: string,
     onChunk?: (chunk: string) => void,
     documentIdsOverride?: string[],
+    rethrowOnError = false,
   ): Promise<string> {
     setSending(true);
     const controller = new AbortController();
@@ -963,6 +964,10 @@ export default function ChatPage() {
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
       );
+      // Le chat texte conserve son comportement historique. Le mode vocal,
+      // lui, doit savoir qu'un flux a cassé : sinon il lirait une réponse
+      // partielle puis rouvrirait le micro comme si le tour était réussi.
+      if (rethrowOnError) throw err;
     } finally {
       setSending(false);
       abortRef.current = null;
@@ -1007,7 +1012,15 @@ export default function ChatPage() {
       userMsg,
       { id: assistantId, role: "assistant", content: "", streaming: true },
     ]);
-    return runStream(trimmed, assistantId, isFirstMessage, userMsg.id, onChunk);
+    return runStream(
+      trimmed,
+      assistantId,
+      isFirstMessage,
+      userMsg.id,
+      onChunk,
+      undefined,
+      true,
+    );
   }
 
   function stopGenerating() {
