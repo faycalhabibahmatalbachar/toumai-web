@@ -30,6 +30,7 @@ import {
   WeatherWidget,
 } from "./kinds/DataWidgets";
 import { FileWidget } from "./kinds/FileWidget";
+import { ReminderWidget } from "./kinds/ReminderWidget";
 import { GenericWidget } from "./kinds/GenericWidget";
 import { CalendarWidget, MailListWidget, TableWidget } from "./kinds/ListWidgets";
 import { SearchActivityWidget } from "./kinds/ResearchWidgets";
@@ -56,6 +57,7 @@ export const WIDGETS: Record<string, Entry> = {
   email: { component: adapt(MailListWidget, ({ data, title }) => ({ rows: [data], title })), aliases: ["mail", "email.message"] },
   calendar: { component: adapt(CalendarWidget, ({ data, title }) => ({ data, title })), aliases: ["events", "calendar.event"] },
   automation: { component: adapt(AutomationWidget, ({ data, title }) => ({ data, title })), aliases: ["automation.created", "automation.updated"] },
+  personal_reminder: { component: adapt(ReminderWidget, ({ data, title }) => ({ data, title })), aliases: ["reminder", "reminder.created", "personal.reminder"] },
   scheduled_task: { component: adapt(ScheduledTaskWidget, ({ data, title }) => ({ data, title })), aliases: ["whatsapp.message.scheduled"] },
   auth_required: { component: adapt(AuthRequiredWidget, ({ data }) => ({ data })), aliases: ["connector_auth"] },
   quota: { component: adapt(QuotaWidget, ({ data }) => ({ data })), aliases: ["usage"] },
