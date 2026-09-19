@@ -55,7 +55,7 @@
 // pendant une visite entiere apres son remplacement. Les fichiers qu on
 // remplace portent desormais leur version dans leur NOM ; ce numero-ci
 // efface ce que l ancienne strategie avait deja garde.
-const VERSION = "toumai-v4";
+const VERSION = "toumai-v5";
 const CACHE = `${VERSION}`;
 
 /**
@@ -266,6 +266,44 @@ self.addEventListener("push", (evenement) => {
           ? payload.notification_id
           : undefined;
 
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      const visible = windows.filter((client) => client.visibilityState === "visible");
+      const publicNotification = {
+        id: notificationId ?? null,
+        title,
+        body,
+        deep_link: typeof payload.deep_link === "string" ? payload.deep_link : null,
+        event:
+          payload.data && typeof payload.data === "object"
+            ? payload.data.event ?? payload.data.canonical_event ?? null
+            : null,
+        canonical_event:
+          payload.data && typeof payload.data === "object"
+            ? payload.data.canonical_event ?? null
+            : null,
+        priority:
+          payload.data && typeof payload.data === "object"
+            ? payload.data.priority ?? null
+            : null,
+        voice_enabled:
+          payload.data && typeof payload.data === "object"
+            ? payload.data.voice_enabled === true
+            : false,
+      };
+
+      if (visible.length) {
+        for (const client of visible) {
+          client.postMessage({
+            type: "TOUMAI_NOTIFICATION",
+            notification: publicNotification,
+          });
+        }
+        return;
+      }
+
       await self.registration.showNotification(title, {
         body,
         icon: "/icon-192.png",
@@ -273,13 +311,9 @@ self.addEventListener("push", (evenement) => {
         tag: notificationId ? `toumai-notification-${notificationId}` : "toumai-notification",
         renotify: Boolean(notificationId),
         data: {
-          deep_link:
-            typeof payload.deep_link === "string" ? payload.deep_link : null,
+          deep_link: publicNotification.deep_link,
           notification_id: notificationId ?? null,
-          event:
-            payload.data && typeof payload.data === "object"
-              ? payload.data.event ?? payload.data.canonical_event ?? null
-              : null,
+          event: publicNotification.event,
         },
       });
     })(),
