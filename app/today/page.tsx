@@ -17,16 +17,19 @@ import {
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { WaitingSection } from "@/components/today/WaitingSection";
 import { cxDisplayStyle, cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import {
   getToday,
   getTodayBrief,
+  getTodayWaiting,
   type TodayBrief,
   type TodayItem,
   type TodayPriority,
   type TodayResponse,
+  type TodayWaitingResponse,
 } from "@/lib/today-api";
 import { getProfile, prenomAffichable, type UserProfile } from "@/lib/user-api";
 import { useCached } from "@/lib/swr-cache";
@@ -383,6 +386,11 @@ export default function TodayPage() {
     ttlMs: 30_000,
     revalidateOnFocus: true,
   });
+  const waiting = useCached<TodayWaitingResponse>("today:waiting", getTodayWaiting, {
+    enabled: Boolean(session),
+    ttlMs: 15_000,
+    revalidateOnFocus: true,
+  });
 
   const firstName = useMemo(
     () => prenomAffichable(profile.data?.full_name),
@@ -402,11 +410,11 @@ export default function TodayPage() {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await Promise.all([today.refresh(), brief.refresh(), profile.refresh()]);
+      await Promise.all([today.refresh(), brief.refresh(), waiting.refresh(), profile.refresh()]);
     } finally {
       setRefreshing(false);
     }
-  }, [brief, profile, refreshing, today]);
+  }, [brief, profile, refreshing, today, waiting]);
 
   if (authLoading || !pret) {
     return (
@@ -551,6 +559,14 @@ export default function TodayPage() {
             </div>
           )}
         </section>
+
+        <WaitingSection
+          data={waiting.data}
+          loading={waiting.loading}
+          error={waiting.error}
+          timezone={today.data?.timezone}
+          retry={() => void waiting.refresh()}
+        />
 
         {today.data && timelineCount === 0 && (
           <div className="mt-9 rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] px-5 py-7 text-center">
