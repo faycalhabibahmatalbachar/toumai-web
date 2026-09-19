@@ -141,8 +141,10 @@ function stopLiveSources() {
   liveNextStartTime = 0;
 }
 
-function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
-  if (!a.length) return b.slice();
+function concatBytes(a: Uint8Array, b: Uint8Array) {
+  // Toujours allouer notre propre ArrayBuffer : ReadableStream peut fournir
+  // Uint8Array<ArrayBufferLike>, alors que le tampon local Web Audio est un
+  // Uint8Array<ArrayBuffer>. Cette copie garde aussi un buffer détachable sûr.
   const out = new Uint8Array(a.length + b.length);
   out.set(a);
   out.set(b, a.length);
