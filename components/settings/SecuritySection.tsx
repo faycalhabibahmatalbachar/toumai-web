@@ -193,7 +193,7 @@ export function SecuritySection() {
       if (!matches(notification)) return;
       patch("voice", {
         state: "ok",
-        detail: "La phrase de test a été lue jusqu’à la fin.",
+        detail: "Zenaba a lu la phrase de test jusqu’à la fin.",
       });
     };
 
@@ -204,7 +204,7 @@ export function SecuritySection() {
       if (!matches(notification)) return;
       patch("voice", {
         state: "error",
-        detail: "Le navigateur n’a pas réussi à lire la phrase de test.",
+        detail: "Zenaba n’a pas pu terminer la lecture de la phrase de test.",
       });
     };
 
@@ -215,11 +215,11 @@ export function SecuritySection() {
     let channelsResult: NotificationChannelTestResult | null = null;
 
     try {
-      const speechSupported = "speechSynthesis" in window;
-      if (!speechSupported) {
+      const audioSupported = typeof Audio !== "undefined";
+      if (!audioSupported) {
         patch("voice", {
           state: "unavailable",
-          detail: "Ce navigateur ne fournit pas de synthèse vocale.",
+          detail: "Ce navigateur ne peut pas lire l’audio Zenaba.",
         });
       }
 
