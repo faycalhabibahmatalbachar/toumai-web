@@ -68,6 +68,9 @@ expect(voiceMode.includes("discardRecordingRef"), "intentional recorder stops mu
 expect(voiceMode.includes("stopBargeListening();"), "mute/stop paths must close the barge-in microphone");
 expect(voiceMode.includes("!speechStarted && reply.trim()"), "voice mode must speak providers that do not emit chunk callbacks");
 expect(chatPage.includes("onCancel={stopGenerating}"), "voice mode interruption must abort the chat stream");
+expect(chatPage.includes("rethrowOnError = false"), "chat stream must support voice-mode error propagation");
+expect(chatPage.includes("if (rethrowOnError) throw err"), "voice-mode chat failures must not be swallowed");
+expect(voiceMode.includes("onCancel?.();"), "TTS failures and interruptions must cancel remaining chat generation");
 expect(!fs.existsSync("components/LiveAvatarOverlay.tsx"), "unused alternate avatar TTS pipeline must stay removed");
 
 console.log("toumai-voice-v1-web: PASS");
