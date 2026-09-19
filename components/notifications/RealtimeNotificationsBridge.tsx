@@ -7,6 +7,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { authFetch } from "@/lib/http";
 import type { RealtimeNotification } from "@/lib/notifications-api";
+import type { Preferences } from "@/lib/preferences-api";
+import { cacheSeed } from "@/lib/swr-cache";
+import { playToumaiVoice } from "@/lib/toumai-voice-player";
 import { safeInternalPath } from "@/lib/widgets/core";
 
 type ToastItem = {
@@ -27,54 +30,50 @@ function destination(n: RealtimeNotification): string {
   return safeInternalPath(n.deep_link ?? "") || "/notifications";
 }
 
-function speakReminder(n: RealtimeNotification) {
+async function speakReminder(n: RealtimeNotification) {
   const speakable =
     n.event === "personal.reminder" || n.event === "notification.test";
   if (
     !speakable ||
     n.voice_enabled !== true ||
     typeof window === "undefined" ||
-    document.visibilityState !== "visible" ||
-    !("speechSynthesis" in window)
+    document.visibilityState !== "visible"
   ) {
     return;
   }
 
   const body = String(n.body ?? "").trim();
   if (!body) return;
-  try {
-    // Ne jamais empiler plusieurs rappels vocaux : le plus récent remplace la
-    // lecture en cours, tandis que tous restent dans l'Inbox durable.
-    window.speechSynthesis.cancel();
-    const locale = String(n.locale ?? "").toLowerCase();
-    const language = locale.startsWith("ar")
-      ? "ar-SA"
-      : locale.startsWith("en")
-        ? "en-US"
-        : "fr-FR";
-    const prefix = language === "ar-SA" ? "تذكير. " : language === "en-US" ? "Reminder. " : "Rappel. ";
-    const utterance = new SpeechSynthesisUtterance(prefix + body);
-    utterance.lang = language;
-    utterance.rate = 0.95;
-    utterance.onstart = () => {
-      window.dispatchEvent(
-        new CustomEvent("toumai:notification-voice-start", { detail: n }),
-      );
-    };
-    utterance.onend = () => {
-      window.dispatchEvent(
-        new CustomEvent("toumai:notification-voice-complete", { detail: n }),
-      );
-    };
-    utterance.onerror = () => {
-      window.dispatchEvent(
-        new CustomEvent("toumai:notification-voice-error", { detail: n }),
-      );
-    };
-    window.speechSynthesis.speak(utterance);
-  } catch {
-    // Certains navigateurs exigent une interaction préalable pour parler.
-    // Le rappel visuel et l'Inbox restent disponibles.
+
+  // V1 est française uniquement. Une notification explicitement marquée dans
+  // une autre langue reste visuelle : on ne lui prête jamais une autre voix.
+  const locale = String(n.locale ?? "fr").trim().toLowerCase();
+  if (locale && !locale.startsWith("fr")) {
+    window.dispatchEvent(
+      new CustomEvent("toumai:notification-voice-error", { detail: n }),
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("toumai:notification-voice-start", { detail: n }),
+  );
+
+  const speed = cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1;
+  const outcome = await playToumaiVoice(
+    body,
+    "notification:" + eventKey(n),
+    speed,
+  );
+
+  if (outcome === "ended") {
+    window.dispatchEvent(
+      new CustomEvent("toumai:notification-voice-complete", { detail: n }),
+    );
+  } else {
+    window.dispatchEvent(
+      new CustomEvent("toumai:notification-voice-error", { detail: n }),
+    );
   }
 }
 
@@ -131,7 +130,7 @@ export function RealtimeNotificationsBridge() {
       const key = eventKey(notification);
       if (!remember(key)) return;
 
-      speakReminder(notification);
+      void speakReminder(notification);
       setItems((current) => [...current.slice(-2), { key, notification }]);
       window.setTimeout(() => {
         setItems((current) => current.filter((item) => item.key !== key));
