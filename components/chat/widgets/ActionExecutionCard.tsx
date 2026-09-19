@@ -377,9 +377,9 @@ export function ActionExecutionCard({
         if (status === "uncertain") {
           setAction(actionPayload);
           setState("partial_success");
+          const detail = safeDetail(stored?.error_detail || "");
           setResultMessage(
-            stored?.error_detail
-            || "Le résultat n’a pas pu être confirmé. L’action n’est pas relancée automatiquement afin d’éviter un doublon.",
+            `Le résultat n’a pas pu être confirmé. L’action n’est pas relancée automatiquement afin d’éviter un doublon.${detail ? ` Détail : ${detail}` : ""}`,
           );
           return;
         }
