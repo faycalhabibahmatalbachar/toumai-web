@@ -25,8 +25,8 @@ const MAX_RECORD_MS = 20000; // garde-fou : ne jamais rester bloqué en écoute
 // SOUTENUE, pas un simple pic (toux, clic, souffle). Sans cela, 2-3 s de
 // silence après un bruit bref suffisaient à envoyer du vide à la
 // transcription — et l'IA « répondait » à rien.
-const SUSTAINED_SPEECH_MS = 280;
-const MIN_TOTAL_SPEECH_MS = 400;
+const SUSTAINED_SPEECH_MS = 180;
+const MIN_TOTAL_SPEECH_MS = 220;
 // Le MediaRecorder ne livrait un blob qu'à l'arrêt (aucun timeslice), donc
 // chunksRef restait vide pendant toute l'écoute — la condition qui exigeait
 // des chunks déjà présents avant d'auto-arrêter ne pouvait donc jamais être
@@ -66,8 +66,6 @@ const HALLUCINATION_PATTERNS = [
   /sous-titr/i,
   /thank(s| you) for watching/i,
   /don't forget to subscribe/i,
-  /^(salut|bonjour|allo|coucou)[.!?\s]*$/i,
-  /^merci[.!?\s]*$/i,
 ];
 
 function looksLikeHallucination(text: string, recordMs: number): boolean {
@@ -114,16 +112,22 @@ function drainSpeechSegments(input: string, flush = false): SpeechDrain {
     // Phrase complète. Le lookahead exige soit un espace, soit la fin du flux.
     // À la fin d'un chunk LLM, on attend le chunk suivant sauf en flush final,
     // afin de ne pas prendre un point d'abréviation pour une fin de phrase.
-    const sentence = /[.!?…]+(?:["»”')\]]*)\s+/g.exec(rest);
-    if (sentence) {
+    const sentenceRe = /[.!?…]+(?:["»”')\]]*)\s+/g;
+    let sentence: RegExpExecArray | null;
+    let sentenceEnd = -1;
+    while ((sentence = sentenceRe.exec(rest)) !== null) {
       const end = sentence.index + sentence[0].length;
       const candidate = rest.slice(0, end).trim();
-      // Abréviations françaises fréquentes : ne pas produire "M." tout seul.
-      if (!/(?:^|\s)(?:M|Mme|Mlle|Dr|Pr|St|Ste|etc)\.$/i.test(candidate)) {
-        push(candidate);
-        rest = rest.slice(end);
-        continue;
-      }
+      // Abréviations françaises fréquentes : ignorer CE point et continuer
+      // jusqu'à la vraie fin de phrase suivante.
+      if (/(?:^|\s)(?:M|Mme|Mlle|Dr|Pr|St|Ste|etc)\.$/i.test(candidate)) continue;
+      sentenceEnd = end;
+      break;
+    }
+    if (sentenceEnd > 0) {
+      push(rest.slice(0, sentenceEnd));
+      rest = rest.slice(sentenceEnd);
+      continue;
     }
 
     const words = rest.trim().split(/\s+/).filter(Boolean);
@@ -229,6 +233,9 @@ export function VoiceModeOverlay({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  // Un arrêt volontaire du recorder (mute, texte tapé, fermeture) ne doit
+  // jamais déclencher une transcription du reliquat audio.
+  const discardRecordingRef = useRef(false);
   const closedRef = useRef(false);
   const startedAtRef = useRef(0);
   const silenceSinceRef = useRef<number | null>(null);
@@ -363,7 +370,7 @@ export function VoiceModeOverlay({
     } catch {
       return; // pas de micro disponible : le clic reste le chemin d'interruption
     }
-    if (closedRef.current || !speakingRef.current) {
+    if (closedRef.current || !speakingRef.current || mutedRef.current) {
       stream.getTracks().forEach((t) => t.stop());
       return;
     }
@@ -422,6 +429,9 @@ export function VoiceModeOverlay({
   }
 
   function stopRecorderTracks() {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      discardRecordingRef.current = true;
+    }
     try {
       recorderRef.current?.stop();
     } catch {
@@ -436,13 +446,14 @@ export function VoiceModeOverlay({
       const next = !m;
       mutedRef.current = next;
       if (next) {
-        // On relâche vraiment le micro : garder le flux ouvert allumerait le
-        // voyant d'enregistrement du navigateur alors qu'on a demandé le
-        // silence. « Coupé » doit être coupé.
+        // Coupe TOUS les micros, y compris celui du barge-in. L'audio Zenaba
+        // continue : couper son micro ne signifie pas couper l'assistante.
         stopRecorderTracks();
-        setPhase("listening");
+        stopBargeListening();
       } else if (!closedRef.current) {
-        void startListening();
+        // Ne jamais ouvrir un deuxième enregistrement pendant la réflexion.
+        if (speakingRef.current) void startBargeListening();
+        else if (phase === "listening") void startListening();
       }
       return next;
     });
@@ -473,12 +484,20 @@ export function VoiceModeOverlay({
       // d'écho ne garantit pas de l'obtenir, et c'est elle qui autorise (ou
       // non) l'interruption à la voix.
       echoAnnuleRef.current = stream.getAudioTracks()[0]?.getSettings?.().echoCancellation === true;
+      if (typeof MediaRecorder === "undefined") {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error("MediaRecorder indisponible");
+      }
+      discardRecordingRef.current = false;
       const recorder = new MediaRecorder(stream);
       recorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
-      recorder.onstop = () => handleRecordingStopped();
+      recorder.onstop = () => {
+        recorderRef.current = null;
+        void handleRecordingStopped();
+      };
       recorder.start(RECORDER_TIMESLICE_MS);
     } catch {
       setError("Accès au microphone refusé.");
@@ -514,7 +533,15 @@ export function VoiceModeOverlay({
 
   async function handleRecordingStopped() {
     if (closedRef.current) return;
-    if (!chunksRef.current.length) return;
+    if (discardRecordingRef.current) {
+      discardRecordingRef.current = false;
+      chunksRef.current = [];
+      return;
+    }
+    if (!chunksRef.current.length) {
+      if (!mutedRef.current) void startListening();
+      return;
+    }
     // COMPRENDRE avant de répondre : sans prise de parole réelle et soutenue,
     // on ne transcrit rien — on rouvre simplement l'écoute. C'est ce qui
     // empêche l'IA de « répondre » après 2-3 s de silence.
@@ -555,6 +582,7 @@ export function VoiceModeOverlay({
     const myTurn = ++turnRef.current;
     interruptRef.current = false;
     onCancel?.();
+    discardRecordingRef.current = true;
     stopListening();
     stopBargeListening();
     stopToumaiVoice("voice-mode");
@@ -636,6 +664,13 @@ export function VoiceModeOverlay({
       // Le dernier fragment peut ne pas finir par un point : on le prononce
       // quand même une fois le flux texte réellement terminé.
       drain(true);
+
+      // Filet de compatibilité : si un fournisseur de chat renvoie une réponse
+      // complète sans callbacks onChunk, le mode vocal doit parler quand même.
+      if (!speechStarted && reply.trim()) {
+        speechBuffer = reply;
+        drain(true);
+      }
 
       if (!reply.trim() && !speechStarted) {
         void startListening();
