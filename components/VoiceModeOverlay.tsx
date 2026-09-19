@@ -292,6 +292,10 @@ export function VoiceModeOverlay({
 
   useEffect(() => {
     closedRef.current = false;
+    // Le mode conversation a priorité sur une lecture ponctuelle déjà lancée
+    // (rappel, bouton haut-parleur, diagnostic). Sinon Zenaba parlerait dans
+    // son propre micro au moment où l'écoute démarre.
+    stopToumaiVoice();
     setToumaiVoiceConversationActive(true);
     startListening();
     return () => {
