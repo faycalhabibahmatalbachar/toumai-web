@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { transcribeAudio, synthesizeSpeech } from "@/lib/voice-api";
+import { transcribeAudio } from "@/lib/voice-api";
 import { getPreferences } from "@/lib/preferences-api";
 import { useMicLevels } from "./Waveform";
 import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
 import { NetworkBadge } from "./chat/NetworkBadge";
 import { MoniteurReseau, type QualiteReseau } from "@/lib/network-quality";
+import { playToumaiVoice, stopToumaiVoice } from "@/lib/toumai-voice-player";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
@@ -56,11 +57,6 @@ const BARGE_THRESHOLD = 0.2;
  * raclement de gorge ne doivent pas couper une réponse en cours. */
 const BARGE_SUSTAINED_MS = 380;
 
-// Découpe la réponse en phrases complètes dès qu'elles arrivent dans le flux,
-// pour lancer la synthèse vocale phrase par phrase (temps réel) plutôt que
-// d'attendre la réponse entière avant de commencer à parler.
-const SENTENCE_END = /^([\s\S]*?[.!?…:])(\s+|$)/;
-
 // Hallucinations classiques de Whisper sur un audio silencieux/bruité — si la
 // transcription ne contient QUE ça, ce n'est pas une vraie question de
 // l'utilisateur : on relance l'écoute au lieu d'envoyer du bruit au chat.
@@ -73,31 +69,6 @@ const HALLUCINATION_PATTERNS = [
   /^(salut|bonjour|allo|coucou)[.!?\s]*$/i,
   /^merci[.!?\s]*$/i,
 ];
-
-/** Corrections de prononciation pour la synthèse vocale — le nom du créateur
- * se prononce « Fayssal », pas « Faïkal ». */
-function fixPronunciation(text: string): string {
-  return text.replace(/fay[cç]al/gi, (m) => (m[0] === "F" ? "Fayssal" : "fayssal"));
-}
-
-/** Retire la syntaxe markdown avant la synthèse vocale — sinon la voix lit
- * littéralement « astérisque astérisque », les dièses des titres, etc. */
-function stripMarkdownForSpeech(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, " ") // blocs de code — illisibles à l'oral
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // images
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // liens → texte seul
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/(\*\*|__)(.*?)\1/g, "$2")
-    .replace(/(\*|_)(.*?)\1/g, "$2")
-    .replace(/^\s*[-*+]\s+/gm, "") // puces de liste
-    .replace(/^\s*\d+\.\s+/gm, "")
-    .replace(/^\s*>\s?/gm, "")
-    .replace(/[*_#|~]/g, " ") // reliquats isolés
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
 
 function looksLikeHallucination(text: string, recordMs: number): boolean {
   const t = text.trim();
@@ -122,7 +93,6 @@ export function VoiceModeOverlay({
   const [caption, setCaption] = useState("");
   const [replyCaption, setReplyCaption] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [voice, setVoice] = useState<string | undefined>(undefined);
   const [slowHint, setSlowHint] = useState(false);
   // MICRO COUPÉ ≠ CONVERSATION FERMÉE.
   //
@@ -168,7 +138,6 @@ export function VoiceModeOverlay({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const closedRef = useRef(false);
   const startedAtRef = useRef(0);
   const silenceSinceRef = useRef<number | null>(null);
@@ -210,7 +179,6 @@ export function VoiceModeOverlay({
   useEffect(() => {
     getPreferences()
       .then((p) => {
-        setVoice(p.tts_voice);
         if (p.tts_speed) speedRef.current = p.tts_speed;
       })
       .catch(() => {});
@@ -222,7 +190,7 @@ export function VoiceModeOverlay({
     return () => {
       closedRef.current = true;
       stopRecorderTracks();
-      audioElRef.current?.pause();
+      stopToumaiVoice("voice-mode");
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -429,39 +397,6 @@ export function VoiceModeOverlay({
     streamRef.current = null;
   }
 
-  /** Joue une file de segments audio (base64) dans l'ordre, en attendant que
-   * chaque synthèse soit prête — mais celles-ci tournent en parallèle en
-   * arrière-plan pendant que le segment précédent joue encore. */
-  async function playQueueInOrder(
-    queue: Promise<{ audio_base64: string; mime_type: string } | null>[],
-  ) {
-    for (const p of queue) {
-      if (closedRef.current) return;
-      const result = await p.catch(() => null);
-      if (!result || closedRef.current) continue;
-      await playAudio(result.audio_base64, result.mime_type);
-    }
-  }
-
-  function playAudio(audioBase64: string, mimeType: string): Promise<void> {
-    return new Promise((resolve) => {
-      // Coupé pendant que ce segment attendait son tour : on ne le joue pas.
-      if (interruptRef.current || closedRef.current) {
-        resolve();
-        return;
-      }
-      const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
-      audio.playbackRate = speedRef.current;
-      audioElRef.current = audio;
-      audio.onended = () => resolve();
-      audio.onerror = () => resolve();
-      // La mesure de latence est faussée pendant qu'on télécharge et joue de
-      // l'audio : ce qu'on mesurerait est notre propre file d'attente.
-      moniteurRef.current?.signalerVoixEntrante();
-      audio.play().catch(() => resolve());
-    });
-  }
-
   /** COUPER LA PAROLE À L'ASSISTANT.
    *
    * Un seul chemin, quelle que soit l'origine — clic sur l'orbe ou voix
@@ -472,15 +407,9 @@ export function VoiceModeOverlay({
     if (!speakingRef.current || closedRef.current) return;
     interruptRef.current = true;
     speakingRef.current = false;
-    const el = audioElRef.current;
-    if (el) {
-      el.onended = null;
-      el.pause();
-      el.src = "";
-    }
-    audioElRef.current = null;
+    stopToumaiVoice("voice-mode");
     stopBargeListening();
-    startListening();
+    void startListening();
   }
 
   async function handleRecordingStopped() {
@@ -523,71 +452,61 @@ export function VoiceModeOverlay({
     if (closedRef.current) return;
     interruptRef.current = false;
     stopListening();
+    stopToumaiVoice("voice-mode");
     setError(null);
     setReplyCaption("");
     setCaption(text);
     setPhase("processing");
     if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
     slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
+
     try {
-      // Synthèse phrase par phrase : dès qu'une phrase complète arrive dans
-      // le flux, on lance sa synthèse vocale immédiatement en arrière-plan,
-      // sans attendre la fin de la réponse — c'est ce qui rend la conversation
-      // perceptiblement instantanée plutôt que d'attendre le texte entier.
-      let buffer = "";
-      let spokenAnything = false;
-      let playbackPromise: Promise<void> | null = null;
-      const audioQueue: Promise<{ audio_base64: string; mime_type: string } | null>[] = [];
-
-      function flushSentence(sentence: string) {
-        const trimmed = fixPronunciation(stripMarkdownForSpeech(sentence));
-        if (!trimmed) return;
-        spokenAnything = true;
-        audioQueue.push(synthesizeSpeech(trimmed, voice).catch(() => null));
-        if (audioQueue.length === 1) {
-          if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
-          setSlowHint(false);
-          setPhase("speaking");
-          speakingRef.current = true;
-          setInterruptionVue((vue) => {
-            if (!vue) setTimeout(() => setInterruptionVue(true), 6000);
-            return vue;
-          });
-          void startBargeListening();
-          playbackPromise = playQueueInOrder(audioQueue);
-        }
-      }
-
       const reply = await onSend(text, (chunk) => {
         if (closedRef.current) return;
         setReplyCaption((prev) => prev + chunk);
-        buffer += chunk;
-        let match: RegExpExecArray | null;
-        while ((match = SENTENCE_END.exec(buffer))) {
-          flushSentence(match[1]);
-          buffer = buffer.slice(match[0].length);
-        }
       });
-      if (closedRef.current) return;
-      if (buffer.trim()) flushSentence(buffer);
 
-      if (!reply.trim() && !spokenAnything) {
-        startListening();
+      if (closedRef.current) return;
+      if (!reply.trim()) {
+        void startListening();
         return;
       }
 
-      // playQueueInOrder consomme la file au fur et à mesure qu'elle se
-      // remplit (même tableau référencé) ; on attend juste sa fin réelle
-      // pour rouvrir le micro seulement une fois la dernière phrase jouée.
-      if (playbackPromise) await playbackPromise;
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      setSlowHint(false);
+      setPhase("speaking");
+      speakingRef.current = true;
+      moniteurRef.current?.signalerVoixEntrante();
+      setInterruptionVue((vue) => {
+        if (!vue) setTimeout(() => setInterruptionVue(true), 6000);
+        return vue;
+      });
+      void startBargeListening();
+
+      const outcome = await playToumaiVoice(
+        reply,
+        "voice-mode",
+        speedRef.current,
+      );
+
       speakingRef.current = false;
       stopBargeListening();
-      // Interrompu : `interrupt()` a déjà rouvert le micro, ne pas le refaire —
-      // deux `startListening()` concurrents laissent un enregistreur orphelin.
-      if (!closedRef.current && !interruptRef.current) startListening();
+
+      if (outcome === "error") {
+        throw new Error("Zenaba est momentanément indisponible.");
+      }
+
+      // Interrompu : interrupt() a déjà rouvert le micro.
+      if (!closedRef.current && !interruptRef.current) {
+        void startListening();
+      }
     } catch (err) {
       if (closedRef.current) return;
-      setError(err instanceof Error ? err.message : "Erreur pendant la conversation vocale.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erreur pendant la conversation vocale.",
+      );
       setPhase("error");
     } finally {
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
@@ -601,7 +520,7 @@ export function VoiceModeOverlay({
     stopBargeListening();
     moniteurRef.current?.arreter();
     stopRecorderTracks();
-    audioElRef.current?.pause();
+    stopToumaiVoice("voice-mode");
     onClose();
   }
 
