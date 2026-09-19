@@ -26,7 +26,10 @@ sse_stop = threading.Event()
 
 def raw_request(method, url, body=None, bearer=None, timeout=30):
     data = None if body is None else json.dumps(body).encode("utf-8")
-    headers = {"Accept": "application/json"}
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; Toumai-E2E/1.0)",
+    }
     if data is not None:
         headers["Content-Type"] = "application/json"
     if bearer:
@@ -58,7 +61,11 @@ def wait_web_deploy():
     deadline = time.time() + 300
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(WEB + "/sw.js", timeout=20) as response:
+            request = urllib.request.Request(
+                WEB + "/sw.js",
+                headers={"User-Agent": "Mozilla/5.0 (compatible; Toumai-E2E/1.0)"},
+            )
+            with urllib.request.urlopen(request, timeout=20) as response:
                 source = response.read().decode("utf-8", "replace")
             if "TOUMAI_NOTIFICATION" in source and "toumai-v5" in source:
                 summary.append("Web production service worker: PASS")
@@ -67,6 +74,15 @@ def wait_web_deploy():
             pass
         time.sleep(10)
     raise AssertionError("new Web service worker was not visible in production")
+
+
+def verify_backend_health():
+    status, health = raw_request("GET", "https://api.toumaiai.com/health", timeout=30)
+    if status != 200 or health.get("status") != "ok":
+        raise AssertionError("backend health is not OK: {}".format(health))
+    if health.get("push_notifications") is not True:
+        raise AssertionError("FCM v1 is not configured in production: {}".format(health))
+    summary.append("Backend health + FCM v1 configuration: PASS")
 
 
 def register_temp_account():
@@ -236,6 +252,7 @@ def wait_realtime(marker, timeout=25):
 def main():
     try:
         wait_web_deploy()
+        verify_backend_health()
         register_temp_account()
         wait_backend_deploy()
 
