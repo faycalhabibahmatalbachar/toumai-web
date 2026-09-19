@@ -1,0 +1,36 @@
+name: Backend IP Consensus Harness
+
+on:
+  push:
+    branches:
+      - ci/backend-ip-consensus-20260919
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install focused dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest geoip2==5.3.0 httpx==0.27.2
+      - name: Compile exact backend files
+        run: |
+          python -m py_compile ci_backend/services/ip_intelligence.py
+          python -m py_compile ci_backend/services/transactional_email_service.py
+      - name: Assert email wording
+        run: |
+          ! grep -F "Lieu estimé" ci_backend/services/transactional_email_service.py
+          test "$(grep -F -c '("Lieu", place)' ci_backend/services/transactional_email_service.py)" -ge 2
+      - name: Run exact IP consensus tests
+        env:
+          PYTHONPATH: ci_backend
+        run: |
+          pytest -q ci_backend/tests/test_ip_intelligence_consensus.py
