@@ -404,6 +404,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           {/* L'Agent Navigateur n'a plus d'entrée : l'IA l'invoque seule quand
               l'utilisateur demande une navigation web. */}
           {[
+            { href: "/today", label: "Aujourd’hui", icon: <TodayIcon /> },
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
             { href: "/automations", label: "Automatisations", icon: <AutomationIcon /> },
             { href: "/notifications", label: "Notifications", icon: <BellIcon /> },
@@ -840,6 +841,16 @@ function SearchIcon() {
     <svg className="ico ico-search" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TodayIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M12 3v2M12 19v2M3 12h2M19 12h2" strokeLinecap="round" />
+      <path d="M5.64 5.64l1.42 1.42M16.94 16.94l1.42 1.42M18.36 5.64l-1.42 1.42M7.06 16.94l-1.42 1.42" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="4.25" />
     </svg>
   );
 }
