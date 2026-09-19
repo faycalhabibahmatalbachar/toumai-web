@@ -1,0 +1,38 @@
+name: Reasoning privacy web
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/chat/ReasoningPanel.tsx"
+      - "scripts/verify-reasoning-privacy.mjs"
+      - ".github/workflows/reasoning-privacy-web.yml"
+      - "package.json"
+      - "package-lock.json"
+  push:
+    branches: [main]
+    paths:
+      - "components/chat/ReasoningPanel.tsx"
+      - "scripts/verify-reasoning-privacy.mjs"
+      - ".github/workflows/reasoning-privacy-web.yml"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts
+      - name: Reasoning privacy contract
+        run: node scripts/verify-reasoning-privacy.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
