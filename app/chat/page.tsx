@@ -2069,7 +2069,11 @@ export default function ChatPage() {
         </footer>
       </div>
       {voiceModeOpen && (
-        <VoiceModeOverlay onSend={voiceSend} onClose={() => setVoiceModeOpen(false)} />
+        <VoiceModeOverlay
+          onSend={voiceSend}
+          onCancel={stopGenerating}
+          onClose={() => setVoiceModeOpen(false)}
+        />
       )}
       {shareId && (
         <ShareDialog sessionId={shareId} onClose={() => setShareId(null)} />
