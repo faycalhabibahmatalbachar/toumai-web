@@ -79,14 +79,105 @@ function looksLikeHallucination(text: string, recordMs: number): boolean {
   return HALLUCINATION_PATTERNS.some((re) => re.test(t));
 }
 
+const MAX_TTS_SEGMENT_WORDS = 26;
+const MAX_TTS_SEGMENT_CHARS = 220;
+const MIN_CLAUSE_WORDS = 7;
+
+type SpeechDrain = { segments: string[]; rest: string };
+
+/**
+ * Découpe le flux du LLM en unités que Pocket TTS peut commencer à prononcer
+ * immédiatement. On préfère toujours une phrase complète. Une proposition
+ * (virgule/point-virgule/deux-points) n'est utilisée que si la phrase devient
+ * trop longue. En dernier recours, on coupe sur un ESPACE : jamais au milieu
+ * d'un mot, d'une apostrophe (aujourd'hui, N'Djamena) ou d'un nombre.
+ */
+function drainSpeechSegments(input: string, flush = false): SpeechDrain {
+  let rest = input.replace(/\r/g, "");
+  const segments: string[] = [];
+
+  const push = (value: string) => {
+    const clean = textForToumaiVoice(value).trim();
+    if (clean) segments.push(clean);
+  };
+
+  while (rest.trim()) {
+    // Une ligne terminée est une unité naturelle, utile aussi pour les listes.
+    const newline = rest.indexOf("\n");
+    if (newline >= 0) {
+      const line = rest.slice(0, newline).trim();
+      rest = rest.slice(newline + 1);
+      if (line) push(line);
+      continue;
+    }
+
+    // Phrase complète. Le lookahead exige soit un espace, soit la fin du flux.
+    // À la fin d'un chunk LLM, on attend le chunk suivant sauf en flush final,
+    // afin de ne pas prendre un point d'abréviation pour une fin de phrase.
+    const sentence = /[.!?…]+(?:["»”')\]]*)\s+/g.exec(rest);
+    if (sentence) {
+      const end = sentence.index + sentence[0].length;
+      const candidate = rest.slice(0, end).trim();
+      // Abréviations françaises fréquentes : ne pas produire "M." tout seul.
+      if (!/(?:^|\s)(?:M|Mme|Mlle|Dr|Pr|St|Ste|etc)\.$/i.test(candidate)) {
+        push(candidate);
+        rest = rest.slice(end);
+        continue;
+      }
+    }
+
+    const words = rest.trim().split(/\s+/).filter(Boolean);
+    if (rest.length > MAX_TTS_SEGMENT_CHARS || words.length > MAX_TTS_SEGMENT_WORDS) {
+      const limit = Math.min(rest.length, MAX_TTS_SEGMENT_CHARS);
+      const prefix = rest.slice(0, limit);
+      const clauseMatches = [...prefix.matchAll(/[,;:]\s+/g)];
+      let cut = -1;
+      for (let i = clauseMatches.length - 1; i >= 0; i -= 1) {
+        const m = clauseMatches[i];
+        const pos = (m.index ?? 0) + m[0].length;
+        const beforeWords = prefix.slice(0, pos).trim().split(/\s+/).filter(Boolean).length;
+        if (beforeWords >= MIN_CLAUSE_WORDS) {
+          cut = pos;
+          break;
+        }
+      }
+      if (cut < 0) {
+        // En dernier recours : ~26 mots, coupure sur espace uniquement.
+        const matches = [...rest.matchAll(/\S+\s+/g)];
+        if (matches.length >= MAX_TTS_SEGMENT_WORDS) {
+          const m = matches[MAX_TTS_SEGMENT_WORDS - 1];
+          cut = (m.index ?? 0) + m[0].length;
+        }
+      }
+      if (cut > 0) {
+        push(rest.slice(0, cut));
+        rest = rest.slice(cut);
+        continue;
+      }
+    }
+
+    if (flush) {
+      push(rest);
+      rest = "";
+    }
+    break;
+  }
+
+  return { segments, rest };
+}
+
 export function VoiceModeOverlay({
   onSend,
+  onCancel,
   onClose,
 }: {
   /** Envoie le texte transcrit dans la conversation ; `onChunk` est appelé
    * pour chaque fragment de la réponse dès qu'il arrive (streaming), et la
    * promesse se résout avec le texte complet une fois le flux terminé. */
   onSend: (text: string, onChunk?: (chunk: string) => void) => Promise<string>;
+  /** Annule le flux LLM du tour courant. L'interruption doit arrêter à la fois
+   * le texte encore généré ET l'audio déjà en file. */
+  onCancel?: () => void;
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("listening");
@@ -150,6 +241,9 @@ export function VoiceModeOverlay({
   const noiseFloorRef = useRef<number | null>(null);
   const calibrationSamplesRef = useRef<number[]>([]);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Numéro monotone de tour : tout callback d'un ancien tour devient inerte
+  // dès qu'une interruption, une fermeture ou un nouveau tour survient.
+  const turnRef = useRef(0);
 
   // Micro coupé : on n'analyse plus rien non plus. Laisser l'analyseur ouvert
   // garderait le voyant d'enregistrement du navigateur allumé alors qu'on a
@@ -189,6 +283,9 @@ export function VoiceModeOverlay({
     startListening();
     return () => {
       closedRef.current = true;
+      turnRef.current += 1;
+      onCancel?.();
+      stopBargeListening();
       stopRecorderTracks();
       stopToumaiVoice("voice-mode");
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
@@ -407,6 +504,9 @@ export function VoiceModeOverlay({
     if (!speakingRef.current || closedRef.current) return;
     interruptRef.current = true;
     speakingRef.current = false;
+    // Rend immédiatement inertes les callbacks/chunks du tour interrompu.
+    turnRef.current += 1;
+    onCancel?.();
     stopToumaiVoice("voice-mode");
     stopBargeListening();
     void startListening();
@@ -450,58 +550,120 @@ export function VoiceModeOverlay({
    * teste le moins qui casse. */
   async function runTurn(text: string) {
     if (closedRef.current) return;
+
+    // Un nouveau tour invalide tout ce qui pouvait encore revenir du précédent.
+    const myTurn = ++turnRef.current;
     interruptRef.current = false;
+    onCancel?.();
     stopListening();
+    stopBargeListening();
     stopToumaiVoice("voice-mode");
+    speakingRef.current = false;
+
     setError(null);
     setReplyCaption("");
     setCaption(text);
     setPhase("processing");
+    setSlowHint(false);
     if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
-    slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
+    slowTimerRef.current = setTimeout(() => {
+      if (!closedRef.current && myTurn === turnRef.current) setSlowHint(true);
+    }, SLOW_RESPONSE_HINT_MS);
+
+    let speechBuffer = "";
+    let speechStarted = false;
+    let speechFailure: Error | null = null;
+    let speechChain: Promise<void> = Promise.resolve();
+
+    const beginSpeaking = () => {
+      if (speechStarted || closedRef.current || myTurn !== turnRef.current) return;
+      speechStarted = true;
+      speakingRef.current = true;
+      setPhase("speaking");
+      setSlowHint(false);
+      moniteurRef.current?.signalerVoixEntrante();
+      setInterruptionVue((vue) => {
+        if (!vue) setTimeout(() => setInterruptionVue(true), 6000);
+        return vue;
+      });
+      // Pendant le délai TTS, l'utilisateur peut déjà reprendre la parole :
+      // l'interruption annulera alors la génération audio avant sa lecture.
+      void startBargeListening();
+    };
+
+    const queueSpeech = (segment: string) => {
+      const clean = segment.trim();
+      if (!clean || speechFailure || myTurn !== turnRef.current || interruptRef.current) return;
+      beginSpeaking();
+      speechChain = speechChain.then(async () => {
+        if (
+          closedRef.current ||
+          myTurn !== turnRef.current ||
+          interruptRef.current ||
+          speechFailure
+        ) {
+          return;
+        }
+        const outcome = await playToumaiVoice(clean, "voice-mode", speedRef.current);
+        if (outcome === "error") {
+          speechFailure = new Error("Zenaba est momentanément indisponible.");
+          return;
+        }
+        if (outcome === "stopped" && !interruptRef.current && myTurn === turnRef.current) {
+          speechFailure = new Error("La lecture de Zenaba a été interrompue.");
+        }
+      });
+    };
+
+    const drain = (flush = false) => {
+      const result = drainSpeechSegments(speechBuffer, flush);
+      speechBuffer = result.rest;
+      result.segments.forEach(queueSpeech);
+    };
 
     try {
       const reply = await onSend(text, (chunk) => {
-        if (closedRef.current) return;
+        if (closedRef.current || myTurn !== turnRef.current || interruptRef.current) return;
         setReplyCaption((prev) => prev + chunk);
+        speechBuffer += chunk;
+        // Démarre dès la première phrase logique disponible, pendant que le
+        // LLM continue encore de produire la suite.
+        drain(false);
       });
 
-      if (closedRef.current) return;
-      if (!reply.trim()) {
+      if (closedRef.current || myTurn !== turnRef.current || interruptRef.current) return;
+
+      // Le dernier fragment peut ne pas finir par un point : on le prononce
+      // quand même une fois le flux texte réellement terminé.
+      drain(true);
+
+      if (!reply.trim() && !speechStarted) {
         void startListening();
         return;
       }
 
       if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
       setSlowHint(false);
-      setPhase("speaking");
-      speakingRef.current = true;
-      moniteurRef.current?.signalerVoixEntrante();
-      setInterruptionVue((vue) => {
-        if (!vue) setTimeout(() => setInterruptionVue(true), 6000);
-        return vue;
-      });
-      void startBargeListening();
 
-      const outcome = await playToumaiVoice(
-        reply,
-        "voice-mode",
-        speedRef.current,
-      );
+      // Le texte peut être déjà complètement généré alors que Zenaba finit
+      // encore les segments précédents : on attend LA FILE AUDIO, pas le LLM.
+      await speechChain;
+
+      if (closedRef.current || myTurn !== turnRef.current || interruptRef.current) return;
 
       speakingRef.current = false;
       stopBargeListening();
 
-      if (outcome === "error") {
-        throw new Error("Zenaba est momentanément indisponible.");
-      }
+      if (speechFailure) throw speechFailure;
 
-      // Interrompu : interrupt() a déjà rouvert le micro.
-      if (!closedRef.current && !interruptRef.current) {
-        void startListening();
-      }
+      // Conversation mains-libres : dès la dernière syllabe réellement lue,
+      // le micro se rouvre pour le tour suivant.
+      void startListening();
     } catch (err) {
-      if (closedRef.current) return;
+      if (closedRef.current || myTurn !== turnRef.current || interruptRef.current) return;
+      speakingRef.current = false;
+      stopBargeListening();
+      stopToumaiVoice("voice-mode");
       setError(
         err instanceof Error
           ? err.message
@@ -509,12 +671,16 @@ export function VoiceModeOverlay({
       );
       setPhase("error");
     } finally {
-      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      if (myTurn === turnRef.current && slowTimerRef.current) {
+        clearTimeout(slowTimerRef.current);
+      }
     }
   }
 
   function close() {
     closedRef.current = true;
+    turnRef.current += 1;
+    onCancel?.();
     mutedRef.current = false;
     speakingRef.current = false;
     stopBargeListening();
