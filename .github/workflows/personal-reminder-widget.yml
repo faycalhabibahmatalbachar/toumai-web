@@ -1,0 +1,42 @@
+name: Personal reminder widget
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/chat/widgets/kinds/ReminderWidget.tsx"
+      - "components/chat/widgets/registry.tsx"
+      - "lib/widgets/i18n.ts"
+      - "scripts/verify-personal-reminder-widget.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/personal-reminder-widget.yml"
+  push:
+    branches: [main]
+    paths:
+      - "components/chat/widgets/kinds/ReminderWidget.tsx"
+      - "components/chat/widgets/registry.tsx"
+      - "lib/widgets/i18n.ts"
+      - "scripts/verify-personal-reminder-widget.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/personal-reminder-widget.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts
+      - name: Reminder widget contract
+        run: npm run test:reminder-widget
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build

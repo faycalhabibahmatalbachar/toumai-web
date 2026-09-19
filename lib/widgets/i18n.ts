@@ -42,6 +42,15 @@ const fr = {
     duplicated: "Copie créée", cancelled: "Automatisation annulée", actionFailed: "L’action n’a pas abouti.",
     oneShot: "Une fois", recurring: "Récurrente", manual: "Sur demande", localTime: (c: string) => `heure de ${c}`,
   },
+  reminder: {
+    title: "Rappel", created: "Rappel créé", already: "Rappel déjà actif", channel: "Notifications Toumaï",
+    content: "À vous rappeler", when: "Quand", next: "Prochain rappel", manage: "Gérer",
+    pause: "Mettre en pause", resume: "Reprendre", cancel: "Annuler le rappel",
+    cancelTitle: "Annuler ce rappel ?", cancelBody: "Vous ne recevrez plus ce rappel. Son historique restera consultable.",
+    paused: "Rappel mis en pause", resumed: "Rappel réactivé", cancelled: "Rappel annulé",
+    actionFailed: "La modification n’a pas abouti.", updating: "Mise à jour…", running: "En cours",
+    active: "Actif", pausedStatus: "En pause", cancelledStatus: "Annulé",
+  },
   search: {
     title: "Recherche sur le Web", deep: "Recherche approfondie", sources: (n: number) => `${n} source${n > 1 ? "s" : ""}`,
     visited: "Consultée", found: "Trouvée", running: "Recherche et lecture des sources…", none: "Aucune source exploitable.",
@@ -96,6 +105,15 @@ const en: WidgetDict = {
     duplicated: "Copy created", cancelled: "Automation cancelled", actionFailed: "The action did not go through.",
     oneShot: "Once", recurring: "Recurring", manual: "On demand", localTime: (c) => `${c} time`,
   },
+  reminder: {
+    title: "Reminder", created: "Reminder created", already: "Reminder already active", channel: "Toumaï notifications",
+    content: "Reminder", when: "When", next: "Next reminder", manage: "Manage",
+    pause: "Pause", resume: "Resume", cancel: "Cancel reminder",
+    cancelTitle: "Cancel this reminder?", cancelBody: "You will no longer receive this reminder. Its history will remain available.",
+    paused: "Reminder paused", resumed: "Reminder resumed", cancelled: "Reminder cancelled",
+    actionFailed: "The change did not go through.", updating: "Updating…", running: "Running",
+    active: "Active", pausedStatus: "Paused", cancelledStatus: "Cancelled",
+  },
   search: {
     title: "Web search", deep: "Deep research", sources: (n) => `${n} source${n > 1 ? "s" : ""}`,
     visited: "Read", found: "Found", running: "Searching and reading sources…", none: "No usable source.",
@@ -145,6 +163,15 @@ const ar: WidgetDict = {
     running: "جارٍ التنفيذ…", ranNow: "بدأ التنفيذ", paused: "تم إيقاف الأتمتة مؤقتاً", resumed: "تم استئناف الأتمتة",
     duplicated: "تم إنشاء نسخة", cancelled: "تم إلغاء الأتمتة", actionFailed: "لم يكتمل الإجراء.",
     oneShot: "مرة واحدة", recurring: "متكررة", manual: "عند الطلب", localTime: (c) => `بتوقيت ${c}`,
+  },
+  reminder: {
+    title: "تذكير", created: "تم إنشاء التذكير", already: "التذكير مفعّل بالفعل", channel: "إشعارات Toumaï",
+    content: "التذكير", when: "الموعد", next: "التذكير القادم", manage: "إدارة",
+    pause: "إيقاف مؤقت", resume: "استئناف", cancel: "إلغاء التذكير",
+    cancelTitle: "إلغاء هذا التذكير؟", cancelBody: "لن تستلم هذا التذكير بعد الآن، وسيبقى سجله متاحاً.",
+    paused: "تم إيقاف التذكير مؤقتاً", resumed: "تم استئناف التذكير", cancelled: "تم إلغاء التذكير",
+    actionFailed: "لم يكتمل التعديل.", updating: "جارٍ التحديث…", running: "قيد التنفيذ",
+    active: "نشط", pausedStatus: "متوقف مؤقتاً", cancelledStatus: "ملغى",
   },
   search: {
     title: "بحث على الويب", deep: "بحث معمّق", sources: (n) => `${n} مصدر`,
