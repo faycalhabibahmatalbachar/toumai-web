@@ -216,3 +216,87 @@ def test_ripe_duplicate_holder_is_collapsed():
         ip_intelligence._safe_org("MILLICOM CHAD SA - MILLICOM CHAD SA")
         == "MILLICOM CHAD SA"
     )
+
+
+def test_rdap_uses_registrant_organization_not_technical_person():
+    payload = {
+        "entities": [
+            {
+                "roles": ["technical"],
+                "vcardArray": [
+                    "vcard",
+                    [["fn", {}, "text", "Network Engineer"]],
+                ],
+            },
+            {
+                "roles": ["registrant"],
+                "vcardArray": [
+                    "vcard",
+                    [
+                        ["kind", {}, "text", "org"],
+                        ["fn", {}, "text", "MILLICOM CHAD SA"],
+                    ],
+                ],
+            },
+        ]
+    }
+    assert ip_intelligence._rdap_registrant_name(payload) == "MILLICOM CHAD SA"
+
+
+def test_afrinic_operator_overrides_technical_provider_label():
+    result = ip_intelligence._merge(
+        "154.73.167.12",
+        [
+            {
+                "source": "ipapi",
+                "city": "N'Djamena",
+                "country": "Chad",
+                "asn": "AS327802",
+                "org": "MILLICOM CHAD SA",
+                "company": "Subscribers_Block_3",
+            },
+            {
+                "source": "ipwhois",
+                "city": "N'Djamena",
+                "country": "Chad",
+                "country_code": "TD",
+                "asn": "AS327802",
+                "org": "MILLICOM CHAD SA",
+            },
+            {
+                "source": "ripe",
+                "asn": "AS327802",
+                "prefix": "154.73.167.0/24",
+                "org": "MILLICOM CHAD SA",
+            },
+            {
+                "source": "afrinic",
+                "asn": "AS327802",
+                "operator_name": "MILLICOM CHAD SA",
+            },
+        ],
+    )
+
+    assert result["operator_name"] == "MILLICOM CHAD SA"
+    assert result["operator_verified"] == "1"
+    assert (
+        ip_intelligence.network_label(result)
+        == "AS327802 · MILLICOM CHAD SA · 154.73.167.0/24"
+    )
+    assert "Subscribers_Block_3" not in ip_intelligence.network_label(result)
+
+
+def test_network_label_never_falls_back_to_raw_network_org():
+    result = {
+        "asn_verified": "1",
+        "asn": "AS327802",
+        "network_org": "Subscribers_Block_3",
+        "prefix": "154.73.167.0/24",
+    }
+    assert ip_intelligence.network_label(result) == "AS327802 · 154.73.167.0/24"
+
+
+def test_empty_maxmind_without_mmdb_does_not_count_as_source(monkeypatch):
+    monkeypatch.delenv("SECURITY_GEOIP_CITY_DB", raising=False)
+    monkeypatch.delenv("SECURITY_GEOIP_ASN_DB", raising=False)
+    assert ip_intelligence._maxmind_signal("154.73.167.1") == {}
