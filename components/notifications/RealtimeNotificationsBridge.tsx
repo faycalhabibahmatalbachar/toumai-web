@@ -9,7 +9,11 @@ import { authFetch } from "@/lib/http";
 import type { RealtimeNotification } from "@/lib/notifications-api";
 import type { Preferences } from "@/lib/preferences-api";
 import { cacheSeed } from "@/lib/swr-cache";
-import { playToumaiVoice } from "@/lib/toumai-voice-player";
+import {
+  isToumaiVoiceConversationActive,
+  playToumaiVoice,
+  waitForToumaiVoiceConversationIdle,
+} from "@/lib/toumai-voice-player";
 import { safeInternalPath } from "@/lib/widgets/core";
 
 type ToastItem = {
@@ -30,7 +34,9 @@ function destination(n: RealtimeNotification): string {
   return safeInternalPath(n.deep_link ?? "") || "/notifications";
 }
 
-async function speakReminder(n: RealtimeNotification) {
+let reminderSpeechQueue: Promise<void> = Promise.resolve();
+
+async function speakReminderNow(n: RealtimeNotification) {
   const speakable =
     n.event === "personal.reminder" || n.event === "notification.test";
   if (
@@ -55,6 +61,22 @@ async function speakReminder(n: RealtimeNotification) {
     return;
   }
 
+  // Une notification ne coupe jamais une conversation vocale. Elle reste déjà
+  // visible dans l'interface ; sa lecture attend la fermeture du mode vocal.
+  if (isToumaiVoiceConversationActive()) {
+    const released = await waitForToumaiVoiceConversationIdle();
+    if (
+      !released ||
+      document.visibilityState !== "visible" ||
+      n.voice_enabled !== true
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-error", { detail: n }),
+      );
+      return;
+    }
+  }
+
   window.dispatchEvent(
     new CustomEvent("toumai:notification-voice-start", { detail: n }),
   );
@@ -75,6 +97,16 @@ async function speakReminder(n: RealtimeNotification) {
       new CustomEvent("toumai:notification-voice-error", { detail: n }),
     );
   }
+}
+
+function speakReminder(n: RealtimeNotification): Promise<void> {
+  // Plusieurs rappels arrivant au même instant doivent parler l'un APRÈS
+  // l'autre. Le lecteur global empêcherait le chevauchement en arrêtant le
+  // premier ; ici on conserve au contraire les deux lectures.
+  reminderSpeechQueue = reminderSpeechQueue
+    .catch(() => {})
+    .then(() => speakReminderNow(n));
+  return reminderSpeechQueue;
 }
 
 function parseSseChunk(
