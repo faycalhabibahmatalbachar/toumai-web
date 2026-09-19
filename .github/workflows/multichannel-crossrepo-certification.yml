@@ -1,6 +1,14 @@
 name: Multichannel cross-repo certification
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/multichannel-crossrepo-certification.yml"
+      - "components/notifications/**"
+      - "components/settings/NotificationsSection.tsx"
+      - "lib/notifications-api.ts"
+      - "public/sw.js"
   push:
     branches:
       - feat/reminder-multichannel-notifications
