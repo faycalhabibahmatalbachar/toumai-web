@@ -261,6 +261,7 @@ function normalizedState(response: ConfirmationResponse): {
   }
   if (pendingStatus === "cancelled") return { state: "cancelled", action, message };
   if (pendingStatus === "expired") return { state: "expired", action, message };
+  if (pendingStatus === "uncertain") return { state: "partial_success", action, message };
 
   // L'ÉTAT CANONIQUE L'EMPORTE SUR LE STATUT D'EXÉCUTION.
   //
@@ -373,6 +374,16 @@ export function ActionExecutionCard({
             }
           : undefined;
 
+        if (status === "uncertain") {
+          setAction(actionPayload);
+          setState("partial_success");
+          setResultMessage(
+            stored?.error_detail
+            || "Le résultat n’a pas pu être confirmé. L’action n’est pas relancée automatiquement afin d’éviter un doublon.",
+          );
+          return;
+        }
+
         if (status === "done") {
           if (!actionPayload) {
             setState("partial_success");
@@ -458,7 +469,12 @@ export function ActionExecutionCard({
     if (state === "running") return batchCount ? "Exécution…" : descriptor.running;
     if (state === "verifying") return descriptor.verifying;
     if (state === "success") return batchCount ? `${batchCount} actions terminées` : descriptor.success;
-    if (state === "partial_success") return `Terminé avec ${Math.max(1, problems)} problème${Math.max(1, problems) > 1 ? "s" : ""}`;
+    if (state === "partial_success") {
+      if (/incertain|pas pu être confirmé|pas pu le confirmer|éviter un doublon/i.test(resultMessage)) {
+        return "Résultat à vérifier";
+      }
+      return `Terminé avec ${Math.max(1, problems)} problème${Math.max(1, problems) > 1 ? "s" : ""}`;
+    }
     if (state === "cancelled") return descriptor.cancelled;
     if (state === "expired") return "Confirmation expirée";
     return `Échec · ${descriptor.title}`;
