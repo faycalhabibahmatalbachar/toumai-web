@@ -91,7 +91,8 @@ export async function* streamSpeech(
       for (const line of lines) {
         const raw = line.trim();
         if (!raw) continue;
-        const segment = JSON.parse(raw) as SpeechSegment;
+        const segment = JSON.parse(raw) as SpeechSegment & { error?: string };
+        if (segment.error) throw new Error(segment.error);
         if (!segment.audio_base64 || !segment.mime_type) {
           throw new Error("Zenaba n’a pas produit l’un des segments audio.");
         }
@@ -101,7 +102,8 @@ export async function* streamSpeech(
 
     const tail = buffer.trim();
     if (tail) {
-      const segment = JSON.parse(tail) as SpeechSegment;
+      const segment = JSON.parse(tail) as SpeechSegment & { error?: string };
+      if (segment.error) throw new Error(segment.error);
       if (!segment.audio_base64 || !segment.mime_type) {
         throw new Error("Zenaba n’a pas produit le dernier segment audio.");
       }
