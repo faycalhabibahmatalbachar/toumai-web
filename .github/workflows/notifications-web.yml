@@ -6,19 +6,25 @@ on:
     paths:
       - "app/notifications/**"
       - "components/settings/NotificationsSection.tsx"
+      - "components/settings/SecuritySection.tsx"
+      - "components/notifications/RealtimeNotificationsBridge.tsx"
       - "components/Sidebar.tsx"
       - "lib/notifications-api.ts"
       - "lib/web-push.ts"
       - "public/sw.js"
+      - "scripts/verify-notification-channel-test-center.mjs"
       - ".github/workflows/notifications-web.yml"
   pull_request:
     paths:
       - "app/notifications/**"
       - "components/settings/NotificationsSection.tsx"
+      - "components/settings/SecuritySection.tsx"
+      - "components/notifications/RealtimeNotificationsBridge.tsx"
       - "components/Sidebar.tsx"
       - "lib/notifications-api.ts"
       - "lib/web-push.ts"
       - "public/sw.js"
+      - "scripts/verify-notification-channel-test-center.mjs"
       - ".github/workflows/notifications-web.yml"
   workflow_dispatch:
 
@@ -46,9 +52,13 @@ jobs:
           npx eslint
           app/notifications/page.tsx
           components/settings/NotificationsSection.tsx
+          components/settings/SecuritySection.tsx
+          components/notifications/RealtimeNotificationsBridge.tsx
           components/Sidebar.tsx
           lib/notifications-api.ts
           lib/web-push.ts
+      - name: Channel diagnostic contract
+        run: npm run test:notification-diagnostic
       - name: Typecheck
         run: npm run typecheck
       - name: Production build

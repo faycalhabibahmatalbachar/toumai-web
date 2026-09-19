@@ -13,9 +13,68 @@ import {
   type MfaEtat,
   type SecurityNotificationTestResult,
 } from "@/lib/user-api";
+import {
+  testNotificationChannels,
+  type NotificationChannelTestResult,
+  type RealtimeNotification,
+} from "@/lib/notifications-api";
+import { enableWebPush, webPushState } from "@/lib/web-push";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { Panel, Row } from "./Rows";
+
+type DiagnosticState = "pending" | "ok" | "warning" | "error" | "unavailable";
+type DiagnosticKey =
+  | "push_mobile"
+  | "web_push"
+  | "inbox"
+  | "realtime"
+  | "voice"
+  | "email";
+
+type DiagnosticItem = {
+  state: DiagnosticState;
+  detail: string;
+};
+
+type Diagnostics = Record<DiagnosticKey, DiagnosticItem>;
+
+const DIAGNOSTIC_LABELS: Record<DiagnosticKey, string> = {
+  push_mobile: "Push mobile Toumaï",
+  web_push: "Notification Web / navigateur",
+  inbox: "Inbox Toumaï",
+  realtime: "Temps réel dans Toumaï",
+  voice: "Voix Toumaï",
+  email: "E-mail",
+};
+
+const DIAGNOSTIC_ORDER: DiagnosticKey[] = [
+  "push_mobile",
+  "web_push",
+  "inbox",
+  "realtime",
+  "voice",
+  "email",
+];
+
+function diagnosticInitial(): Diagnostics {
+  return {
+    push_mobile: { state: "pending", detail: "Vérification du Push FCM…" },
+    web_push: { state: "pending", detail: "Préparation du navigateur…" },
+    inbox: { state: "pending", detail: "Création d’une notification durable…" },
+    realtime: { state: "pending", detail: "Attente du flux temps réel…" },
+    voice: { state: "pending", detail: "Attente de la lecture vocale…" },
+    email: { state: "pending", detail: "Vérification de l’envoi e-mail…" },
+  };
+}
+
+function diagnosticBadge(state: DiagnosticState): string {
+  if (state === "ok") return "✓ Confirmé";
+  if (state === "pending") return "En cours…";
+  if (state === "unavailable") return "Indisponible";
+  if (state === "warning") return "Non confirmé";
+  return "Échec";
+}
 
 /**
  * Double authentification du compte.
@@ -40,9 +99,9 @@ export function SecuritySection() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [desactivation, setDesactivation] = useState(false);
-  const [testAlertes, setTestAlertes] = useState<SecurityNotificationTestResult | null>(null);
-  const [testAlertesErreur, setTestAlertesErreur] = useState<string | null>(null);
   const [testAlertesOccupe, setTestAlertesOccupe] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [diagnosticErreur, setDiagnosticErreur] = useState<string | null>(null);
   /** Le QR, encodé DANS le navigateur.
    *
    * La première version passait par un service d'image tiers — ce qui
@@ -87,16 +146,233 @@ export function SecuritySection() {
   }, [invite]);
 
   async function testerLesAlertes() {
-    setTestAlertesErreur(null);
-    setTestAlertes(null);
+    const testId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    setDiagnosticErreur(null);
+    setDiagnostics(diagnosticInitial());
     setTestAlertesOccupe(true);
+
+    const patch = (key: DiagnosticKey, item: DiagnosticItem) => {
+      setDiagnostics((current) =>
+        current ? { ...current, [key]: item } : current,
+      );
+    };
+
+    const matches = (notification?: RealtimeNotification | null) =>
+      notification?.test_id === testId;
+
+    const onArrival = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          notification?: RealtimeNotification;
+          source?: "sse" | "web_push";
+        }>
+      ).detail;
+      if (!matches(detail?.notification)) return;
+      if (detail?.source === "sse") {
+        patch("realtime", {
+          state: "ok",
+          detail: "Reçu en direct par le flux SSE authentifié de Toumaï.",
+        });
+      }
+      if (detail?.source === "web_push") {
+        patch("web_push", {
+          state: "ok",
+          detail: "Reçu réellement par le service worker de ce navigateur.",
+        });
+      }
+    };
+
+    const onVoiceComplete = (event: Event) => {
+      const notification = (
+        event as CustomEvent<RealtimeNotification>
+      ).detail;
+      if (!matches(notification)) return;
+      patch("voice", {
+        state: "ok",
+        detail: "La phrase de test a été lue jusqu’à la fin.",
+      });
+    };
+
+    const onVoiceError = (event: Event) => {
+      const notification = (
+        event as CustomEvent<RealtimeNotification>
+      ).detail;
+      if (!matches(notification)) return;
+      patch("voice", {
+        state: "error",
+        detail: "Le navigateur n’a pas réussi à lire la phrase de test.",
+      });
+    };
+
+    window.addEventListener("toumai:notification-arrival", onArrival);
+    window.addEventListener("toumai:notification-voice-complete", onVoiceComplete);
+    window.addEventListener("toumai:notification-voice-error", onVoiceError);
+
+    let channelsResult: NotificationChannelTestResult | null = null;
+
     try {
-      setTestAlertes(await testerAlertesSecurite());
+      const speechSupported = "speechSynthesis" in window;
+      if (!speechSupported) {
+        patch("voice", {
+          state: "unavailable",
+          detail: "Ce navigateur ne fournit pas de synthèse vocale.",
+        });
+      }
+
+      try {
+        const current = await webPushState();
+        if (!current.supported) {
+          patch("web_push", {
+            state: "unavailable",
+            detail: "Ce navigateur ne prend pas en charge Web Push.",
+          });
+        } else if (current.permission === "denied") {
+          patch("web_push", {
+            state: "unavailable",
+            detail: "Les notifications sont bloquées dans les réglages du navigateur.",
+          });
+        } else if (!current.subscribed) {
+          const enabled = await enableWebPush();
+          if (!enabled.subscribed) {
+            patch("web_push", {
+              state: "unavailable",
+              detail: "L’autorisation Web Push n’a pas été accordée.",
+            });
+          }
+        }
+      } catch (error) {
+        patch("web_push", {
+          state: "error",
+          detail:
+            error instanceof Error
+              ? error.message
+              : "Impossible de préparer Web Push.",
+        });
+      }
+
+      const [channels, security] = await Promise.allSettled([
+        testNotificationChannels(testId),
+        testerAlertesSecurite(),
+      ]);
+
+      if (channels.status === "fulfilled") {
+        channelsResult = channels.value;
+        patch("inbox", {
+          state: channels.value.inbox.ok ? "ok" : "error",
+          detail: channels.value.inbox.ok
+            ? "Notification durable créée dans votre Inbox Toumaï."
+            : "La notification durable n’a pas été créée.",
+        });
+
+        const web = channels.value.web_push;
+        if (web.sent > 0) {
+          setDiagnostics((current) => {
+            if (!current || current.web_push.state !== "pending") return current;
+            return {
+              ...current,
+              web_push: {
+                state: "pending",
+                detail: `Envoyé au service Push (${web.sent}). Attente de la réception dans ce navigateur…`,
+              },
+            };
+          });
+        } else if (!web.configured) {
+          patch("web_push", {
+            state: "error",
+            detail: "Le fournisseur Web Push n’est pas configuré.",
+          });
+        } else if (web.subscriptions === 0) {
+          patch("web_push", {
+            state: "unavailable",
+            detail: "Aucune souscription Web Push active pour ce compte.",
+          });
+        } else {
+          patch("web_push", {
+            state: "error",
+            detail: `Aucun envoi Web Push confirmé · échecs: ${web.failed}.`,
+          });
+        }
+      } else {
+        const message =
+          channels.reason instanceof Error
+            ? channels.reason.message
+            : "Le diagnostic multicanal n’a pas pu démarrer.";
+        patch("inbox", { state: "error", detail: message });
+        patch("realtime", { state: "error", detail: message });
+        if (speechSupported) patch("voice", { state: "error", detail: message });
+      }
+
+      if (security.status === "fulfilled") {
+        const result: SecurityNotificationTestResult = security.value;
+        if (result.push_ok) {
+          patch("push_mobile", {
+            state: "ok",
+            detail: `Accepté par FCM sur ${result.push_successes} appareil${result.push_successes > 1 ? "s" : ""}.`,
+          });
+        } else if (result.push_failures > 0) {
+          patch("push_mobile", {
+            state: "error",
+            detail: `FCM a signalé ${result.push_failures} échec${result.push_failures > 1 ? "s" : ""}.`,
+          });
+        } else {
+          patch("push_mobile", {
+            state: "unavailable",
+            detail: "Aucun appareil mobile avec token FCM actif n’est enregistré.",
+          });
+        }
+
+        patch("email", {
+          state: result.email_ok ? "ok" : "warning",
+          detail: result.email_ok
+            ? "E-mail de test accepté par le service d’envoi."
+            : "L’e-mail n’a pas pu être confirmé.",
+        });
+      } else {
+        const message =
+          security.reason instanceof Error
+            ? security.reason.message
+            : "Test Push/e-mail indisponible.";
+        patch("push_mobile", { state: "warning", detail: message });
+        patch("email", { state: "warning", detail: message });
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 10_000));
+
+      setDiagnostics((current) => {
+        if (!current) return current;
+        const next = { ...current };
+        if (next.realtime.state === "pending") {
+          next.realtime = {
+            state: channelsResult?.realtime.requested ? "warning" : "error",
+            detail: "Aucun événement temps réel n’a été observé dans les 10 secondes.",
+          };
+        }
+        if (next.voice.state === "pending") {
+          next.voice = {
+            state: "warning",
+            detail: "La lecture vocale n’a pas été confirmée dans les 10 secondes.",
+          };
+        }
+        if (next.web_push.state === "pending") {
+          next.web_push = {
+            state: "warning",
+            detail: "Envoi accepté, mais réception par ce navigateur non observée dans les 10 secondes.",
+          };
+        }
+        return next;
+      });
     } catch (e) {
-      setTestAlertesErreur(
-        e instanceof Error ? e.message : "Impossible de tester les alertes.",
+      setDiagnosticErreur(
+        e instanceof Error ? e.message : "Impossible de terminer le diagnostic.",
       );
     } finally {
+      window.removeEventListener("toumai:notification-arrival", onArrival);
+      window.removeEventListener("toumai:notification-voice-complete", onVoiceComplete);
+      window.removeEventListener("toumai:notification-voice-error", onVoiceError);
       setTestAlertesOccupe(false);
     }
   }
@@ -241,10 +517,10 @@ export function SecuritySection() {
         </div>
       )}
 
-      <Panel title="Alertes de sécurité">
+      <Panel title="Diagnostic des notifications">
         <Row
-          label="Tester Push + e-mail"
-          description="Envoie immédiatement un vrai Push de sécurité et un vrai e-mail sur les canaux associés à votre compte."
+          label="Tester tous les canaux"
+          description="Déclenche de vrais envois sur votre compte : Push mobile, Web Push, Inbox, temps réel, voix Toumaï et e-mail. Le navigateur peut vous demander l’autorisation des notifications."
         >
           <button
             type="button"
@@ -253,29 +529,33 @@ export function SecuritySection() {
             className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
             style={{ background: "var(--primary)" }}
           >
-            {testAlertesOccupe ? "Envoi…" : "Tester maintenant"}
+            {testAlertesOccupe ? "Test en cours…" : "Tester tous les canaux"}
           </button>
         </Row>
 
-        {(testAlertes || testAlertesErreur) && (
+        {diagnostics &&
+          DIAGNOSTIC_ORDER.map((key) => {
+            const item = diagnostics[key];
+            return (
+              <Row
+                key={key}
+                label={DIAGNOSTIC_LABELS[key]}
+                description={item.detail}
+              >
+                <span
+                  className="shrink-0 rounded-full border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
+                  aria-live="polite"
+                >
+                  {diagnosticBadge(item.state)}
+                </span>
+              </Row>
+            );
+          })}
+
+        {diagnosticErreur && (
           <Row
-            label={
-              testAlertes?.complete
-                ? "Push + e-mail confirmés"
-                : testAlertes?.push_ok && testAlertes?.email_ok
-                  ? "Canaux confirmés"
-                  : testAlertes?.push_ok
-                    ? "Push confirmé · e-mail non confirmé"
-                    : testAlertes?.email_ok
-                      ? "E-mail confirmé · Push non confirmé"
-                      : "Test non confirmé"
-            }
-            description={
-              testAlertesErreur ??
-              (testAlertes
-                ? `Push acceptés: ${testAlertes.push_successes} · échecs: ${testAlertes.push_failures} · tokens périmés purgés: ${testAlertes.push_purged} · e-mail: ${testAlertes.email_ok ? "accepté" : "non confirmé"}`
-                : undefined)
-            }
+            label="Diagnostic interrompu"
+            description={diagnosticErreur}
           />
         )}
       </Panel>

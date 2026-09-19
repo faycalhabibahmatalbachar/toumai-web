@@ -12,7 +12,8 @@
     "test:seo": "node scripts/verify-seo.mjs && node scripts/verify-chad-editorial.mjs && node scripts/verify-editorial-pages.mjs && node scripts/verify-policy-pages.mjs",
     "test:today": "node scripts/verify-today-center.mjs",
     "test:reminder-widget": "node scripts/verify-personal-reminder-widget.mjs",
-    "test:notification-channels": "node scripts/verify-reminder-multichannel.mjs"
+    "test:notification-channels": "node scripts/verify-reminder-multichannel.mjs",
+    "test:notification-diagnostic": "node scripts/verify-notification-channel-test-center.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

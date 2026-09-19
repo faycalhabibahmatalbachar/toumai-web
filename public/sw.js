@@ -296,6 +296,10 @@ self.addEventListener("push", (evenement) => {
           payload.data && typeof payload.data === "object"
             ? payload.data.locale ?? null
             : null,
+        test_id:
+          payload.data && typeof payload.data === "object"
+            ? payload.data.test_id ?? null
+            : null,
       };
 
       if (visible.length) {

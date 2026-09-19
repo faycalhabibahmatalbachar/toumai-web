@@ -28,8 +28,10 @@ function destination(n: RealtimeNotification): string {
 }
 
 function speakReminder(n: RealtimeNotification) {
+  const speakable =
+    n.event === "personal.reminder" || n.event === "notification.test";
   if (
-    n.event !== "personal.reminder" ||
+    !speakable ||
     n.voice_enabled !== true ||
     typeof window === "undefined" ||
     document.visibilityState !== "visible" ||
@@ -54,6 +56,21 @@ function speakReminder(n: RealtimeNotification) {
     const utterance = new SpeechSynthesisUtterance(prefix + body);
     utterance.lang = language;
     utterance.rate = 0.95;
+    utterance.onstart = () => {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-start", { detail: n }),
+      );
+    };
+    utterance.onend = () => {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-complete", { detail: n }),
+      );
+    };
+    utterance.onerror = () => {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-error", { detail: n }),
+      );
+    };
     window.speechSynthesis.speak(utterance);
   } catch {
     // Certains navigateurs exigent une interaction préalable pour parler.
@@ -104,7 +121,13 @@ export function RealtimeNotificationsBridge() {
   }, []);
 
   const receive = useCallback(
-    (notification: RealtimeNotification) => {
+    (notification: RealtimeNotification, source: "sse" | "web_push") => {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-arrival", {
+          detail: { notification, source },
+        }),
+      );
+
       const key = eventKey(notification);
       if (!remember(key)) return;
 
@@ -119,7 +142,6 @@ export function RealtimeNotificationsBridge() {
 
   useEffect(() => {
     if (!session) {
-      setItems([]);
       seen.current = [];
       seenSet.current.clear();
       return;
@@ -157,7 +179,9 @@ export function RealtimeNotificationsBridge() {
             const { value, done } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
-            buffer = parseSseChunk(buffer, receive);
+            buffer = parseSseChunk(buffer, (notification) =>
+              receive(notification, "sse"),
+            );
           }
         } catch (error) {
           if (stopped || (error instanceof DOMException && error.name === "AbortError")) {
@@ -184,14 +208,14 @@ export function RealtimeNotificationsBridge() {
     const onMessage = (event: MessageEvent) => {
       const data = event.data as { type?: string; notification?: RealtimeNotification } | null;
       if (data?.type === "TOUMAI_NOTIFICATION" && data.notification) {
-        receive(data.notification);
+        receive(data.notification, "web_push");
       }
     };
     navigator.serviceWorker.addEventListener("message", onMessage);
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [receive, session]);
 
-  if (!items.length) return null;
+  if (!session || !items.length) return null;
 
   return (
     <div
@@ -209,7 +233,9 @@ export function RealtimeNotificationsBridge() {
               className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)]"
               aria-hidden="true"
             >
-              {notification.voice_enabled && notification.event === "personal.reminder" ? (
+              {notification.voice_enabled &&
+              (notification.event === "personal.reminder" ||
+                notification.event === "notification.test") ? (
                 <Volume2 className="h-4 w-4" />
               ) : (
                 <BellRing className="h-4 w-4" />
