@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { SELECTABLE_MODELS, findModel } from "@/lib/models";
 
 /**
@@ -14,6 +14,21 @@ import { SELECTABLE_MODELS, findModel } from "@/lib/models";
  * Le panneau s'ouvre VERS LE HAUT : le sélecteur vit dans la barre du
  * composeur, en bas de l'écran — un menu déroulant vers le bas sortirait de la
  * fenêtre.
+ *
+ * CE QUI FAIT LA DIFFÉRENCE ENTRE UNE LISTE ET UN MENU
+ * -----------------------------------------------------
+ * Trois choses, et aucune n'est décorative :
+ *
+ * 1. **Le choix actif se voit sans chercher la coche** : sa rangée est teintée
+ *    et son nom prend l'accent. Une coche seule, alignée à droite d'un texte
+ *    variable, oblige l'œil à traverser la rangée pour répondre à « lequel est
+ *    actif ? ».
+ * 2. **Le clavier ouvre, parcourt et choisit** (↑ ↓ ⇱ ⇲ ⏎ ⎋), avec le focus
+ *    posé sur l'entrée active à l'ouverture et RENDU au bouton à la fermeture.
+ *    Sans ce retour, la tabulation repart du haut de la page.
+ * 3. **L'ouverture est animée en 120 ms** — assez pour qu'on voie d'où le
+ *    panneau sort, trop peu pour qu'on l'attende. `prefers-reduced-motion`
+ *    l'annule.
  */
 export function ModelSelector({
   value,
@@ -24,26 +39,72 @@ export function ModelSelector({
 }) {
   const [open, setOpen] = useState(false);
   const current = findModel(value) ?? SELECTABLE_MODELS[0];
+  const listId = useId();
+  const declencheur = useRef<HTMLButtonElement>(null);
+  const rangees = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Échap referme : un menu qu'on ne peut fermer qu'à la souris bloque la
-  // navigation au clavier.
+  const indexActif = Math.max(
+    0,
+    SELECTABLE_MODELS.findIndex((m) => m.id === value),
+  );
+
+  // Fermer, c'est aussi rendre le focus : sinon le clavier se retrouve au
+  // début du document, loin du composeur qu'on était en train d'utiliser.
+  const fermer = useCallback((rendreLeFocus = true) => {
+    setOpen(false);
+    if (rendreLeFocus) declencheur.current?.focus();
+  }, []);
+
+  // À l'ouverture, le focus se pose sur le modèle actif — celui dont on part.
+  useEffect(() => {
+    if (!open) return;
+    rangees.current[indexActif]?.focus();
+  }, [open, indexActif]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        fermer();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, fermer]);
+
+  const naviguer = (e: React.KeyboardEvent, index: number) => {
+    const dernier = SELECTABLE_MODELS.length - 1;
+    const aller = (i: number) => {
+      e.preventDefault();
+      rangees.current[i]?.focus();
+    };
+    if (e.key === "ArrowDown") aller(index === dernier ? 0 : index + 1);
+    else if (e.key === "ArrowUp") aller(index === 0 ? dernier : index - 1);
+    else if (e.key === "Home") aller(0);
+    else if (e.key === "End") aller(dernier);
+    else if (e.key === "Tab") fermer(false);
+  };
 
   return (
     <div className="relative">
       <button
+        ref={declencheur}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          // Le clavier ouvre le menu comme une liste déroulante native, par
+          // une flèche — sans quoi il faut deviner qu'il s'agit d'un bouton.
+          if (!open && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
         title="Changer de modèle"
-        className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+        className="model-trigger"
+        data-open={open}
       >
         {current.name}
         <ChevronIcon open={open} />
@@ -51,28 +112,37 @@ export function ModelSelector({
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-10" onClick={() => fermer(false)} />
           <div
+            id={listId}
             role="listbox"
             aria-label="Modèle"
-            className="absolute bottom-full right-0 z-20 mb-2 w-[17rem] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1"
+            aria-activedescendant={`${listId}-${indexActif}`}
+            className="model-menu absolute bottom-full right-0 z-20 mb-2 w-[18rem] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-1.5"
             style={{ boxShadow: "var(--chat-elev-2, 0 24px 60px -24px rgba(0,0,0,.6))" }}
           >
-            {SELECTABLE_MODELS.map((m) => {
+            {SELECTABLE_MODELS.map((m, index) => {
               const active = m.id === value;
               return (
                 <button
                   key={m.id}
+                  id={`${listId}-${index}`}
+                  ref={(el) => {
+                    rangees.current[index] = el;
+                  }}
                   role="option"
                   aria-selected={active}
+                  tabIndex={active ? 0 : -1}
+                  onKeyDown={(e) => naviguer(e, index)}
                   onClick={() => {
                     onChange(m.id);
-                    setOpen(false);
+                    fermer();
                   }}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[var(--hover)]"
+                  className="model-row"
+                  data-active={active}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium text-[var(--text-primary)]">
+                    <span className="model-row-name block truncate text-[14px] font-medium">
                       {m.name}
                     </span>
                     {/* Une seule ligne sous le nom : la description complète
@@ -81,7 +151,7 @@ export function ModelSelector({
                       {m.tagline}
                     </span>
                   </span>
-                  <span className="w-4 shrink-0 text-[var(--primary)]">
+                  <span className="model-row-check w-4 shrink-0">
                     {active && <CheckIcon />}
                   </span>
                 </button>
@@ -114,7 +184,15 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function CheckIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+    >
       <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
