@@ -34,6 +34,14 @@ expect(player.includes("completion?.generation"), "playback completion must be g
 expect(player.includes("segmentCompletion?.generation"), "segment stop must be generation-scoped");
 expect(player.includes("playToumaiVoice"), "shared player entrypoint missing");
 expect(player.includes("streamSpeech"), "shared player must use streamed TTS");
+expect(player.includes("playToumaiVoiceLive"), "shared player must expose native Pocket live playback");
+expect(player.includes("parseStreamingWavHeader"), "Pocket live playback must validate WAV before PCM playback");
+expect(player.includes("AudioBufferSourceNode"), "Pocket live playback must schedule PCM through Web Audio");
+expect(player.includes("MIN_PCM_BYTES = 8192"), "Pocket playback must start before a whole phrase WAV is buffered");
+expect(player.includes("source.playbackRate.value"), "live Pocket playback must preserve speed preference");
+expect(player.includes("stopLiveSources"), "global Stop must terminate live PCM sources");
+expect(player.includes("primeToumaiVoiceAudio"), "voice mode must be autoplay-safe");
+expect(player.includes("setToumaiVoiceConversationActive"), "global player must track live conversation ownership");
 
 expect(hook.includes("playToumaiVoice"), "chat read-aloud must use shared Zenaba player");
 expect(hook.includes("stopToumaiVoice(owner)"), "chat unmount must stop its audio");
@@ -42,6 +50,8 @@ expect(bridge.includes("playToumaiVoice"), "reminders must use the same Zenaba p
 expect(!bridge.includes("speechSynthesis"), "reminders must not use browser speechSynthesis");
 expect(bridge.includes('outcome === "ended"'), "voice diagnostic may only confirm after actual playback end");
 expect(bridge.includes('locale.startsWith("fr")'), "non-French reminders must fail closed in V1");
+expect(bridge.includes("waitForToumaiVoiceConversationIdle"), "reminders must wait while live conversation is active");
+expect(bridge.includes("reminderSpeechQueue"), "simultaneous reminders must be queued, not overlap");
 
 expect(voiceSettings.includes("Zenaba"), "settings must display Zenaba");
 expect(voiceSettings.includes("Voix officielle de Toumaï · Français"), "settings must explain the official French voice");
@@ -75,7 +85,9 @@ expect(voiceMode.includes("setCaptureStream(stream)"), "voice mode must expose i
 expect(waveform.includes("providedStream"), "waveform must be able to reuse the conversation microphone");
 expect(waveform.includes("if (ownsStream)"), "waveform must never stop a microphone stream it does not own");
 expect(voiceMode.includes("stopToumaiVoice();"), "opening live voice mode must preempt an existing reminder/read-aloud");
-expect(voiceMode.includes("discardRecordingRef"), "intentional recorder stops must not trigger ghost transcriptions");
+expect(!voiceMode.includes("discardRecordingRef"), "legacy global recorder discard flag must stay removed");
+expect(voiceMode.includes("listenEpoch !== captureEpochRef.current"), "late recorder/STT callbacks must be ignored");
+expect(voiceMode.includes("recordingChunks"), "each MediaRecorder session must own its own chunk buffer");
 expect(voiceMode.includes("stopBargeListening();"), "mute/stop paths must close the barge-in microphone");
 expect(voiceMode.includes("!speechStarted && reply.trim()"), "voice mode must speak providers that do not emit chunk callbacks");
 expect(chatPage.includes("onCancel={stopGenerating}"), "voice mode interruption must abort the chat stream");
