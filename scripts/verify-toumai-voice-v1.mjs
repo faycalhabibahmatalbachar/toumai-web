@@ -9,6 +9,7 @@ const notifications = fs.readFileSync("components/settings/NotificationsSection.
 const security = fs.readFileSync("components/settings/SecuritySection.tsx", "utf8");
 const chat = fs.readFileSync("components/ChatMessage.tsx", "utf8");
 const voiceMode = fs.readFileSync("components/VoiceModeOverlay.tsx", "utf8");
+const waveform = fs.readFileSync("components/Waveform.tsx", "utf8");
 const chatPage = fs.readFileSync("app/chat/page.tsx", "utf8");
 
 function expect(ok, message) {
@@ -67,6 +68,13 @@ expect(voiceMode.includes("turnRef.current"), "stale voice-turn callbacks must b
 expect(voiceMode.includes("m.index ?? 0"), "voice segmentation must split only on explicit boundaries");
 expect(voiceMode.includes("SUSTAINED_SPEECH_MS = 180"), "short utterances such as oui/non must be accepted");
 expect(voiceMode.includes("MIN_TOTAL_SPEECH_MS = 220"), "short voice turns must not require 400ms of speech");
+expect(voiceMode.includes("captureEpochRef"), "stale microphone and STT sessions must be invalidated");
+expect(voiceMode.includes("recordingMimeRef"), "voice mode must preserve the real MediaRecorder container");
+expect(voiceMode.includes('"audio/mp4"'), "voice mode must support Safari MediaRecorder output");
+expect(voiceMode.includes("setCaptureStream(stream)"), "voice mode must expose its capture stream to the waveform");
+expect(waveform.includes("providedStream"), "waveform must be able to reuse the conversation microphone");
+expect(waveform.includes("if (ownsStream)"), "waveform must never stop a microphone stream it does not own");
+expect(voiceMode.includes("stopToumaiVoice();"), "opening live voice mode must preempt an existing reminder/read-aloud");
 expect(voiceMode.includes("discardRecordingRef"), "intentional recorder stops must not trigger ghost transcriptions");
 expect(voiceMode.includes("stopBargeListening();"), "mute/stop paths must close the barge-in microphone");
 expect(voiceMode.includes("!speechStarted && reply.trim()"), "voice mode must speak providers that do not emit chunk callbacks");
