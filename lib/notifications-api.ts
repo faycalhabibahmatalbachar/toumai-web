@@ -163,4 +163,25 @@ export interface RealtimeNotification {
   archived_at?: string | null;
   voice_enabled?: boolean;
   locale?: string | null;
+  test_id?: string | null;
 }
+
+export interface NotificationChannelTestResult {
+  test_id: string;
+  notification_id?: string | null;
+  inbox: { ok: boolean; replayed: boolean };
+  realtime: { requested: boolean };
+  voice: { requested: boolean };
+  web_push: {
+    configured: boolean;
+    subscriptions: number;
+    sent: number;
+    failed: number;
+    removed: number;
+  };
+}
+
+export const testNotificationChannels = (testId: string) =>
+  http.post<NotificationChannelTestResult>("/notifications/test-channels", {
+    test_id: testId,
+  });
