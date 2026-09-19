@@ -7,7 +7,7 @@ import { useMicLevels } from "./Waveform";
 import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
 import { NetworkBadge } from "./chat/NetworkBadge";
 import { MoniteurReseau, type QualiteReseau } from "@/lib/network-quality";
-import { playToumaiVoice, stopToumaiVoice, textForToumaiVoice } from "@/lib/toumai-voice-player";
+import { playToumaiVoiceLive, stopToumaiVoice, textForToumaiVoice } from "@/lib/toumai-voice-player";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
@@ -632,7 +632,7 @@ export function VoiceModeOverlay({
         ) {
           return;
         }
-        const outcome = await playToumaiVoice(clean, "voice-mode", speedRef.current);
+        const outcome = await playToumaiVoiceLive(clean, "voice-mode", speedRef.current);
         if (outcome === "error") {
           speechFailure = new Error("Zenaba est momentanément indisponible.");
           // Inutile de continuer à générer du texte que personne ne pourra
