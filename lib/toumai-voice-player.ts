@@ -350,6 +350,10 @@ export async function playToumaiVoiceLive(
   owner: string,
   speed = 1,
 ): Promise<ToumaiVoiceOutcome> {
+  // Compatibilité seulement : même moteur Pocket, même Zenaba, mais transport
+  // WAV complet si Web Audio n'existe réellement pas sur cet appareil.
+  if (!audioContextCtor()) return playToumaiVoice(rawText, owner, speed);
+
   const text = textForToumaiVoice(rawText);
   if (!text) {
     publish({ owner, phase: "idle", error: "Aucun texte à lire." });
@@ -468,6 +472,13 @@ export async function playToumaiVoiceLive(
       publish({ owner: null, phase: "idle", error: null });
       settleCompletion(myGeneration, "ended");
     } catch (err) {
+      if (!controller.signal.aborted) {
+        try {
+          await reader?.cancel();
+        } catch {
+          // Le serveur ou le navigateur a déjà fermé le body.
+        }
+      }
       if (controller.signal.aborted || myGeneration !== generation) {
         settleSegment(myGeneration, "stopped");
         settleCompletion(myGeneration, "stopped");
