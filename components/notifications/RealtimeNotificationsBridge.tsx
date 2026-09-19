@@ -41,6 +41,9 @@ function speakReminder(n: RealtimeNotification) {
   const body = String(n.body ?? "").trim();
   if (!body) return;
   try {
+    // Ne jamais empiler plusieurs rappels vocaux : le plus récent remplace la
+    // lecture en cours, tandis que tous restent dans l'Inbox durable.
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance("Rappel. " + body);
     utterance.lang = document.documentElement.lang || "fr-FR";
     utterance.rate = 0.95;
