@@ -26,6 +26,8 @@ let liveContext: AudioContext | null = null;
 const liveSources = new Set<AudioBufferSourceNode>();
 let liveNextStartTime = 0;
 let generation = 0;
+let voiceConversationActive = false;
+const conversationIdleWaiters = new Set<(released: boolean) => void>();
 let completion:
   | { generation: number; resolve: (outcome: ToumaiVoiceOutcome) => void }
   | null = null;
@@ -55,6 +57,36 @@ export function getToumaiVoiceServerSnapshot(): ToumaiVoiceSnapshot {
 export function subscribeToumaiVoice(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+export function setToumaiVoiceConversationActive(active: boolean): void {
+  voiceConversationActive = active;
+  if (!active) {
+    for (const resolve of conversationIdleWaiters) resolve(true);
+    conversationIdleWaiters.clear();
+  }
+}
+
+export function isToumaiVoiceConversationActive(): boolean {
+  return voiceConversationActive;
+}
+
+export async function waitForToumaiVoiceConversationIdle(
+  timeoutMs = 120_000,
+): Promise<boolean> {
+  if (!voiceConversationActive) return true;
+  return new Promise<boolean>((resolve) => {
+    let finished = false;
+    const done = (released: boolean) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      conversationIdleWaiters.delete(done);
+      resolve(released);
+    };
+    const timer = window.setTimeout(() => done(false), timeoutMs);
+    conversationIdleWaiters.add(done);
+  });
 }
 
 function cleanupUrl() {
