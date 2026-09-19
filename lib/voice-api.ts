@@ -9,7 +9,19 @@ export interface TranscribeResult {
 
 export async function transcribeAudio(blob: Blob): Promise<TranscribeResult> {
   const form = new FormData();
-  form.append("file", blob, "audio.webm");
+  const mime = (blob.type || "audio/webm").toLowerCase();
+  const ext =
+    mime.includes("mp4") || mime.includes("m4a")
+      ? "m4a"
+      : mime.includes("ogg")
+        ? "ogg"
+        : mime.includes("wav")
+          ? "wav"
+          : "webm";
+  // Safari peut produire audio/mp4 alors que Chromium produit généralement
+  // audio/webm. Conserver une extension cohérente évite que le backend STT
+  // interprète mal le conteneur.
+  form.append("file", blob, `audio.${ext}`);
   return postForm<TranscribeResult>("/voice/transcribe", form);
 }
 
