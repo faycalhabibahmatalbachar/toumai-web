@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { CookieConsent } from "@/components/CookieConsent";
 import { AnalyticsInit } from "@/components/AnalyticsInit";
+import { RealtimeNotificationsBridge } from "@/components/notifications/RealtimeNotificationsBridge";
 import { LOCALE_ALTERNATES } from "./seo";
 
 // Applique le thème sauvegardé AVANT le premier rendu — évite un flash du
@@ -257,6 +258,7 @@ export default function RootLayout({
             <AnalyticsInit />
             <AgentDeService />
             <SignatureOuverture />
+            <RealtimeNotificationsBridge />
             {children}
             <CookieConsent />
           </AuthProvider>

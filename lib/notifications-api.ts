@@ -62,6 +62,8 @@ export interface NotificationPreference {
   inbox_enabled: boolean;
   push_enabled: boolean;
   web_push_enabled: boolean;
+  realtime_enabled: boolean;
+  voice_enabled: boolean;
   email_enabled: boolean;
   quiet_hours_enabled: boolean;
   quiet_start?: string | null;
@@ -123,6 +125,8 @@ export interface NotificationCapabilities {
   preferences_v3: boolean;
   web_push_schema: boolean;
   web_push_provider: boolean;
+  realtime_stream?: boolean;
+  voice_reminders?: boolean;
 }
 
 /**
@@ -141,4 +145,22 @@ export async function getNotificationCapabilities(): Promise<NotificationCapabil
     throw new Error("État Notifications indisponible");
   }
   return body.data;
+}
+
+
+export interface RealtimeNotification {
+  id?: string | null;
+  title: string;
+  body: string;
+  event?: string | null;
+  canonical_event?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  deep_link?: string | null;
+  action?: string | null;
+  created_at?: string | null;
+  read_at?: string | null;
+  archived_at?: string | null;
+  voice_enabled?: boolean;
+  locale?: string | null;
 }

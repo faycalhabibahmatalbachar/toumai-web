@@ -1,0 +1,48 @@
+name: Reminder multichannel web
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/layout.tsx"
+      - "components/notifications/**"
+      - "components/settings/NotificationsSection.tsx"
+      - "lib/notifications-api.ts"
+      - "lib/web-push.ts"
+      - "public/sw.js"
+      - "scripts/verify-reminder-multichannel.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/reminder-multichannel-web.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/layout.tsx"
+      - "components/notifications/**"
+      - "components/settings/NotificationsSection.tsx"
+      - "lib/notifications-api.ts"
+      - "lib/web-push.ts"
+      - "public/sw.js"
+      - "scripts/verify-reminder-multichannel.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/reminder-multichannel-web.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts
+      - name: Multichannel reminder contract
+        run: npm run test:notification-channels
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
