@@ -1,0 +1,27 @@
+name: Notification production E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/notification-production-e2e.yml"
+      - "scripts/notification-production-e2e.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Toumaï notification E2E
+        env:
+          TOUMAI_API: https://api.toumaiai.com/api/v1
+          TOUMAI_WEB: https://toumaiai.com
+        run: python scripts/notification-production-e2e.py
