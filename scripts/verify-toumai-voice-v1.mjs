@@ -9,6 +9,7 @@ const notifications = fs.readFileSync("components/settings/NotificationsSection.
 const security = fs.readFileSync("components/settings/SecuritySection.tsx", "utf8");
 const chat = fs.readFileSync("components/ChatMessage.tsx", "utf8");
 const voiceMode = fs.readFileSync("components/VoiceModeOverlay.tsx", "utf8");
+const chatPage = fs.readFileSync("app/chat/page.tsx", "utf8");
 
 function expect(ok, message) {
   if (!ok) throw new Error(message);
@@ -51,6 +52,15 @@ expect(!chat.includes('disabled={speech.state === "loading"}'), "Stop must remai
 expect(voiceMode.includes("playToumaiVoice"), "web voice mode must use the shared Zenaba player");
 expect(voiceMode.includes("stopToumaiVoice"), "web voice mode must use the shared stop control");
 expect(!voiceMode.includes("synthesizeSpeech"), "web voice mode must not own a second TTS pipeline");
+expect(voiceMode.includes("drainSpeechSegments"), "voice mode must split LLM text into logical TTS segments");
+expect(voiceMode.includes("MAX_TTS_SEGMENT_WORDS = 26"), "voice mode must cap oversized Pocket TTS segments");
+expect(voiceMode.includes("speechBuffer += chunk"), "voice mode must buffer live LLM chunks for speech");
+expect(voiceMode.includes("drain(false)"), "voice mode must speak before the full LLM response finishes");
+expect(voiceMode.includes("drain(true)"), "voice mode must flush the final text fragment");
+expect(voiceMode.includes("onCancel?.()"), "voice interruption must cancel the live LLM stream");
+expect(voiceMode.includes("turnRef.current"), "stale voice-turn callbacks must be invalidated");
+expect(voiceMode.includes("m.index ?? 0"), "voice segmentation must split only on explicit boundaries");
+expect(chatPage.includes("onCancel={stopGenerating}"), "voice mode interruption must abort the chat stream");
 expect(!fs.existsSync("components/LiveAvatarOverlay.tsx"), "unused alternate avatar TTS pipeline must stay removed");
 
 console.log("toumai-voice-v1-web: PASS");
