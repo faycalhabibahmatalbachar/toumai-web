@@ -13,10 +13,11 @@ function expect(ok, message) {
 
 expect(layout.includes("<RealtimeNotificationsBridge />"), "realtime bridge must be mounted globally");
 expect(bridge.includes('authFetch("/notifications/stream"'), "realtime must use authenticated SSE");
-expect(bridge.includes('n.event !== "personal.reminder"'), "voice must be limited to personal reminders");
+expect(bridge.includes('"personal.reminder"') && bridge.includes('"notification.test"'), "voice must cover reminders and explicit diagnostics only");
 expect(bridge.includes('n.voice_enabled !== true'), "voice must require server opt-in");
 expect(bridge.includes('document.visibilityState !== "visible"'), "voice must never speak in background");
-expect(bridge.includes("speechSynthesis.cancel()"), "voice must not queue duplicate reminders");
+expect(bridge.includes("playToumaiVoice"), "reminder voice must use the shared Toumai voice player");
+expect(!bridge.includes("speechSynthesis"), "browser speechSynthesis must not be the primary reminder voice");
 expect(bridge.includes("seenSet"), "realtime/web-push notifications must be deduplicated");
 expect(bridge.includes('"TOUMAI_NOTIFICATION"'), "service worker messages must feed the same realtime bridge");
 
