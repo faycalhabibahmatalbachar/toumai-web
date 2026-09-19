@@ -44,8 +44,15 @@ function speakReminder(n: RealtimeNotification) {
     // Ne jamais empiler plusieurs rappels vocaux : le plus récent remplace la
     // lecture en cours, tandis que tous restent dans l'Inbox durable.
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance("Rappel. " + body);
-    utterance.lang = document.documentElement.lang || "fr-FR";
+    const locale = String(n.locale ?? "").toLowerCase();
+    const language = locale.startsWith("ar")
+      ? "ar-SA"
+      : locale.startsWith("en")
+        ? "en-US"
+        : "fr-FR";
+    const prefix = language === "ar-SA" ? "تذكير. " : language === "en-US" ? "Reminder. " : "Rappel. ";
+    const utterance = new SpeechSynthesisUtterance(prefix + body);
+    utterance.lang = language;
     utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
   } catch {
