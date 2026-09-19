@@ -7,7 +7,7 @@ import { useMicLevels } from "./Waveform";
 import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
 import { NetworkBadge } from "./chat/NetworkBadge";
 import { MoniteurReseau, type QualiteReseau } from "@/lib/network-quality";
-import { playToumaiVoice, stopToumaiVoice } from "@/lib/toumai-voice-player";
+import { playToumaiVoice, stopToumaiVoice, textForToumaiVoice } from "@/lib/toumai-voice-player";
 
 type Phase = "listening" | "processing" | "speaking" | "error";
 
@@ -638,7 +638,7 @@ export function VoiceModeOverlay({
         )}
         {phase === "speaking" && replyCaption && (
           <p className="max-w-lg text-[15px] leading-relaxed" style={{ color: rgbaIvoire(0.82) }}>
-            {stripMarkdownForSpeech(replyCaption)}
+            {textForToumaiVoice(replyCaption)}
           </p>
         )}
         {muted && (
