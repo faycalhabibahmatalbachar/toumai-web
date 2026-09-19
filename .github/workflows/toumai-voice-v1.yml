@@ -8,6 +8,7 @@ on:
       - "app/chat/page.tsx"
       - "components/ChatMessage.tsx"
       - "components/VoiceModeOverlay.tsx"
+      - "components/Waveform.tsx"
       - "components/LiveAvatarOverlay.tsx"
       - "components/notifications/**"
       - "components/settings/VoiceSection.tsx"
@@ -26,6 +27,7 @@ on:
     paths:
       - "components/ChatMessage.tsx"
       - "components/VoiceModeOverlay.tsx"
+      - "components/Waveform.tsx"
       - "components/LiveAvatarOverlay.tsx"
       - "components/notifications/**"
       - "components/settings/VoiceSection.tsx"
@@ -68,6 +70,7 @@ jobs:
           app/chat/page.tsx
           components/ChatMessage.tsx
           components/VoiceModeOverlay.tsx
+          components/Waveform.tsx
           components/notifications/RealtimeNotificationsBridge.tsx
           components/settings/VoiceSection.tsx
           components/settings/NotificationsSection.tsx
