@@ -11,7 +11,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ToolConfirmation } from "@/lib/chat-stream";
 import { useWidgetRuntime } from "./runtime";
 import { describeTool, riskLabel } from "@/lib/tool-ui";
@@ -26,8 +26,7 @@ export type ActionRuntimeState =
   | "partial_success"
   | "failed"
   | "cancelled"
-  | "expired"
-  | "already_processed";
+  | "expired";
 
 type ActionPayload = {
   action_id?: string | null;
@@ -63,9 +62,23 @@ type ConfirmationResponse = {
   data?: (Record<string, unknown> & { action_steps?: ResultStep[] }) | null;
 };
 
+type PendingActionSummary = {
+  status?: string;
+  verified?: boolean;
+  verification_method?: string | null;
+  operation_state?: string | null;
+  evidence_source?: string | null;
+  error_type?: string | null;
+  error_detail?: string | null;
+};
+
 type PendingStatusResponse = {
   success?: boolean;
-  data?: { status?: string; action_id?: string | null } | null;
+  data?: {
+    status?: string;
+    action_id?: string | null;
+    action?: PendingActionSummary | null;
+  } | null;
 };
 
 type PreviewRow = {
@@ -239,6 +252,15 @@ function normalizedState(response: ConfirmationResponse): {
   const action = data._action && typeof data._action === "object" ? (data._action as ActionPayload) : undefined;
   const raw = action?.status || "";
   const message = response.message || "";
+  const pendingStatus = text(data.pending_status);
+
+  // Un retry de confirmation peut revenir pendant que la première requête
+  // exécute encore l'action. Cet état n'est ni un succès ni un échec.
+  if (pendingStatus === "confirmed" || pendingStatus === "executing") {
+    return { state: "running", action, message };
+  }
+  if (pendingStatus === "cancelled") return { state: "cancelled", action, message };
+  if (pendingStatus === "expired") return { state: "expired", action, message };
 
   // L'ÉTAT CANONIQUE L'EMPORTE SUR LE STATUT D'EXÉCUTION.
   //
@@ -266,7 +288,9 @@ function normalizedState(response: ConfirmationResponse): {
   if (response.success === false) {
     const lower = message.toLowerCase();
     if (lower.includes("déjà été traité") || lower.includes("déjà été utilisée") || lower.includes("déjà été utilisé")) {
-      return { state: "already_processed", action, message };
+      // Compatibilité avec un backend plus ancien : cette phrase ne prouve
+      // jamais que l'action a réussi. On rend donc un état prudent.
+      return { state: "partial_success", action, message };
     }
     if (lower.includes("expir")) return { state: "expired", action, message };
     return { state: "failed", action, message };
@@ -294,52 +318,99 @@ export function ActionExecutionCard({
   const [action, setAction] = useState<ActionPayload | undefined>();
   const [resultSteps, setResultSteps] = useState<ResultStep[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const confirmInFlight = useRef(false);
 
   const batchCount = confirmation.tool === "__toumai_batch__" ? rows.length : 0;
   const subject = batchSubject(rows);
-  const done = ["success", "partial_success", "failed", "cancelled", "expired", "already_processed"].includes(state);
-  const compactSuccess = compactWhenDone && ["success", "already_processed", "cancelled"].includes(state) && !detailsOpen;
+  const done = ["success", "partial_success", "failed", "cancelled", "expired"].includes(state);
+  const compactSuccess = compactWhenDone && ["success", "cancelled"].includes(state) && !detailsOpen;
   const problems = resultSteps.filter((step) => !["success", "done"].includes(step.state || "")).length;
 
   useEffect(() => {
     const pendingId = confirmation.pending_id;
-    if (!pendingId) return;
+    const live = state === "awaiting_confirmation" || state === "running" || state === "verifying";
+    if (!pendingId || !live) return;
+
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleNext = () => {
+      if (!disposed) timer = setTimeout(reconcile, 1800);
+    };
 
     const reconcile = async () => {
       try {
         const res = await runtime.tools.pendingStatus(pendingId);
         const body = res.body as PendingStatusResponse;
-        if (disposed || !res.ok || body.success === false) return;
+        if (disposed || !res.ok || body.success === false) {
+          if (state === "running" || state === "verifying") scheduleNext();
+          return;
+        }
+
         const status = body.data?.status || "unknown";
-        if (status === "awaiting_confirmation") return;
+        if (status === "awaiting_confirmation") {
+          // Avant le clic, un seul contrôle suffit. Après le clic, un serveur
+          // qui n'a pas encore réclamé l'action est reconsulté.
+          if (state === "running" || state === "verifying") scheduleNext();
+          return;
+        }
+
         if (status === "confirmed" || status === "executing") {
           setState("running");
-          timer = setTimeout(reconcile, 1800);
+          scheduleNext();
           return;
         }
+
+        const stored = body.data?.action;
+        const actionPayload: ActionPayload | undefined = stored
+          ? {
+              action_id: body.data?.action_id || undefined,
+              status: stored.status,
+              verified: stored.verified,
+              verification_method: stored.verification_method,
+              operation_state: stored.operation_state || undefined,
+              error_type: stored.error_type,
+            }
+          : undefined;
+
         if (status === "done") {
-          setState("already_processed");
-          setResultMessage("Cette action a déjà été traitée. Elle ne sera pas relancée.");
+          if (!actionPayload) {
+            setState("partial_success");
+            setResultMessage("L’action est terminée, mais son résultat détaillé n’est pas disponible.");
+            return;
+          }
+          const normalized = normalizedState({
+            success: true,
+            message: stored?.error_detail || "Action terminée.",
+            data: { _action: actionPayload },
+          });
+          setAction(actionPayload);
+          setResultMessage(normalized.message);
+          setState(normalized.state);
           return;
         }
+
         if (status === "failed") {
+          setAction(actionPayload);
           setState("failed");
-          setResultMessage("Cette action a déjà été traitée et s’est terminée en échec.");
+          setResultMessage(stored?.error_detail || "L’action s’est terminée en échec.");
           return;
         }
+
         if (status === "cancelled") {
           setState("cancelled");
+          setResultMessage("Cette confirmation a été annulée. Aucune action n’a été exécutée.");
           return;
         }
+
         if (status === "expired" || status === "unknown") {
           setState("expired");
           setResultMessage(status === "unknown" ? "Cette confirmation n’est plus active." : "Cette confirmation a expiré.");
         }
       } catch {
-        // La réconciliation est uniquement informative : aucune mutation n'est
-        // déclenchée par le navigateur si le statut ne peut pas être relu.
+        // Pendant une exécution, une panne de lecture ne doit pas transformer
+        // l'action en succès/échec inventé. On continue simplement à vérifier.
+        if (state === "running" || state === "verifying") scheduleNext();
       }
     };
 
@@ -348,10 +419,11 @@ export function ActionExecutionCard({
       disposed = true;
       if (timer) clearTimeout(timer);
     };
-  }, [confirmation.pending_id, runtime]);
+  }, [confirmation.pending_id, runtime, state]);
 
   async function confirm() {
-    if (state !== "awaiting_confirmation") return;
+    if (state !== "awaiting_confirmation" || confirmInFlight.current) return;
+    confirmInFlight.current = true;
     setState("running");
     setResultMessage("");
     try {
@@ -370,6 +442,8 @@ export function ActionExecutionCard({
     } catch (error) {
       setResultMessage(error instanceof Error ? error.message : "Impossible d’exécuter l’action.");
       setState("failed");
+    } finally {
+      confirmInFlight.current = false;
     }
   }
 
@@ -387,7 +461,6 @@ export function ActionExecutionCard({
     if (state === "partial_success") return `Terminé avec ${Math.max(1, problems)} problème${Math.max(1, problems) > 1 ? "s" : ""}`;
     if (state === "cancelled") return descriptor.cancelled;
     if (state === "expired") return "Confirmation expirée";
-    if (state === "already_processed") return "Action déjà traitée";
     return `Échec · ${descriptor.title}`;
   })();
 
@@ -453,7 +526,6 @@ export function ActionExecutionCard({
             title={headline}
             subtitle={subtitle}
             status={state === "awaiting_confirmation" ? undefined : status}
-            statusLabel={state === "already_processed" ? "Déjà traitée" : undefined}
             trailing={done ? (
               <button
                 type="button"
@@ -519,8 +591,7 @@ export function ActionExecutionCard({
                   {action?.statement ? <p className="mb-1 text-[var(--text-secondary)]">{action.statement}</p> : null}
                   {technicalMessage ? <p>{technicalMessage}</p> : null}
                   {verified ? <p className="mt-1 text-[var(--tmw-success)]">Résultat vérifié auprès du connecteur.</p> : null}
-                  {state === "already_processed" ? <p className="mt-1">La confirmation a déjà été consommée : aucune seconde exécution n’est possible.</p> : null}
-                  {!technicalMessage && !verified && !action?.statement && state !== "already_processed" ? <p>Aucun détail supplémentaire.</p> : null}
+                  {!technicalMessage && !verified && !action?.statement ? <p>Aucun détail supplémentaire.</p> : null}
                 </div>
               </motion.div>
             ) : null}
@@ -540,7 +611,6 @@ const RUNTIME_STATUS: Record<ActionRuntimeState, StatusKey> = {
   failed: "failed",
   cancelled: "cancelled",
   expired: "expired",
-  already_processed: "success",
 };
 
 /** Le canal touché, en clair : c'est ce qu'on lit en premier sous le titre. */
