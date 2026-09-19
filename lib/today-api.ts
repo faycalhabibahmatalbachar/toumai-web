@@ -42,13 +42,25 @@ export interface TodayBrief {
 }
 
 export interface TodayResponse {
+  timezone: string;
+  local_date: string;
+  generated_at: string;
+  window_start: string;
+  window_end: string;
   items: TodayItem[];
-  counts?: Record<string, number>;
+  counts: Record<string, number>;
   stats?: Record<string, unknown>;
   timeline?: TodayTimeline;
-  tomorrow_preview?: TodayItem[] | Record<string, unknown> | null;
-  integrations?: Record<string, unknown>;
-  sections?: Record<string, unknown>;
+  tomorrow_preview: TodayItem[];
+  integrations: {
+    google_calendar?: {
+      connected?: boolean;
+      events_today?: number;
+      events_tomorrow?: number;
+    };
+    [key: string]: unknown;
+  };
+  sections: Record<string, unknown>;
 }
 
 export function getToday(): Promise<TodayResponse> {
