@@ -11,6 +11,8 @@ on:
 permissions:
   contents: read
 
+# Dedicated cross-repo certification because backend/mobile runners may be unavailable.
+
 jobs:
   backend:
     runs-on: ubuntu-latest
