@@ -27,6 +27,9 @@ expect(!source.includes('"already_processed"') && !source.includes("Action déj�
 expect(source.includes("confirmInFlight.current"), "double clicks are locked before the network request");
 expect(source.includes("body.data?.action"), "reload reconciliation consumes stored action truth");
 expect(source.includes('status === "confirmed" || status === "executing"'), "in-flight actions remain running until terminal server state");
+expect(source.includes('status === "uncertain"'), "indeterminate provider outcomes have a dedicated reconciliation branch");
+expect(source.includes('"Résultat à vérifier"'), "uncertain outcomes are never painted as success");
+expect(source.includes("éviter un doublon"), "uncertain outcomes explain why automatic replay is blocked");
 expect(source.includes('__toumai_batch__'), "batch workflows stay rendered as one action surface");
 expect(source.includes('data-action-runtime="true"'), "action runtime marks its single visual surface");
 expect(source.includes('.prose-toumai{display:none}'), "duplicated assistant prose is hidden when an action surface owns the turn");
