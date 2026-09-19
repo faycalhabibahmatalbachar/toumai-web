@@ -18,18 +18,96 @@ export interface SynthesizeResult {
   mime_type: string;
 }
 
-/** Synthétise `text` avec la voix `voice` (id du catalogue déjà utilisé côté
- * app mobile, ex: "fr-FR-VivienneMultilingualNeural") — même moteur, mêmes
- * voix les plus naturelles. */
-export async function synthesizeSpeech(text: string, voice?: string): Promise<SynthesizeResult> {
+export interface SpeechSegment extends SynthesizeResult {
+  index: number;
+  text: string;
+}
+
+async function ttsHttpError(res: Response): Promise<HttpError> {
+  const body = await res.json().catch(() => ({}));
+  const message =
+    typeof body?.message === "string"
+      ? body.message
+      : typeof body?.detail === "string"
+        ? body.detail
+        : "La Voix Toumaï est momentanément indisponible.";
+  return new HttpError(res.status || 500, message);
+}
+
+/**
+ * Toumaï Voice V1 est volontairement figée sur Zenaba, en français.
+ * Le paramètre legacyVoice reste toléré pendant la migration des anciens
+ * composants mais n'est jamais transmis : aucun client ne peut choisir un
+ * autre timbre.
+ */
+export async function synthesizeSpeech(
+  text: string,
+  _legacyVoice?: string,
+  signal?: AbortSignal,
+): Promise<SynthesizeResult> {
   const res = await authFetch("/voice/synthesize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voice }),
+    body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
+    signal,
   });
+  if (!res.ok) throw await ttsHttpError(res);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok || body.success === false) {
-    throw new HttpError(res.ok ? 400 : res.status, body.message);
+  if (body.success === false) {
+    throw new HttpError(res.status || 400, body.message);
   }
   return body.data as SynthesizeResult;
+}
+
+/**
+ * Flux Zenaba phrase par phrase. C'est le chemin principal pour le chat et
+ * les rappels : première phrase audible sans attendre la fin d'une longue
+ * réponse, avec annulation réelle via AbortSignal.
+ */
+export async function* streamSpeech(
+  text: string,
+  signal?: AbortSignal,
+): AsyncGenerator<SpeechSegment> {
+  const res = await authFetch("/voice/synthesize/stream?format=ndjson", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+    body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw await ttsHttpError(res);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const raw = line.trim();
+        if (!raw) continue;
+        const segment = JSON.parse(raw) as SpeechSegment;
+        if (!segment.audio_base64 || !segment.mime_type) {
+          throw new Error("Zenaba n’a pas produit l’un des segments audio.");
+        }
+        yield segment;
+      }
+    }
+
+    const tail = buffer.trim();
+    if (tail) {
+      const segment = JSON.parse(tail) as SpeechSegment;
+      if (!segment.audio_base64 || !segment.mime_type) {
+        throw new Error("Zenaba n’a pas produit le dernier segment audio.");
+      }
+      yield segment;
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
