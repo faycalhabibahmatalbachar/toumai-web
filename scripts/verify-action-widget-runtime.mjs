@@ -23,6 +23,10 @@ expect(source.includes('min-h-11'), "confirmation controls keep >=44px touch tar
 expect(source.includes('useReducedMotion'), "reduced-motion preference is respected");
 expect(source.includes('runtime.tools.pendingStatus(') && runtime.includes('/agent/actions/pending/status'), "persistent confirmation is reconciled after reload");
 expect(source.includes('confirmation.pending_id'), "pending_id remains the server authority for confirmation");
+expect(!source.includes('"already_processed"') && !source.includes("Action déjà traitée"), "consumed pending rows are never rendered as a fake success state");
+expect(source.includes("confirmInFlight.current"), "double clicks are locked before the network request");
+expect(source.includes("body.data?.action"), "reload reconciliation consumes stored action truth");
+expect(source.includes('status === "confirmed" || status === "executing"'), "in-flight actions remain running until terminal server state");
 expect(source.includes('__toumai_batch__'), "batch workflows stay rendered as one action surface");
 expect(source.includes('data-action-runtime="true"'), "action runtime marks its single visual surface");
 expect(source.includes('.prose-toumai{display:none}'), "duplicated assistant prose is hidden when an action surface owns the turn");
