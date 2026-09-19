@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "components/ChatMessage.tsx"
+      - "components/VoiceModeOverlay.tsx"
+      - "components/LiveAvatarOverlay.tsx"
       - "components/notifications/**"
       - "components/settings/VoiceSection.tsx"
       - "components/settings/NotificationsSection.tsx"
@@ -21,6 +23,8 @@ on:
     branches: [main]
     paths:
       - "components/ChatMessage.tsx"
+      - "components/VoiceModeOverlay.tsx"
+      - "components/LiveAvatarOverlay.tsx"
       - "components/notifications/**"
       - "components/settings/VoiceSection.tsx"
       - "components/settings/NotificationsSection.tsx"
@@ -60,6 +64,7 @@ jobs:
         run: >
           npx eslint
           components/ChatMessage.tsx
+          components/VoiceModeOverlay.tsx
           components/notifications/RealtimeNotificationsBridge.tsx
           components/settings/VoiceSection.tsx
           components/settings/NotificationsSection.tsx
