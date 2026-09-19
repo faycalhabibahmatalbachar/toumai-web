@@ -19,6 +19,8 @@ expect(api.includes('voice: "zenaba"'), "TTS API must force Zenaba");
 expect(api.includes('language: "fr"'), "TTS API must force French in V1");
 expect(api.includes("/voice/synthesize/stream?format=ndjson"), "chat must have streamed TTS");
 expect(api.includes("AbortSignal"), "TTS API must support cancellation");
+expect(api.includes('mime.includes("mp4")'), "STT upload must preserve Safari/MP4 recorder containers");
+expect(api.includes("audio.${ext}"), "STT upload filename must match the recorded container");
 
 expect(player.includes("let audio: HTMLAudioElement | null = null"), "one global audio element must be owned centrally");
 expect(player.includes("let aborter: AbortController | null = null"), "synthesis must be cancellable");
@@ -60,6 +62,11 @@ expect(voiceMode.includes("drain(true)"), "voice mode must flush the final text 
 expect(voiceMode.includes("onCancel?.()"), "voice interruption must cancel the live LLM stream");
 expect(voiceMode.includes("turnRef.current"), "stale voice-turn callbacks must be invalidated");
 expect(voiceMode.includes("m.index ?? 0"), "voice segmentation must split only on explicit boundaries");
+expect(voiceMode.includes("SUSTAINED_SPEECH_MS = 180"), "short utterances such as oui/non must be accepted");
+expect(voiceMode.includes("MIN_TOTAL_SPEECH_MS = 220"), "short voice turns must not require 400ms of speech");
+expect(voiceMode.includes("discardRecordingRef"), "intentional recorder stops must not trigger ghost transcriptions");
+expect(voiceMode.includes("stopBargeListening();"), "mute/stop paths must close the barge-in microphone");
+expect(voiceMode.includes("!speechStarted && reply.trim()"), "voice mode must speak providers that do not emit chunk callbacks");
 expect(chatPage.includes("onCancel={stopGenerating}"), "voice mode interruption must abort the chat stream");
 expect(!fs.existsSync("components/LiveAvatarOverlay.tsx"), "unused alternate avatar TTS pipeline must stay removed");
 
