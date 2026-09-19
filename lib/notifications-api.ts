@@ -162,4 +162,5 @@ export interface RealtimeNotification {
   read_at?: string | null;
   archived_at?: string | null;
   voice_enabled?: boolean;
+  locale?: string | null;
 }
