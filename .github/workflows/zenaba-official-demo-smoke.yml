@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fetch selected official Kyutai reference
         run: |
-          curl --fail --location --retry 3 --silent --show-error             "https://huggingface.co/kyutai/tts-voices/resolve/main/cml-tts/fr/1591_1028_000108-0004_enhanced.wav"             --output zenaba-reference.wav
+          curl --fail --location --retry 3 --silent --show-error             "https://huggingface.co/kyutai/tts-voices/resolve/519207ec31386971c13631b9a177d63a1a5d05af/cml-tts/fr/1591_1028_000108-0004_enhanced.wav"             --output zenaba-reference.wav
       - name: Validate WAV reference
         run: |
           python - <<'PY'
@@ -30,7 +30,15 @@ jobs:
               raise SystemExit(f"Reference audio too small: {len(data)} bytes")
           if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
               raise SystemExit(f"Invalid WAV header: {data[:12].hex()}")
-          print(f"ZENABA_REFERENCE_OK bytes={len(data)} header={data[:12].hex()}")
+          import hashlib
+          digest = hashlib.sha256(data).hexdigest()
+          expected = "d8a8b161c37c0ce8c50345828c586c2d63ebeeb16dafdbe0ccb6011ccfaf3192"
+          if digest != expected:
+              raise SystemExit(f"Unexpected Zenaba SHA-256: {digest}")
+          print(
+              f"ZENABA_REFERENCE_OK bytes={len(data)} "
+              f"sha256={digest} header={data[:12].hex()}"
+          )
           PY
       - name: Upload reference proof
         uses: actions/upload-artifact@v4
