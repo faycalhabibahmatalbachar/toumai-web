@@ -1,6 +1,6 @@
 "use client";
 
-import { streamSpeech } from "@/lib/voice-api";
+import { openLiveSpeechStream, streamSpeech } from "@/lib/voice-api";
 import { errorMessage } from "@/lib/errors";
 
 export type ToumaiVoicePhase = "idle" | "loading" | "playing";
@@ -22,6 +22,9 @@ const listeners = new Set<() => void>();
 let audio: HTMLAudioElement | null = null;
 let aborter: AbortController | null = null;
 let objectUrl: string | null = null;
+let liveContext: AudioContext | null = null;
+const liveSources = new Set<AudioBufferSourceNode>();
+let liveNextStartTime = 0;
 let generation = 0;
 let completion:
   | { generation: number; resolve: (outcome: ToumaiVoiceOutcome) => void }
@@ -59,6 +62,127 @@ function cleanupUrl() {
     URL.revokeObjectURL(objectUrl);
     objectUrl = null;
   }
+}
+
+function audioContextCtor(): typeof AudioContext | null {
+  if (typeof window === "undefined") return null;
+  return (
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ??
+    null
+  );
+}
+
+/**
+ * À appeler directement depuis le geste qui ouvre le mode vocal. Les navigateurs
+ * mobiles peuvent bloquer un AudioContext créé seulement après un aller-retour
+ * réseau ; le créer/réactiver pendant le clic conserve l'autorisation audio.
+ */
+export function primeToumaiVoiceAudio(): void {
+  try {
+    const Ctor = audioContextCtor();
+    if (!Ctor) return;
+    if (!liveContext || liveContext.state === "closed") {
+      liveContext = new Ctor({ latencyHint: "interactive" });
+    }
+    void liveContext.resume().catch(() => {});
+  } catch {
+    // Le chemin HTMLAudio historique reste disponible pour les lectures non-live.
+  }
+}
+
+function stopLiveSources() {
+  for (const source of liveSources) {
+    try {
+      source.stop();
+    } catch {
+      // déjà terminé
+    }
+    source.onended = null;
+    try {
+      source.disconnect();
+    } catch {
+      // déjà déconnecté
+    }
+  }
+  liveSources.clear();
+  liveNextStartTime = 0;
+}
+
+function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
+  if (!a.length) return b.slice();
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a);
+  out.set(b, a.length);
+  return out;
+}
+
+type WavHeader = {
+  channels: number;
+  sampleRate: number;
+  bitsPerSample: number;
+};
+
+function parseStreamingWavHeader(header: Uint8Array): WavHeader {
+  if (header.length < 44) throw new Error("En-tête WAV Zenaba incomplet.");
+  const ascii = (start: number, end: number) =>
+    String.fromCharCode(...Array.from(header.slice(start, end)));
+  if (ascii(0, 4) !== "RIFF" || ascii(8, 12) !== "WAVE") {
+    throw new Error("Flux WAV Zenaba invalide.");
+  }
+  const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
+  const channels = view.getUint16(22, true);
+  const sampleRate = view.getUint32(24, true);
+  const bitsPerSample = view.getUint16(34, true);
+  if (!channels || !sampleRate || bitsPerSample !== 16) {
+    throw new Error("Format PCM Zenaba non pris en charge.");
+  }
+  return { channels, sampleRate, bitsPerSample };
+}
+
+function schedulePcm16(
+  pcm: Uint8Array,
+  format: WavHeader,
+  speed: number,
+  myGeneration: number,
+  onDrained: () => void,
+): boolean {
+  if (!liveContext || myGeneration !== generation || !pcm.length) return false;
+  const bytesPerFrame = format.channels * 2;
+  const frames = Math.floor(pcm.length / bytesPerFrame);
+  if (!frames) return false;
+
+  const usable = frames * bytesPerFrame;
+  const view = new Int16Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + usable));
+  const buffer = liveContext.createBuffer(format.channels, frames, format.sampleRate);
+
+  for (let channel = 0; channel < format.channels; channel += 1) {
+    const target = buffer.getChannelData(channel);
+    for (let frame = 0; frame < frames; frame += 1) {
+      target[frame] = view[frame * format.channels + channel] / 32768;
+    }
+  }
+
+  const source = liveContext.createBufferSource();
+  source.buffer = buffer;
+  const rate = Number.isFinite(speed) ? Math.min(1.5, Math.max(0.75, speed)) : 1;
+  source.playbackRate.value = rate;
+  source.connect(liveContext.destination);
+
+  const startAt = Math.max(liveContext.currentTime + 0.012, liveNextStartTime);
+  liveNextStartTime = startAt + buffer.duration / rate;
+  liveSources.add(source);
+  source.onended = () => {
+    liveSources.delete(source);
+    try {
+      source.disconnect();
+    } catch {
+      // noop
+    }
+    onDrained();
+  };
+  source.start(startAt);
+  return true;
 }
 
 function base64Blob(base64: string, mime: string): Blob {
@@ -121,6 +245,7 @@ export function stopToumaiVoice(owner?: string): boolean {
   generation += 1;
   aborter?.abort();
   aborter = null;
+  stopLiveSources();
 
   if (audio) {
     audio.pause();
@@ -180,6 +305,155 @@ async function playSegment(
 
     element.play().catch(() => finish("error"));
   });
+}
+
+/**
+ * Lecture Pocket TTS réellement streamée : le premier PCM est joué pendant que
+ * Pocket génère encore la suite de LA MÊME phrase.
+ */
+export async function playToumaiVoiceLive(
+  rawText: string,
+  owner: string,
+  speed = 1,
+): Promise<ToumaiVoiceOutcome> {
+  const text = textForToumaiVoice(rawText);
+  if (!text) {
+    publish({ owner, phase: "idle", error: "Aucun texte à lire." });
+    return "error";
+  }
+
+  if (snapshot.owner === owner && snapshot.phase !== "idle") {
+    stopToumaiVoice(owner);
+    return "stopped";
+  }
+
+  stopToumaiVoice();
+  const myGeneration = ++generation;
+  const controller = new AbortController();
+  aborter = controller;
+  publish({ owner, phase: "loading", error: null });
+
+  const completionPromise = new Promise<ToumaiVoiceOutcome>((resolve) => {
+    completion = { generation: myGeneration, resolve };
+  });
+
+  void (async () => {
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    try {
+      primeToumaiVoiceAudio();
+      if (!liveContext) throw new Error("Audio Web indisponible sur cet appareil.");
+      await liveContext.resume();
+
+      reader = await openLiveSpeechStream(text, controller.signal);
+      if (myGeneration !== generation || controller.signal.aborted) {
+        settleCompletion(myGeneration, "stopped");
+        return;
+      }
+
+      const header = new Uint8Array(44);
+      let headerReceived = 0;
+      let format: WavHeader | null = null;
+      let pcm = new Uint8Array(0);
+      let produced = false;
+      let networkEnded = false;
+      const MIN_PCM_BYTES = 8192;
+
+      const playbackDone = new Promise<ToumaiVoiceOutcome>((resolve) => {
+        segmentCompletion = { generation: myGeneration, resolve };
+      });
+
+      const maybeFinish = () => {
+        if (
+          networkEnded &&
+          liveSources.size === 0 &&
+          segmentCompletion?.generation === myGeneration
+        ) {
+          settleSegment(myGeneration, produced ? "ended" : "error");
+        }
+      };
+
+      const flushPcm = (force: boolean) => {
+        if (!format) return;
+        if (!force && pcm.length < MIN_PCM_BYTES) return;
+        const bytesPerFrame = format.channels * 2;
+        const usable = Math.floor(pcm.length / bytesPerFrame) * bytesPerFrame;
+        if (!usable) return;
+        const chunk = pcm.slice(0, usable);
+        pcm = pcm.slice(usable);
+        if (schedulePcm16(chunk, format, speed, myGeneration, maybeFinish)) {
+          produced = true;
+          publish({ owner, phase: "playing", error: null });
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (!value?.length) continue;
+        if (myGeneration !== generation || controller.signal.aborted) {
+          settleSegment(myGeneration, "stopped");
+          settleCompletion(myGeneration, "stopped");
+          return;
+        }
+
+        let chunk = value;
+        if (!format) {
+          const needed = 44 - headerReceived;
+          const take = Math.min(needed, chunk.length);
+          header.set(chunk.slice(0, take), headerReceived);
+          headerReceived += take;
+          chunk = chunk.slice(take);
+          if (headerReceived === 44) format = parseStreamingWavHeader(header);
+        }
+        if (format && chunk.length) {
+          pcm = concatBytes(pcm, chunk);
+          flushPcm(false);
+        }
+      }
+
+      if (!format) throw new Error("Zenaba n’a pas renvoyé d’en-tête WAV complet.");
+      flushPcm(true);
+      networkEnded = true;
+      maybeFinish();
+
+      const outcome = await playbackDone;
+      if (outcome !== "ended") {
+        if (outcome === "error" && myGeneration === generation) {
+          publish({ owner, phase: "idle", error: "Zenaba n’a produit aucun audio lisible." });
+        }
+        settleCompletion(myGeneration, outcome);
+        return;
+      }
+
+      if (myGeneration !== generation || controller.signal.aborted) {
+        settleCompletion(myGeneration, "stopped");
+        return;
+      }
+
+      aborter = null;
+      publish({ owner: null, phase: "idle", error: null });
+      settleCompletion(myGeneration, "ended");
+    } catch (err) {
+      if (controller.signal.aborted || myGeneration !== generation) {
+        settleSegment(myGeneration, "stopped");
+        settleCompletion(myGeneration, "stopped");
+        return;
+      }
+      stopLiveSources();
+      aborter = null;
+      publish({ owner, phase: "idle", error: errorMessage(err, "voice") });
+      settleSegment(myGeneration, "error");
+      settleCompletion(myGeneration, "error");
+    } finally {
+      try {
+        reader?.releaseLock();
+      } catch {
+        // déjà libéré
+      }
+    }
+  })();
+
+  return completionPromise;
 }
 
 /**
