@@ -243,9 +243,10 @@ export function VoiceModeOverlay({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordingMimeRef = useRef("audio/webm");
-  // Un arrêt volontaire du recorder (mute, texte tapé, fermeture) ne doit
-  // jamais déclencher une transcription du reliquat audio.
-  const discardRecordingRef = useRef(false);
+  // Génération monotone de capture : toute permission/onstop/transcription
+  // provenant d'une ancienne écoute devient inerte après mute, fermeture,
+  // saisie texte ou nouvelle écoute.
+  const captureEpochRef = useRef(0);
   const closedRef = useRef(false);
   const startedAtRef = useRef(0);
   const silenceSinceRef = useRef<number | null>(null);
@@ -461,9 +462,7 @@ export function VoiceModeOverlay({
   }
 
   function stopRecorderTracks() {
-    if (recorderRef.current && recorderRef.current.state !== "inactive") {
-      discardRecordingRef.current = true;
-    }
+    captureEpochRef.current += 1;
     try {
       recorderRef.current?.stop();
     } catch {
@@ -493,6 +492,7 @@ export function VoiceModeOverlay({
   }
 
   async function startListening() {
+    const listenEpoch = ++captureEpochRef.current;
     setError(null);
     setCaption("");
     setReplyCaption("");
@@ -515,7 +515,11 @@ export function VoiceModeOverlay({
         throw new Error("getUserMedia indisponible");
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-      if (closedRef.current || mutedRef.current) {
+      if (
+        closedRef.current ||
+        mutedRef.current ||
+        listenEpoch !== captureEpochRef.current
+      ) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
@@ -531,8 +535,6 @@ export function VoiceModeOverlay({
         setCaptureStream(null);
         throw new Error("MediaRecorder indisponible");
       }
-      discardRecordingRef.current = false;
-
       const preferredMime =
         MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
           ? "audio/webm;codecs=opus"
@@ -542,14 +544,38 @@ export function VoiceModeOverlay({
       const recorder = preferredMime
         ? new MediaRecorder(stream, { mimeType: preferredMime })
         : new MediaRecorder(stream);
-      recordingMimeRef.current = recorder.mimeType || preferredMime || "audio/webm";
+      const recorderMime = recorder.mimeType || preferredMime || "audio/webm";
+      const recordingStartedAt = Date.now();
+      const recordingChunks: Blob[] = [];
+      recordingMimeRef.current = recorderMime;
+      chunksRef.current = recordingChunks;
+      startedAtRef.current = recordingStartedAt;
       recorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data.size > 0) recordingChunks.push(e.data);
+      };
+      recorder.onerror = () => {
+        if (listenEpoch !== captureEpochRef.current || closedRef.current) return;
+        captureEpochRef.current += 1;
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        setCaptureStream(null);
+        setError("Le microphone a été interrompu. Vérifiez le périphérique puis réessayez.");
+        setPhase("error");
       };
       recorder.onstop = () => {
-        recorderRef.current = null;
-        void handleRecordingStopped();
+        if (recorderRef.current === recorder) recorderRef.current = null;
+        if (listenEpoch !== captureEpochRef.current || closedRef.current) return;
+        const spoken = hasSpokenRef.current;
+        const speechMs = totalSpeechMsRef.current;
+        void handleRecordingStopped(
+          listenEpoch,
+          recordingChunks,
+          recorderMime,
+          recordingStartedAt,
+          spoken,
+          speechMs,
+        );
       };
       recorder.start(RECORDER_TIMESLICE_MS);
     } catch (err) {
@@ -600,43 +626,64 @@ export function VoiceModeOverlay({
     void startListening();
   }
 
-  async function handleRecordingStopped() {
-    if (closedRef.current) return;
-    if (discardRecordingRef.current) {
-      discardRecordingRef.current = false;
-      chunksRef.current = [];
-      return;
-    }
-    if (!chunksRef.current.length) {
+  async function handleRecordingStopped(
+    listenEpoch: number,
+    recordingChunks: Blob[],
+    recorderMime: string,
+    recordingStartedAt: number,
+    spoken: boolean,
+    speechMs: number,
+  ) {
+    if (closedRef.current || listenEpoch !== captureEpochRef.current) return;
+
+    if (!recordingChunks.length) {
       if (!mutedRef.current) void startListening();
       return;
     }
+
     // COMPRENDRE avant de répondre : sans prise de parole réelle et soutenue,
-    // on ne transcrit rien — on rouvre simplement l'écoute. C'est ce qui
-    // empêche l'IA de « répondre » après 2-3 s de silence.
-    if (!hasSpokenRef.current || totalSpeechMsRef.current < MIN_TOTAL_SPEECH_MS) {
-      if (!closedRef.current) startListening();
+    // on ne transcrit rien — on rouvre simplement l'écoute.
+    if (!spoken || speechMs < MIN_TOTAL_SPEECH_MS) {
+      if (!closedRef.current && listenEpoch === captureEpochRef.current) {
+        void startListening();
+      }
       return;
     }
-    const recordMs = Date.now() - startedAtRef.current;
+
+    const recordMs = Date.now() - recordingStartedAt;
     setPhase("processing");
-    slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
+    slowTimerRef.current = setTimeout(() => {
+      if (!closedRef.current && listenEpoch === captureEpochRef.current) {
+        setSlowHint(true);
+      }
+    }, SLOW_RESPONSE_HINT_MS);
+
     try {
-      const blob = new Blob(chunksRef.current, {
-        type: recordingMimeRef.current || chunksRef.current[0]?.type || "audio/webm",
+      const blob = new Blob(recordingChunks, {
+        type: recorderMime || recordingChunks[0]?.type || "audio/webm",
       });
       const { text } = await transcribeAudio(blob);
+
+      // Un ancien Whisper ne doit jamais prendre la main sur un nouveau tour.
+      if (closedRef.current || listenEpoch !== captureEpochRef.current) return;
+
       if (!text.trim() || looksLikeHallucination(text, recordMs)) {
-        if (!closedRef.current) startListening();
+        void startListening();
         return;
       }
       await runTurn(text);
     } catch (err) {
-      if (closedRef.current) return;
-      setError(err instanceof Error ? err.message : "Erreur pendant la conversation vocale.");
+      if (closedRef.current || listenEpoch !== captureEpochRef.current) return;
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erreur pendant la conversation vocale.",
+      );
       setPhase("error");
     } finally {
-      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+      if (listenEpoch === captureEpochRef.current && slowTimerRef.current) {
+        clearTimeout(slowTimerRef.current);
+      }
     }
   }
 
@@ -653,8 +700,7 @@ export function VoiceModeOverlay({
     const myTurn = ++turnRef.current;
     interruptRef.current = false;
     onCancel?.();
-    discardRecordingRef.current = true;
-    stopListening();
+    stopRecorderTracks();
     stopBargeListening();
     stopToumaiVoice("voice-mode");
     speakingRef.current = false;
