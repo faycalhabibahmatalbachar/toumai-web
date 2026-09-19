@@ -19,6 +19,9 @@ expect(api.includes('voice: "zenaba"'), "TTS API must force Zenaba");
 expect(api.includes('language: "fr"'), "TTS API must force French in V1");
 expect(api.includes("/voice/synthesize/stream?format=ndjson"), "chat must have streamed TTS");
 expect(api.includes("AbortSignal"), "TTS API must support cancellation");
+expect(api.includes("/voice/synthesize/live"), "Pocket live API must use the authenticated raw WAV endpoint");
+expect(api.includes("audio/wav"), "Pocket live API must require WAV streaming");
+expect(api.includes("getReader()"), "Pocket live API must consume response.body incrementally");
 expect(api.includes('mime.includes("mp4")'), "STT upload must preserve Safari/MP4 recorder containers");
 expect(api.includes("audio.${ext}"), "STT upload filename must match the recorded container");
 
@@ -51,7 +54,7 @@ expect(security.includes("toumai:notification-voice-complete"), "diagnostics mus
 
 expect(!chat.includes('disabled={speech.state === "loading"}'), "Stop must remain available while synthesis is loading");
 
-expect(voiceMode.includes("playToumaiVoice"), "web voice mode must use the shared Zenaba player");
+expect(voiceMode.includes("playToumaiVoiceLive"), "web voice mode must use native Pocket streaming through the shared Zenaba player");
 expect(voiceMode.includes("stopToumaiVoice"), "web voice mode must use the shared stop control");
 expect(!voiceMode.includes("synthesizeSpeech"), "web voice mode must not own a second TTS pipeline");
 expect(voiceMode.includes("drainSpeechSegments"), "voice mode must split LLM text into logical TTS segments");
@@ -68,6 +71,7 @@ expect(voiceMode.includes("discardRecordingRef"), "intentional recorder stops mu
 expect(voiceMode.includes("stopBargeListening();"), "mute/stop paths must close the barge-in microphone");
 expect(voiceMode.includes("!speechStarted && reply.trim()"), "voice mode must speak providers that do not emit chunk callbacks");
 expect(chatPage.includes("onCancel={stopGenerating}"), "voice mode interruption must abort the chat stream");
+expect(chatPage.includes("primeToumaiVoiceAudio()"), "opening voice mode must prime Web Audio during the user gesture");
 expect(chatPage.includes("rethrowOnError = false"), "chat stream must support voice-mode error propagation");
 expect(chatPage.includes("if (rethrowOnError) throw err"), "voice-mode chat failures must not be swallowed");
 expect(voiceMode.includes("onCancel?.();"), "TTS failures and interruptions must cancel remaining chat generation");
