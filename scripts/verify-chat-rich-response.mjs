@@ -46,7 +46,9 @@ const checks = [
   ["confirm sends pending_id", actionCard.includes("pending_id: confirmation.pending_id")],
   ["cancel releases pending action", actionCard.includes("runtime.tools.cancel(confirmation.pending_id)")],
   ["pending action reconciled after reload", actionCard.includes("runtime.tools.pendingStatus(pendingId)") && fs.readFileSync("components/chat/widgets/runtime.tsx", "utf8").includes("/agent/actions/pending/status")],
-  ["processed action is not shown as expired", actionCard.includes('"already_processed"') && actionCard.includes("Action déjà traitée")],
+  ["confirmation result is truth-based", !actionCard.includes('"already_processed"') && actionCard.includes("body.data?.action") && actionCard.includes("pending_status")],
+  ["double confirm is client-locked", actionCard.includes("confirmInFlight.current")],
+  ["running confirmation is polled", actionCard.includes('status === "confirmed" || status === "executing"') && actionCard.includes("setTimeout(reconcile, 1800)")],
   ["blocked workflow step rendered", actionCard.includes('step.state === "blocked"') && actionCard.includes("Non exécuté")],
 ];
 
