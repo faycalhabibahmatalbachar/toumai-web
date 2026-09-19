@@ -62,20 +62,15 @@ function visibleReminderText(data: Rec, automation: Automation): string {
   return displayText((automation.name || "").replace(/^Rappel\s*[·:-]\s*/i, ""), 220) || "Rappel";
 }
 
-function stateOf(a: Automation, labels: {
-  active: string;
-  paused: string;
-  cancelled: string;
-  running: string;
-}): { key: StatusKey; label: string } {
+function stateOf(a: Automation): StatusKey {
   const run = a.last_run?.status;
-  if (run === "running" || run === "queued") return { key: "running", label: labels.running };
-  if (run === "failed" || run === "timed_out") return { key: "failed", label: "Échec" };
-  if (run === "ambiguous" || run === "waiting_for_approval") return { key: "needs_action", label: "À vérifier" };
-  if (a.status === "paused") return { key: "paused", label: labels.paused };
-  if (a.status === "cancelled" || a.status === "archived") return { key: "cancelled", label: labels.cancelled };
-  if (a.status === "draft" || a.status === "awaiting_confirmation") return { key: "needs_action", label: "À confirmer" };
-  return { key: a.next_run_at ? "scheduled" : "active", label: labels.active };
+  if (run === "running" || run === "queued") return "running";
+  if (run === "failed" || run === "timed_out") return "failed";
+  if (run === "ambiguous" || run === "waiting_for_approval") return "needs_action";
+  if (a.status === "paused") return "paused";
+  if (a.status === "cancelled" || a.status === "archived") return "cancelled";
+  if (a.status === "draft" || a.status === "awaiting_confirmation") return "needs_action";
+  return a.next_run_at ? "scheduled" : "active";
 }
 
 function timezoneLabel(raw: unknown, localTime: (city: string) => string): string {
@@ -149,12 +144,14 @@ export function ReminderWidget({ data, title }: { data: Rec; title?: string }) {
     ? recurrenceLabel(String(trigger.cron ?? ""))
     : scheduleLabel(automation);
   const zone = timezoneLabel(trigger.timezone, t.automation.localTime);
-  const state = stateOf(automation, {
-    active: t.reminder.active,
-    paused: t.reminder.pausedStatus,
-    cancelled: t.reminder.cancelledStatus,
-    running: t.reminder.running,
-  });
+  const state = stateOf(automation);
+  const statusLabel = state === "scheduled" || state === "active"
+    ? t.reminder.active
+    : state === "paused"
+      ? t.reminder.pausedStatus
+      : state === "cancelled"
+        ? t.reminder.cancelledStatus
+        : undefined;
 
   const meta: MetaItem[] = [
     {
@@ -196,7 +193,7 @@ export function ReminderWidget({ data, title }: { data: Rec; title?: string }) {
   return (
     <WidgetCard
       label={title || t.reminder.title}
-      tone={toneOf(state.key)}
+      tone={toneOf(state)}
       accent
       live
       testId="personal_reminder"
@@ -205,9 +202,9 @@ export function ReminderWidget({ data, title }: { data: Rec; title?: string }) {
         icon={BellRing}
         title={replayed ? t.reminder.already : t.reminder.created}
         subtitle={t.reminder.channel}
-        status={busy ? "running" : state.key}
-        statusLabel={busy ? t.reminder.updating : state.label}
-        tone={toneOf(state.key)}
+        status={busy ? "running" : state}
+        statusLabel={busy ? t.reminder.updating : statusLabel}
+        tone={toneOf(state)}
       />
 
       <div className="px-3.5 pb-1">
