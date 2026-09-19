@@ -142,7 +142,6 @@ export function RealtimeNotificationsBridge() {
 
   useEffect(() => {
     if (!session) {
-      setItems([]);
       seen.current = [];
       seenSet.current.clear();
       return;
@@ -216,7 +215,7 @@ export function RealtimeNotificationsBridge() {
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [receive, session]);
 
-  if (!items.length) return null;
+  if (!session || !items.length) return null;
 
   return (
     <div
