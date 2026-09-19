@@ -8,6 +8,7 @@ const voiceSettings = fs.readFileSync("components/settings/VoiceSection.tsx", "u
 const notifications = fs.readFileSync("components/settings/NotificationsSection.tsx", "utf8");
 const security = fs.readFileSync("components/settings/SecuritySection.tsx", "utf8");
 const chat = fs.readFileSync("components/ChatMessage.tsx", "utf8");
+const voiceMode = fs.readFileSync("components/VoiceModeOverlay.tsx", "utf8");
 
 function expect(ok, message) {
   if (!ok) throw new Error(message);
@@ -22,6 +23,8 @@ expect(player.includes("let audio: HTMLAudioElement | null = null"), "one global
 expect(player.includes("let aborter: AbortController | null = null"), "synthesis must be cancellable");
 expect(player.includes("stopToumaiVoice"), "global stop control missing");
 expect(player.includes("snapshot.owner === owner"), "second click must toggle the same owner");
+expect(player.includes("completion?.generation"), "playback completion must be generation-scoped");
+expect(player.includes("segmentCompletion?.generation"), "segment stop must be generation-scoped");
 expect(player.includes("playToumaiVoice"), "shared player entrypoint missing");
 expect(player.includes("streamSpeech"), "shared player must use streamed TTS");
 
@@ -44,5 +47,10 @@ expect(!security.includes("speechSynthesis"), "diagnostics must test real audio,
 expect(security.includes("toumai:notification-voice-complete"), "diagnostics must wait for real completion");
 
 expect(!chat.includes('disabled={speech.state === "loading"}'), "Stop must remain available while synthesis is loading");
+
+expect(voiceMode.includes("playToumaiVoice"), "web voice mode must use the shared Zenaba player");
+expect(voiceMode.includes("stopToumaiVoice"), "web voice mode must use the shared stop control");
+expect(!voiceMode.includes("synthesizeSpeech"), "web voice mode must not own a second TTS pipeline");
+expect(!fs.existsSync("components/LiveAvatarOverlay.tsx"), "unused alternate avatar TTS pipeline must stay removed");
 
 console.log("toumai-voice-v1-web: PASS");
