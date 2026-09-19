@@ -1,0 +1,73 @@
+name: Toumai Voice V1 Web
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "components/ChatMessage.tsx"
+      - "components/notifications/**"
+      - "components/settings/VoiceSection.tsx"
+      - "components/settings/NotificationsSection.tsx"
+      - "components/settings/SecuritySection.tsx"
+      - "hooks/useSpeakText.ts"
+      - "lib/voice-api.ts"
+      - "lib/toumai-voice-player.ts"
+      - "scripts/verify-toumai-voice-v1.mjs"
+      - "scripts/verify-reminder-multichannel.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/toumai-voice-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "components/ChatMessage.tsx"
+      - "components/notifications/**"
+      - "components/settings/VoiceSection.tsx"
+      - "components/settings/NotificationsSection.tsx"
+      - "components/settings/SecuritySection.tsx"
+      - "hooks/useSpeakText.ts"
+      - "lib/voice-api.ts"
+      - "lib/toumai-voice-player.ts"
+      - "scripts/verify-toumai-voice-v1.mjs"
+      - "scripts/verify-reminder-multichannel.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/toumai-voice-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts
+      - name: Voice V1 contract
+        run: npm run test:voice-v1
+      - name: Reminder voice contract
+        run: npm run test:notification-channels
+      - name: Notification diagnostic contract
+        run: npm run test:notification-diagnostic
+      - name: Lint voice surfaces
+        run: >
+          npx eslint
+          components/ChatMessage.tsx
+          components/notifications/RealtimeNotificationsBridge.tsx
+          components/settings/VoiceSection.tsx
+          components/settings/NotificationsSection.tsx
+          components/settings/SecuritySection.tsx
+          hooks/useSpeakText.ts
+          lib/voice-api.ts
+          lib/toumai-voice-player.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
