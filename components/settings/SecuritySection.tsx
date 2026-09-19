@@ -303,7 +303,7 @@ export function SecuritySection() {
             : "Le diagnostic multicanal n’a pas pu démarrer.";
         patch("inbox", { state: "error", detail: message });
         patch("realtime", { state: "error", detail: message });
-        if (speechSupported) patch("voice", { state: "error", detail: message });
+        if (audioSupported) patch("voice", { state: "error", detail: message });
       }
 
       if (security.status === "fulfilled") {
