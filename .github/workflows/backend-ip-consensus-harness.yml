@@ -34,3 +34,10 @@ jobs:
           PYTHONPATH: ci_backend
         run: |
           pytest -q ci_backend/tests/test_ip_intelligence_consensus.py
+
+      - name: Run live AS327802 provider test
+        env:
+          PYTHONPATH: ci_backend
+        run: |
+          pip install pytest-asyncio
+          pytest -q -s ci_backend/tests/test_live_provider_consensus.py
