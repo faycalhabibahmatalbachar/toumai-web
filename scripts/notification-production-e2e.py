@@ -152,11 +152,11 @@ def notification_stream():
             for raw in response:
                 if sse_stop.is_set():
                     return
-                line = raw.decode("utf-8", "replace").rstrip("\\r\\n")
+                line = raw.decode("utf-8", "replace").rstrip("\r\n")
                 if not line:
                     if data_lines and event_name == "notification":
                         try:
-                            sse_events.append(json.loads("\\n".join(data_lines)))
+                            sse_events.append(json.loads("\n".join(data_lines)))
                         except Exception:
                             pass
                     event_name = None
@@ -194,11 +194,11 @@ def create_chat_reminder(marker):
     with urllib.request.urlopen(request, timeout=120) as response:
         data_lines = []
         for raw in response:
-            line = raw.decode("utf-8", "replace").rstrip("\\r\\n")
+            line = raw.decode("utf-8", "replace").rstrip("\r\n")
             if not line:
                 if data_lines:
                     try:
-                        events.append(json.loads("\\n".join(data_lines)))
+                        events.append(json.loads("\n".join(data_lines)))
                     except Exception:
                         pass
                 data_lines = []
@@ -362,7 +362,7 @@ def main():
         summary.append("Mobile Push no-device fallback to durable Inbox: PASS")
     finally:
         sse_stop.set()
-        print("\\n=== TOUMAI NOTIFICATION E2E SUMMARY ===")
+        print("\n=== TOUMAI NOTIFICATION E2E SUMMARY ===")
         for line in summary:
             print(line)
         if user_id:
@@ -370,11 +370,11 @@ def main():
         step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
         if step_summary:
             with open(step_summary, "a", encoding="utf-8") as handle:
-                handle.write("## Toumaï notification production E2E\\n\\n")
+                handle.write("## Toumaï notification production E2E\n\n")
                 for line in summary:
-                    handle.write("- " + line + "\\n")
+                    handle.write("- " + line + "\n")
                 if user_id:
-                    handle.write("- Temporary user id for cleanup: " + user_id + "\\n")
+                    handle.write("- Temporary user id for cleanup: " + user_id + "\n")
 
 
 if __name__ == "__main__":
