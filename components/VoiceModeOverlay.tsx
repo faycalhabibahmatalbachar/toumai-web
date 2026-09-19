@@ -7,6 +7,7 @@ import { useMicLevels } from "./Waveform";
 import { VoiceOrb, ORB, type VoiceOrbPhase } from "./chat/VoiceOrb";
 import { NetworkBadge } from "./chat/NetworkBadge";
 import { MoniteurReseau, type QualiteReseau } from "@/lib/network-quality";
+import { microphoneErrorMessage } from "@/lib/errors";
 import {
   playToumaiVoiceLive,
   setToumaiVoiceConversationActive,
@@ -204,6 +205,9 @@ export function VoiceModeOverlay({
   // Écrire quand la voix ne suffit pas : un nom propre, une adresse, une
   // référence exacte que la transcription écorchera toujours.
   const [typed, setTyped] = useState("");
+  // Le même flux micro alimente MediaRecorder ET l'animation de l'orbe.
+  // Aucun second getUserMedia n'est ouvert pendant l'écoute.
+  const [captureStream, setCaptureStream] = useState<MediaStream | null>(null);
   // Ce que vaut la liaison. Mesuré, pas déduit de `navigator.onLine` : le
   // navigateur dit s'il a une interface active, pas si les paquets arrivent.
   const [reseau, setReseau] = useState<QualiteReseau>("inconnue");
@@ -238,6 +242,7 @@ export function VoiceModeOverlay({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recordingMimeRef = useRef("audio/webm");
   // Un arrêt volontaire du recorder (mute, texte tapé, fermeture) ne doit
   // jamais déclencher une transcription du reliquat audio.
   const discardRecordingRef = useRef(false);
@@ -279,7 +284,12 @@ export function VoiceModeOverlay({
   }, []);
 
   const listening = phase === "listening" && !muted;
-  const levels = useMicLevels(listening, 24);
+  const levels = useMicLevels(
+    listening && captureStream !== null,
+    24,
+    captureStream,
+    false,
+  );
   const avgLevel = levels.reduce((a, b) => a + b, 0) / levels.length;
 
   useEffect(() => {
@@ -321,10 +331,14 @@ export function VoiceModeOverlay({
       return;
     }
     if (noiseFloorRef.current === null) {
-      const samples = calibrationSamplesRef.current;
-      noiseFloorRef.current = samples.length
-        ? samples.reduce((a, b) => a + b, 0) / samples.length
+      const samples = [...calibrationSamplesRef.current].sort((a, b) => a - b);
+      // L'utilisateur peut parler immédiatement à l'ouverture. Prendre la
+      // moyenne apprendrait alors sa voix comme "bruit" et ignorerait le
+      // premier mot. Le quintile bas + plafond protège ce cas.
+      const q20 = samples.length
+        ? samples[Math.min(samples.length - 1, Math.floor(samples.length * 0.2))]
         : 0.08;
+      noiseFloorRef.current = Math.min(0.14, Math.max(0.08, q20));
     }
 
     const speakingThreshold = noiseFloorRef.current + SPEAKING_MARGIN;
@@ -395,7 +409,14 @@ export function VoiceModeOverlay({
     }
     bargeStreamRef.current = stream;
 
-    const ctx = new AudioContext();
+    const AudioCtx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    const ctx = new AudioCtx();
     const source = ctx.createMediaStreamSource(stream);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
@@ -450,6 +471,7 @@ export function VoiceModeOverlay({
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    if (!closedRef.current) setCaptureStream(null);
   }
 
   function toggleMuted() {
@@ -489,18 +511,38 @@ export function VoiceModeOverlay({
     // aucun flux n'est demandé.
     if (mutedRef.current) return;
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("getUserMedia indisponible");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+      if (closedRef.current || mutedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
+      setCaptureStream(stream);
       // On RELIT ce que la piste applique vraiment : demander l'annulation
       // d'écho ne garantit pas de l'obtenir, et c'est elle qui autorise (ou
       // non) l'interruption à la voix.
       echoAnnuleRef.current = stream.getAudioTracks()[0]?.getSettings?.().echoCancellation === true;
       if (typeof MediaRecorder === "undefined") {
         stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        setCaptureStream(null);
         throw new Error("MediaRecorder indisponible");
       }
       discardRecordingRef.current = false;
-      const recorder = new MediaRecorder(stream);
+
+      const preferredMime =
+        MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported?.("audio/mp4")
+            ? "audio/mp4"
+            : "";
+      const recorder = preferredMime
+        ? new MediaRecorder(stream, { mimeType: preferredMime })
+        : new MediaRecorder(stream);
+      recordingMimeRef.current = recorder.mimeType || preferredMime || "audio/webm";
       recorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -510,8 +552,23 @@ export function VoiceModeOverlay({
         void handleRecordingStopped();
       };
       recorder.start(RECORDER_TIMESLICE_MS);
-    } catch {
-      setError("Accès au microphone refusé.");
+    } catch (err) {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setCaptureStream(null);
+      if (err instanceof Error && err.message === "MediaRecorder indisponible") {
+        setError(
+          "Ce navigateur ne prend pas en charge l’enregistrement audio. Vous pouvez utiliser la saisie texte ci-dessous.",
+        );
+      } else if (err instanceof Error && err.message === "getUserMedia indisponible") {
+        setError(
+          "Le microphone n’est pas disponible dans ce navigateur ou cette page. Vous pouvez utiliser la saisie texte ci-dessous.",
+        );
+      } else {
+        setError(
+          microphoneErrorMessage(err instanceof Error ? err.name : "not-allowed"),
+        );
+      }
       setPhase("error");
     }
   }
@@ -522,6 +579,7 @@ export function VoiceModeOverlay({
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    if (!closedRef.current) setCaptureStream(null);
   }
 
   /** COUPER LA PAROLE À L'ASSISTANT.
@@ -564,7 +622,9 @@ export function VoiceModeOverlay({
     setPhase("processing");
     slowTimerRef.current = setTimeout(() => setSlowHint(true), SLOW_RESPONSE_HINT_MS);
     try {
-      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      const blob = new Blob(chunksRef.current, {
+        type: recordingMimeRef.current || chunksRef.current[0]?.type || "audio/webm",
+      });
       const { text } = await transcribeAudio(blob);
       if (!text.trim() || looksLikeHallucination(text, recordMs)) {
         if (!closedRef.current) startListening();
