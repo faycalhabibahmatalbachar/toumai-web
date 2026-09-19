@@ -30,3 +30,6 @@
   X-Robots-Tag: noindex, nofollow
 /share/*
   X-Robots-Tag: noindex, nofollow
+
+/today/*
+  X-Robots-Tag: noindex, nofollow
