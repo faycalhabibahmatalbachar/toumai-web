@@ -292,6 +292,10 @@ self.addEventListener("push", (evenement) => {
           payload.data && typeof payload.data === "object"
             ? payload.data.voice_enabled === true
             : false,
+        locale:
+          payload.data && typeof payload.data === "object"
+            ? payload.data.locale ?? null
+            : null,
       };
 
       if (visible.length) {
