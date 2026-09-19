@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { cxDisplayStyle, cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
-import { getToday, type TodayResponse } from "@/lib/today-api";
+import { getToday, getTodayBrief, type TodayBrief, type TodayResponse } from "@/lib/today-api";
 import { getProfile, prenomAffichable, type UserProfile } from "@/lib/user-api";
 import { useCached } from "@/lib/swr-cache";
 
@@ -81,6 +81,12 @@ export default function TodayPage() {
     revalidateOnFocus: false,
   });
 
+  const brief = useCached<TodayBrief>("today:brief", getTodayBrief, {
+    enabled: Boolean(session),
+    ttlMs: 30_000,
+    revalidateOnFocus: true,
+  });
+
   const firstName = useMemo(
     () => prenomAffichable(profile.data?.full_name),
     [profile.data?.full_name],
@@ -91,11 +97,11 @@ export default function TodayPage() {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await Promise.all([today.refresh(), profile.refresh()]);
+      await Promise.all([today.refresh(), brief.refresh(), profile.refresh()]);
     } finally {
       setRefreshing(false);
     }
-  }, [profile, refreshing, today]);
+  }, [brief, profile, refreshing, today]);
 
   if (authLoading || !pret) {
     return (
@@ -187,12 +193,59 @@ export default function TodayPage() {
           </div>
         )}
 
-        <div className="mt-8 rounded-3xl border border-dashed border-[var(--cx-border-default)] bg-[var(--cx-surface)]/55 p-6 sm:p-8">
-          <p className="text-sm font-semibold text-[var(--cx-text-primary)]">Centre Aujourd’hui</p>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--cx-text-muted)]">
-            Le résumé, la timeline, les attentes et les actions arrivent ici à partir des données déjà calculées par Toumaï.
-          </p>
-        </div>
+        <section
+          className="mt-8 overflow-hidden rounded-3xl border border-[var(--cx-border-default)] bg-[var(--cx-surface)] shadow-[0_1px_0_rgba(255,255,255,0.025)]"
+          aria-labelledby="today-brief-title"
+          aria-busy={brief.loading && !brief.data}
+        >
+          <div className="flex items-center gap-3 border-b border-[var(--cx-border-subtle)] px-5 py-4 sm:px-6">
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--cx-accent-bg)] text-[var(--cx-accent-text)]"
+              aria-hidden="true"
+            >
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 id="today-brief-title" className="text-sm font-semibold text-[var(--cx-text-primary)]">
+                Brief Toumaï
+              </h2>
+              <p className="mt-0.5 text-xs text-[var(--cx-text-faint)]">
+                L’essentiel de votre journée, en quelques secondes.
+              </p>
+            </div>
+          </div>
+
+          {brief.loading && !brief.data ? (
+            <div className="space-y-3 px-5 py-5 sm:px-6" aria-hidden="true">
+              <div className="h-4 w-full animate-pulse rounded-lg bg-[var(--cx-hover)]" />
+              <div className="h-4 w-[92%] animate-pulse rounded-lg bg-[var(--cx-hover)]" />
+              <div className="h-4 w-[68%] animate-pulse rounded-lg bg-[var(--cx-hover)]" />
+            </div>
+          ) : brief.data?.text ? (
+            <div className="px-5 py-5 sm:px-6">
+              <p className="max-w-3xl text-[15px] leading-7 text-[var(--cx-text-secondary)]">
+                {brief.data.text}
+              </p>
+            </div>
+          ) : (
+            <div className="px-5 py-5 sm:px-6" role={brief.error ? "status" : undefined}>
+              <p className="text-sm text-[var(--cx-text-muted)]">
+                {brief.error
+                  ? "Le brief est momentanément indisponible. Le reste de votre journée reste accessible."
+                  : "Rien à résumer pour le moment."}
+              </p>
+              {brief.error && (
+                <button
+                  type="button"
+                  onClick={() => void brief.refresh()}
+                  className="mt-3 rounded-xl border border-[var(--cx-border-default)] px-3 py-2 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cx-accent)]"
+                >
+                  Réessayer le brief
+                </button>
+              )}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );

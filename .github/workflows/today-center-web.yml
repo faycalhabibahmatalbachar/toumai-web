@@ -1,0 +1,42 @@
+name: Today Center Web
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/today/**"
+      - "lib/today-api.ts"
+      - "components/Sidebar.tsx"
+      - "scripts/verify-today-center.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/today-center-web.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/today/**"
+      - "lib/today-api.ts"
+      - "components/Sidebar.tsx"
+      - "scripts/verify-today-center.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/today-center-web.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts
+      - name: Today Center contract
+        run: npm run test:today
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
