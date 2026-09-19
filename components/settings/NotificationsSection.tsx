@@ -85,8 +85,13 @@ export function NotificationsSection() {
   const [product, setProduct] = useState<ProductNotificationPreferences | null>(null);
   const [push, setPush] = useState<WebPushState>(EMPTY_WEB_PUSH);
   const [v3Available, setV3Available] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVoiceSupported(typeof window !== "undefined" && "speechSynthesis" in window);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +117,8 @@ export function NotificationsSection() {
             inbox_enabled: true,
             push_enabled: true,
             web_push_enabled: false,
+            realtime_enabled: true,
+            voice_enabled: false,
             email_enabled: false,
             quiet_hours_enabled: Boolean(p.quiet_hours?.enabled),
             quiet_start: p.quiet_hours?.start ?? "22:00",
@@ -257,6 +264,46 @@ export function NotificationsSection() {
           />
         </Row>
 
+        <Row
+          label="Inbox Toumaï"
+          description="Toujours active pour conserver chaque rappel même si un canal externe échoue."
+        >
+          <CxSwitch
+            checked
+            label="Inbox Toumaï"
+            disabled
+            onChange={() => undefined}
+          />
+        </Row>
+
+        <Row
+          label="Temps réel dans Toumaï"
+          description="Affiche immédiatement le rappel dans l’application lorsque Toumaï est ouvert."
+        >
+          <CxSwitch
+            checked={global.realtime_enabled}
+            label="Temps réel dans Toumaï"
+            disabled={!v3Available}
+            onChange={(value) => void saveGlobal({ realtime_enabled: value })}
+          />
+        </Row>
+
+        <Row
+          label="Voix Toumaï"
+          description={
+            voiceSupported
+              ? "Lit les rappels à voix haute uniquement quand Toumaï est ouvert au premier plan."
+              : "La lecture vocale n’est pas prise en charge par ce navigateur."
+          }
+        >
+          <CxSwitch
+            checked={global.voice_enabled}
+            label="Voix Toumaï"
+            disabled={!v3Available || !voiceSupported}
+            onChange={(value) => void saveGlobal({ voice_enabled: value })}
+          />
+        </Row>
+
         <Row label="Web Push" description={webPushDescription}>
           <CxSwitch
             checked={push.subscribed && global.web_push_enabled}
@@ -350,7 +397,8 @@ export function NotificationsSection() {
 
       <p className="px-1 text-xs leading-relaxed text-[var(--cx-text-tertiary)]">
         L’Inbox reste durable même quand un canal externe est désactivé ou échoue.
-        Les réglages serveur s’appliquent à vos appareils connectés.
+        Les heures calmes suspendent les canaux interruptifs ; la voix ne parle jamais
+        en arrière-plan et reste désactivée tant que vous ne l’activez pas.
       </p>
 
       {error && <p className="text-sm text-[var(--cx-error-text)]">{error}</p>}
