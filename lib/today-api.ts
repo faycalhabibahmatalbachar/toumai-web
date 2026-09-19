@@ -41,6 +41,33 @@ export interface TodayBrief {
   total_attention_items: number;
 }
 
+export interface TodayWaitingItem {
+  id: string;
+  recipient_label: string;
+  status: string;
+  status_label: string;
+  next_action?: string | null;
+  state_version: number;
+  waiting_since?: string | null;
+  due_at?: string | null;
+  last_dispatched_at?: string | null;
+  context?: string | null;
+  attempts?: {
+    used?: number;
+    max?: number;
+    remaining?: number;
+    [key: string]: number | undefined;
+  };
+  overdue: boolean;
+  available_actions: string[];
+  deep_link: string;
+}
+
+export interface TodayWaitingResponse {
+  waiting: TodayWaitingItem[];
+  count: number;
+  overdue_count: number;
+}
 export interface TodayResponse {
   timezone: string;
   local_date: string;
@@ -69,4 +96,9 @@ export function getToday(): Promise<TodayResponse> {
 
 export function getTodayBrief(): Promise<TodayBrief> {
   return http.get<TodayBrief>("/today/brief");
+}
+
+
+export function getTodayWaiting(): Promise<TodayWaitingResponse> {
+  return http.get<TodayWaitingResponse>("/today/waiting");
 }
