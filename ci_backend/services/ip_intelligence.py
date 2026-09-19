@@ -42,6 +42,7 @@ _IPAPI_URL = "https://api.ipapi.is/"
 _IPWHOIS_URL = "https://ipwho.is/{ip}"
 _RIPE_NETWORK_URL = "https://stat.ripe.net/data/network-info/data.json"
 _RIPE_PREFIX_URL = "https://stat.ripe.net/data/prefix-overview/data.json"
+_AFRINIC_AUTNUM_URL = "https://rdap.afrinic.net/rdap/autnum/{asn}"
 
 _CACHE_TTL_SECONDS = 6 * 60 * 60
 _CACHE_MAX = 1024
@@ -147,6 +148,44 @@ def _safe_org(value: Any) -> str:
     return label
 
 
+def _rdap_vcard_fn(entity: dict[str, Any]) -> str:
+    """Nom d'organisation dans une entité RDAP vCard."""
+    vcard = entity.get("vcardArray")
+    if not isinstance(vcard, list) or len(vcard) != 2 or not isinstance(vcard[1], list):
+        return ""
+    for item in vcard[1]:
+        if (
+            isinstance(item, list)
+            and len(item) >= 4
+            and str(item[0]).casefold() == "fn"
+        ):
+            return _safe_org(item[3])
+    return ""
+
+
+def _rdap_registrant_name(payload: dict[str, Any]) -> str:
+    """Résout le détenteur légal de l'ASN, jamais une personne technique."""
+    entities = payload.get("entities")
+    if not isinstance(entities, list):
+        return ""
+
+    # Le registrant organisation est la source la plus autoritative.
+    for entity in entities:
+        if not isinstance(entity, dict):
+            continue
+        roles = {
+            str(role).casefold()
+            for role in (entity.get("roles") or [])
+            if role
+        }
+        if "registrant" not in roles:
+            continue
+        name = _rdap_vcard_fn(entity)
+        if name:
+            return name
+    return ""
+
+
 def _vote(signals: list[dict[str, str]], key: str, *, minimum: int) -> tuple[str, int]:
     values = [(item.get(key) or "").strip() for item in signals if (item.get(key) or "").strip()]
     if not values:
@@ -210,7 +249,9 @@ def _maxmind_signal(ip: str) -> dict[str, str]:
         except Exception as exc:  # noqa: BLE001
             logger.info("MaxMind ASN indisponible pour %s (%s)", ip, type(exc).__name__)
 
-    return {k: v for k, v in result.items() if v}
+    cleaned = {k: v for k, v in result.items() if v}
+    # Sans DB MMDB montée, ne pas compter "maxmind" comme source vide.
+    return cleaned if len(cleaned) > 1 else {}
 
 
 async def _ipapi_signal(client: httpx.AsyncClient, ip: str) -> dict[str, str]:
@@ -379,11 +420,56 @@ async def _ripe_signal(client: httpx.AsyncClient, ip: str) -> dict[str, str]:
     }
 
 
+async def _afrinic_operator_signal(
+    client: httpx.AsyncClient,
+    asn: str,
+) -> dict[str, str]:
+    """Nom légal du détenteur ASN depuis le registre AFRINIC.
+
+    Pour un ASN hors zone AFRINIC, un 404 est simplement ignoré.
+    """
+    normalized = _asn_number(asn)
+    if not normalized:
+        return {}
+    try:
+        response = await client.get(
+            _AFRINIC_AUTNUM_URL.format(asn=normalized.removeprefix("AS")),
+            headers={
+                "User-Agent": "ToumaiAI-Security/2.1",
+                "Accept": "application/rdap+json, application/json",
+            },
+        )
+        if response.status_code != 200:
+            return {}
+        payload = response.json()
+        if not isinstance(payload, dict):
+            return {}
+        operator_name = _rdap_registrant_name(payload)
+        if not operator_name:
+            return {}
+        return {
+            "source": "afrinic",
+            "asn": normalized,
+            "operator_name": operator_name,
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.info(
+            "AFRINIC RDAP indisponible pour %s (%s)",
+            normalized,
+            type(exc).__name__,
+        )
+        return {}
+
+
 def _merge(public_ip: str, signals: list[dict[str, str]]) -> dict[str, str]:
     usable = [s for s in signals if s and s.get("source")]
     result: dict[str, str] = {"ip": public_ip}
 
-    geo_sources = [dict(s) for s in usable if s.get("source") != "ripe"]
+    geo_sources = [
+        dict(s)
+        for s in usable
+        if s.get("source") not in {"ripe", "afrinic"}
+    ]
 
     # Certains fournisseurs gratuits renvoient le nom du pays sans code ISO.
     # Si une autre source donne le code pour le même pays, on l'infère avant
@@ -490,8 +576,23 @@ def _merge(public_ip: str, signals: list[dict[str, str]]) -> dict[str, str]:
                         if holder:
                             break
 
-    if holder:
-        result["network_org"] = holder
+    registry = next((s for s in usable if s.get("source") == "afrinic"), {})
+    registry_operator = _safe_org(registry.get("operator_name", ""))
+    if (
+        registry_operator
+        and result.get("asn")
+        and registry.get("asn") == result.get("asn")
+    ):
+        result["operator_name"] = registry_operator
+        result["operator_verified"] = "1"
+    elif holder:
+        result["operator_name"] = holder
+        result["operator_verified"] = "1"
+
+    # Compatibilité interne : le nom réseau historique devient l'opérateur
+    # canonique, pas un pool ou une description de sous-réseau.
+    if result.get("operator_name"):
+        result["network_org"] = result["operator_name"]
 
     # Les signaux VPN/Proxy/Tor restent fournis uniquement par une source qui
     # déclare explicitement avoir effectué ces contrôles.
@@ -540,6 +641,34 @@ async def lookup(ip_address: str | None) -> dict[str, str]:
                 _ripe_signal(client, public_ip),
                 return_exceptions=True,
             )
+
+            candidate_signals = [
+                item for item in remote if isinstance(item, dict) and item
+            ]
+            ripe_candidate = next(
+                (item.get("asn", "") for item in candidate_signals if item.get("source") == "ripe"),
+                "",
+            )
+            if not ripe_candidate:
+                provider_asns = [
+                    _asn_number(item.get("asn", ""))
+                    for item in candidate_signals
+                    if item.get("asn")
+                ]
+                counts = Counter(asn for asn in provider_asns if asn)
+                ripe_candidate = (
+                    counts.most_common(1)[0][0]
+                    if counts and counts.most_common(1)[0][1] >= 2
+                    else ""
+                )
+
+            registry_signal = (
+                await _afrinic_operator_signal(client, ripe_candidate)
+                if ripe_candidate
+                else {}
+            )
+            if registry_signal:
+                remote = [*remote, registry_signal]
     except Exception as exc:  # noqa: BLE001
         logger.info(
             "security IP intelligence indisponible pour %s (%s)",
@@ -581,7 +710,7 @@ def network_label(context: dict[str, str]) -> str:
     if context.get("asn_verified") != "1":
         return ""
     values: list[str] = []
-    for key in ("asn", "network_org", "prefix"):
+    for key in ("asn", "operator_name", "prefix"):
         value = (context.get(key) or "").strip()
         if value and value.casefold() not in {item.casefold() for item in values}:
             values.append(value)
