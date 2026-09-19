@@ -85,13 +85,13 @@ export function NotificationsSection() {
   const [product, setProduct] = useState<ProductNotificationPreferences | null>(null);
   const [push, setPush] = useState<WebPushState>(EMPTY_WEB_PUSH);
   const [v3Available, setV3Available] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
+  const voiceSupported = useSyncExternalStore(
+    () => () => undefined,
+    () => "speechSynthesis" in window,
+    () => false,
+  );
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setVoiceSupported(typeof window !== "undefined" && "speechSynthesis" in window);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
