@@ -178,45 +178,6 @@ export function SecuritySection() {
 
   if (invite) {
     return (
-      <Panel title="Alertes de sécurité">
-        <Row
-          label="Tester Push + e-mail"
-          description="Envoie immédiatement un vrai Push de sécurité et un vrai e-mail sur les canaux associés à votre compte."
-        >
-          <button
-            type="button"
-            onClick={() => void testerLesAlertes()}
-            disabled={testAlertesOccupe}
-            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
-            style={{ background: "var(--primary)" }}
-          >
-            {testAlertesOccupe ? "Envoi…" : "Tester maintenant"}
-          </button>
-        </Row>
-
-        {(testAlertes || testAlertesErreur) && (
-          <Row
-            label={
-              testAlertes?.complete
-                ? "Push + e-mail confirmés"
-                : testAlertes?.push_ok && testAlertes?.email_ok
-                  ? "Canaux confirmés"
-                  : testAlertes?.push_ok
-                    ? "Push confirmé · e-mail non confirmé"
-                    : testAlertes?.email_ok
-                      ? "E-mail confirmé · Push non confirmé"
-                      : "Test non confirmé"
-            }
-            description={
-              testAlertesErreur ??
-              (testAlertes
-                ? `Push acceptés: ${testAlertes.push_successes} · échecs: ${testAlertes.push_failures} · tokens périmés purgés: ${testAlertes.push_purged} · e-mail: ${testAlertes.email_ok ? "accepté" : "non confirmé"}`
-                : undefined)
-            }
-          />
-        )}
-      </Panel>
-
       <Panel title="Double authentification">
         <Row
           label="Réservée aux comptes"
@@ -279,6 +240,45 @@ export function SecuritySection() {
           </div>
         </div>
       )}
+
+      <Panel title="Alertes de sécurité">
+        <Row
+          label="Tester Push + e-mail"
+          description="Envoie immédiatement un vrai Push de sécurité et un vrai e-mail sur les canaux associés à votre compte."
+        >
+          <button
+            type="button"
+            onClick={() => void testerLesAlertes()}
+            disabled={testAlertesOccupe}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
+            style={{ background: "var(--primary)" }}
+          >
+            {testAlertesOccupe ? "Envoi…" : "Tester maintenant"}
+          </button>
+        </Row>
+
+        {(testAlertes || testAlertesErreur) && (
+          <Row
+            label={
+              testAlertes?.complete
+                ? "Push + e-mail confirmés"
+                : testAlertes?.push_ok && testAlertes?.email_ok
+                  ? "Canaux confirmés"
+                  : testAlertes?.push_ok
+                    ? "Push confirmé · e-mail non confirmé"
+                    : testAlertes?.email_ok
+                      ? "E-mail confirmé · Push non confirmé"
+                      : "Test non confirmé"
+            }
+            description={
+              testAlertesErreur ??
+              (testAlertes
+                ? `Push acceptés: ${testAlertes.push_successes} · échecs: ${testAlertes.push_failures} · tokens périmés purgés: ${testAlertes.push_purged} · e-mail: ${testAlertes.email_ok ? "accepté" : "non confirmé"}`
+                : undefined)
+            }
+          />
+        )}
+      </Panel>
 
       <Panel title="Double authentification">
         {etat === null ? (
