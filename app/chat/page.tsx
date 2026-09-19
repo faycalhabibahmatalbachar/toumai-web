@@ -22,6 +22,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { Waveform } from "@/components/Waveform";
 import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
+import { primeToumaiVoiceAudio } from "@/lib/toumai-voice-player";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { DropZone } from "@/components/chat/media/DropZone";
@@ -2056,7 +2057,10 @@ export default function ChatPage() {
                 </button>
               ) : (
                 <button
-                  onClick={() => setVoiceModeOpen(true)}
+                  onClick={() => {
+                    primeToumaiVoiceAudio();
+                    setVoiceModeOpen(true);
+                  }}
                   aria-label="Parler à Toumaï AI"
                   title="Parler à Toumaï AI"
                   disabled={!session}
