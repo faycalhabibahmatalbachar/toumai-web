@@ -72,6 +72,28 @@ export async function synthesizeSpeech(
 }
 
 /**
+ * Vrai flux WAV Pocket TTS. Aucun base64 et aucun WAV complet en mémoire :
+ * le lecteur Web consomme response.body pendant que Zenaba est encore générée.
+ */
+export async function openLiveSpeechStream(
+  text: string,
+  signal?: AbortSignal,
+): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+  const res = await authFetch("/voice/synthesize/live", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "audio/wav" },
+    body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw await ttsHttpError(res);
+  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("audio/wav") && !contentType.includes("audio/x-wav")) {
+    throw new Error("Zenaba a renvoyé un format audio inattendu.");
+  }
+  return res.body.getReader();
+}
+
+/**
  * Flux Zenaba phrase par phrase. C'est le chemin principal pour le chat et
  * les rappels : première phrase audible sans attendre la fin d'une longue
  * réponse, avec annulation réelle via AbortSignal.
