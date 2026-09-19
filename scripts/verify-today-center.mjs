@@ -23,4 +23,18 @@ for (const hidden of ["brief.data.provider", "brief.data.model", "brief.data.fac
 }
 expect(!page.includes("provider message") && !page.includes("provider_message_id"), "Today UI must not expose provider identifiers");
 
-console.log("Today Center W2 contracts: PASS");
+for (const bucket of ["overdue", "now", "later_today", "evening", "unscheduled"]) {
+  expect(page.includes(`key: "${bucket}"`), `Timeline bucket missing: ${bucket}`);
+}
+for (const label of ["En retard", "Maintenant", "Plus tard", "Ce soir", "À traiter"]) {
+  expect(page.includes(`label: "${label}"`), `Human timeline label missing: ${label}`);
+}
+expect(api.includes("timezone: string") && api.includes("local_date: string"), "Today client must expose backend timezone/local_date");
+expect(page.includes("timeZone: timezone") && page.includes("today.data?.local_date"), "Dates and times must follow backend local day/timezone");
+expect(page.includes("SOURCE_LABELS") && page.includes("STATUS_LABELS") && page.includes("PRIORITY_LABELS"), "Technical source/status/priority codes must be translated");
+expect(page.includes("safeHttpUrl") && page.includes("safeInternalPath"), "Today deep links must pass existing URL safety gates");
+expect(page.includes("today.data.tomorrow_preview.slice(0, 4)"), "Tomorrow preview must stay compact");
+expect(!page.includes(".sort("), "Web timeline must preserve backend ordering instead of recalculating priority");
+expect(!page.includes("priority_reasons.map"), "Internal priority reason codes must not be rendered");
+
+console.log("Today Center W3 contracts: PASS");
