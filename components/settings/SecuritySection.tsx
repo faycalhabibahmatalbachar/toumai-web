@@ -8,8 +8,10 @@ import {
   mfaEnroler,
   mfaNouveauxCodes,
   mfaVerifier,
+  testerAlertesSecurite,
   type MfaEnrolement,
   type MfaEtat,
+  type SecurityNotificationTestResult,
 } from "@/lib/user-api";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
@@ -38,6 +40,9 @@ export function SecuritySection() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [desactivation, setDesactivation] = useState(false);
+  const [testAlertes, setTestAlertes] = useState<SecurityNotificationTestResult | null>(null);
+  const [testAlertesErreur, setTestAlertesErreur] = useState<string | null>(null);
+  const [testAlertesOccupe, setTestAlertesOccupe] = useState(false);
   /** Le QR, encodé DANS le navigateur.
    *
    * La première version passait par un service d'image tiers — ce qui
@@ -80,6 +85,21 @@ export function SecuritySection() {
         setErreur(e instanceof Error ? e.message : "État indisponible");
       });
   }, [invite]);
+
+  async function testerLesAlertes() {
+    setTestAlertesErreur(null);
+    setTestAlertes(null);
+    setTestAlertesOccupe(true);
+    try {
+      setTestAlertes(await testerAlertesSecurite());
+    } catch (e) {
+      setTestAlertesErreur(
+        e instanceof Error ? e.message : "Impossible de tester les alertes.",
+      );
+    } finally {
+      setTestAlertesOccupe(false);
+    }
+  }
 
   async function commencer() {
     setErreur(null);
@@ -158,6 +178,45 @@ export function SecuritySection() {
 
   if (invite) {
     return (
+      <Panel title="Alertes de sécurité">
+        <Row
+          label="Tester Push + e-mail"
+          description="Envoie immédiatement un vrai Push de sécurité et un vrai e-mail sur les canaux associés à votre compte."
+        >
+          <button
+            type="button"
+            onClick={() => void testerLesAlertes()}
+            disabled={testAlertesOccupe}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
+            style={{ background: "var(--primary)" }}
+          >
+            {testAlertesOccupe ? "Envoi…" : "Tester maintenant"}
+          </button>
+        </Row>
+
+        {(testAlertes || testAlertesErreur) && (
+          <Row
+            label={
+              testAlertes?.complete
+                ? "Push + e-mail confirmés"
+                : testAlertes?.push_ok && testAlertes?.email_ok
+                  ? "Canaux confirmés"
+                  : testAlertes?.push_ok
+                    ? "Push confirmé · e-mail non confirmé"
+                    : testAlertes?.email_ok
+                      ? "E-mail confirmé · Push non confirmé"
+                      : "Test non confirmé"
+            }
+            description={
+              testAlertesErreur ??
+              (testAlertes
+                ? `Push acceptés: ${testAlertes.push_successes} · échecs: ${testAlertes.push_failures} · tokens périmés purgés: ${testAlertes.push_purged} · e-mail: ${testAlertes.email_ok ? "accepté" : "non confirmé"}`
+                : undefined)
+            }
+          />
+        )}
+      </Panel>
+
       <Panel title="Double authentification">
         <Row
           label="Réservée aux comptes"
