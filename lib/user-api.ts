@@ -110,6 +110,23 @@ export async function mfaDesactiver(code: string): Promise<void> {
 }
 
 
+
+
+export interface SecurityNotificationTestResult {
+  event: "security.test";
+  push_successes: number;
+  push_failures: number;
+  push_purged: number;
+  push_ok: boolean;
+  email_ok: boolean;
+  complete: boolean;
+}
+
+export function testerAlertesSecurite(): Promise<SecurityNotificationTestResult> {
+  return http.post<SecurityNotificationTestResult>("/user/security-notification-test", {});
+}
+
+
 // ─── Stockage ───────────────────────────────────────────────────────────────
 
 export interface FamilleStockage {
