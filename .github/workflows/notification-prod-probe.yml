@@ -1,0 +1,25 @@
+name: Notification production probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/notification-prod-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe production
+        run: |
+          set -euo pipefail
+          echo "=== WEB SERVICE WORKER ==="
+          curl -fsSL --max-time 20 https://toumaiai.com/sw.js | grep -E 'toumai-v[0-9]+|TOUMAI_NOTIFICATION' || true
+          echo "=== BACKEND HEALTH ==="
+          curl -fsSL --max-time 20 https://api.toumaiai.com/health
+          echo
