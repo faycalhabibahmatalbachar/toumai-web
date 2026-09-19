@@ -23,7 +23,12 @@ let audio: HTMLAudioElement | null = null;
 let aborter: AbortController | null = null;
 let objectUrl: string | null = null;
 let generation = 0;
-let resolveCurrent: ((outcome: ToumaiVoiceOutcome) => void) | null = null;
+let completion:
+  | { generation: number; resolve: (outcome: ToumaiVoiceOutcome) => void }
+  | null = null;
+let segmentCompletion:
+  | { generation: number; resolve: (outcome: ToumaiVoiceOutcome) => void }
+  | null = null;
 
 function publish(next: ToumaiVoiceSnapshot) {
   snapshot = next;
@@ -89,15 +94,30 @@ export function textForToumaiVoice(raw: string): string {
     .trim();
 }
 
-function settle(outcome: ToumaiVoiceOutcome) {
-  const resolve = resolveCurrent;
-  resolveCurrent = null;
-  if (resolve) resolve(outcome);
+function settleCompletion(
+  targetGeneration: number,
+  outcome: ToumaiVoiceOutcome,
+) {
+  if (completion?.generation !== targetGeneration) return;
+  const resolve = completion.resolve;
+  completion = null;
+  resolve(outcome);
+}
+
+function settleSegment(
+  targetGeneration: number,
+  outcome: ToumaiVoiceOutcome,
+) {
+  if (segmentCompletion?.generation !== targetGeneration) return;
+  const resolve = segmentCompletion.resolve;
+  segmentCompletion = null;
+  resolve(outcome);
 }
 
 export function stopToumaiVoice(owner?: string): boolean {
   if (owner && snapshot.owner !== owner) return false;
 
+  const stoppedGeneration = generation;
   generation += 1;
   aborter?.abort();
   aborter = null;
@@ -110,7 +130,8 @@ export function stopToumaiVoice(owner?: string): boolean {
   }
 
   cleanupUrl();
-  settle("stopped");
+  settleSegment(stoppedGeneration, "stopped");
+  settleCompletion(stoppedGeneration, "stopped");
   publish({ owner: null, phase: "idle", error: null });
   return true;
 }
@@ -139,11 +160,19 @@ async function playSegment(
     const finish = (outcome: ToumaiVoiceOutcome) => {
       if (settled) return;
       settled = true;
+      if (segmentCompletion?.generation === myGeneration) {
+        segmentCompletion = null;
+      }
       if (audio === element) audio = null;
       element.onended = null;
       element.onerror = null;
       cleanupUrl();
       resolve(outcome);
+    };
+
+    segmentCompletion = {
+      generation: myGeneration,
+      resolve: (outcome) => finish(outcome),
     };
 
     element.onended = () => finish("ended");
@@ -183,15 +212,15 @@ export async function playToumaiVoice(
 
   let produced = false;
 
-  const completion = new Promise<ToumaiVoiceOutcome>((resolve) => {
-    resolveCurrent = resolve;
+  const completionPromise = new Promise<ToumaiVoiceOutcome>((resolve) => {
+    completion = { generation: myGeneration, resolve };
   });
 
   void (async () => {
     try {
       for await (const segment of streamSpeech(text, controller.signal)) {
         if (myGeneration !== generation || controller.signal.aborted) {
-          settle("stopped");
+          settleCompletion(myGeneration, "stopped");
           return;
         }
 
@@ -212,13 +241,13 @@ export async function playToumaiVoice(
               error: "La lecture audio n’a pas pu démarrer sur cet appareil.",
             });
           }
-          settle(outcome);
+          settleCompletion(myGeneration, outcome);
           return;
         }
       }
 
       if (myGeneration !== generation || controller.signal.aborted) {
-        settle("stopped");
+        settleCompletion(myGeneration, "stopped");
         return;
       }
 
@@ -228,16 +257,16 @@ export async function playToumaiVoice(
           phase: "idle",
           error: "Zenaba n’a produit aucun audio.",
         });
-        settle("error");
+        settleCompletion(myGeneration, "error");
         return;
       }
 
       aborter = null;
       publish({ owner: null, phase: "idle", error: null });
-      settle("ended");
+      settleCompletion(myGeneration, "ended");
     } catch (err) {
       if (controller.signal.aborted || myGeneration !== generation) {
-        settle("stopped");
+        settleCompletion(myGeneration, "stopped");
         return;
       }
       aborter = null;
@@ -246,9 +275,9 @@ export async function playToumaiVoice(
         phase: "idle",
         error: errorMessage(err, "voice"),
       });
-      settle("error");
+      settleCompletion(myGeneration, "error");
     }
   })();
 
-  return completion;
+  return completionPromise;
 }
