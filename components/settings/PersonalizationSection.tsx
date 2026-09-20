@@ -17,6 +17,7 @@ const LANGUAGES: { value: string; label: string }[] = [
   { value: "fr", label: "Français" },
   { value: "en", label: "English" },
   { value: "ar", label: "العربية" },
+  { value: "ar_td", label: "Arabe tchadien" },
 ];
 
 export function PersonalizationSection() {
