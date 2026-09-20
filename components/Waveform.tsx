@@ -16,8 +16,12 @@ export function useMicLevels(
 
   useEffect(() => {
     if (!active) {
-      setLevels(Array(bars).fill(0.08));
-      return;
+      // React 19 déconseille une mise à jour d'état synchrone directement
+      // pendant l'effet. Le reset visuel est reporté à la prochaine frame.
+      const resetFrame = requestAnimationFrame(() => {
+        setLevels(Array(bars).fill(0.08));
+      });
+      return () => cancelAnimationFrame(resetFrame);
     }
     let stream: MediaStream | null = providedStream ?? null;
     let ownsStream = false;
