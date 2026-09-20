@@ -127,7 +127,7 @@ function drainSpeechSegments(input: string, flush = false): SpeechDrain {
     // Phrase complète. Le lookahead exige soit un espace, soit la fin du flux.
     // À la fin d'un chunk LLM, on attend le chunk suivant sauf en flush final,
     // afin de ne pas prendre un point d'abréviation pour une fin de phrase.
-    const sentenceRe = /[.!?…]+(?:["»”')\]]*)\s+/g;
+    const sentenceRe = /[.!?؟…]+(?:["»”')\]]*)\s+/g;
     let sentence: RegExpExecArray | null;
     let sentenceEnd = -1;
     while ((sentence = sentenceRe.exec(rest)) !== null) {
