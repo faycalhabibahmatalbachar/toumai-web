@@ -1,10 +1,6 @@
 name: Zenaba Pocket Engine Smoke
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/zenaba-pocket-engine-smoke.yml"
   workflow_dispatch:
 
 permissions:
@@ -20,6 +16,15 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Require gated Pocket voice-cloning access
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::BLOCKED — HF_TOKEN secret missing. Accept kyutai/pocket-tts terms, then configure a read token as repository secret HF_TOKEN."
+            exit 1
+          fi
+
       - name: Install Pocket TTS CPU
         run: |
           python -m pip install --disable-pip-version-check --no-cache-dir             --extra-index-url https://download.pytorch.org/whl/cpu             "pocket-tts==3.1.0"
@@ -30,6 +35,8 @@ jobs:
           echo "d8a8b161c37c0ce8c50345828c586c2d63ebeeb16dafdbe0ccb6011ccfaf3192  zenaba-reference.wav"             | sha256sum --check -
 
       - name: Generate real Zenaba Pocket stream
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'PY'
           import time
