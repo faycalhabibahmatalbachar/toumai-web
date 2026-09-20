@@ -1,4 +1,4 @@
-name: Zenaba Pocket Reference Smoke
+name: Zenaba Chatterbox V3 Reference Smoke
 
 on:
   pull_request:
@@ -16,34 +16,22 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch selected official Kyutai reference
+      - name: Fetch official Resemble AI French reference
         run: |
-          curl --fail --location --retry 3 --silent --show-error             "https://huggingface.co/kyutai/tts-voices/resolve/519207ec31386971c13631b9a177d63a1a5d05af/cml-tts/fr/1591_1028_000108-0004_enhanced.wav"             --output zenaba-reference.wav
-      - name: Validate WAV reference
+          curl --fail --location --retry 3 --silent --show-error \
+            "https://storage.googleapis.com/chatterbox-demo-samples/mtl_prompts/fr_f1.flac" \
+            --output fr_f1.flac
+      - name: Validate exact Zenaba reference
         run: |
           python - <<'PY'
+          import hashlib
           from pathlib import Path
 
-          p = Path("zenaba-reference.wav")
+          p = Path("fr_f1.flac")
           data = p.read_bytes()
-          if len(data) < 4096:
-              raise SystemExit(f"Reference audio too small: {len(data)} bytes")
-          if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-              raise SystemExit(f"Invalid WAV header: {data[:12].hex()}")
-          import hashlib
-          digest = hashlib.sha256(data).hexdigest()
-          expected = "d8a8b161c37c0ce8c50345828c586c2d63ebeeb16dafdbe0ccb6011ccfaf3192"
-          if digest != expected:
-              raise SystemExit(f"Unexpected Zenaba SHA-256: {digest}")
-          print(
-              f"ZENABA_REFERENCE_OK bytes={len(data)} "
-              f"sha256={digest} header={data[:12].hex()}"
-          )
+          expected = "dbb98ac119e217b7c6c328b4ce3ba4fd691aa6c52f100cfa94b92972f1fa96a6"
+          assert len(data) > 4096
+          assert data[:4] == b"fLaC"
+          assert hashlib.sha256(data).hexdigest() == expected
+          print("ZENABA_FR_F1_OK")
           PY
-      - name: Upload reference proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: zenaba-pocket-reference
-          path: zenaba-reference.wav
-          if-no-files-found: error
-          retention-days: 3
