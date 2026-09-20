@@ -23,7 +23,7 @@ on:
       - "package-lock.json"
       - ".github/workflows/toumai-voice-v1.yml"
   push:
-    branches: [main]
+    branches: [main, feat/toumai-voice-v1-arabic]
     paths:
       - "components/ChatMessage.tsx"
       - "components/VoiceModeOverlay.tsx"
