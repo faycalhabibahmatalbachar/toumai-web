@@ -227,9 +227,16 @@ export function describeError(err: unknown, context: ErrorContext = "generic"): 
       }
       case err.status === 502 || err.status === 503 || err.status === 504:
         return {
-          // Le backend s'endort quand il n'est pas sollicité : le premier appel
-          // le réveille et peut échouer. Le dire évite de faire croire à une panne.
-          message: "Toumaï AI redémarre. Réessayez dans quelques secondes.",
+          // Une erreur 502/503/504 de la voix vient du moteur TTS amont, pas
+          // nécessairement d'un redémarrage du backend. Préserver le message
+          // sûr du serveur évite le faux diagnostic « Toumaï AI redémarre ».
+          message:
+            context === "voice"
+              ? fromServer ??
+                (err.status === 504
+                  ? "La synthèse vocale a dépassé le délai. Réessayez."
+                  : "La voix Zenaba est momentanément indisponible. Réessayez dans un instant.")
+              : "Toumaï AI redémarre. Réessayez dans quelques secondes.",
           retryable: true,
           kind: "server",
         };
