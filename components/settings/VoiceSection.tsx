@@ -1,130 +1,126 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { Check, Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
 import {
   getPreferences,
+  listVoices,
   updatePreferences,
   type Preferences,
+  type Voice,
 } from "@/lib/preferences-api";
+import { synthesizeSpeech } from "@/lib/voice-api";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
-import {
-  getToumaiVoiceServerSnapshot,
-  getToumaiVoiceSnapshot,
-  playToumaiVoice,
-  stopToumaiVoice,
-  subscribeToumaiVoice,
-} from "@/lib/toumai-voice-player";
 import { Panel, Row, Segmented } from "./Rows";
 
-const PREVIEW_OWNER = "settings:zenaba";
-const PREVIEW_TEXT =
-  "Bonjour Fayçal, comment puis-je vous aider aujourd’hui ? " +
-  "Je peux lire vos réponses, vos rappels et vos notifications " +
-  "avec une voix naturelle et agréable.";
+const LANG_LABEL: Record<string, string> = {
+  fr: "Français",
+  ar: "Arabe",
+  en: "Anglais",
+};
 
 export function VoiceSection() {
+  const [voices, setVoices] = useState<Voice[]>(() => cacheSeed<Voice[]>("voices:list") ?? []);
+  const [selected, setSelected] = useState<string | undefined>(
+    () => cacheSeed<Preferences>("user:prefs")?.tts_voice,
+  );
   const [speed, setSpeed] = useState<number>(
     () => cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1.0,
   );
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [loadingSample, setLoadingSample] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const voice = useSyncExternalStore(
-    subscribeToumaiVoice,
-    getToumaiVoiceSnapshot,
-    getToumaiVoiceServerSnapshot,
-  );
-  const phase = voice.owner === PREVIEW_OWNER ? voice.phase : "idle";
-  const voiceError = voice.owner === PREVIEW_OWNER ? voice.error : null;
+  const [loading, setLoading] = useState(() => (cacheSeed<Voice[]>("voices:list") ?? []).length === 0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    getPreferences()
-      .then((prefs) => {
-        const normalized = { ...prefs, tts_voice: "zenaba" };
-        setSpeed(prefs.tts_speed ?? 1.0);
-        cacheWrite("user:prefs", normalized);
-        if (prefs.tts_voice !== "zenaba") {
-          void updatePreferences({ tts_voice: "zenaba" }).catch(() => {});
-        }
+    Promise.all([listVoices(), getPreferences()])
+      .then(([v, p]) => {
+        setVoices(v.voices);
+        cacheWrite("voices:list", v.voices);
+        setSelected(p.tts_voice);
+        setSpeed(p.tts_speed ?? 1.0);
+        cacheWrite("user:prefs", p);
       })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Chargement impossible");
-      });
-
+      .catch((err) =>
+        setVoices((c) => {
+          if (c.length === 0) setError(err instanceof Error ? err.message : "Chargement impossible");
+          return c;
+        }),
+      )
+      .finally(() => setLoading(false));
     return () => {
-      stopToumaiVoice(PREVIEW_OWNER);
+      audioRef.current?.pause();
     };
   }, []);
 
-  async function saveSpeed(v: string) {
-    const value = Number(v);
-    const previous = speed;
-    setSpeed(value);
+  async function pick(voiceId: string) {
+    const prev = selected;
+    setSelected(voiceId);
     setError(null);
     try {
-      await updatePreferences({ tts_speed: value, tts_voice: "zenaba" });
-      const cached = cacheSeed<Preferences>("user:prefs");
-      if (cached) {
-        cacheWrite("user:prefs", {
-          ...cached,
-          tts_voice: "zenaba",
-          tts_speed: value,
-        });
-      }
+      await updatePreferences({ tts_voice: voiceId });
     } catch (err) {
-      setSpeed(previous);
-      setError(err instanceof Error ? err.message : "Échec de l’enregistrement");
+      setSelected(prev);
+      setError(err instanceof Error ? err.message : "Échec de l'enregistrement");
     }
   }
 
-  function togglePreview() {
+  async function saveSpeed(v: string) {
+    const value = Number(v);
+    const prev = speed;
+    setSpeed(value);
     setError(null);
-    void playToumaiVoice(PREVIEW_TEXT, PREVIEW_OWNER, speed);
+    try {
+      await updatePreferences({ tts_speed: value });
+      const cached = cacheSeed<Preferences>("user:prefs");
+      if (cached) cacheWrite("user:prefs", { ...cached, tts_speed: value });
+      // Si un échantillon joue, on ajuste sa vitesse immédiatement.
+      if (audioRef.current) audioRef.current.playbackRate = value;
+    } catch (err) {
+      setSpeed(prev);
+      setError(err instanceof Error ? err.message : "Échec de l'enregistrement");
+    }
   }
+
+  /** Joue le VRAI échantillon via le moteur TTS du backend — même pipeline
+   * que le mode vocal, pas un extrait préenregistré. */
+  async function playSample(voice: Voice) {
+    audioRef.current?.pause();
+    if (playing === voice.id) {
+      setPlaying(null);
+      return;
+    }
+    setLoadingSample(voice.id);
+    setError(null);
+    try {
+      const { audio_base64, mime_type } = await synthesizeSpeech(voice.sample, voice.id);
+      const audio = new Audio(`data:${mime_type};base64,${audio_base64}`);
+      // La vitesse choisie s'applique réellement — l'échantillon la reflète.
+      audio.playbackRate = speed;
+      audioRef.current = audio;
+      setPlaying(voice.id);
+      audio.onended = () => setPlaying(null);
+      audio.onerror = () => setPlaying(null);
+      await audio.play();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Écoute impossible pour le moment");
+      setPlaying(null);
+    } finally {
+      setLoadingSample(null);
+    }
+  }
+
+  if (loading) {
+    return <div className="h-64 w-full animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden="true" />;
+  }
+
+  const langs = [...new Set(voices.map((v) => v.lang))];
 
   return (
     <div>
-      <Panel title="Voix Toumaï">
-        <div className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-5 py-4 first:border-t-0">
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-              <span>Zenaba</span>
-              <span
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                style={{
-                  background: "color-mix(in srgb, var(--primary) 14%, transparent)",
-                  color: "var(--primary-light)",
-                }}
-              >
-                <Check size={10} />
-                Voix Toumaï
-              </span>
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-              Voix officielle de Toumaï · Français
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={togglePreview}
-            aria-label={phase === "idle" ? "Écouter Zenaba" : "Arrêter Zenaba"}
-            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--text-primary)]"
-          >
-            {phase === "loading" ? (
-              <span className="h-3 w-3 animate-pulse rounded-full bg-current" />
-            ) : phase === "playing" ? (
-              <Pause size={13} fill="currentColor" />
-            ) : (
-              <Play size={13} fill="currentColor" />
-            )}
-            {phase === "playing" ? "Arrêter" : phase === "loading" ? "Annuler" : "Écouter"}
-          </button>
-        </div>
-      </Panel>
-
       <Panel title="Vitesse de lecture">
-        <Row label="Vitesse" description="Rythme de Zenaba pendant la lecture.">
+        <Row label="Vitesse" description="Rythme de la voix en mode vocal.">
           <Segmented
             options={[
               { value: "0.75", label: "0,75×" },
@@ -137,9 +133,67 @@ export function VoiceSection() {
         </Row>
       </Panel>
 
-      {(error || voiceError) && (
-        <p className="text-sm text-[var(--error)]">{error || voiceError}</p>
-      )}
+      {langs.map((lang) => (
+        <Panel key={lang} title={LANG_LABEL[lang] ?? lang.toUpperCase()}>
+          {voices
+            .filter((v) => v.lang === lang)
+            .map((v) => (
+              <div
+                key={v.id}
+                className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-5 py-3.5 first:border-t-0"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <button
+                    onClick={() => playSample(v)}
+                    disabled={loadingSample !== null && loadingSample !== v.id}
+                    aria-label={`Écouter ${v.label}`}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--primary)] transition hover:border-[var(--primary)] disabled:opacity-40"
+                  >
+                    {loadingSample === v.id ? (
+                      <span
+                        className="h-3 w-3 animate-pulse rounded-full"
+                        style={{ background: "var(--primary)" }}
+                      />
+                    ) : playing === v.id ? (
+                      <Pause size={12} fill="currentColor" />
+                    ) : (
+                      <Play size={12} fill="currentColor" />
+                    )}
+                  </button>
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                      <span className="truncate">{v.label}</span>
+                      {v.recommended && (
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                          style={{
+                            background: "color-mix(in srgb, var(--primary) 14%, transparent)",
+                            color: "var(--primary-light)",
+                          }}
+                        >
+                          Recommandée
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-xs text-[var(--text-tertiary)]">{v.desc}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => pick(v.id)}
+                  aria-label={`Choisir ${v.label}`}
+                  className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition"
+                  style={{ borderColor: selected === v.id ? "var(--primary)" : "var(--border)" }}
+                >
+                  {selected === v.id && (
+                    <span className="h-2 w-2 rounded-full" style={{ background: "var(--primary)" }} />
+                  )}
+                </button>
+              </div>
+            ))}
+        </Panel>
+      ))}
+
+      {error && <p className="text-sm text-[var(--error)]">{error}</p>}
     </div>
   );
 }

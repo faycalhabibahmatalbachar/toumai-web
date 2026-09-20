@@ -13,8 +13,7 @@
     "test:today": "node scripts/verify-today-center.mjs",
     "test:reminder-widget": "node scripts/verify-personal-reminder-widget.mjs",
     "test:notification-channels": "node scripts/verify-reminder-multichannel.mjs",
-    "test:notification-diagnostic": "node scripts/verify-notification-channel-test-center.mjs",
-    "test:voice-v1": "node scripts/verify-toumai-voice-v1.mjs"
+    "test:notification-diagnostic": "node scripts/verify-notification-channel-test-center.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

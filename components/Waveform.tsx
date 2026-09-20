@@ -5,46 +5,27 @@ import { useEffect, useRef, useState } from "react";
 /** Analyse l'amplitude du micro en direct pendant que `active` est vrai —
  * flux getUserMedia séparé de celui de SpeechRecognition (qui gère sa
  * propre capture en interne), donc pas de conflit avec la dictée. */
-export function useMicLevels(
-  active: boolean,
-  bars = 5,
-  providedStream?: MediaStream | null,
-  acquireIfMissing = true,
-): number[] {
+export function useMicLevels(active: boolean, bars = 5): number[] {
   const [levels, setLevels] = useState<number[]>(() => Array(bars).fill(0.08));
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!active) {
-      // React 19 déconseille une mise à jour d'état synchrone directement
-      // pendant l'effet. Le reset visuel est reporté à la prochaine frame.
-      const resetFrame = requestAnimationFrame(() => {
-        setLevels(Array(bars).fill(0.08));
-      });
-      return () => cancelAnimationFrame(resetFrame);
+      setLevels(Array(bars).fill(0.08));
+      return;
     }
-    let stream: MediaStream | null = providedStream ?? null;
-    let ownsStream = false;
+    let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;
     let cancelled = false;
 
     (async () => {
       try {
-        if (!stream) {
-          if (!acquireIfMissing) return;
-          if (!navigator.mediaDevices?.getUserMedia) return;
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          ownsStream = true;
-        }
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (cancelled) {
-          if (ownsStream) stream.getTracks().forEach((t) => t.stop());
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        const AudioCtx =
-          window.AudioContext ??
-          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioCtx) return;
-        ctx = new AudioCtx();
+        ctx = new AudioContext();
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
@@ -75,10 +56,10 @@ export function useMicLevels(
     return () => {
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (ownsStream) stream?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((t) => t.stop());
       ctx?.close().catch(() => {});
     };
-  }, [active, bars, providedStream, acquireIfMissing]);
+  }, [active, bars]);
 
   return levels;
 }
