@@ -30,8 +30,8 @@ def test_french_detection_is_fail_closed():
 async def test_zenaba_is_the_only_synthesized_voice(monkeypatch):
     calls = []
 
-    async def fake(text):
-        calls.append(text)
+    async def fake(text, language="fr"):
+        calls.append((text, language))
         return b"RIFF....WAVEaudio"
 
     monkeypatch.setattr(tts_service, "synthesize_chatterbox", fake)
@@ -39,6 +39,7 @@ async def test_zenaba_is_the_only_synthesized_voice(monkeypatch):
     assert audio.startswith(b"RIFF")
     assert mime == "audio/wav"
     assert len(calls) == 1
+    assert calls[0][1] == "fr"
 
 
 @pytest.mark.asyncio
@@ -60,7 +61,7 @@ async def test_other_voice_and_non_french_are_rejected(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_engine_failure_is_fail_closed(monkeypatch):
-    async def unavailable(_text):
+    async def unavailable(_text, _language="fr"):
         raise tts_service.TtsProviderError("chatterbox", "indisponible", 503)
 
     monkeypatch.setattr(tts_service, "synthesize_chatterbox", unavailable)
@@ -72,8 +73,9 @@ async def test_engine_failure_is_fail_closed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_live_returns_only_chatterbox_wav(monkeypatch):
-    async def fake(text):
+    async def fake(text, language="fr"):
         assert "Bonjour" in text
+        assert language == "fr"
         return b"RIFF....WAVEpcm"
 
     monkeypatch.setattr(tts_service, "synthesize_chatterbox", fake)
