@@ -1,0 +1,65 @@
+name: Zenaba Final Backend Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".ci/zenaba-final/**"
+      - ".github/workflows/zenaba-final-backend-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile final Zenaba Python surfaces
+        run: |
+          python -m py_compile             .ci/zenaba-final/core/config.py             .ci/zenaba-final/routers/voice.py             .ci/zenaba-final/services/tts_service.py             .ci/zenaba-final/tests/test_toumai_voice_v1.py             .ci/zenaba-final/voice-zenaba-pocket/app.py             .ci/zenaba-final/voice-zenaba-pocket/smoke.py
+      - name: Enforce final Pocket contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path(".ci/zenaba-final")
+          service = (root / "services/tts_service.py").read_text()
+          app = (root / "voice-zenaba-pocket/app.py").read_text()
+          router = (root / "routers/voice.py").read_text()
+          smoke = (root / "voice-zenaba-pocket/smoke.py").read_text()
+          checks = {
+              "Pocket only": 'return ["pocket"]' in service,
+              "Reference 1591": "1591_1028_000108-0004_enhanced.wav" in service and "1591_1028_000108-0004_enhanced.wav" in app,
+              "No Chatterbox active": "synthesize_chatterbox" not in service and "chatterbox_health_check" not in service,
+              "Native live endpoint": "/synthesize/live" in router,
+              "Gated HF token": 'HF_TOKEN = os.getenv("HF_TOKEN"' in app,
+              "Shared secret": "ZENABA_SERVICE_TOKEN" in app,
+              "Bound PCM queue": "Queue(maxsize=16)" in app,
+              "Interruptible queue": "queue.put(item, timeout=0.25)" in app,
+              "Interruptible engine lock": "_generation_lock.acquire(timeout=0.25)" in app,
+              "Capacity guard": "ZENABA_MAX_PENDING_GENERATIONS" in app and "Retry-After" in app,
+              "Watchdog": "ZENABA_HARD_GENERATION_SECONDS" in app,
+              "Smoke checks RIFF": "RIFF" in smoke and "WAVE" in smoke,
+              "Smoke checks 401": "attendu 401" in smoke,
+              "Smoke checks 422": "attendu 422" in smoke,
+          }
+          failed = [k for k,v in checks.items() if not v]
+          for k,v in checks.items():
+              print(("PASS " if v else "FAIL ") + k)
+          if failed:
+              raise SystemExit("Final contract failures: " + ", ".join(failed))
+          PY
+
+  pocket-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build final Pocket image
+        run: |
+          docker build             -f .ci/zenaba-final/voice-zenaba-pocket/Dockerfile             -t toumai-zenaba-pocket:final-check             .ci/zenaba-final/voice-zenaba-pocket
