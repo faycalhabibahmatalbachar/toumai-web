@@ -69,6 +69,22 @@ export function cacheRead<T>(key: string): Entry<T> | null {
     const e = JSON.parse(raw) as Entry<T>;
     if (!e || typeof e.at !== "number") return null;
     if (e.ver !== VERSION) return null;
+    // UNE ENTRÉE SANS VALEUR EST UN DÉFAUT DE CACHE, PAS UNE VALEUR.
+    //
+    // Le 20/09/2026, `toumai:cache:anon:user:profile` existait en
+    // localStorage sans champ `v`. L'entrée était donc « trouvée », et les
+    // appelants recevaient `undefined` là où ils attendaient un profil :
+    // `p.full_name` levait une TypeError pendant le rendu, et TOUTE la page
+    // /chat tombait sur « This page couldn't load ». Un cache est censé
+    // accélérer une page, jamais l'empêcher de s'afficher.
+    //
+    // Une entrée peut arriver dans cet état par une écriture interrompue, un
+    // quota atteint en cours d'écriture, ou une version antérieure du format.
+    // Dans les trois cas, la bonne réponse est la même : faire comme si de
+    // rien n'était et laisser le réseau fournir la valeur.
+    if (!Object.prototype.hasOwnProperty.call(e, "v") || e.v === undefined) {
+      return null;
+    }
     // Double garde : la clé porte déjà le propriétaire, mais un cache écrit
     // avant connexion ne doit pas être servi au compte qui se connecte.
     if (e.who && e.who !== owner()) return null;
