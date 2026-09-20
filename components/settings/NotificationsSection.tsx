@@ -87,7 +87,7 @@ export function NotificationsSection() {
   const [v3Available, setV3Available] = useState(false);
   const voiceSupported = useSyncExternalStore(
     () => () => undefined,
-    () => "speechSynthesis" in window,
+    () => typeof Audio !== "undefined",
     () => false,
   );
   const [busy, setBusy] = useState<string | null>(null);
@@ -292,8 +292,8 @@ export function NotificationsSection() {
           label="Voix Toumaï"
           description={
             voiceSupported
-              ? "Lit les rappels à voix haute uniquement quand Toumaï est ouvert au premier plan."
-              : "La lecture vocale n’est pas prise en charge par ce navigateur."
+              ? "Zenaba lit les rappels à voix haute uniquement quand Toumaï est ouvert au premier plan."
+              : "La lecture audio n’est pas prise en charge par ce navigateur."
           }
         >
           <CxSwitch

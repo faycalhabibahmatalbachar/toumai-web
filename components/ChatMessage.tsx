@@ -410,7 +410,7 @@ export function ChatMessage({
               {rated && <span className="animate-fade-in pl-1 text-xs text-[var(--text-tertiary)]">Merci pour votre retour !</span>}
             </>
           )}
-          <button onClick={() => speech.speak(message.content)} title={speech.state === "idle" ? "Lire à voix haute" : "Arrêter la lecture"} aria-label={speech.state === "idle" ? "Lire la réponse à voix haute" : "Arrêter la lecture"} disabled={speech.state === "loading"} className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]" style={speech.state === "playing" ? { color: "var(--primary)" } : undefined}>{speech.state === "loading" ? <SpinnerIcon /> : speech.state === "playing" ? <SpeakerStopIcon /> : <SpeakerIcon />}</button>
+          <button onClick={() => speech.speak(message.content)} title={speech.state === "idle" ? "Lire à voix haute" : "Arrêter la lecture"} aria-label={speech.state === "idle" ? "Lire la réponse à voix haute" : "Arrêter la lecture"} className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]" style={speech.state === "playing" ? { color: "var(--primary)" } : undefined}>{speech.state === "loading" ? <SpinnerIcon /> : speech.state === "playing" ? <SpeakerStopIcon /> : <SpeakerIcon />}</button>
           {onRegenerate && <button onClick={onRegenerate} title="Régénérer" aria-label="Régénérer la réponse" className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"><RegenerateIcon /></button>}
           {speech.error && <span className="pl-1 text-xs text-[var(--text-tertiary)]">{speech.error}</span>}
         </div>

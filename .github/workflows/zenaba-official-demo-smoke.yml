@@ -1,0 +1,55 @@
+# ATTESTE L'OPTION POCKET, PAS LA VOIX EN SERVICE.
+#
+# Le moteur actif de Zenaba est Chatterbox Multilingual V3, dont la référence
+# est attestée par `zenaba-reference-smoke.yml`. Ce fichier-ci garde la preuve
+# de l'échantillon Kyutai, conservé pour le jour où Pocket redeviendrait une
+# option. Un vert ici ne dit rien de la voix que les gens entendent.
+name: Pocket (inactif) — Kyutai Reference Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/zenaba-official-demo-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch selected official Kyutai reference
+        run: |
+          curl --fail --location --retry 3 --silent --show-error             "https://huggingface.co/kyutai/tts-voices/resolve/519207ec31386971c13631b9a177d63a1a5d05af/cml-tts/fr/1591_1028_000108-0004_enhanced.wav"             --output zenaba-reference.wav
+      - name: Validate WAV reference
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("zenaba-reference.wav")
+          data = p.read_bytes()
+          if len(data) < 4096:
+              raise SystemExit(f"Reference audio too small: {len(data)} bytes")
+          if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+              raise SystemExit(f"Invalid WAV header: {data[:12].hex()}")
+          import hashlib
+          digest = hashlib.sha256(data).hexdigest()
+          expected = "d8a8b161c37c0ce8c50345828c586c2d63ebeeb16dafdbe0ccb6011ccfaf3192"
+          if digest != expected:
+              raise SystemExit(f"Unexpected Zenaba SHA-256: {digest}")
+          print(
+              f"ZENABA_REFERENCE_OK bytes={len(data)} "
+              f"sha256={digest} header={data[:12].hex()}"
+          )
+          PY
+      - name: Upload reference proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenaba-pocket-reference
+          path: zenaba-reference.wav
+          if-no-files-found: error
+          retention-days: 3

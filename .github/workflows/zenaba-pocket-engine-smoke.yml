@@ -1,0 +1,29 @@
+name: Zenaba Pocket Engine Contract
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce Northflank-only gated credentials
+        run: |
+          if grep -R --line-number --fixed-strings 'secrets.'"HF_TOKEN" .github; then
+            echo 'HF_TOKEN must remain exclusively in Northflank secrets.' >&2
+            exit 1
+          fi
+      - name: Enforce Pocket-only source contract
+        run: |
+          grep --fixed-strings 'voice: "zenaba"' lib/voice-api.ts
+          grep --fixed-strings 'language: "fr"' lib/voice-api.ts
+          grep --fixed-strings '/voice/synthesize/live' lib/voice-api.ts
+          ! grep -R --line-number --fixed-strings 'speechSynthesis' hooks/useSpeakText.ts lib/toumai-voice-player.ts components/VoiceModeOverlay.tsx
+
+# The actual gated model/audio smoke is deliberately run only against the
+# Northflank service. HF_TOKEN must never be copied to GitHub Actions.
