@@ -47,10 +47,10 @@ async function ttsHttpError(res: Response): Promise<HttpError> {
 }
 
 /**
- * Toumaï Voice V1 est volontairement figée sur Zenaba, en français.
- * Le paramètre legacyVoice reste toléré pendant la migration des anciens
- * composants mais n'est jamais transmis : aucun client ne peut choisir un
- * autre timbre.
+ * Toumaï Voice V1 garde une seule identité vocale, Zenaba.
+ * La langue est résolue côté backend ("auto") : français par défaut, arabe
+ * pour l'écriture arabe ou l'arabe tchadien translittéré reconnu. Le client
+ * ne choisit jamais un autre timbre.
  */
 export async function synthesizeSpeech(
   text: string,
@@ -60,7 +60,7 @@ export async function synthesizeSpeech(
   const res = await authFetch("/voice/synthesize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
+    body: JSON.stringify({ text, language: "auto", voice: "zenaba" }),
     signal,
   });
   if (!res.ok) throw await ttsHttpError(res);
@@ -87,7 +87,7 @@ export async function openLiveSpeechStream(
   const res = await authFetch("/voice/synthesize/live", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "audio/wav" },
-    body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
+    body: JSON.stringify({ text, language: "auto", voice: "zenaba" }),
     signal,
   });
   if (!res.ok || !res.body) throw await ttsHttpError(res);
@@ -110,7 +110,7 @@ export async function* streamSpeech(
   const res = await authFetch("/voice/synthesize/stream?format=ndjson", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
-    body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
+    body: JSON.stringify({ text, language: "auto", voice: "zenaba" }),
     signal,
   });
   if (!res.ok || !res.body) throw await ttsHttpError(res);

@@ -101,7 +101,7 @@ export function VoiceSection() {
               </span>
             </p>
             <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-              Voix officielle de Toumaï · Français
+              Voix officielle de Toumaï · Français · العربية
             </p>
           </div>
 

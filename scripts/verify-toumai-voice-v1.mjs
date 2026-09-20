@@ -11,13 +11,14 @@ const chat = fs.readFileSync("components/ChatMessage.tsx", "utf8");
 const voiceMode = fs.readFileSync("components/VoiceModeOverlay.tsx", "utf8");
 const waveform = fs.readFileSync("components/Waveform.tsx", "utf8");
 const chatPage = fs.readFileSync("app/chat/page.tsx", "utf8");
+const personalization = fs.readFileSync("components/settings/PersonalizationSection.tsx", "utf8");
 
 function expect(ok, message) {
   if (!ok) throw new Error(message);
 }
 
 expect(api.includes('voice: "zenaba"'), "TTS API must force Zenaba");
-expect(api.includes('language: "fr"'), "TTS API must force French in V1");
+expect(api.includes('language: "auto"'), "TTS API must let backend resolve French or Arabic in V1");
 expect(api.includes("/voice/synthesize/stream?format=ndjson"), "chat must have streamed TTS");
 expect(api.includes("AbortSignal"), "TTS API must support cancellation");
 expect(api.includes("/voice/synthesize/live"), "Pocket live API must use the authenticated raw WAV endpoint");
@@ -49,12 +50,15 @@ expect(hook.includes("stopToumaiVoice(owner)"), "chat unmount must stop its audi
 expect(bridge.includes("playToumaiVoice"), "reminders must use the same Zenaba player");
 expect(!bridge.includes("speechSynthesis"), "reminders must not use browser speechSynthesis");
 expect(bridge.includes('outcome === "ended"'), "voice diagnostic may only confirm after actual playback end");
-expect(bridge.includes('locale.startsWith("fr")'), "non-French reminders must fail closed in V1");
+expect(bridge.includes('locale.startsWith("fr")'), "French reminder locale gate missing");
+expect(bridge.includes('locale.startsWith("ar")'), "Arabic reminder locale gate missing");
+expect(bridge.includes('locale === "shu"'), "Chadian Arabic reminder locale gate missing");
 expect(bridge.includes("waitForToumaiVoiceConversationIdle"), "reminders must wait while live conversation is active");
 expect(bridge.includes("reminderSpeechQueue"), "simultaneous reminders must be queued, not overlap");
 
 expect(voiceSettings.includes("Zenaba"), "settings must display Zenaba");
-expect(voiceSettings.includes("Voix officielle de Toumaï · Français"), "settings must explain the official French voice");
+expect(personalization.includes('value: "ar_td"'), "personalization must expose Chadian Arabic");
+expect(voiceSettings.includes("Voix officielle de Toumaï · Français · العربية"), "settings must explain French and Arabic Zenaba");
 expect(!voiceSettings.includes("listVoices"), "settings must not expose a multi-voice catalog");
 expect(!voiceSettings.includes("Choisir"), "settings must not expose a voice selector");
 
@@ -76,6 +80,9 @@ expect(voiceMode.includes("drain(true)"), "voice mode must flush the final text 
 expect(voiceMode.includes("onCancel?.()"), "voice interruption must cancel the live LLM stream");
 expect(voiceMode.includes("turnRef.current"), "stale voice-turn callbacks must be invalidated");
 expect(voiceMode.includes("m.index ?? 0"), "voice segmentation must split only on explicit boundaries");
+expect(voiceMode.includes("؟"), "voice segmentation must recognize Arabic question marks");
+expect(voiceMode.includes("،"), "voice segmentation must recognize Arabic commas");
+expect(voiceMode.includes("؛"), "voice segmentation must recognize Arabic semicolons");
 expect(voiceMode.includes("SUSTAINED_SPEECH_MS = 180"), "short utterances such as oui/non must be accepted");
 expect(voiceMode.includes("MIN_TOTAL_SPEECH_MS = 220"), "short voice turns must not require 400ms of speech");
 expect(voiceMode.includes("captureEpochRef"), "stale microphone and STT sessions must be invalidated");

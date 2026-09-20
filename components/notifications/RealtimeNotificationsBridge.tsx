@@ -51,10 +51,17 @@ async function speakReminderNow(n: RealtimeNotification) {
   const body = String(n.body ?? "").trim();
   if (!body) return;
 
-  // V1 est française uniquement. Une notification explicitement marquée dans
-  // une autre langue reste visuelle : on ne lui prête jamais une autre voix.
-  const locale = String(n.locale ?? "fr").trim().toLowerCase();
-  if (locale && !locale.startsWith("fr")) {
+  // V1 reste une seule voix (Zenaba) mais accepte désormais français et
+  // arabe lorsque le backend a activé l'arabe. Les autres langues restent
+  // visuelles uniquement : aucun fallback vocal.
+  const locale = String(n.locale ?? "auto").trim().toLowerCase();
+  const supportedLocale =
+    !locale ||
+    locale === "auto" ||
+    locale === "shu" ||
+    locale.startsWith("fr") ||
+    locale.startsWith("ar");
+  if (!supportedLocale) {
     window.dispatchEvent(
       new CustomEvent("toumai:notification-voice-error", { detail: n }),
     );
