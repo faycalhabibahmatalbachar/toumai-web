@@ -11,6 +11,7 @@ const chat = fs.readFileSync("components/ChatMessage.tsx", "utf8");
 const voiceMode = fs.readFileSync("components/VoiceModeOverlay.tsx", "utf8");
 const waveform = fs.readFileSync("components/Waveform.tsx", "utf8");
 const chatPage = fs.readFileSync("app/chat/page.tsx", "utf8");
+const personalization = fs.readFileSync("components/settings/PersonalizationSection.tsx", "utf8");
 
 function expect(ok, message) {
   if (!ok) throw new Error(message);
@@ -56,6 +57,7 @@ expect(bridge.includes("waitForToumaiVoiceConversationIdle"), "reminders must wa
 expect(bridge.includes("reminderSpeechQueue"), "simultaneous reminders must be queued, not overlap");
 
 expect(voiceSettings.includes("Zenaba"), "settings must display Zenaba");
+expect(personalization.includes('value: "ar_td"'), "personalization must expose Chadian Arabic");
 expect(voiceSettings.includes("Voix officielle de Toumaï · Français · العربية"), "settings must explain French and Arabic Zenaba");
 expect(!voiceSettings.includes("listVoices"), "settings must not expose a multi-voice catalog");
 expect(!voiceSettings.includes("Choisir"), "settings must not expose a voice selector");
