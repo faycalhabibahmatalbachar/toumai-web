@@ -1,51 +1,115 @@
-name: Zenaba Chatterbox V3 Space Contract
+name: Zenaba Pocket Engine Smoke
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/zenaba-pocket-engine-smoke.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  space-contract:
+  synthesize:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch live Gradio contract and deployed source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Require gated Pocket voice-cloning access
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          curl --fail --location --retry 3 --silent --show-error \
-            "https://faycalhabibahmat-toumai-zenaba.hf.space/gradio_api/info" \
-            --output gradio-info.json
-          curl --fail --location --retry 3 --silent --show-error \
-            "https://huggingface.co/spaces/faycalhabibahmat/toumai-zenaba/raw/main/app.py" \
-            --output zenaba-space-app.py
-      - name: Verify V3, French, fixed reference and fail-closed contract
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::BLOCKED — HF_TOKEN secret missing. Accept kyutai/pocket-tts terms, then configure a read token as repository secret HF_TOKEN."
+            exit 1
+          fi
+
+      - name: Install Pocket TTS CPU
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir             --extra-index-url https://download.pytorch.org/whl/cpu             "pocket-tts==3.1.0"
+
+      - name: Fetch pinned Zenaba reference
+        run: |
+          curl --fail --location --retry 3 --silent --show-error             "https://huggingface.co/kyutai/tts-voices/resolve/519207ec31386971c13631b9a177d63a1a5d05af/cml-tts/fr/1591_1028_000108-0004_enhanced.wav"             --output zenaba-reference.wav
+          echo "d8a8b161c37c0ce8c50345828c586c2d63ebeeb16dafdbe0ccb6011ccfaf3192  zenaba-reference.wav"             | sha256sum --check -
+
+      - name: Generate real Zenaba Pocket stream
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'PY'
-          import json
+          import time
+          import wave
           from pathlib import Path
 
-          info = json.loads(Path("gradio-info.json").read_text())
-          assert "/synthesize" in info.get("named_endpoints", {})
-          source = Path("zenaba-space-app.py").read_text()
-          required = [
-              'MODEL_VARIANT = "v3"',
-              't3_model=MODEL_VARIANT',
-              'LANGUAGE_ID = "fr"',
-              'VOICE_NAME = "Zenaba"',
-              'REFERENCE_AUDIO = Path("/tmp/fr_f1.flac")',
-              'dbb98ac119e217b7c6c328b4ce3ba4fd691aa6c52f100cfa94b92972f1fa96a6',
-              '_authorize_value(api_key)',
-          ]
-          for marker in required:
-              assert marker in source, marker
-          forbidden = ["edge_tts", "ElevenLabs", "Gemini", "Pocket TTS"]
-          for marker in forbidden:
-              assert marker not in source, marker
-          print("ZENABA_CHATTERBOX_V3_CONTRACT_OK")
+          from pocket_tts.data.audio import stream_audio_chunks
+          from pocket_tts.models.tts_model import TTSModel
+
+          text = (
+              "Bonjour Fayçal. Aujourd’hui à N'Djamena, votre rendez-vous est "
+              "prévu le 20 septembre à 14 h 30. Le montant est de 9 000 FCFA."
+          )
+          reference = Path("zenaba-reference.wav")
+          output = Path("zenaba-pocket.wav")
+
+          load_start = time.perf_counter()
+          model = TTSModel.load_model(language="french_24l", quantize=False)
+          voice_state = model.get_state_for_audio_prompt(reference)
+          load_ms = (time.perf_counter() - load_start) * 1000
+
+          first_model_chunk_ms = None
+          generation_start = time.perf_counter()
+
+          def timed_chunks():
+              global first_model_chunk_ms
+              for chunk in model.generate_audio_stream(
+                  model_state=voice_state,
+                  text_to_generate=text,
+              ):
+                  if first_model_chunk_ms is None:
+                      first_model_chunk_ms = (time.perf_counter() - generation_start) * 1000
+                  yield chunk
+
+          with output.open("wb") as fh:
+              stream_audio_chunks(
+                  fh,
+                  timed_chunks(),
+                  model.config.mimi.sample_rate,
+              )
+
+          generation_ms = (time.perf_counter() - generation_start) * 1000
+          size = output.stat().st_size
+          if size < 4096:
+              raise SystemExit(f"Generated audio too small: {size}")
+
+          with wave.open(str(output), "rb") as wav:
+              channels = wav.getnchannels()
+              rate = wav.getframerate()
+              width = wav.getsampwidth()
+              frames = wav.getnframes()
+              duration = frames / rate if rate else 0
+
+          if channels != 1:
+              raise SystemExit(f"Expected mono, got {channels}")
+          if rate != 24000:
+              raise SystemExit(f"Expected 24000 Hz, got {rate}")
+          if width != 2:
+              raise SystemExit(f"Expected PCM16, sample width={width}")
+
+          print(
+              "ZENABA_POCKET_OK "
+              f"bytes={size} duration={duration:.3f}s "
+              f"load_ms={load_ms:.0f} "
+              f"first_model_chunk_ms={first_model_chunk_ms:.0f} "
+              f"generation_ms={generation_ms:.0f}"
+          )
           PY
+
+      - name: Upload real Pocket audio proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: zenaba-pocket-engine-audio
+          path: zenaba-pocket.wav
+          if-no-files-found: error
+          retention-days: 3
