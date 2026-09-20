@@ -374,7 +374,6 @@ export function VoiceModeOverlay({
     // Garde-fou : handleRecordingStopped ne transcrit que s'il y a eu une
     // vraie prise de parole — sinon il relance simplement l'écoute.
     if (elapsed > MAX_RECORD_MS) stopListening();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avgLevel, phase]);
 
   /** Écoute discrète pendant que l'assistant parle, pour reconnaître qu'on lui
