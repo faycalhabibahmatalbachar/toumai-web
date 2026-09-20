@@ -1,91 +1,71 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { synthesizeSpeech } from "@/lib/voice-api";
-import { getPreferences, type Preferences } from "@/lib/preferences-api";
-import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
-import { errorMessage } from "@/lib/errors";
+import { useCallback, useEffect, useId, useRef, useSyncExternalStore } from "react";
+import { getPreferences } from "@/lib/preferences-api";
+import {
+  clearToumaiVoiceError,
+  getToumaiVoiceServerSnapshot,
+  getToumaiVoiceSnapshot,
+  playToumaiVoice,
+  stopToumaiVoice,
+  subscribeToumaiVoice,
+  textForToumaiVoice,
+} from "@/lib/toumai-voice-player";
 
 export type SpeechState = "idle" | "loading" | "playing";
 
-/** Retire le balisage Markdown : lu tel quel, il donne « étoile étoile titre ». */
-export function stripMarkdownForSpeech(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, " (bloc de code) ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/(\*\*|__|\*|_|~~)/g, "")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*>\s?/gm, "")
-    .replace(/\|/g, " ")
-    .replace(/\n{2,}/g, ". ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
+/** Compatibilité avec les tests/imports existants. */
+export const stripMarkdownForSpeech = textForToumaiVoice;
 
 /**
- * Lecture à voix haute d'une réponse, avec la voix choisie dans les réglages —
- * le même moteur et la même voix que sur mobile et que le mode vocal.
+ * Lecture d'une réponse avec le lecteur global Zenaba.
+ * Deux instances de message ne peuvent jamais parler en même temps.
  */
 export function useSpeakText() {
-  const [state, setState] = useState<SpeechState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const voiceRef = useRef<string | undefined>(
-    cacheSeed<Preferences>("user:prefs")?.tts_voice ?? undefined,
+  const reactId = useId();
+  const owner = "chat-read:" + reactId;
+  const speedRef = useRef(1);
+
+  const global = useSyncExternalStore(
+    subscribeToumaiVoice,
+    getToumaiVoiceSnapshot,
+    getToumaiVoiceServerSnapshot,
   );
 
   useEffect(() => {
-    // Arrête la lecture si le message disparaît (navigation, nouveau chat).
-    return () => {
-      audioRef.current?.pause();
-      audioRef.current = null;
-    };
+    getPreferences()
+      .then((prefs) => {
+        if (prefs.tts_speed) speedRef.current = prefs.tts_speed;
+      })
+      .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    return () => {
+      stopToumaiVoice(owner);
+    };
+  }, [owner]);
+
+  const state: SpeechState =
+    global.owner === owner ? global.phase : "idle";
+  const error = global.owner === owner ? global.error : null;
+
   const stop = useCallback(() => {
-    audioRef.current?.pause();
-    audioRef.current = null;
-    setState("idle");
-  }, []);
+    stopToumaiVoice(owner);
+  }, [owner]);
 
   const speak = useCallback(
     async (text: string) => {
-      if (state !== "idle") {
-        stop();
-        return;
-      }
-      const clean = stripMarkdownForSpeech(text);
-      if (!clean) return;
-      setError(null);
-      setState("loading");
-      try {
-        if (voiceRef.current === undefined) {
-          const prefs = await getPreferences().catch(() => null);
-          if (prefs) {
-            cacheWrite("user:prefs", prefs);
-            voiceRef.current = prefs.tts_voice ?? undefined;
-          }
-        }
-        const { audio_base64, mime_type } = await synthesizeSpeech(clean, voiceRef.current);
-        const audio = new Audio(`data:${mime_type};base64,${audio_base64}`);
-        audioRef.current = audio;
-        audio.onended = () => setState("idle");
-        audio.onerror = () => {
-          setState("idle");
-          setError("La lecture audio n'a pas pu démarrer sur cet appareil.");
-        };
-        await audio.play();
-        setState("playing");
-      } catch (err) {
-        setState("idle");
-        setError(errorMessage(err, "voice"));
-      }
+      await playToumaiVoice(text, owner, speedRef.current);
     },
-    [state, stop],
+    [owner],
   );
 
-  return { state, error, speak, stop, clearError: () => setError(null) };
+  return {
+    state,
+    error,
+    speak,
+    stop,
+    clearError: () => clearToumaiVoiceError(owner),
+  };
 }

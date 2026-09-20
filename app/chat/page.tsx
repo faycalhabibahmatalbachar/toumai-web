@@ -22,6 +22,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { Waveform } from "@/components/Waveform";
 import { VoiceModeOverlay } from "@/components/VoiceModeOverlay";
+import { primeToumaiVoiceAudio } from "@/lib/toumai-voice-player";
 import { ShareDialog } from "@/components/ShareDialog";
 import { BrowserAgentOverlay, detectBrowserGoal } from "@/components/BrowserAgentOverlay";
 import { DropZone } from "@/components/chat/media/DropZone";
@@ -789,6 +790,7 @@ export default function ChatPage() {
     userMsgId?: string,
     onChunk?: (chunk: string) => void,
     documentIdsOverride?: string[],
+    rethrowOnError = false,
   ): Promise<string> {
     setSending(true);
     const controller = new AbortController();
@@ -963,6 +965,10 @@ export default function ChatPage() {
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
       );
+      // Le chat texte conserve son comportement historique. Le mode vocal,
+      // lui, doit savoir qu'un flux a cassé : sinon il lirait une réponse
+      // partielle puis rouvrirait le micro comme si le tour était réussi.
+      if (rethrowOnError) throw err;
     } finally {
       setSending(false);
       abortRef.current = null;
@@ -1007,7 +1013,15 @@ export default function ChatPage() {
       userMsg,
       { id: assistantId, role: "assistant", content: "", streaming: true },
     ]);
-    return runStream(trimmed, assistantId, isFirstMessage, userMsg.id, onChunk);
+    return runStream(
+      trimmed,
+      assistantId,
+      isFirstMessage,
+      userMsg.id,
+      onChunk,
+      undefined,
+      true,
+    );
   }
 
   function stopGenerating() {
@@ -2043,7 +2057,10 @@ export default function ChatPage() {
                 </button>
               ) : (
                 <button
-                  onClick={() => setVoiceModeOpen(true)}
+                  onClick={() => {
+                    primeToumaiVoiceAudio();
+                    setVoiceModeOpen(true);
+                  }}
                   aria-label="Parler à Toumaï AI"
                   title="Parler à Toumaï AI"
                   disabled={!session}
@@ -2069,7 +2086,11 @@ export default function ChatPage() {
         </footer>
       </div>
       {voiceModeOpen && (
-        <VoiceModeOverlay onSend={voiceSend} onClose={() => setVoiceModeOpen(false)} />
+        <VoiceModeOverlay
+          onSend={voiceSend}
+          onCancel={stopGenerating}
+          onClose={() => setVoiceModeOpen(false)}
+        />
       )}
       {shareId && (
         <ShareDialog sessionId={shareId} onClose={() => setShareId(null)} />
