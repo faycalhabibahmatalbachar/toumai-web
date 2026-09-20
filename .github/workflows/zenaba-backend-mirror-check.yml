@@ -1,0 +1,64 @@
+name: Zenaba Backend Mirror Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".ci/zenaba-backend/**"
+      - ".github/workflows/zenaba-backend-mirror-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile mirrored Voice V1 Python
+        run: |
+          python -m py_compile             .ci/zenaba-backend/core/config.py             .ci/zenaba-backend/routers/preferences.py             .ci/zenaba-backend/routers/voice.py             .ci/zenaba-backend/services/tts_service.py             .ci/zenaba-backend/tests/test_toumai_voice_v1.py             .ci/zenaba-backend/voice-zenaba-pocket/app.py
+      - name: Enforce Pocket-only Voice V1 contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path(".ci/zenaba-backend")
+          service = (root / "services/tts_service.py").read_text()
+          app = (root / "voice-zenaba-pocket/app.py").read_text()
+          config = (root / "core/config.py").read_text()
+          router = (root / "routers/voice.py").read_text()
+
+          checks = {
+              "Pocket provider": 'return ["pocket"]' in service,
+              "Pocket engine": "pocket-tts-french-24l" in service,
+              "Zenaba 1591": "1591_1028_000108-0004_enhanced.wav" in service and "1591_1028_000108-0004_enhanced.wav" in app,
+              "No active Chatterbox": "synthesize_chatterbox" not in service and "chatterbox_health_check" not in service,
+              "Live endpoint": "/synthesize/live" in router,
+              "HF gated token": 'HF_TOKEN = os.getenv("HF_TOKEN"' in app,
+              "Server secret": "ZENABA_SERVICE_TOKEN" in app,
+              "Bound queue": "Queue(maxsize=16)" in app,
+              "Capacity guard": "ZENABA_MAX_PENDING_GENERATIONS" in app,
+              "Watchdog": "ZENABA_HARD_GENERATION_SECONDS" in app,
+              "No Chatterbox config": "CHATTERBOX_TTS_URL" not in config,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          for name, ok in checks.items():
+              print(("PASS " if ok else "FAIL ") + name)
+          if failed:
+              raise SystemExit("Contract failures: " + ", ".join(failed))
+          PY
+
+  pocket-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build actual Pocket service image
+        run: |
+          docker build             -f .ci/zenaba-backend/voice-zenaba-pocket/Dockerfile             -t toumai-zenaba-pocket:mirror-test             .ci/zenaba-backend/voice-zenaba-pocket
