@@ -72,8 +72,13 @@ export async function synthesizeSpeech(
 }
 
 /**
- * Vrai flux WAV Pocket TTS. Aucun base64 et aucun WAV complet en mémoire :
- * le lecteur Web consomme response.body pendant que Zenaba est encore générée.
+ * Un segment Zenaba en WAV brut, lu au fil de l'octet.
+ *
+ * Aucun base64, et le lecteur consomme `response.body` au lieu de garder le
+ * WAV entier en mémoire. En revanche le moteur actif, Chatterbox
+ * Multilingual V3, produit un WAV complet par segment : les octets arrivent
+ * donc d'un coup, une fois la génération du segment terminée. Le transport est
+ * prêt pour un moteur réellement progressif, il n'en invente pas un.
  */
 export async function openLiveSpeechStream(
   text: string,

@@ -342,16 +342,28 @@ async function playSegment(
 }
 
 /**
- * Lecture Pocket TTS réellement streamée : le premier PCM est joué pendant que
- * Pocket génère encore la suite de LA MÊME phrase.
+ * Lecture d'un segment Zenaba en WAV brut, décodé au fil de l'octet.
+ *
+ * CE QUE CE CHEMIN GAGNE, ET CE QU'IL NE GAGNE PAS
+ * -------------------------------------------------
+ * Il évite le détour base64 du flux NDJSON et rend la main au moteur audio dès
+ * que l'en-tête RIFF est complet. Mais le moteur actif, Chatterbox
+ * Multilingual V3, rend un WAV COMPLET par segment : le premier son n'arrive
+ * donc pas avant la fin de la génération DU SEGMENT. Le lecteur est prêt à
+ * jouer un flux réellement progressif, et le fera sans modification si un
+ * moteur en produit un ; écrire ici qu'il en reçoit un aujourd'hui ferait
+ * chercher une latence là où elle n'est pas.
+ *
+ * La latence perçue se joue donc ailleurs : dans le découpage en phrases fait
+ * par l'appelant, qui lance la lecture dès la première phrase utile.
  */
 export async function playToumaiVoiceLive(
   rawText: string,
   owner: string,
   speed = 1,
 ): Promise<ToumaiVoiceOutcome> {
-  // Compatibilité seulement : même moteur Pocket, même Zenaba, mais transport
-  // WAV complet si Web Audio n'existe réellement pas sur cet appareil.
+  // Compatibilité seulement : même moteur, même Zenaba, mais transport par
+  // élément <audio> si Web Audio n'existe réellement pas sur cet appareil.
   if (!audioContextCtor()) return playToumaiVoice(rawText, owner, speed);
 
   const text = textForToumaiVoice(rawText);

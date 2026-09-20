@@ -1,4 +1,10 @@
-name: Zenaba Pocket Reference Smoke
+# ATTESTE L'OPTION POCKET, PAS LA VOIX EN SERVICE.
+#
+# Le moteur actif de Zenaba est Chatterbox Multilingual V3, dont la référence
+# est attestée par `zenaba-reference-smoke.yml`. Ce fichier-ci garde la preuve
+# de l'échantillon Kyutai, conservé pour le jour où Pocket redeviendrait une
+# option. Un vert ici ne dit rien de la voix que les gens entendent.
+name: Pocket (inactif) — Kyutai Reference Smoke
 
 on:
   pull_request:

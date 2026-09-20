@@ -90,8 +90,17 @@ const MIN_CLAUSE_WORDS = 7;
 type SpeechDrain = { segments: string[]; rest: string };
 
 /**
- * Découpe le flux du LLM en unités que Pocket TTS peut commencer à prononcer
- * immédiatement. On préfère toujours une phrase complète. Une proposition
+ * Découpe le flux du LLM en unités que Zenaba peut commencer à prononcer
+ * immédiatement.
+ *
+ * C'EST ICI QUE SE JOUE LA LATENCE.
+ * ----------------------------------
+ * Chatterbox rend un WAV complet par segment : le premier son arrive quand le
+ * PREMIER segment est généré, pas avant. Découper tôt, c'est donc parler tôt.
+ * Découper trop tôt, en revanche, hache la prosodie et multiplie les allers-
+ * retours vers un GPU qui ne traite qu'une requête à la fois.
+ *
+ * On préfère toujours une phrase complète. Une proposition
  * (virgule/point-virgule/deux-points) n'est utilisée que si la phrase devient
  * trop longue. En dernier recours, on coupe sur un ESPACE : jamais au milieu
  * d'un mot, d'une apostrophe (aujourd'hui, N'Djamena) ou d'un nombre.
