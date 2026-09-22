@@ -1175,6 +1175,57 @@ svg {
 }
 
 /* ── Messages ────────────────────────────────────────────────────────────── */
+
+/* La réponse finale ne porte plus systématiquement un en-tête de marque :
+ * la conversation respire davantage et le contenu devient le point focal.
+ * L'identité reste visible pendant les états actifs (streaming, raisonnement,
+ * connecteurs), là où elle apporte une information d'état. */
+.assistant-message {
+  width: 100%;
+}
+.assistant-answer {
+  width: 100%;
+  color: var(--text-primary);
+}
+.assistant-identity {
+  min-height: 1.5rem;
+}
+.user-message-bubble {
+  border-radius: 1.15rem 1.15rem 0.45rem 1.15rem;
+  background: color-mix(in srgb, var(--card) 92%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--text-primary) 7%, transparent);
+  box-shadow: 0 1px 1px color-mix(in srgb, #000 8%, transparent);
+}
+.assistant-actions {
+  width: fit-content;
+  margin-top: 0.15rem;
+  border-radius: 0.7rem;
+}
+.assistant-actions button {
+  min-height: 2rem;
+  min-width: 2rem;
+}
+
+/* Les cartes d'outils et de sources appartiennent à la réponse sans sembler
+ * être un deuxième message. On garde un espace court avec le texte et plus
+ * d'air avant la prochaine prise de parole. */
+.assistant-message .tmw-card {
+  margin-top: 0.75rem;
+}
+.assistant-message > .tmw-card:last-of-type,
+.assistant-message > [data-action-runtime="true"]:last-of-type {
+  margin-bottom: 0.15rem;
+}
+
+@media (max-width: 640px) {
+  .user-message-bubble {
+    border-radius: 1rem 1rem 0.38rem 1rem;
+  }
+  .assistant-actions {
+    opacity: 1;
+  }
+}
+
 @keyframes msg-in {
   from {
     opacity: 0;
