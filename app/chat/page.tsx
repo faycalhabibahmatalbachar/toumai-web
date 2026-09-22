@@ -1604,7 +1604,7 @@ export default function ChatPage() {
                     <p className="mt-3 text-center text-[14px] text-[var(--text-secondary)] sm:text-[15px]">
                       Que voulez-vous faire ?
                     </p>
-                    <div className="mt-7 grid w-full max-w-[44rem] grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="mt-7 grid w-full max-w-[44rem] grid-cols-2 gap-2.5 lg:grid-cols-4">
                       <button
                         type="button"
                         onClick={() => {
