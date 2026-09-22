@@ -78,6 +78,23 @@ export interface HistoryTurn {
   content: string;
 }
 
+function browserTimeContext(): {
+  client_timezone?: string;
+  client_utc_offset_minutes?: number;
+} {
+  try {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    return {
+      client_timezone: timeZone || undefined,
+      client_utc_offset_minutes: Number.isFinite(offsetMinutes) ? offsetMinutes : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+
 export interface ChatStreamParams {
   message: string;
   sessionId: string | null;
@@ -143,6 +160,7 @@ export async function streamChat(
   onEvent: (evt: StreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  const timeContext = browserTimeContext();
   const doFetch = () =>
     fetch(`${API_BASE}/chat/stream`, {
       method: "POST",
@@ -158,6 +176,8 @@ export async function streamChat(
         language: params.language || "auto",
         model_preference: params.modelPreference,
         web_search: Boolean(params.webSearch),
+        client_timezone: timeContext.client_timezone,
+        client_utc_offset_minutes: timeContext.client_utc_offset_minutes,
         document_id: params.documentId || params.documentIds?.[0] || undefined,
         document_ids: params.documentIds?.length ? params.documentIds.slice(0, 5) : undefined,
         ephemeral: Boolean(params.ephemeral),
