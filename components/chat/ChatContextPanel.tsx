@@ -133,12 +133,12 @@ export function ChatContextPanel({
         type="button"
         aria-label="Fermer le panneau contextuel"
         onClick={onClose}
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] md:hidden"
+        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] xl:hidden"
       />
       <aside
         role="complementary"
         aria-label="Contexte de la réponse"
-        className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[28rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl md:relative md:z-10 md:w-[23rem] md:max-w-[23rem] md:shrink-0 md:shadow-none"
+        className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[28rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:w-[23rem] xl:max-w-[23rem] xl:shrink-0 xl:shadow-none"
       >
         <header className="flex min-h-14 items-center gap-3 border-b border-[var(--border)] px-4">
           <div className="min-w-0 flex-1">
