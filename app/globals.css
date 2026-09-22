@@ -1217,6 +1217,30 @@ svg {
   margin-bottom: 0.15rem;
 }
 
+/* Sources : compactes au repos, bornées une fois ouvertes. Le but est de
+ * montrer la provenance sans transformer chaque recherche en seconde réponse. */
+.sources-panel {
+  max-width: 38rem;
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  box-shadow: none;
+}
+.sources-panel-trigger {
+  border-radius: calc(var(--tmw-radius) - 1px);
+}
+.sources-panel-list {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-primary) 18%, transparent) transparent;
+}
+.sources-panel-list::-webkit-scrollbar {
+  width: 7px;
+}
+.sources-panel-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--text-primary) 18%, transparent);
+  background-clip: padding-box;
+}
+
 @media (max-width: 640px) {
   .user-message-bubble {
     border-radius: 1rem 1rem 0.38rem 1rem;
