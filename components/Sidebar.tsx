@@ -401,14 +401,37 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
         </div>
 
         <div className={`px-3 pb-1 ${collapsed ? "md:px-3.5" : ""}`}>
-          {/* L'Agent Navigateur n'a plus d'entrée : l'IA l'invoque seule quand
-              l'utilisateur demande une navigation web. */}
+          {/* Navigation principale : les destinations quotidiennes restent
+              ensemble. Les intégrations sont séparées visuellement pour que
+              la sidebar ne ressemble pas à une liste plate de fonctionnalités. */}
           {[
             { href: "/today", label: "Aujourd’hui", icon: <TodayIcon /> },
             { href: "/library", label: "Bibliothèque", icon: <LibraryIcon /> },
             { href: "/automations", label: "Automatisations", icon: <AutomationIcon /> },
-            { href: "/notifications", label: "Notifications", icon: <BellIcon /> },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onClose}
+              title={item.label}
+              className={`nav-anim flex items-center gap-2.5 rounded-lg text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] ${
+                collapsed ? "md:h-9 md:w-9 md:justify-center md:rounded-full md:px-0 px-2.5 py-2" : "px-2.5 py-2"
+              }`}
+            >
+              {item.icon}
+              <span className={collapsed ? "md:hidden" : ""}>{item.label}</span>
+            </Link>
+          ))}
+
+          <div className={collapsed ? "md:hidden" : ""}>
+            <p className="px-2.5 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
+              Outils
+            </p>
+          </div>
+
+          {[
             { href: "/whatsapp", label: "WhatsApp", icon: <WhatsAppNavIcon /> },
+            { href: "/notifications", label: "Notifications", icon: <BellIcon /> },
             { href: "/settings?tab=connectors", label: "Connecteurs", icon: <PlugIcon /> },
           ].map((item) => (
             <Link
