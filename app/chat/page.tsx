@@ -1591,15 +1591,71 @@ export default function ChatPage() {
                     </Link>
                   </>
                 ) : (
-                  <h2 className="landing-serif text-center text-[34px] leading-[1.1] tracking-tight text-[var(--text-primary)] sm:text-[42px]">
-                    {greeting}
-                    {firstName && (
-                      <>
-                        ,{" "}
-                        <em style={{ color: "var(--primary)" }}>{firstName}.</em>
-                      </>
-                    )}
-                  </h2>
+                  <>
+                    <h2 className="landing-serif text-center text-[34px] leading-[1.1] tracking-tight text-[var(--text-primary)] sm:text-[42px]">
+                      {greeting}
+                      {firstName && (
+                        <>
+                          ,{" "}
+                          <em style={{ color: "var(--primary)" }}>{firstName}.</em>
+                        </>
+                      )}
+                    </h2>
+                    <p className="mt-3 text-center text-[14px] text-[var(--text-secondary)] sm:text-[15px]">
+                      Que voulez-vous faire ?
+                    </p>
+                    <div className="mt-7 grid w-full max-w-[44rem] grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWebSearch(true);
+                          requestAnimationFrame(() => textareaRef.current?.focus());
+                        }}
+                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                      >
+                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
+                          <GlobeIcon />
+                        </span>
+                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Rechercher sur le web</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                      >
+                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
+                          <FileIcon />
+                        </span>
+                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Analyser un document</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInput("Crée une image de ");
+                          requestAnimationFrame(() => textareaRef.current?.focus());
+                        }}
+                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                      >
+                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
+                          <PlusIcon />
+                        </span>
+                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Créer une image</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInput("Sur WhatsApp, ");
+                          requestAnimationFrame(() => textareaRef.current?.focus());
+                        }}
+                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                      >
+                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
+                          <PlugIcon />
+                        </span>
+                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Agir avec WhatsApp</span>
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -1737,12 +1793,18 @@ export default function ChatPage() {
                 largeur (elle ne se coince plus entre les icônes), les
                 contrôles vivent sur leur propre ligne en dessous. */}
             <div className="chat-composer px-2.5 pb-2 pt-1.5">
-              {/* Le fichier joint devient un jeton DANS le champ : il porte un
-                  nom qu'on ne lit nulle part ailleurs, et l'oublier ferait
-                  partir un message sans sa pièce jointe. La recherche web, elle,
-                  n'a pas besoin de mots : son icône allumée dans la barre suffit
-                  — un libellé pour un état déjà visible encombre le champ. */}
+              {/* Les états qui modifient réellement le prochain message vivent
+                  DANS le composeur. Cela évite les bascules dispersées dans une
+                  barre d'icônes dont l'état actif peut être oublié. */}
               <div className="flex flex-wrap items-center gap-1.5 px-1.5 pt-1">
+                {webSearch && (
+                  <ComposerChip
+                    icon={<GlobeIcon />}
+                    label="Web"
+                    tone="primary"
+                    onRemove={() => setWebSearch(false)}
+                  />
+                )}
                 {/* ON MONTRE L'IMAGE, PAS SON NOM DE FICHIER.
                     « Capture d'écran 2026-07-24 152219.jpg » ne dit rien de ce
                     qu'on s'apprête à envoyer ; la vignette le dit d'un coup
@@ -1988,34 +2050,6 @@ export default function ChatPage() {
                   </>
                 )}
               </div>
-              {/* Recherche web : bascule visible dans la barre, pas seulement
-                  enfouie dans le menu — c'est l'option qu'on active et coupe
-                  le plus souvent d'un message à l'autre. */}
-              {/* L'ÉTAT ACTIF SE VOIT ICI, ET NULLE PART AILLEURS.
-                  C'est le seul signal que la recherche web est armée — le jeton
-                  qui le disait dans le champ a été retiré. La couleur est posée
-                  en ligne plutôt que par une classe : le style de la classe
-                  n'était pas appliqué (vérifié dans la construction de
-                  production, sélecteur correspondant mais couleur héritée du
-                  repos), et un indicateur d'état qui dépend d'un aléa de
-                  cascade n'est pas un indicateur. */}
-              <button
-                onClick={() => setWebSearch((w) => !w)}
-                aria-label="Recherche web"
-                aria-pressed={webSearch}
-                title={webSearch ? "Recherche web activée" : "Chercher sur le web"}
-                className="chat-iconbtn"
-                style={
-                  webSearch
-                    ? {
-                        color: "var(--primary)",
-                        background: "color-mix(in srgb, var(--primary) 15%, transparent)",
-                      }
-                    : undefined
-                }
-              >
-                <GlobeIcon />
-              </button>
               {/* LE SELECTEUR RESTE A DROITE. Je l'avais deplace a gauche le
                   4 septembre pour resserrer la barre sur telephone ; c'etait
                   une erreur de ma part, pas une demande. Sa place est ici,
