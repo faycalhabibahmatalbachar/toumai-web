@@ -41,6 +41,7 @@ import {
   filterPalette,
   type PaletteItem,
 } from "@/components/chat/CommandPalette";
+import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
 
 /** Repère un `/commande` ou un `@modèle` en cours de frappe juste avant le
  * curseur. Le déclencheur ne compte qu'en début de champ ou après un espace,
@@ -186,6 +187,7 @@ export default function ChatPage() {
       aussi depuis la liste latérale, sur une conversation qui n'est pas
       forcément celle qu'on lit. */
   const [shareId, setShareId] = useState<string | null>(null);
+  const [contextMessageId, setContextMessageId] = useState<string | null>(null);
   const online = useOnlineStatus();
   // Palette `/` (commandes) et `@` (modèles) ouverte sous le curseur.
   const [palette, setPalette] = useState<{
@@ -1450,6 +1452,10 @@ export default function ChatPage() {
     !sending &&
     Boolean(session);
 
+  const contextMessage = contextMessageId
+    ? messages.find((message) => message.id === contextMessageId) ?? null
+    : null;
+
   return (
     <div className="chat-shell flex h-dvh overflow-hidden">
       <Sidebar
@@ -1682,6 +1688,7 @@ export default function ChatPage() {
                       : undefined
                   }
                   onSuggest={!sending ? (text) => send(text) : undefined}
+                  onOpenContext={(message) => setContextMessageId(message.id)}
                 />
               ))}
 
@@ -2119,6 +2126,12 @@ export default function ChatPage() {
           </DropZone>
         </footer>
       </div>
+      {contextMessage ? (
+        <ChatContextPanel
+          message={contextMessage}
+          onClose={() => setContextMessageId(null)}
+        />
+      ) : null}
       {voiceModeOpen && (
         <VoiceModeOverlay
           onSend={voiceSend}
