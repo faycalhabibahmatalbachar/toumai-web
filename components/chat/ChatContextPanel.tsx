@@ -73,7 +73,7 @@ export function ChatContextPanel({
         id: `${url}-${index}`,
         url,
         alt: image.title,
-        sourceUrl: safeHttpUrl(image.source_url),
+        sourceUrl: safeHttpUrl(image.source_url) ?? undefined,
         sourceTitle: image.title,
       };
     })
@@ -136,8 +136,7 @@ export function ChatContextPanel({
         className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] md:hidden"
       />
       <aside
-        role="dialog"
-        aria-modal="true"
+        role="complementary"
         aria-label="Contexte de la réponse"
         className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[28rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl md:relative md:z-10 md:w-[23rem] md:max-w-[23rem] md:shrink-0 md:shadow-none"
       >
