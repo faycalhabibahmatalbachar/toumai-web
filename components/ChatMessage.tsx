@@ -200,6 +200,15 @@ function RegenerateIcon() {
   );
 }
 
+function ContextPanelIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function TypingDots() {
   return (
     <div className="flex items-center gap-1 py-1" aria-label="Toumaï AI réfléchit">
@@ -218,6 +227,7 @@ export function ChatMessage({
   onRegenerate,
   onRetry,
   onSuggest,
+  onOpenContext,
   isLast = false,
 }: {
   message: Message;
@@ -227,6 +237,7 @@ export function ChatMessage({
   onRegenerate?: () => void;
   onRetry?: () => void;
   onSuggest?: (text: string) => void;
+  onOpenContext?: (message: Message) => void;
   isLast?: boolean;
 }) {
   const isUser = message.role === "user";
@@ -319,6 +330,14 @@ export function ChatMessage({
   const searchImageUrls = new Set((message.searchImages ?? []).map((image) => image.url));
   const standaloneImageUrls = (message.imageUrls ?? []).filter((url) => !searchImageUrls.has(url));
   const inferredTaskActivity = message.streaming && !message.content ? inferTaskActivity(prevContent) : null;
+  const contextAvailable = Boolean(
+    message.sources?.length ||
+      message.pieces?.length ||
+      message.piece ||
+      message.imageUrls?.length ||
+      message.searchImages?.length ||
+      message.toolConfirmation,
+  );
   const showAssistantIdentity = Boolean(
     message.streaming ||
       message.activity ||
@@ -413,6 +432,16 @@ export function ChatMessage({
       {!message.streaming && message.content && (
         <div className="msg-actions assistant-actions flex items-center gap-0.5 pt-2 text-[var(--text-tertiary)]" data-pinned={isLast}>
           <button onClick={copy} title="Copier" aria-label="Copier la réponse" className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]">{copied ? <CheckIcon /> : <CopyIcon />}</button>
+          {contextAvailable && onOpenContext ? (
+            <button
+              onClick={() => onOpenContext(message)}
+              title="Ouvrir le contexte"
+              aria-label="Ouvrir les sources, fichiers et détails de cette réponse"
+              className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+            >
+              <ContextPanelIcon />
+            </button>
+          ) : null}
           {message.serverId && (
             <>
               <button onClick={() => rate("up")} title="Bonne réponse" aria-label="Bonne réponse" aria-pressed={rated === "up"} disabled={!!rated} className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] disabled:opacity-100" style={rated === "up" ? { color: "var(--success)", background: "rgba(16,185,129,0.14)" } : undefined}><ThumbUpIcon filled={rated === "up"} /></button>
