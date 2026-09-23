@@ -211,7 +211,7 @@ function ContextPanelIcon() {
 
 function TypingDots() {
   return (
-    <div className="flex items-center gap-1 py-1" aria-label="Toumaï AI réfléchit">
+    <div className="flex items-center gap-1 py-1" role="status" aria-live="polite" aria-label="Toumaï AI réfléchit">
       {[0, 1, 2].map((index) => (
         <span key={index} className="h-1.5 w-1.5 rounded-full bg-current opacity-40" style={{ animation: "typing-bounce 1.1s ease-in-out infinite", animationDelay: `${index * 0.15}s` }} />
       ))}
@@ -351,7 +351,7 @@ export function ChatMessage({
   if (isProject || isSite) visibleContent = visibleContent.replace(/```[^\n`]*\n[\s\S]*?```/g, "").trim();
 
   return (
-    <div className="msg-row msg-in assistant-message">
+    <div className="msg-row msg-in assistant-message" aria-busy={Boolean(message.streaming)}>
       {showAssistantIdentity && (
         <div className="assistant-identity mb-2 flex items-center gap-2">
           <Logo size={18} className="rounded-[5px]" />
