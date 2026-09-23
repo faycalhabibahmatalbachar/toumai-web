@@ -187,11 +187,19 @@ export function ChatContextPanel({
     [files.length, hasWorkspaceResult, images.length, message.toolConfirmation, sources.length],
   );
 
-  const [tab, setTab] = useState<ContextTab>(tabs[0]?.id ?? "sources");
-
-  useEffect(() => {
-    setTab(tabs[0]?.id ?? "sources");
-  }, [message.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [tabSelection, setTabSelection] = useState<{
+    messageId: string;
+    tab: ContextTab;
+  }>(() => ({
+    messageId: message.id,
+    tab: tabs[0]?.id ?? "sources",
+  }));
+  const defaultTab = tabs[0]?.id ?? "sources";
+  const tab =
+    tabSelection.messageId === message.id &&
+    tabs.some((candidate) => candidate.id === tabSelection.tab)
+      ? tabSelection.tab
+      : defaultTab;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -247,7 +255,7 @@ export function ChatContextPanel({
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => setTabSelection({ messageId: message.id, tab: id })}
               aria-pressed={tab === id}
               className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] data-[active=true]:bg-[var(--hover)] data-[active=true]:text-[var(--text-primary)]"
               data-active={tab === id}
