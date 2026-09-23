@@ -1279,6 +1279,18 @@ svg {
   .msg-actions {
     opacity: 1;
   }
+  .chat-iconbtn,
+  .assistant-actions button,
+  .msg-actions button {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-input {
+    max-height: 9.5rem;
+  }
 }
 
 /* Lueur de génération : un dégradé qui balaie le libellé tant que la réponse
