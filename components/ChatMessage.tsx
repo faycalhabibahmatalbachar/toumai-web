@@ -47,6 +47,15 @@ function isSiteCreationIntent(content?: string): boolean {
   return /(?:landing\s*page|page\s*d['’]?atterrissage|site\s*(?:web|internet)?|website|page\s*web|portfolio|interface\s*web|html\b|frontend\b|front[- ]end\b)/i.test(content);
 }
 
+function isFullSoftwareProjectIntent(content?: string): boolean {
+  if (!content) return false;
+  const broad =
+    /(?:full[- ]?stack|projet\s+(?:logiciel\s+)?complet|application\s+compl[eè]te|backend\s*(?:\+|et|avec)\s*frontend|code\s+source\s+complet|base\s+de\s+donn[eé]es|database|e-?commerce|boutique\s+en\s+ligne|marketplace|fintech|banque\s+en\s+ligne|transfert\s+d['’]?argent|gestion\s+d['’]?[eé]cole|erp|crm|saas)/i.test(content);
+  const depth =
+    /(?:auth|connexion|inscription|admin|paiement|commande|panier|stock|api|backend|frontend|base\s+de\s+donn[eé]es|database|notification|r[oô]le|permission|migration|test|docker|d[eé]ploiement|full[- ]?stack|complet)/i.test(content);
+  return broad && depth;
+}
+
 function linkifySourceCitations(markdown: string, sources?: WebSource[]): string {
   if (!markdown || !sources?.length) return markdown;
   return markdown
@@ -328,7 +337,8 @@ export function ChatMessage({
   const siteCreationIntent =
     message.streaming &&
     !message.codingRun &&
-    isSiteCreationIntent(prevContent);
+    isSiteCreationIntent(prevContent) &&
+    !isFullSoftwareProjectIntent(prevContent);
   const building = streamingSiteCode !== null || siteCreationIntent;
   const patchedHtml = (() => {
     if (message.streaming || !hasPatches(message.content || "")) return null;
