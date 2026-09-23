@@ -320,8 +320,10 @@ export function ChatMessage({
   }
 
   const pendingCode = message.streaming ? pendingHtmlCode(message.content || "") : null;
+  const completedStreamingHtml = message.streaming ? extractHtml(message.content || "") : null;
+  const streamingSiteCode = pendingCode ?? completedStreamingHtml;
   const siteCreationIntent = message.streaming && isSiteCreationIntent(prevContent);
-  const building = pendingCode !== null || siteCreationIntent;
+  const building = streamingSiteCode !== null || siteCreationIntent;
   const patchedHtml = (() => {
     if (message.streaming || !hasPatches(message.content || "")) return null;
     const base = baseHtmlFrom(prevContent);
@@ -384,7 +386,7 @@ export function ChatMessage({
         ) : null}
         {message.streaming && !message.content ? (
           building ? (
-            <SiteBuildingCard code={pendingCode ?? ""} waiting={pendingCode === null} />
+            <SiteBuildingCard code={streamingSiteCode ?? ""} waiting={streamingSiteCode === null} />
           ) : message.activity ? null : inferredTaskActivity ? (
             <TaskProgress {...inferredTaskActivity} />
           ) : (
@@ -414,7 +416,7 @@ export function ChatMessage({
             >
               {linkifySourceCitations(visibleContent, message.sources)}
             </ReactMarkdown>
-            {building && <SiteBuildingCard code={pendingCode ?? ""} waiting={pendingCode === null} />}
+            {building && <SiteBuildingCard code={streamingSiteCode ?? ""} waiting={streamingSiteCode === null} />}
             {isProject && (
               <ProjectCard
                 content={message.content || ""}
