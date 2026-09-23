@@ -53,12 +53,12 @@ export function SourcesCard({ sources }: { sources: WebSource[] }) {
     : t.search.sources(items.length);
 
   return (
-    <WidgetCard label={t.search.title} testId="sources" className="!mt-3">
+    <WidgetCard label={t.search.title} testId="sources" className="sources-panel !mt-3">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-start outline-none transition-colors hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]"
+        className="sources-panel-trigger flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-start outline-none transition-colors hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]"
       >
         <span className="flex -space-x-1.5 rtl:space-x-reverse" aria-hidden="true">
           {items.slice(0, 4).map(({ source, url, index }) => (
@@ -71,7 +71,7 @@ export function SourcesCard({ sources }: { sources: WebSource[] }) {
         <span className="shrink-0 text-[11.5px] text-[var(--text-tertiary)]">{open ? t.common.showLess : t.common.details}</span>
       </button>
       {open ? (
-        <ol className="border-t border-[var(--border)] px-1.5 py-1.5" aria-label={t.search.title}>
+        <ol className="sources-panel-list max-h-[22rem] overflow-y-auto border-t border-[var(--border)] px-1.5 py-1.5" aria-label={t.search.title}>
           {items.map(({ source, url, index }) => {
             const state = visited(source) ? t.search.visited : t.search.found;
             const date = formatDateTime(parseDate(source.published_at), locale, false);

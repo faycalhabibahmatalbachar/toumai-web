@@ -200,6 +200,15 @@ function RegenerateIcon() {
   );
 }
 
+function ContextPanelIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function TypingDots() {
   return (
     <div className="flex items-center gap-1 py-1" aria-label="Toumaï AI réfléchit">
@@ -218,6 +227,7 @@ export function ChatMessage({
   onRegenerate,
   onRetry,
   onSuggest,
+  onOpenContext,
   isLast = false,
 }: {
   message: Message;
@@ -227,6 +237,7 @@ export function ChatMessage({
   onRegenerate?: () => void;
   onRetry?: () => void;
   onSuggest?: (text: string) => void;
+  onOpenContext?: (message: Message) => void;
   isLast?: boolean;
 }) {
   const isUser = message.role === "user";
@@ -287,9 +298,9 @@ export function ChatMessage({
       ? message.content.replace(/```html\n[\s\S]*?```/g, "").trim()
       : null;
     return (
-      <div className="msg-row msg-in flex justify-end">
-        <div className="flex max-w-[85%] flex-col items-end gap-1 sm:max-w-[76%]">
-          <div className="whitespace-pre-wrap rounded-[20px] rounded-br-[8px] px-4 py-2.5 text-[length:var(--chat-fs,15px)] leading-relaxed text-[var(--text-primary)]" style={{ background: "var(--card)", border: "1px solid color-mix(in srgb, var(--text-primary) 7%, transparent)" }}>
+      <div className="msg-row msg-in user-message flex justify-end">
+        <div className="flex max-w-[88%] flex-col items-end gap-1 sm:max-w-[74%]">
+          <div className="user-message-bubble whitespace-pre-wrap px-4 py-2.5 text-[length:var(--chat-fs,15px)] leading-relaxed text-[var(--text-primary)]">
             {editMatch ?? message.content}
             {editMatch && <span className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]"><FileChipIcon /> Code du site joint pour modification</span>}
           </div>
@@ -319,6 +330,20 @@ export function ChatMessage({
   const searchImageUrls = new Set((message.searchImages ?? []).map((image) => image.url));
   const standaloneImageUrls = (message.imageUrls ?? []).filter((url) => !searchImageUrls.has(url));
   const inferredTaskActivity = message.streaming && !message.content ? inferTaskActivity(prevContent) : null;
+  const contextAvailable = Boolean(
+    message.sources?.length ||
+      message.pieces?.length ||
+      message.piece ||
+      message.imageUrls?.length ||
+      message.searchImages?.length ||
+      message.toolConfirmation,
+  );
+  const showAssistantIdentity = Boolean(
+    message.streaming ||
+      message.activity ||
+      message.reasoning ||
+      message.whatsappConnector,
+  );
 
   let visibleContent = message.content || "";
   if (building) visibleContent = visibleContent.replace(/```html[\s\S]*$/i, "").trimEnd();
@@ -326,14 +351,18 @@ export function ChatMessage({
   if (isProject || isSite) visibleContent = visibleContent.replace(/```[^\n`]*\n[\s\S]*?```/g, "").trim();
 
   return (
-    <div className="msg-row msg-in">
-      <div className="mb-2 flex items-center gap-2">
-        <Logo size={18} className="rounded-[5px]" />
-        <span className={`text-[12px] tracking-[0.01em] ${message.streaming ? "chat-thinking" : "text-[var(--text-tertiary)]"}`}>Toumaï AI</span>
-      </div>
+    <div className="msg-row msg-in assistant-message">
+      {showAssistantIdentity && (
+        <div className="assistant-identity mb-2 flex items-center gap-2">
+          <Logo size={18} className="rounded-[5px]" />
+          <span className={`text-[12px] tracking-[0.01em] ${message.streaming ? "chat-thinking" : "text-[var(--text-tertiary)]"}`}>
+            Toumaï AI
+          </span>
+        </div>
+      )}
       {message.reasoning && <ReasoningPanel reasoning={message.reasoning} durationMs={message.reasoningMs} streaming={message.streaming} />}
       {message.whatsappConnector && <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />}
-      <div className="text-[length:var(--chat-fs,15px)] leading-relaxed">
+      <div className="assistant-answer text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && message.activity ? (
           message.activity.startsWith("whatsapp") && inferredTaskActivity ? (
             <TaskProgress {...inferredTaskActivity} label={activityLabel(message.activity) || inferredTaskActivity.label} />
@@ -401,8 +430,18 @@ export function ChatMessage({
       ) : null}
       {!message.streaming && message.modelNotice && <p className="pt-1 text-[11px] text-[var(--text-tertiary)]">{message.modelNotice}</p>}
       {!message.streaming && message.content && (
-        <div className="msg-actions flex items-center gap-0.5 pt-2 text-[var(--text-tertiary)]" data-pinned={isLast}>
+        <div className="msg-actions assistant-actions flex items-center gap-0.5 pt-2 text-[var(--text-tertiary)]" data-pinned={isLast}>
           <button onClick={copy} title="Copier" aria-label="Copier la réponse" className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]">{copied ? <CheckIcon /> : <CopyIcon />}</button>
+          {contextAvailable && onOpenContext ? (
+            <button
+              onClick={() => onOpenContext(message)}
+              title="Ouvrir le contexte"
+              aria-label="Ouvrir les sources, fichiers et détails de cette réponse"
+              className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+            >
+              <ContextPanelIcon />
+            </button>
+          ) : null}
           {message.serverId && (
             <>
               <button onClick={() => rate("up")} title="Bonne réponse" aria-label="Bonne réponse" aria-pressed={rated === "up"} disabled={!!rated} className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] disabled:opacity-100" style={rated === "up" ? { color: "var(--success)", background: "rgba(16,185,129,0.14)" } : undefined}><ThumbUpIcon filled={rated === "up"} /></button>
