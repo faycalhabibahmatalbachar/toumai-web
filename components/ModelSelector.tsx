@@ -43,7 +43,7 @@ export function ModelSelector({
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Changer de modèle"
-        className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
       >
         {current.name}
         <ChevronIcon open={open} />
