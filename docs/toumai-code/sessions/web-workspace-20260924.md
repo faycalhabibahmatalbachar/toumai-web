@@ -59,7 +59,7 @@ Workflow : `Toumai Code Workspace` — run `35932507840`, job `107422098289`.
   - `components/ChatMessage.tsx:466:13` (préexistant au chantier) ;
   - `components/chat/CodeWorkspace.tsx:436:15` (capture navigateur distante).
 - Le premier run de CI avait échoué avec exit code 1 sur deux erreurs ESLint (`react-hooks/set-state-in-effect` et `react-hooks/preserve-manual-memoization`). Les deux causes ont été corrigées sans désactiver les règles ; le run ci-dessus est la preuve de réexécution réussie.
-- Au moment de cette documentation, les workflows `Personal reminder widget`, `No anonymous auth regression`, `Dependency security` et `Toumai Code Workspace` sont success ; plusieurs autres workflows de la PR sont encore `in_progress`. Aucun statut global de production-readiness n’est donc affirmé.
+- Après la dernière vérification du SHA de code, les 10 workflows déclenchés sur la PR sont `completed/success` : `Toumai Code Workspace`, `Chat rich response CI`, `Chat rich results regression`, `Reasoning privacy web`, `No anonymous auth regression`, `Dependency security`, `Today Center Web`, `Reminder multichannel web`, `Personal reminder widget` et `Toumai Voice V1 Web`. Cela ne constitue pas une affirmation de production-readiness : aucun build de production ni déploiement n’a été exécuté dans cette session.
 
 ## Limites restantes
 
