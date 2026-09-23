@@ -650,7 +650,7 @@ export default function ChatPage() {
     // bouton grisé — le premier laisse croire à une panne, le second dit ce
     // qu'il attend. Constaté dans le navigateur : aucun appel réseau après le
     // clic.
-    if ((!text && attachedDocs.length === 0) || sending || !session) return;
+    if ((!text && attachedDocs.length === 0) || sending || !session || !online) return;
     // Demande de navigation web → l'Agent Navigateur prend le relais dans sa
     // fenêtre dédiée (l'utilisateur n'a plus à le lancer manuellement).
     // Second garde-fou : une édition de site (prompt de patch contenant le HTML
@@ -1450,6 +1450,7 @@ export default function ChatPage() {
     (Boolean(input.trim()) || attachedDocs.length > 0) &&
     !uploadingDoc &&
     !sending &&
+    online &&
     Boolean(session);
 
   const contextMessage = contextMessageId
@@ -1554,6 +1555,7 @@ export default function ChatPage() {
         <main
           ref={mainRef}
           onScroll={handleMainScroll}
+          aria-busy={historyLoading || sending}
           className="flex-1 overflow-y-auto overflow-x-hidden pt-14"
         >
           <div className="mx-auto flex min-h-full w-full max-w-[var(--chat-measure)] flex-col gap-7 px-4 pb-10 pt-4 sm:px-6">
@@ -1724,7 +1726,7 @@ export default function ChatPage() {
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ background: "var(--text-tertiary)" }}
             />
-            Hors ligne — vos messages partiront dès le retour de la connexion.
+            Hors ligne — reconnectez-vous pour envoyer des messages.
           </div>
         )}
 
