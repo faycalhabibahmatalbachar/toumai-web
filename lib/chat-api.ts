@@ -1,7 +1,7 @@
 import { API_BASE } from "./config";
 import { authHeaders } from "./api";
 import { authFetch } from "./http";
-import type { WebSource, SearchImage } from "./chat-stream";
+import type { CodingProjectResult, CodingRunSnapshot, WebSource, SearchImage } from "./chat-stream";
 import type { ResponseBlock } from "./chat-response";
 
 export interface ChatSession {
@@ -44,6 +44,8 @@ export interface HistoryMessage {
      * quand on rouvre une conversation. */
     reasoning?: string;
     reasoning_ms?: number;
+    coding_run?: CodingRunSnapshot;
+    coding_project?: CodingProjectResult;
   } | null;
   created_at: string;
 }
