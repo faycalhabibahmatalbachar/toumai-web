@@ -1745,7 +1745,7 @@ export default function ChatPage() {
             <button
               onClick={clearError}
               aria-label="Masquer ce message"
-              className="shrink-0 text-[var(--text-tertiary)] transition hover:text-[var(--text-primary)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
             >
               ✕
             </button>
