@@ -13,7 +13,8 @@ import type {
 } from "@/lib/chat-stream";
 
 const PHASES = [
-  { id: "plan", label: "Architecture", agents: ["architect", "research", "repo_explorer"] },
+  { id: "plan", label: "Architecture", agents: ["architect", "repo_explorer"] },
+  { id: "research", label: "Recherche", agents: ["research"] },
   { id: "build", label: "Construction", agents: ["database", "backend", "frontend"] },
   { id: "verify", label: "Tests & sécurité", agents: ["tester", "security"] },
   { id: "repair", label: "Debug", agents: ["debugger"] },
@@ -72,6 +73,8 @@ export function CodingRunCard({
   const errored = run.phase === "error";
   const artifactUrl = run.artifact?.download_url || project?.download_url;
   const artifactSize = run.artifact?.zip_size_bytes || project?.zip_size_bytes;
+  const qualityStatus = run.quality_status || project?.quality_status;
+  const quality = run.quality || project?.quality;
   const currentAgent = run.current_agent
     ? AGENT_LABELS[run.current_agent] || run.current_agent
     : "Toumaï Coding Agent";
@@ -122,6 +125,21 @@ export function CodingRunCard({
             {total ? ` · ${completed}/${total} fichiers terminés` : ""}
             {failed ? ` · ${failed} échec(s)` : ""}
           </p>
+          {qualityStatus ? (
+            <p
+              className="mt-1 text-[10.5px] font-medium"
+              style={{
+                color:
+                  qualityStatus === "static_passed"
+                    ? "var(--success)"
+                    : "var(--thinking)",
+              }}
+            >
+              {qualityStatus === "static_passed"
+                ? "Audit statique validé"
+                : `À vérifier · ${quality?.errors ?? 0} erreur(s), ${quality?.warnings ?? 0} avertissement(s)`}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -167,7 +185,7 @@ export function CodingRunCard({
           {run.current_file ? (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-                Fichier en cours
+                {run.repairing ? "Correction en cours" : "Fichier en cours"}
               </p>
               <p className="mt-1 break-all rounded-lg bg-[var(--background)] px-2.5 py-2 font-mono text-[10.5px] text-[var(--text-secondary)]">
                 {run.current_file}
