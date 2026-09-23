@@ -14,7 +14,15 @@ import {
 
 /** Carte compacte affichée dans le fil de conversation quand l'IA a produit un
  * projet multi-fichiers. Un clic ouvre l'IDE plein écran. */
-export function ProjectCard({ content, onSuggest }: { content: string; onSuggest?: (t: string) => void }) {
+export function ProjectCard({
+  content,
+  onSuggest,
+  onOpenWorkspace,
+}: {
+  content: string;
+  onSuggest?: (t: string) => void;
+  onOpenWorkspace?: () => void;
+}) {
   const files = useMemo(() => parseProject(content), [content]);
   const [open, setOpen] = useState(false);
   if (files.length < 2) return null;
@@ -23,7 +31,7 @@ export function ProjectCard({ content, onSuggest }: { content: string; onSuggest
   return (
     <div className="my-2">
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => (onOpenWorkspace ? onOpenWorkspace() : setOpen(true))}
         className="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition hover:border-[var(--primary)]/50"
       >
         <span
@@ -40,7 +48,7 @@ export function ProjectCard({ content, onSuggest }: { content: string; onSuggest
           </p>
         </div>
         <span className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-white" style={{ background: "var(--primary)" }}>
-          Ouvrir
+          {onOpenWorkspace ? "Workspace" : "Ouvrir"}
         </span>
       </button>
       {open && <ProjectIDE files={files} onClose={() => setOpen(false)} onSuggest={onSuggest} />}
