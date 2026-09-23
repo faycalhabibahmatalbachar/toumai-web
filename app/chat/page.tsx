@@ -1759,7 +1759,9 @@ export default function ChatPage() {
             pendant qu'on lit une conversation. */}
         <footer
           className={`chat-dock relative px-4 pt-1 sm:px-6 ${
-            messages.length === 0 && !historyLoading ? "pb-[7vh]" : "pb-3"
+            messages.length === 0 && !historyLoading
+              ? "pb-[max(7vh,env(safe-area-inset-bottom))]"
+              : "pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           }`}
         >
           <DropZone onFiles={onDroppedFiles} accept="image/*,.pdf,.docx,.xlsx,.txt,.md,.markdown,.csv">
