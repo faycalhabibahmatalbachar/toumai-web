@@ -194,7 +194,7 @@ export function ChatContextPanel({
         type="button"
         aria-label="Fermer le panneau contextuel"
         onClick={onClose}
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] xl:hidden"
+        className="chat-context-backdrop fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] xl:hidden"
       />
       <aside
         role="complementary"
