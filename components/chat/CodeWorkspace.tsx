@@ -111,7 +111,7 @@ export function CodeWorkspace({
       label: id,
       status: id === run?.current_agent ? "running" : "planned",
     }));
-  }, [run?.agent_plan?.stages, run?.agents, run?.current_agent]);
+  }, [run]);
 
   const previewUrl = safeHttpUrl(run?.preview?.url);
   const browserScreenshot = safeHttpUrl(
