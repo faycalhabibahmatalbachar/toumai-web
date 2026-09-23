@@ -13,7 +13,7 @@ import {
   Terminal,
   Users,
 } from "lucide-react";
-import type { CodingProjectResult, CodingRunSnapshot } from "@/lib/chat-stream";
+import type { CodingAgentEvidence, CodingArtifactEvidence, CodingProjectResult, CodingRunSnapshot } from "@/lib/chat-stream";
 import { codingEvidenceStateLabel, redactSensitiveText } from "@/lib/code-evidence";
 
 type CodeWorkspaceTab =
@@ -97,7 +97,7 @@ export function CodeWorkspace({
     }));
   }, [project?.files, run?.completed_files, run?.current_file, run?.failed_files]);
 
-  const agents = useMemo(() => {
+  const agents = useMemo<CodingAgentEvidence[]>(() => {
     if (run?.agents?.length) return run.agents;
 
     const planned = new Set<string>();
@@ -118,7 +118,7 @@ export function CodeWorkspace({
     run?.preview?.screenshot_url || run?.browser_screenshot_url,
   );
 
-  const artifacts = [
+  const artifacts: CodingArtifactEvidence[] = [
     ...(run?.artifacts ?? []),
     ...(run?.artifact?.download_url
       ? [
