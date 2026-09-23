@@ -1483,7 +1483,7 @@ export default function ChatPage() {
             onClick={() => setSidebarOpen(true)}
             aria-label="Ouvrir les conversations"
             title="Ouvrir les conversations"
-            className="chat-iconbtn md:hidden"
+            className="chat-iconbtn lg:hidden"
           >
             <PanelOpenIcon />
           </button>
