@@ -38,6 +38,52 @@ export interface SearchImage {
 }
 
 
+
+export type CodingFailureFamily =
+  | "typescript"
+  | "python_traceback"
+  | "jest_vitest"
+  | "pytest"
+  | "next_build"
+  | "sql"
+  | "playwright"
+  | "docker"
+  | "generic";
+
+export interface CodingCommandEvidence {
+  id: string;
+  command: string;
+  exit_code: number | null;
+  output: string;
+}
+
+/** Contrat public Debugger → Repair. Le Debugger décrit la preuve, jamais le patch. */
+export interface CodingDebugDiagnostic {
+  schema_version: string;
+  status: "diagnosed" | "insufficient_evidence";
+  failure_family: CodingFailureFamily;
+  summary: string;
+  root_cause: string;
+  confidence: "low" | "medium" | "high";
+  evidence: CodingCommandEvidence[];
+  candidate_files: string[];
+  repair_scope: string[];
+}
+
+export interface CodingDebugCycle {
+  status:
+    | "unavailable"
+    | "passed"
+    | "failed"
+    | "repaired"
+    | "escalated"
+    | string;
+  attempts: number;
+  max_attempts: number;
+  last_diagnostic?: CodingDebugDiagnostic | null;
+  escalation_reason?: string | null;
+}
+
 export interface CodingRunSnapshot {
   active?: boolean;
   phase?: "plan" | "build" | "verify" | "repair" | "review" | "package" | "release" | "done" | "error" | string;
@@ -66,7 +112,8 @@ export interface CodingRunSnapshot {
     zip_size_bytes?: number;
   };
   repairing?: boolean;
-  quality_status?: "static_passed" | "needs_attention" | string;
+  quality_status?: "verified" | "static_passed" | "needs_attention" | string;
+  debug_cycle?: CodingDebugCycle;
   quality?: {
     kind?: string;
     passed?: boolean;
@@ -123,6 +170,7 @@ export interface CodingProjectResult {
   quality?: CodingRunSnapshot["quality"];
   quality_status?: CodingRunSnapshot["quality_status"];
   dynamic_validation?: CodingRunSnapshot["dynamic_validation"];
+  debug_cycle?: CodingDebugCycle;
 }
 
 export interface StreamMetadata {
