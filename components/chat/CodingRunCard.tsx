@@ -130,14 +130,16 @@ export function CodingRunCard({
               className="mt-1 text-[10.5px] font-medium"
               style={{
                 color:
-                  qualityStatus === "static_passed"
+                  qualityStatus === "verified" || qualityStatus === "static_passed"
                     ? "var(--success)"
                     : "var(--thinking)",
               }}
             >
-              {qualityStatus === "static_passed"
-                ? "Audit statique validé"
-                : `À vérifier · ${quality?.errors ?? 0} erreur(s), ${quality?.warnings ?? 0} avertissement(s)`}
+              {qualityStatus === "verified"
+                ? "Vérifié · tests dynamiques réussis"
+                : qualityStatus === "static_passed"
+                  ? "Audit statique validé · sandbox non exécuté"
+                  : `À vérifier · ${quality?.errors ?? 0} erreur(s), ${quality?.warnings ?? 0} avertissement(s)`}
             </p>
           ) : null}
         </div>
@@ -180,7 +182,7 @@ export function CodingRunCard({
         </div>
       </div>
 
-      {(run.current_file || stack) && (
+      {(run.current_file || run.current_command || stack) && (
         <div className="space-y-2 px-4 py-3">
           {run.current_file ? (
             <div>
@@ -189,6 +191,16 @@ export function CodingRunCard({
               </p>
               <p className="mt-1 break-all rounded-lg bg-[var(--background)] px-2.5 py-2 font-mono text-[10.5px] text-[var(--text-secondary)]">
                 {run.current_file}
+              </p>
+            </div>
+          ) : null}
+          {run.current_command ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
+                Commande de validation
+              </p>
+              <p className="mt-1 break-all rounded-lg bg-[#0d0d0f] px-2.5 py-2 font-mono text-[10.5px] text-[#c9c6be]">
+                {run.current_command}
               </p>
             </div>
           ) : null}
