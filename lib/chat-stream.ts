@@ -65,6 +65,22 @@ export interface CodingRunSnapshot {
     download_url?: string;
     zip_size_bytes?: number;
   };
+  repairing?: boolean;
+  quality_status?: "static_passed" | "needs_attention" | string;
+  quality?: {
+    kind?: string;
+    passed?: boolean;
+    errors?: number;
+    warnings?: number;
+    issues?: Array<{
+      code?: string;
+      severity?: string;
+      message?: string;
+      path?: string | null;
+      kind?: string;
+    }>;
+    checks?: Record<string, unknown>;
+  };
   error_type?: string;
 }
 
@@ -78,6 +94,12 @@ export interface CodingProjectResult {
   download_url?: string;
   zip_size_bytes?: number;
   agent_plan?: CodingRunSnapshot["agent_plan"];
+  research?: Record<string, unknown>;
+  assets?: Array<{ prompt?: string; url?: string }>;
+  tests?: string[];
+  acceptance_criteria?: string[];
+  quality?: CodingRunSnapshot["quality"];
+  quality_status?: CodingRunSnapshot["quality_status"];
 }
 
 export interface StreamMetadata {
