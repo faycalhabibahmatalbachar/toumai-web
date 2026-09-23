@@ -880,6 +880,22 @@ export default function ChatPage() {
               ),
             );
           }
+          if (evt.metadata?.coding_run && !evt.done) {
+            const codingRun = evt.metadata.coding_run;
+            const codingProject = evt.metadata.coding_project;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      codingRun,
+                      codingProject: codingProject ?? m.codingProject,
+                      activity: undefined,
+                    }
+                  : m,
+              ),
+            );
+          }
           // La confirmation peut arriver dans un événement metadata
           // intermédiaire OU dans l'événement final — on capte les deux.
           if (evt.metadata?.tool_confirmation && !evt.done) {
@@ -896,6 +912,8 @@ export default function ChatPage() {
             const modelNotice = evt.metadata?.model_notice;
             const reasoning = evt.metadata?.reasoning;
             const reasoningMs = evt.metadata?.reasoning_ms;
+            const codingRun = evt.metadata?.coding_run;
+            const codingProject = evt.metadata?.coding_project;
             const richBlocks = blocksFromMetadata(evt.metadata);
             setMessages((prev) =>
               prev.map((m) => {
@@ -913,6 +931,8 @@ export default function ChatPage() {
                     // Trace de raisonnement réelle (panneau « Réflexion »).
                     reasoning: reasoning ?? m.reasoning,
                     reasoningMs: reasoningMs ?? m.reasoningMs,
+                    codingRun: codingRun ?? m.codingRun,
+                    codingProject: codingProject ?? m.codingProject,
                     // Action sensible (WhatsApp/mail) : la carte
                     // Confirmer/Annuler déclenche la vraie exécution.
                     toolConfirmation: toolConfirmation ?? m.toolConfirmation,
