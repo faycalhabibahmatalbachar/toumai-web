@@ -25,9 +25,18 @@ const PHASES = [
   "Finalisation et vérification",
 ];
 
+const WAITING_STEPS = [
+  "Analyse de la demande",
+  "Planification de la structure",
+  "Préparation du workspace",
+  "Initialisation de la génération",
+];
+
 export function SiteBuildingCard({ code, waiting = false }: { code: string; waiting?: boolean }) {
   const codeLength = code.length;
   const [phase, setPhase] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [waitingStep, setWaitingStep] = useState(0);
   const scrollRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
@@ -37,6 +46,21 @@ export function SiteBuildingCard({ code, waiting = false }: { code: string; wait
       return () => clearTimeout(t);
     }
   }, [codeLength, phase]);
+
+  useEffect(() => {
+    if (!waiting || code) {
+      setElapsed(0);
+      setWaitingStep(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const seconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      setElapsed(seconds);
+      setWaitingStep(Math.min(WAITING_STEPS.length - 1, Math.floor(seconds / 3)));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [waiting, code]);
 
   // Défilement auto vers le bas du code écrit (effet « frappe live »).
   useEffect(() => {
@@ -62,21 +86,24 @@ export function SiteBuildingCard({ code, waiting = false }: { code: string; wait
           <p className="text-sm font-semibold">Toumaï AI construit votre site…</p>
           <p className="truncate text-xs text-[var(--text-tertiary)]">
             {waiting && !code ? (
-              <>Préparation de la structure et du workspace…</>
+              <>{WAITING_STEPS[waitingStep]} · {elapsed}s</>
             ) : (
-              <><span className="font-mono">index.html</span> · {PHASES[phase]} · {lines} lignes</>
+              <><span className="font-mono">index.html</span> · {PHASES[phase]} · {lines} lignes reçues</>
             )}
           </p>
         </div>
         <span className="shrink-0 text-sm font-semibold tabular-nums" style={{ color: "var(--primary)" }}>
-          {waiting && !code ? "En cours" : `${pct}%`}
+          {waiting && !code ? "Travail en cours" : `${pct}%`}
         </span>
       </div>
 
       <div className="h-1 w-full bg-[var(--card)]">
         <div
-          className={`h-full rounded-r-full transition-all duration-500 ${waiting && !code ? "animate-pulse" : ""}`}
-          style={{ width: waiting && !code ? "38%" : `${pct}%`, background: "linear-gradient(90deg, var(--primary), var(--thinking))" }}
+          className={waiting && !code ? "site-build-indeterminate h-full rounded-full" : "h-full rounded-r-full transition-all duration-500"}
+          style={{
+            width: waiting && !code ? "34%" : `${pct}%`,
+            background: "linear-gradient(90deg, var(--primary), var(--thinking))",
+          }}
         />
       </div>
 
@@ -85,7 +112,7 @@ export function SiteBuildingCard({ code, waiting = false }: { code: string; wait
         ref={scrollRef}
         className="max-h-40 min-h-[4.5rem] overflow-hidden whitespace-pre-wrap break-all border-t border-[var(--border)] bg-[#0d0d0f] px-4 py-3 font-mono text-[11.5px] leading-relaxed text-[#c9c6be]"
       >
-        {code ? tail : "Initialisation de la page…"}
+        {code ? tail : `> ${WAITING_STEPS[waitingStep]}\n> En attente des premiers fragments de code du modèle…`}
         <span className="streaming-cursor" style={{ color: "var(--primary)" }}>▋</span>
       </pre>
 
