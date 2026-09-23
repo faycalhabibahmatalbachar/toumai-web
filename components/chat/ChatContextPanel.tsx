@@ -62,9 +62,18 @@ export function ChatContextPanel({
       ? [message.piece]
       : [];
 
-  const generatedImages = imagesFromUrls(message.imageUrls ?? [], {
-    alt: "Image générée par Toumaï AI",
-  });
+  const searchedUrlSet = new Set(
+    (message.searchImages ?? [])
+      .map((image) => safeHttpUrl(image.url))
+      .filter((url): url is string => Boolean(url)),
+  );
+  const generatedImages = imagesFromUrls(
+    (message.imageUrls ?? []).filter((url) => {
+      const safe = safeHttpUrl(url);
+      return Boolean(safe && !searchedUrlSet.has(safe));
+    }),
+    { alt: "Image générée par Toumaï AI" },
+  );
   const searchedImages = (message.searchImages ?? [])
     .map((image, index): ChatImage | null => {
       const url = safeHttpUrl(image.url);
