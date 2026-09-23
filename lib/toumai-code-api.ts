@@ -3,14 +3,14 @@ import { authFetch, http } from "./http";
 export type ToumaiCodeRole =
   | "research"
   | "repo_explorer"
-  | "architecture"
+  | "architect"
   | "database"
   | "backend"
   | "frontend"
-  | "test"
-  | "debug"
+  | "tester"
+  | "debugger"
   | "security"
-  | "review"
+  | "reviewer"
   | "release";
 
 export type ToumaiCodeRunStatus =
