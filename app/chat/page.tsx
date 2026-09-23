@@ -1610,29 +1610,24 @@ export default function ChatPage() {
                     <p className="mt-3 text-center text-[14px] text-[var(--text-secondary)] sm:text-[15px]">
                       Que voulez-vous faire ?
                     </p>
-                    <div className="mt-7 grid w-full max-w-[44rem] grid-cols-2 gap-2.5 lg:grid-cols-4">
+                    <div className="mt-6 flex w-full max-w-[46rem] flex-wrap justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
                           setWebSearch(true);
+                          setInput("Recherche sur le web : ");
                           requestAnimationFrame(() => textareaRef.current?.focus());
                         }}
-                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                       >
-                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
-                          <GlobeIcon />
-                        </span>
-                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Rechercher sur le web</span>
+                        Rechercher une information sur le web
                       </button>
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                       >
-                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
-                          <FileIcon />
-                        </span>
-                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Analyser un document</span>
+                        Analyser un document
                       </button>
                       <button
                         type="button"
@@ -1640,12 +1635,9 @@ export default function ChatPage() {
                           setInput("Crée une image de ");
                           requestAnimationFrame(() => textareaRef.current?.focus());
                         }}
-                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                       >
-                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
-                          <PlusIcon />
-                        </span>
-                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Créer une image</span>
+                        Créer une image
                       </button>
                       <button
                         type="button"
@@ -1653,12 +1645,9 @@ export default function ChatPage() {
                           setInput("Sur WhatsApp, ");
                           requestAnimationFrame(() => textareaRef.current?.focus());
                         }}
-                        className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[var(--card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                       >
-                        <span className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] text-[var(--primary)]">
-                          <PlugIcon />
-                        </span>
-                        <span className="block text-[13px] font-medium text-[var(--text-primary)]">Agir avec WhatsApp</span>
+                        Faire une action sur WhatsApp
                       </button>
                     </div>
                   </>
