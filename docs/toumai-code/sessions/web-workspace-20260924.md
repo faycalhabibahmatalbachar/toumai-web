@@ -39,16 +39,37 @@ Construire l’expérience utilisateur Toumaï Code dans `toumai-web` sans recon
 - `.github/workflows/toumai-code-workspace.yml`
 - `docs/toumai-code/sessions/web-workspace-20260924.md`
 
-## Tests
+## Tests exécutés et résultats exacts
 
-À compléter après exécution réelle. Aucun statut vert n’est affirmé dans ce document avant la preuve CI.
+Code vérifié : `514b74a78b97738ff1c451486ee40b6f102b153f`  
+Workflow : `Toumai Code Workspace` — run `35932507840`, job `107422098289`.
+
+- `npm ci` → success.
+- `npm run typecheck` → success.
+- `npm run test:toumai-code` → success, **8/8 PASS** :
+  - typed public evidence contract ;
+  - chat exposes requested public phases ;
+  - coding run hides chain of thought ;
+  - workspace has all requested surfaces ;
+  - workspace uses secret redaction ;
+  - preview is sandboxed ;
+  - context switches to code workspace ;
+  - mobile workspace remains fullscreen.
+- `npx eslint components/ChatMessage.tsx components/chat/ChatContextPanel.tsx components/chat/CodingRunCard.tsx components/chat/CodeWorkspace.tsx lib/chat-stream.ts lib/code-evidence.ts` → success avec **0 erreur, 2 warnings** `@next/next/no-img-element` :
+  - `components/ChatMessage.tsx:466:13` (préexistant au chantier) ;
+  - `components/chat/CodeWorkspace.tsx:436:15` (capture navigateur distante).
+- Le premier run de CI avait échoué avec exit code 1 sur deux erreurs ESLint (`react-hooks/set-state-in-effect` et `react-hooks/preserve-manual-memoization`). Les deux causes ont été corrigées sans désactiver les règles ; le run ci-dessus est la preuve de réexécution réussie.
+- Au moment de cette documentation, les workflows `Personal reminder widget`, `No anonymous auth regression`, `Dependency security` et `Toumai Code Workspace` sont success ; plusieurs autres workflows de la PR sont encore `in_progress`. Aucun statut global de production-readiness n’est donc affirmé.
 
 ## Limites restantes
 
 - Les nouvelles surfaces restent vides tant que le backend ne publie pas les champs de preuve correspondants.
+- Le frontend n’invente aucun statut de test, review, sécurité ou déploiement ; l’absence de preuve est explicitement affichée.
+- Deux warnings `no-img-element` restent présents ; ils ne bloquent pas ESLint mais doivent être traités séparément si l’optimisation d’image devient une exigence.
 - Aucun code utilisateur/généré n’est exécuté dans le processus API par ce chantier frontend.
-- Aucun déploiement production n’est effectué.
+- Aucun déploiement production n’a été effectué.
+- La PR reste en draft et n’est pas fusionnée.
 
 ## Commit SHA
 
-À compléter après commit et vérification.
+Commit de code vérifié : `514b74a78b97738ff1c451486ee40b6f102b153f`.
