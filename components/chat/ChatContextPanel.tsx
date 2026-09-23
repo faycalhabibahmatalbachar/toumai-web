@@ -15,6 +15,7 @@ import type { ChatImage } from "@/components/chat/media/types";
 import { SourceFavicon } from "@/components/chat/widgets/kinds/ResearchWidgets";
 import { WorkspaceResult } from "@/components/chat/WorkspaceResult";
 import { CodingRunCard } from "@/components/chat/CodingRunCard";
+import { CodeWorkspace } from "@/components/chat/CodeWorkspace";
 
 type ContextTab = "result" | "sources" | "files" | "images" | "action";
 
@@ -202,6 +203,8 @@ export function ChatContextPanel({
 
   if (!tabs.length) return null;
 
+  const isCodeWorkspace = Boolean(message.codingRun || message.codingProject);
+
   return (
     <>
       <button
@@ -213,13 +216,13 @@ export function ChatContextPanel({
       <aside
         role="complementary"
         aria-label="Workspace de la réponse"
-        className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[34rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:w-[30rem] xl:max-w-[30rem] xl:shrink-0 xl:shadow-none 2xl:w-[34rem] 2xl:max-w-[34rem]"
+        className={"chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:shrink-0 xl:shadow-none " + (isCodeWorkspace ? "max-w-none xl:w-[44rem] xl:max-w-[44rem] 2xl:w-[52rem] 2xl:max-w-[52rem]" : "max-w-[34rem] xl:w-[30rem] xl:max-w-[30rem] 2xl:w-[34rem] 2xl:max-w-[34rem]")}
       >
         <header className="flex min-h-14 items-center gap-3 border-b border-[var(--border)] px-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-[var(--text-primary)]">Workspace</p>
+            <p className="text-[13px] font-semibold text-[var(--text-primary)]">{isCodeWorkspace ? "Workspace Code" : "Workspace"}</p>
             <p className="truncate text-[11px] text-[var(--text-tertiary)]">
-              Travaillez sur le résultat sans quitter la conversation
+              {isCodeWorkspace ? "Actions, fichiers et preuves publiques du run" : "Travaillez sur le résultat sans quitter la conversation"}
             </p>
           </div>
           <button
@@ -233,6 +236,12 @@ export function ChatContextPanel({
           </button>
         </header>
 
+        {isCodeWorkspace ? (
+          <div className="min-h-0 flex-1">
+            <CodeWorkspace run={message.codingRun} project={message.codingProject} />
+          </div>
+        ) : (
+          <>
         <div className="flex gap-1 overflow-x-auto border-b border-[var(--border)] px-3 py-2">
           {tabs.map(({ id, label, count, icon: Icon }) => (
             <button
@@ -375,6 +384,8 @@ export function ChatContextPanel({
             </div>
           ) : null}
         </div>
+          </>
+        )}
       </aside>
     </>
   );
