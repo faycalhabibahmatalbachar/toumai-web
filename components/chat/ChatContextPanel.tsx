@@ -13,8 +13,9 @@ import type { Message } from "@/components/ChatMessage";
 import { MediaMessage, imagesFromUrls } from "@/components/chat/media/MediaMessage";
 import type { ChatImage } from "@/components/chat/media/types";
 import { SourceFavicon } from "@/components/chat/widgets/kinds/ResearchWidgets";
+import { WorkspaceResult } from "@/components/chat/WorkspaceResult";
 
-type ContextTab = "sources" | "files" | "images" | "action";
+type ContextTab = "result" | "sources" | "files" | "images" | "action";
 
 function safeHttpUrl(value?: string | null): string | null {
   if (!value) return null;
@@ -62,19 +63,62 @@ export function ChatContextPanel({
       ? [message.piece]
       : [];
 
+  const responseFiles = (message.blocks ?? [])
+    .filter((block) => block.type === "file")
+    .map((block) => block.file);
+
+  const files = [
+    ...pieces.map((piece, index) => ({
+      key: `piece-${index}-${piece.nom}`,
+      name: piece.nom,
+      type: piece.type,
+      size: piece.taille,
+      pages: piece.pages,
+      url: null as string | null,
+      generated: false,
+    })),
+    ...responseFiles.map((file, index) => ({
+      key: `generated-${file.id || index}-${file.name}`,
+      name: file.name,
+      type: file.mime_type,
+      size: file.size_bytes,
+      pages: file.pages,
+      url: safeHttpUrl(file.url),
+      generated: true,
+    })),
+  ];
+
+  const blockSources = (message.blocks ?? [])
+    .filter((block) => block.type === "sources")
+    .flatMap((block) => block.sources);
+  const sourceMap = new Map<string, (typeof blockSources)[number]>();
+  for (const source of [...(message.sources ?? []), ...blockSources]) {
+    const url = safeHttpUrl(source.url);
+    if (url) sourceMap.set(url, source);
+  }
+  const sources = [...sourceMap.values()];
+
+  const blockGeneratedImageUrls = (message.blocks ?? [])
+    .filter((block) => block.type === "generated_images")
+    .flatMap((block) => block.urls);
+  const blockSearchImages = (message.blocks ?? [])
+    .filter((block) => block.type === "web_images")
+    .flatMap((block) => block.images);
+  const searchImages = [...(message.searchImages ?? []), ...blockSearchImages];
+
   const searchedUrlSet = new Set(
-    (message.searchImages ?? [])
+    searchImages
       .map((image) => safeHttpUrl(image.url))
       .filter((url): url is string => Boolean(url)),
   );
   const generatedImages = imagesFromUrls(
-    (message.imageUrls ?? []).filter((url) => {
+    [...(message.imageUrls ?? []), ...blockGeneratedImageUrls].filter((url) => {
       const safe = safeHttpUrl(url);
       return Boolean(safe && !searchedUrlSet.has(safe));
     }),
     { alt: "Image générée par Toumaï AI" },
   );
-  const searchedImages = (message.searchImages ?? [])
+  const searchedImages = searchImages
     .map((image, index): ChatImage | null => {
       const url = safeHttpUrl(image.url);
       if (!url) return null;
@@ -96,14 +140,22 @@ export function ChatContextPanel({
     .filter((image): image is ChatImage => Boolean(image));
   const images = [...generatedImages, ...searchedImages, ...previewImages];
 
+  const hasWorkspaceResult =
+    message.role === "assistant" &&
+    Boolean(message.content.trim()) &&
+    (message.content.length >= 600 || /\`\`\`/.test(message.content));
+
   const tabs = useMemo(
     () =>
       [
-        message.sources?.length
-          ? { id: "sources" as const, label: "Sources", count: message.sources.length, icon: Globe2 }
+        hasWorkspaceResult
+          ? { id: "result" as const, label: "Résultat", count: null, icon: FileText }
           : null,
-        pieces.length
-          ? { id: "files" as const, label: "Fichiers", count: pieces.length, icon: FileText }
+        sources.length
+          ? { id: "sources" as const, label: "Sources", count: sources.length, icon: Globe2 }
+          : null,
+        files.length
+          ? { id: "files" as const, label: "Fichiers", count: files.length, icon: FileText }
           : null,
         images.length
           ? { id: "images" as const, label: "Images", count: images.length, icon: Images }
@@ -117,7 +169,7 @@ export function ChatContextPanel({
         count: number | null;
         icon: typeof Globe2;
       }>,
-    [images.length, message.sources?.length, message.toolConfirmation, pieces.length],
+    [files.length, hasWorkspaceResult, images.length, message.toolConfirmation, sources.length],
   );
 
   const [tab, setTab] = useState<ContextTab>(tabs[0]?.id ?? "sources");
@@ -146,14 +198,14 @@ export function ChatContextPanel({
       />
       <aside
         role="complementary"
-        aria-label="Contexte de la réponse"
-        className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[28rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:w-[23rem] xl:max-w-[23rem] xl:shrink-0 xl:shadow-none"
+        aria-label="Workspace de la réponse"
+        className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[34rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:w-[30rem] xl:max-w-[30rem] xl:shrink-0 xl:shadow-none 2xl:w-[34rem] 2xl:max-w-[34rem]"
       >
         <header className="flex min-h-14 items-center gap-3 border-b border-[var(--border)] px-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-[var(--text-primary)]">Contexte</p>
+            <p className="text-[13px] font-semibold text-[var(--text-primary)]">Workspace</p>
             <p className="truncate text-[11px] text-[var(--text-tertiary)]">
-              Éléments liés à cette réponse
+              Travaillez sur le résultat sans quitter la conversation
             </p>
           </div>
           <button
@@ -189,9 +241,13 @@ export function ChatContextPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
-          {tab === "sources" && message.sources?.length ? (
+          {tab === "result" && hasWorkspaceResult ? (
+            <WorkspaceResult content={message.content} />
+          ) : null}
+
+          {tab === "sources" && sources.length ? (
             <div className="space-y-2">
-              {message.sources.map((source, index) => {
+              {sources.map((source, index) => {
                 const url = safeHttpUrl(source.url);
                 if (!url) return null;
                 return (
@@ -229,11 +285,11 @@ export function ChatContextPanel({
             </div>
           ) : null}
 
-          {tab === "files" && pieces.length ? (
+          {tab === "files" && files.length ? (
             <div className="space-y-2">
-              {pieces.map((piece, index) => (
+              {files.map((file) => (
                 <div
-                  key={`${piece.nom}-${index}`}
+                  key={file.key}
                   className="rounded-xl border border-[var(--border)] bg-[var(--background)] p-3"
                 >
                   <div className="flex items-start gap-3">
@@ -242,18 +298,31 @@ export function ChatContextPanel({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[12.5px] font-semibold text-[var(--text-primary)]">
-                        {piece.nom}
+                        {file.name}
                       </p>
                       <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
                         {[
-                          piece.type,
-                          piece.pages ? `${piece.pages} page${piece.pages > 1 ? "s" : ""}` : null,
-                          formatFileSize(piece.taille),
+                          file.type,
+                          file.pages ? `${file.pages} page${file.pages > 1 ? "s" : ""}` : null,
+                          formatFileSize(file.size),
+                          file.generated ? "Créé par Toumaï" : null,
                         ]
                           .filter(Boolean)
-                          .join(" · ") || "Pièce jointe"}
+                          .join(" · ") || "Fichier"}
                       </p>
                     </div>
+                    {file.url ? (
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="chat-iconbtn"
+                        aria-label={`Ouvrir ${file.name}`}
+                        title="Ouvrir"
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                      </a>
+                    ) : null}
                   </div>
                 </div>
               ))}
