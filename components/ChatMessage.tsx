@@ -336,7 +336,13 @@ export function ChatMessage({
       message.piece ||
       message.imageUrls?.length ||
       message.searchImages?.length ||
-      message.toolConfirmation,
+      message.toolConfirmation ||
+      message.blocks?.some((block) =>
+        ["sources", "file", "web_images", "generated_images", "tool_confirmation"].includes(block.type),
+      ) ||
+      (message.role === "assistant" &&
+        Boolean(message.content.trim()) &&
+        (message.content.length >= 600 || /\`\`\`/.test(message.content))),
   );
   const showAssistantIdentity = Boolean(
     message.streaming ||
@@ -435,8 +441,8 @@ export function ChatMessage({
           {contextAvailable && onOpenContext ? (
             <button
               onClick={() => onOpenContext(message)}
-              title="Ouvrir le contexte"
-              aria-label="Ouvrir les sources, fichiers et détails de cette réponse"
+              title="Ouvrir le workspace"
+              aria-label="Ouvrir le workspace de cette réponse"
               className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
             >
               <ContextPanelIcon />
