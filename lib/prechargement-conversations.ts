@@ -75,6 +75,8 @@ export type MessageEnCache = {
   pieces?: unknown;
   reasoning?: unknown;
   reasoningMs?: unknown;
+  codingRun?: unknown;
+  codingProject?: unknown;
 };
 
 export function convertirHistorique(historique: HistoryMessage[]): MessageEnCache[] {
@@ -106,6 +108,8 @@ export function convertirHistorique(historique: HistoryMessage[]): MessageEnCach
     })),
     reasoning: m.metadata?.reasoning,
     reasoningMs: m.metadata?.reasoning_ms,
+    codingRun: m.metadata?.coding_run,
+    codingProject: m.metadata?.coding_project,
   }));
 }
 
