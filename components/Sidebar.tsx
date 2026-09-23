@@ -292,19 +292,19 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
     <>
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] transition-all md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] transition-all lg:static lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "md:w-[68px]" : "md:w-72"}`}
+        } ${collapsed ? "lg:w-[68px]" : "lg:w-72"}`}
       >
         {/* En-tête du menu : ouvert, le nom du produit et l'icône « fermer le
             panneau » ; replié, l'icône « ouvrir le panneau » seule. */}
-        <div className={`hidden px-3 pt-3 md:block ${collapsed ? "md:px-3.5" : ""}`}>
+        <div className={`hidden px-3 pt-3 lg:block ${collapsed ? "lg:px-3.5" : ""}`}>
           {collapsed ? (
             /* Rail replié : l'icône du panneau, pas la marque. Un logo posé là
                n'annonce pas ce que le clic va faire, et il occupait la place
@@ -352,7 +352,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           )}
         </div>
 
-        <div className={`px-3 pt-3 pb-1 md:pt-2 ${collapsed ? "md:px-3.5" : ""}`}>
+        <div className={`px-3 pt-3 pb-1 lg:pt-2 ${collapsed ? "lg:px-3.5" : ""}`}>
           <button
             onClick={() => {
               onNewChat();
@@ -360,16 +360,16 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
             }}
             title="Nouvelle conversation"
             className={`nav-anim flex items-center gap-2.5 rounded-full border border-[var(--border)] text-sm font-medium text-[var(--text-primary)] transition hover:border-[color-mix(in_srgb,var(--primary)_45%,transparent)] ${
-              collapsed ? "md:h-9 md:w-9 md:justify-center md:px-0 w-full px-2.5 py-2" : "w-full px-2.5 py-2"
+              collapsed ? "lg:h-9 lg:w-9 lg:justify-center lg:px-0 w-full px-2.5 py-2" : "w-full px-2.5 py-2"
             }`}
             style={{ background: "var(--card)" }}
           >
             <ComposeIcon />
-            <span className={collapsed ? "md:hidden" : ""}>Nouvelle conversation</span>
+            <span className={collapsed ? "lg:hidden" : ""}>Nouvelle conversation</span>
           </button>
         </div>
 
-        <div className={`px-3 pb-1 ${collapsed ? "md:px-3.5" : ""}`}>
+        <div className={`px-3 pb-1 ${collapsed ? "lg:px-3.5" : ""}`}>
           {collapsed ? (
             <button
               onClick={() => {
@@ -378,14 +378,14 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
               }}
               title="Rechercher dans les conversations"
               aria-label="Rechercher dans les conversations"
-              className="nav-anim hidden h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] md:flex"
+              className="nav-anim hidden h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] transition hover:bg-[var(--hover)] lg:flex"
             >
               <SearchIcon />
             </button>
           ) : null}
           <label
             className={`nav-anim flex items-center gap-2.5 rounded-full border border-transparent px-2.5 py-2 text-[var(--text-secondary)] transition focus-within:border-[var(--border)] focus-within:bg-[var(--card)] hover:bg-[var(--hover)] ${
-              collapsed ? "md:hidden" : ""
+              collapsed ? "lg:hidden" : ""
             }`}
           >
             <SearchIcon />
@@ -400,7 +400,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           </label>
         </div>
 
-        <div className={`px-3 pb-1 ${collapsed ? "md:px-3.5" : ""}`}>
+        <div className={`px-3 pb-1 ${collapsed ? "lg:px-3.5" : ""}`}>
           {/* Navigation principale : les destinations quotidiennes restent
               ensemble. Les intégrations sont séparées visuellement pour que
               la sidebar ne ressemble pas à une liste plate de fonctionnalités. */}
@@ -415,15 +415,15 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
               onClick={onClose}
               title={item.label}
               className={`nav-anim flex items-center gap-2.5 rounded-lg text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] ${
-                collapsed ? "md:h-9 md:w-9 md:justify-center md:rounded-full md:px-0 px-2.5 py-2" : "px-2.5 py-2"
+                collapsed ? "lg:h-9 lg:w-9 lg:justify-center lg:rounded-full lg:px-0 px-2.5 py-2" : "px-2.5 py-2"
               }`}
             >
               {item.icon}
-              <span className={collapsed ? "md:hidden" : ""}>{item.label}</span>
+              <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
             </Link>
           ))}
 
-          <div className={collapsed ? "md:hidden" : ""}>
+          <div className={collapsed ? "lg:hidden" : ""}>
             <p className="px-2.5 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.09em] text-[var(--text-tertiary)]">
               Outils
             </p>
@@ -440,16 +440,16 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
               onClick={onClose}
               title={item.label}
               className={`nav-anim flex items-center gap-2.5 rounded-lg text-sm text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] ${
-                collapsed ? "md:h-9 md:w-9 md:justify-center md:rounded-full md:px-0 px-2.5 py-2" : "px-2.5 py-2"
+                collapsed ? "lg:h-9 lg:w-9 lg:justify-center lg:rounded-full lg:px-0 px-2.5 py-2" : "px-2.5 py-2"
               }`}
             >
               {item.icon}
-              <span className={collapsed ? "md:hidden" : ""}>{item.label}</span>
+              <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
             </Link>
           ))}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto px-2 pb-3 ${collapsed ? "md:hidden" : ""}`}>
+        <nav className={`flex-1 overflow-y-auto px-2 pb-3 ${collapsed ? "lg:hidden" : ""}`}>
           {loading && (
             <div className="flex flex-col gap-2 px-2 py-2" aria-hidden="true">
               {[...Array(4)].map((_, i) => (
@@ -716,13 +716,13 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           </div>
         )}
 
-        {collapsed && <div className="hidden flex-1 md:block" aria-hidden="true" />}
+        {collapsed && <div className="hidden flex-1 lg:block" aria-hidden="true" />}
         {/* Pied de sidebar — la carte profil est purement informative ; seule
             l'icône engrenage (cible de clic dédiée, avec son propre halo de
             survol) ouvre les paramètres. Pas de trait séparateur au-dessus. */}
         <div
           className={`flex items-center gap-2.5 px-3 py-3 ${
-            collapsed ? "md:justify-center md:px-0" : ""
+            collapsed ? "lg:justify-center lg:px-0" : ""
           }`}
         >
           <div
@@ -741,7 +741,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           </div>
           <span
             className={`min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-secondary)] ${
-              collapsed ? "md:hidden" : ""
+              collapsed ? "lg:hidden" : ""
             }`}
           >
             {!session || !profileResolved
@@ -754,7 +754,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
             title="Paramètres"
             aria-label="Ouvrir les paramètres"
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--text-tertiary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] ${
-              collapsed ? "md:hidden" : ""
+              collapsed ? "lg:hidden" : ""
             }`}
           >
             <SettingsIcon />
@@ -762,7 +762,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
         </div>
         {/* Mode replié : l'engrenage reste accessible seul, centré. */}
         {collapsed && (
-          <div className="hidden justify-center pb-3 md:flex">
+          <div className="hidden justify-center pb-3 lg:flex">
             <Link
               href="/settings"
               onClick={onClose}
