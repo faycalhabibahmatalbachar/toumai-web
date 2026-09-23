@@ -4,7 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sendFeedback } from "@/lib/chat-api";
-import type { ToolConfirmation, WebSource, SearchImage } from "@/lib/chat-stream";
+import type { CodingProjectResult, CodingRunSnapshot, ToolConfirmation, WebSource, SearchImage } from "@/lib/chat-stream";
 import { CodeBlock } from "./CodeBlock";
 import { SiteBuildingCard, SiteArtifactCard, extractHtml } from "./SiteBuilder";
 import { ProjectCard } from "./ProjectViewer";
@@ -22,6 +22,7 @@ import { ActionExecutionCard } from "./chat/widgets/ActionExecutionCard";
 import { Logo } from "./Logo";
 import { useSpeakText } from "@/hooks/useSpeakText";
 import { WhatsAppConnectorCard } from "./chat/WhatsAppConnectorCard";
+import { CodingRunCard } from "./chat/CodingRunCard";
 import type { WhatsAppChatIntent } from "@/lib/whatsapp-intents";
 
 /** Extrait le HTML de base d'un message d'édition (qui embarque le code du
@@ -109,6 +110,8 @@ export interface Message {
   reasoning?: string;
   reasoningMs?: number;
   activity?: string;
+  codingRun?: CodingRunSnapshot;
+  codingProject?: CodingProjectResult;
   /** UI live du connecteur WhatsApp. Aucun QR ni secret n’est persisté ici. */
   whatsappConnector?: { intent: WhatsAppChatIntent };
 }
@@ -322,7 +325,10 @@ export function ChatMessage({
   const pendingCode = message.streaming ? pendingHtmlCode(message.content || "") : null;
   const completedStreamingHtml = message.streaming ? extractHtml(message.content || "") : null;
   const streamingSiteCode = pendingCode ?? completedStreamingHtml;
-  const siteCreationIntent = message.streaming && isSiteCreationIntent(prevContent);
+  const siteCreationIntent =
+    message.streaming &&
+    !message.codingRun &&
+    isSiteCreationIntent(prevContent);
   const building = streamingSiteCode !== null || siteCreationIntent;
   const patchedHtml = (() => {
     if (message.streaming || !hasPatches(message.content || "")) return null;
@@ -345,6 +351,8 @@ export function ChatMessage({
       message.imageUrls?.length ||
       message.searchImages?.length ||
       message.toolConfirmation ||
+      message.codingRun ||
+      message.codingProject ||
       message.blocks?.some((block) =>
         ["sources", "file", "web_images", "generated_images", "tool_confirmation"].includes(block.type),
       ) ||
@@ -376,6 +384,13 @@ export function ChatMessage({
       )}
       {message.reasoning && <ReasoningPanel reasoning={message.reasoning} durationMs={message.reasoningMs} streaming={message.streaming} />}
       {message.whatsappConnector && <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />}
+      {message.codingRun ? (
+        <CodingRunCard
+          run={message.codingRun}
+          project={message.codingProject}
+          onOpenWorkspace={onOpenContext ? () => onOpenContext(message) : undefined}
+        />
+      ) : null}
       <div className="assistant-answer text-[length:var(--chat-fs,15px)] leading-relaxed">
         {message.streaming && message.activity ? (
           message.activity.startsWith("whatsapp") && inferredTaskActivity ? (
