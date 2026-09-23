@@ -37,6 +37,49 @@ export interface SearchImage {
   source_url?: string;
 }
 
+
+export interface CodingRunSnapshot {
+  active?: boolean;
+  phase?: "plan" | "build" | "verify" | "repair" | "review" | "package" | "release" | "done" | "error" | string;
+  current_agent?: string;
+  label?: string;
+  project?: string;
+  stack?: Record<string, unknown>;
+  file_count?: number;
+  completed_files?: string[];
+  failed_files?: string[];
+  current_file?: string;
+  agent_plan?: {
+    version?: string;
+    stages?: Array<{
+      id?: string;
+      mode?: string;
+      agents?: string[];
+      goal?: string;
+    }>;
+    assignments?: Record<string, Array<{ path?: string; purpose?: string }>>;
+    quality_gates?: string[];
+  };
+  artifact?: {
+    name?: string;
+    download_url?: string;
+    zip_size_bytes?: number;
+  };
+  error_type?: string;
+}
+
+export interface CodingProjectResult {
+  name?: string;
+  summary?: string;
+  stack?: Record<string, unknown>;
+  setup?: string[];
+  files?: string[];
+  failed_files?: string[];
+  download_url?: string;
+  zip_size_bytes?: number;
+  agent_plan?: CodingRunSnapshot["agent_plan"];
+}
+
 export interface StreamMetadata {
   image_urls?: string[];
   sources?: WebSource[];
@@ -57,6 +100,9 @@ export interface StreamMetadata {
    * `"web_search"`. Émis AVANT l'action, parce qu'une recherche prend plusieurs
    * secondes et qu'un écran muet pendant ce temps ressemble à une panne. */
   activity?: string;
+  /** Progression publique du Coding Agent V2 — aucune chaîne de pensée. */
+  coding_run?: CodingRunSnapshot;
+  coding_project?: CodingProjectResult;
   /** Contrat extensible de réponse enrichie. Les anciens champs ci-dessus restent supportés. */
   blocks?: ResponseBlock[];
   [key: string]: unknown;
