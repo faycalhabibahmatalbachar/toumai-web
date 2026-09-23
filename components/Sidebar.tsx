@@ -111,6 +111,15 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
   }, [menuId]);
 
   useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  useEffect(() => {
     if (!session) return;
     let cancelled = false;
     // LE SQUELETTE NE DOIT APPARAÎTRE QUE SI LE CACHE EST VIDE.
