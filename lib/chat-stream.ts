@@ -81,6 +81,28 @@ export interface CodingRunSnapshot {
     }>;
     checks?: Record<string, unknown>;
   };
+  current_command?: string;
+  validation_commands?: Array<{
+    id?: string;
+    command?: string;
+    exit_code?: number | null;
+    passed?: boolean;
+  }>;
+  dynamic_validation?: {
+    provider?: string;
+    available?: boolean;
+    executed?: boolean;
+    passed?: boolean | null;
+    reason?: string;
+    commands?: Array<{
+      id?: string;
+      command?: string;
+      exit_code?: number | null;
+      output?: string;
+      passed?: boolean;
+    }>;
+    sandbox_id?: string | null;
+  };
   error_type?: string;
 }
 
@@ -100,6 +122,7 @@ export interface CodingProjectResult {
   acceptance_criteria?: string[];
   quality?: CodingRunSnapshot["quality"];
   quality_status?: CodingRunSnapshot["quality_status"];
+  dynamic_validation?: CodingRunSnapshot["dynamic_validation"];
 }
 
 export interface StreamMetadata {
