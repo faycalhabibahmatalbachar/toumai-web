@@ -25,7 +25,7 @@ const PHASES = [
   "Finalisation et vérification",
 ];
 
-export function SiteBuildingCard({ code }: { code: string }) {
+export function SiteBuildingCard({ code, waiting = false }: { code: string; waiting?: boolean }) {
   const codeLength = code.length;
   const [phase, setPhase] = useState(0);
   const scrollRef = useRef<HTMLPreElement>(null);
@@ -61,27 +61,31 @@ export function SiteBuildingCard({ code }: { code: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Toumaï AI construit votre site…</p>
           <p className="truncate text-xs text-[var(--text-tertiary)]">
-            <span className="font-mono">index.html</span> · {PHASES[phase]} · {lines} lignes
+            {waiting && !code ? (
+              <>Préparation de la structure et du workspace…</>
+            ) : (
+              <><span className="font-mono">index.html</span> · {PHASES[phase]} · {lines} lignes</>
+            )}
           </p>
         </div>
         <span className="shrink-0 text-sm font-semibold tabular-nums" style={{ color: "var(--primary)" }}>
-          {pct}%
+          {waiting && !code ? "En cours" : `${pct}%`}
         </span>
       </div>
 
       <div className="h-1 w-full bg-[var(--card)]">
         <div
-          className="h-full rounded-r-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: "linear-gradient(90deg, var(--primary), var(--thinking))" }}
+          className={`h-full rounded-r-full transition-all duration-500 ${waiting && !code ? "animate-pulse" : ""}`}
+          style={{ width: waiting && !code ? "38%" : `${pct}%`, background: "linear-gradient(90deg, var(--primary), var(--thinking))" }}
         />
       </div>
 
       {/* Vue « éditeur » — le code qui s'écrit en direct, façon IDE. */}
       <pre
         ref={scrollRef}
-        className="max-h-40 overflow-hidden whitespace-pre-wrap break-all border-t border-[var(--border)] bg-[#0d0d0f] px-4 py-3 font-mono text-[11.5px] leading-relaxed text-[#c9c6be]"
+        className="max-h-40 min-h-[4.5rem] overflow-hidden whitespace-pre-wrap break-all border-t border-[var(--border)] bg-[#0d0d0f] px-4 py-3 font-mono text-[11.5px] leading-relaxed text-[#c9c6be]"
       >
-        {tail}
+        {code ? tail : "Initialisation de la page…"}
         <span className="streaming-cursor" style={{ color: "var(--primary)" }}>▋</span>
       </pre>
 
@@ -199,9 +203,11 @@ export function SiteSuggestions({
 export function SiteArtifactCard({
   html,
   onSuggest,
+  onOpenWorkspace,
 }: {
   html: string;
   onSuggest?: (text: string) => void;
+  onOpenWorkspace?: () => void;
 }) {
   const [full, setFull] = useState(false);
   const [tab, setTab] = useState<"preview" | "code">("preview");
@@ -281,13 +287,31 @@ export function SiteArtifactCard({
         </span>
         <span className="text-sm font-semibold">Votre site est prêt</span>
         <div className="ml-auto flex items-center gap-1.5">
-          <button
-            onClick={() => setFull(true)}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
-            style={{ background: "var(--primary)" }}
-          >
-            Ouvrir en plein écran
-          </button>
+          {onOpenWorkspace ? (
+            <>
+              <button
+                onClick={onOpenWorkspace}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+                style={{ background: "var(--primary)" }}
+              >
+                Workspace
+              </button>
+              <button
+                onClick={() => setFull(true)}
+                className="hidden rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] sm:inline-flex"
+              >
+                Plein écran
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setFull(true)}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
+              style={{ background: "var(--primary)" }}
+            >
+              Ouvrir en plein écran
+            </button>
+          )}
         </div>
       </div>
       {/* Aperçu live inline — le site rendu, tout de suite. */}
