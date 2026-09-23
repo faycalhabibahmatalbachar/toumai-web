@@ -1293,6 +1293,25 @@ svg {
   }
 }
 
+/* Certains navigateurs Android peuvent demander le "site pour ordinateur" ou
+ * conserver un viewport CSS plus large que l'écran physique. Sur un appareil
+ * tactile, le workspace doit quand même se comporter comme une vue mobile :
+ * plein écran, sans compresser la conversation en deux colonnes minuscules. */
+@media (pointer: coarse) {
+  .chat-context-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 60 !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    box-shadow: none !important;
+  }
+  .chat-context-backdrop {
+    display: block !important;
+  }
+}
+
 /* Lueur de génération : un dégradé qui balaie le libellé tant que la réponse
  * n'est pas arrivée — plus vivant qu'un simple point fixe. */
 @keyframes shimmer-sweep {
