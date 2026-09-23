@@ -14,6 +14,7 @@ import { MediaMessage, imagesFromUrls } from "@/components/chat/media/MediaMessa
 import type { ChatImage } from "@/components/chat/media/types";
 import { SourceFavicon } from "@/components/chat/widgets/kinds/ResearchWidgets";
 import { WorkspaceResult } from "@/components/chat/WorkspaceResult";
+import { CodingRunCard } from "@/components/chat/CodingRunCard";
 
 type ContextTab = "result" | "sources" | "files" | "images" | "action";
 
@@ -66,6 +67,7 @@ export function ChatContextPanel({
   const responseFiles = (message.blocks ?? [])
     .filter((block) => block.type === "file")
     .map((block) => block.file);
+  const codingFiles = message.codingProject?.files ?? [];
 
   const files = [
     ...pieces.map((piece, index) => ({
@@ -84,6 +86,15 @@ export function ChatContextPanel({
       size: file.size_bytes,
       pages: file.pages,
       url: safeHttpUrl(file.url),
+      generated: true,
+    })),
+    ...codingFiles.map((path, index) => ({
+      key: `coding-${index}-${path}`,
+      name: path,
+      type: undefined,
+      size: undefined,
+      pages: undefined,
+      url: null as string | null,
       generated: true,
     })),
   ];
@@ -142,8 +153,11 @@ export function ChatContextPanel({
 
   const hasWorkspaceResult =
     message.role === "assistant" &&
-    Boolean(message.content.trim()) &&
-    (message.content.length >= 600 || /\`\`\`/.test(message.content));
+    (
+      Boolean(message.codingRun || message.codingProject) ||
+      (Boolean(message.content.trim()) &&
+        (message.content.length >= 600 || /\`\`\`/.test(message.content)))
+    );
 
   const tabs = useMemo(
     () =>
@@ -242,7 +256,15 @@ export function ChatContextPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
           {tab === "result" && hasWorkspaceResult ? (
-            <WorkspaceResult content={message.content} />
+            <div className="space-y-3">
+              {message.codingRun ? (
+                <CodingRunCard
+                  run={message.codingRun}
+                  project={message.codingProject}
+                />
+              ) : null}
+              {message.content.trim() ? <WorkspaceResult content={message.content} /> : null}
+            </div>
           ) : null}
 
           {tab === "sources" && sources.length ? (
