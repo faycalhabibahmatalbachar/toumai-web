@@ -41,6 +41,11 @@ function pendingHtmlCode(content: string): string | null {
   return after;
 }
 
+function isSiteCreationIntent(content?: string): boolean {
+  if (!content) return false;
+  return /(?:landing\s*page|page\s*d['’]?atterrissage|site\s*(?:web|internet)?|website|page\s*web|portfolio|interface\s*web|html\b|frontend\b|front[- ]end\b)/i.test(content);
+}
+
 function linkifySourceCitations(markdown: string, sources?: WebSource[]): string {
   if (!markdown || !sources?.length) return markdown;
   return markdown
@@ -315,7 +320,8 @@ export function ChatMessage({
   }
 
   const pendingCode = message.streaming ? pendingHtmlCode(message.content || "") : null;
-  const building = pendingCode !== null;
+  const siteCreationIntent = message.streaming && isSiteCreationIntent(prevContent);
+  const building = pendingCode !== null || siteCreationIntent;
   const patchedHtml = (() => {
     if (message.streaming || !hasPatches(message.content || "")) return null;
     const base = baseHtmlFrom(prevContent);
@@ -377,7 +383,13 @@ export function ChatMessage({
           )
         ) : null}
         {message.streaming && !message.content ? (
-          message.activity ? null : inferredTaskActivity ? <TaskProgress {...inferredTaskActivity} /> : <TypingDots />
+          building ? (
+            <SiteBuildingCard code={pendingCode ?? ""} waiting={pendingCode === null} />
+          ) : message.activity ? null : inferredTaskActivity ? (
+            <TaskProgress {...inferredTaskActivity} />
+          ) : (
+            <TypingDots />
+          )
         ) : (
           <div className="prose-toumai">
             <ReactMarkdown
@@ -402,9 +414,21 @@ export function ChatMessage({
             >
               {linkifySourceCitations(visibleContent, message.sources)}
             </ReactMarkdown>
-            {building && <SiteBuildingCard code={pendingCode ?? ""} />}
-            {isProject && <ProjectCard content={message.content || ""} onSuggest={onSuggest} />}
-            {isSite && finishedHtml && <SiteArtifactCard html={finishedHtml} onSuggest={onSuggest} />}
+            {building && <SiteBuildingCard code={pendingCode ?? ""} waiting={pendingCode === null} />}
+            {isProject && (
+              <ProjectCard
+                content={message.content || ""}
+                onSuggest={onSuggest}
+                onOpenWorkspace={onOpenContext ? () => onOpenContext(message) : undefined}
+              />
+            )}
+            {isSite && finishedHtml && (
+              <SiteArtifactCard
+                html={finishedHtml}
+                onSuggest={onSuggest}
+                onOpenWorkspace={onOpenContext ? () => onOpenContext(message) : undefined}
+              />
+            )}
           </div>
         )}
       </div>
@@ -443,9 +467,10 @@ export function ChatMessage({
               onClick={() => onOpenContext(message)}
               title="Ouvrir le workspace"
               aria-label="Ouvrir le workspace de cette réponse"
-              className="rounded-md p-1.5 transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
             >
               <ContextPanelIcon />
+              <span>Workspace</span>
             </button>
           ) : null}
           {message.serverId && (
