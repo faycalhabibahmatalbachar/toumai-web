@@ -198,7 +198,7 @@ export default function ChatPage() {
   const [paletteIndex, setPaletteIndex] = useState(0);
   // Tâche de navigation web détectée → fenêtre dédiée de l'Agent Navigateur.
   const [browserGoal, setBrowserGoal] = useState<string | null>(null);
-  const urlConvAttempted = useRef(false);
+  const urlConvLastSeen = useRef<string | null | undefined>(undefined);
   const [attachedDocs, setAttachedDocs] = useState<UploadedDocument[]>([]);
   const attachedDocsRef = useRef<UploadedDocument[]>([]);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
@@ -459,14 +459,53 @@ export default function ChatPage() {
   }, [session]);
 
 
-  // Ouverture directe d'une conversation par son URL (/chat?c=<id>).
+  // L'URL est la source de vérité pour la conversation affichée.
+  //
+  // Cas corrigé : le navigateur peut restaurer une page depuis BFCache ou
+  // revenir de /chat?c=<ancienne-session> vers /chat sans remonter le composant.
+  // L'ancien effet ne lisait l'URL qu'une fois au montage ; React gardait alors
+  // les anciens `messages` alors que la barre d'adresse annonçait un nouveau
+  // chat vide. On réconcilie maintenant montage, historique navigateur et retour
+  // d'onglet.
   useEffect(() => {
-    if (!session || urlConvAttempted.current) return;
-    urlConvAttempted.current = true;
-    const id = new URLSearchParams(window.location.search).get("c");
-    if (id) openSession(id);
+    if (!session) return;
+
+    const reconcileConversationFromUrl = () => {
+      const id = new URLSearchParams(window.location.search).get("c");
+      if (id === urlConvLastSeen.current && id === activeSessionId) return;
+      urlConvLastSeen.current = id;
+
+      if (id) {
+        if (id !== activeSessionId) void openSession(id);
+        return;
+      }
+
+      if (activeSessionId) {
+        setActiveSessionId(null);
+        setMessages([]);
+        setHistoryLoading(false);
+        lastUserMessageRef.current = "";
+        clearError();
+      }
+    };
+
+    reconcileConversationFromUrl();
+    window.addEventListener("popstate", reconcileConversationFromUrl);
+    window.addEventListener("pageshow", reconcileConversationFromUrl);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") reconcileConversationFromUrl();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      window.removeEventListener("popstate", reconcileConversationFromUrl);
+      window.removeEventListener("pageshow", reconcileConversationFromUrl);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+    // openSession/clearError are function declarations bound to the current
+    // render. activeSessionId is the state that must be reconciled.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [session, activeSessionId]);
 
   // Scroll auto vers le bas, sauf si l'utilisateur a remonté manuellement
   // pour relire un message précédent pendant que la réponse arrive (comme
