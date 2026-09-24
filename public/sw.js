@@ -55,7 +55,9 @@
 // pendant une visite entiere apres son remplacement. Les fichiers qu on
 // remplace portent desormais leur version dans leur NOM ; ce numero-ci
 // efface ce que l ancienne strategie avait deja garde.
-// v6 (24 septembre 2026) : purge le cache client après le correctif du\n// sélecteur de modèle /chat afin que les anciens bundles ne restent pas servis.\nconst VERSION = "toumai-v6";
+// v6 (24 septembre 2026) : purge le cache client après le correctif du
+// sélecteur de modèle /chat afin que les anciens bundles ne restent pas servis.
+const VERSION = "toumai-v6";
 const CACHE = `${VERSION}`;
 
 /**
