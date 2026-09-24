@@ -42,10 +42,10 @@ export function ModelSelector({
     if (!trigger || typeof window === "undefined") return;
 
     const rect = trigger.getBoundingClientRect();
-    const margin = 16;
+    const margin = 12;
     const viewportWidth = window.innerWidth;
     const isMobile = viewportWidth < 640;
-    const width = Math.min(isMobile ? 430 : 352, viewportWidth - margin * 2);
+    const width = Math.min(isMobile ? 304 : 320, viewportWidth - margin * 2);
 
     const left = isMobile
       ? Math.max(margin, (viewportWidth - width) / 2)
@@ -120,22 +120,22 @@ export function ModelSelector({
               <motion.div
                 role="listbox"
                 aria-labelledby={titleId}
-                className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--card)] p-2 shadow-[0_22px_70px_-28px_rgba(0,0,0,0.72)] backdrop-blur-xl"
+                className="overflow-hidden rounded-[18px] border border-[var(--border)] bg-[var(--card)] p-1.5 shadow-[0_18px_54px_-28px_rgba(0,0,0,0.68)] backdrop-blur-xl"
                 initial={{ opacity: 0, y: 8, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 6, scale: 0.99 }}
                 transition={{ duration: 0.16, ease: [0.2, 0.8, 0.2, 1] }}
               >
-                <div className="px-2.5 pb-2 pt-1.5">
+                <div className="px-2.5 pb-1.5 pt-1">
                   <p
                     id={titleId}
-                    className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]"
+                    className="text-[11px] font-semibold uppercase tracking-[0.07em] text-[var(--text-tertiary)]"
                   >
                     Choisir un modèle
                   </p>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {SELECTABLE_MODELS.map((model) => {
                     const active = model.id === value;
                     const menuSubtitle =
@@ -156,27 +156,27 @@ export function ModelSelector({
                           requestAnimationFrame(() => triggerRef.current?.focus());
                         }}
                         className={[
-                          "group flex min-h-[72px] w-full items-center gap-3 rounded-[16px] px-3.5 py-2.5 text-left outline-none transition",
+                          "group flex min-h-[58px] w-full items-center gap-2.5 rounded-[14px] px-3 py-2 text-left outline-none transition",
                           "hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card)]",
                           active ? "bg-[var(--hover)]" : "",
                         ].join(" ")}
                       >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface,transparent)] text-[var(--text-secondary)]">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface,transparent)] text-[var(--text-secondary)]">
                           {model.id === "auto" ? <BoltIcon /> : <SparklesIcon />}
                         </span>
 
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[15px] font-semibold leading-5 text-[var(--text-primary)]">
+                          <span className="block truncate text-[14px] font-semibold leading-[18px] text-[var(--text-primary)]">
                             {model.name}
                           </span>
-                          <span className="mt-0.5 block truncate text-[12.5px] leading-5 text-[var(--text-tertiary)]">
+                          <span className="mt-0.5 block truncate text-[11.5px] leading-4 text-[var(--text-tertiary)]">
                             {menuSubtitle}
                           </span>
                         </span>
 
                         <span
                           className={[
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition",
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
                             active
                               ? "bg-[var(--primary)] text-white"
                               : "text-transparent group-hover:text-[var(--text-tertiary)]",
