@@ -17,7 +17,7 @@ const PHASES = [
   { id: "research", label: "Recherche", agents: ["research"] },
   { id: "build", label: "Construction", agents: ["database", "backend", "frontend"] },
   { id: "verify", label: "Tests & sécurité", agents: ["tester", "security"] },
-  { id: "repair", label: "Debug", agents: ["debugger"] },
+  { id: "repair", label: "Debug & Repair", agents: ["debugger", "repair"] },
   { id: "review", label: "Review", agents: ["reviewer"] },
   { id: "release", label: "Release", agents: ["release"] },
 ] as const;
@@ -30,7 +30,8 @@ const AGENT_LABELS: Record<string, string> = {
   backend: "Backend",
   frontend: "Frontend",
   tester: "Tests & QA",
-  debugger: "Debug",
+  debugger: "Debugger",
+  repair: "Repair",
   security: "Sécurité",
   reviewer: "Review",
   release: "Release",
@@ -75,6 +76,7 @@ export function CodingRunCard({
   const artifactSize = run.artifact?.zip_size_bytes || project?.zip_size_bytes;
   const qualityStatus = run.quality_status || project?.quality_status;
   const quality = run.quality || project?.quality;
+  const debugCycle = run.debug_cycle || project?.debug_cycle;
   const currentAgent = run.current_agent
     ? AGENT_LABELS[run.current_agent] || run.current_agent
     : "Toumaï Coding Agent";
@@ -140,6 +142,12 @@ export function CodingRunCard({
                 : qualityStatus === "static_passed"
                   ? "Audit statique validé · sandbox non exécuté"
                   : `À vérifier · ${quality?.errors ?? 0} erreur(s), ${quality?.warnings ?? 0} avertissement(s)`}
+            </p>
+          ) : null}
+          {debugCycle?.status === "escalated" ? (
+            <p className="mt-1 text-[10.5px] font-medium text-[var(--thinking)]">
+              Escalade requise · {debugCycle.attempts}/{debugCycle.max_attempts} correction(s)
+              {debugCycle.escalation_reason ? ` · ${debugCycle.escalation_reason}` : ""}
             </p>
           ) : null}
         </div>
