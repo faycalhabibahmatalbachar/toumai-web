@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { SELECTABLE_MODELS, findModel } from "@/lib/models";
 
+type PopoverPosition = {
+  left: number;
+  top: number;
+  width: number;
+};
+
 /**
- * Sélecteur de modèle — sobre et lisible, pas décoratif.
+ * Sélecteur de modèle du composeur.
  *
- * Les pastilles de couleur par modèle et le badge « Nouveau » en violet
- * donnaient à un choix technique l'allure d'un rayon de bonbons : la couleur
- * ne portait aucune information que le nom ne portait déjà. Ne restent que le
- * nom, ce à quoi le modèle sert, et une coche sur celui qui est actif.
- *
- * Le panneau s'ouvre VERS LE HAUT : le sélecteur vit dans la barre du
- * composeur, en bas de l'écran — un menu déroulant vers le bas sortirait de la
- * fenêtre.
+ * Le panneau est rendu dans document.body afin de ne jamais être rogné par le
+ * composeur ou un parent avec overflow/transform. Sur mobile il est centré
+ * dans le viewport ; sur écran large il s'aligne sur le bord droit du bouton.
+ * Dans les deux cas sa position verticale reste réellement ancrée au bouton.
  */
 export function ModelSelector({
   value,
@@ -23,73 +27,189 @@ export function ModelSelector({
   onChange: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const current = findModel(value) ?? SELECTABLE_MODELS[0];
+  const [position, setPosition] = useState<PopoverPosition>({
+    left: 16,
+    top: 96,
+    width: 320,
+  });
 
-  // Échap referme : un menu qu'on ne peut fermer qu'à la souris bloque la
-  // navigation au clavier.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const current = findModel(value) ?? SELECTABLE_MODELS[0];
+  const titleId = useId();
+
+  const updatePosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger || typeof window === "undefined") return;
+
+    const rect = trigger.getBoundingClientRect();
+    const margin = 16;
+    const viewportWidth = window.innerWidth;
+    const isMobile = viewportWidth < 640;
+    const width = Math.min(isMobile ? 430 : 352, viewportWidth - margin * 2);
+
+    const left = isMobile
+      ? Math.max(margin, (viewportWidth - width) / 2)
+      : Math.min(
+          Math.max(margin, rect.right - width),
+          viewportWidth - width - margin,
+        );
+
+    setPosition({
+      left,
+      top: Math.max(16, rect.top - 12),
+      width,
+    });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+
+    updatePosition();
+
+    const onViewportChange = () => updatePosition();
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    window.visualViewport?.addEventListener("resize", onViewportChange);
+    window.visualViewport?.addEventListener("scroll", onViewportChange);
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+
+    return () => {
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+      window.visualViewport?.removeEventListener("resize", onViewportChange);
+      window.visualViewport?.removeEventListener("scroll", onViewportChange);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, updatePosition]);
+
+  const toggle = () => {
+    if (!open) updatePosition();
+    setOpen((previous) => !previous);
+  };
+
+  const menu =
+    open && typeof document !== "undefined"
+      ? createPortal(
+          <AnimatePresence>
+            <motion.div
+              className="fixed inset-0 z-[80] bg-transparent"
+              aria-hidden="true"
+              onClick={() => setOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+            />
+
+            <div
+              className="fixed z-[90]"
+              style={{
+                left: position.left,
+                top: position.top,
+                width: position.width,
+                transform: "translateY(-100%)",
+              }}
+            >
+              <motion.div
+                role="listbox"
+                aria-labelledby={titleId}
+                className="overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--card)] p-2 shadow-[0_22px_70px_-28px_rgba(0,0,0,0.72)] backdrop-blur-xl"
+                initial={{ opacity: 0, y: 8, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.99 }}
+                transition={{ duration: 0.16, ease: [0.2, 0.8, 0.2, 1] }}
+              >
+                <div className="px-2.5 pb-2 pt-1.5">
+                  <p
+                    id={titleId}
+                    className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]"
+                  >
+                    Choisir un modèle
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  {SELECTABLE_MODELS.map((model) => {
+                    const active = model.id === value;
+                    const menuSubtitle =
+                      model.id === "auto"
+                        ? "Rapide · Code & quotidien"
+                        : model.id === "sayibi-reflexion"
+                          ? "Raisonnement avancé · Tâches complexes"
+                          : model.tagline;
+
+                    return (
+                      <button
+                        key={model.id}
+                        role="option"
+                        aria-selected={active}
+                        onClick={() => {
+                          onChange(model.id);
+                          setOpen(false);
+                          requestAnimationFrame(() => triggerRef.current?.focus());
+                        }}
+                        className={[
+                          "group flex min-h-[72px] w-full items-center gap-3 rounded-[16px] px-3.5 py-2.5 text-left outline-none transition",
+                          "hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card)]",
+                          active ? "bg-[var(--hover)]" : "",
+                        ].join(" ")}
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface,transparent)] text-[var(--text-secondary)]">
+                          {model.id === "auto" ? <BoltIcon /> : <SparklesIcon />}
+                        </span>
+
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[15px] font-semibold leading-5 text-[var(--text-primary)]">
+                            {model.name}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[12.5px] leading-5 text-[var(--text-tertiary)]">
+                            {menuSubtitle}
+                          </span>
+                        </span>
+
+                        <span
+                          className={[
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition",
+                            active
+                              ? "bg-[var(--primary)] text-white"
+                              : "text-transparent group-hover:text-[var(--text-tertiary)]",
+                          ].join(" ")}
+                          aria-hidden="true"
+                        >
+                          {active ? <CheckIcon /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </div>
+          </AnimatePresence>,
+          document.body,
+        )
+      : null;
 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        ref={triggerRef}
+        onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Changer de modèle"
-        className="flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)]"
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[14px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
       >
         {current.name}
         <ChevronIcon open={open} />
       </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div
-            role="listbox"
-            aria-label="Modèle"
-            className="absolute bottom-full right-0 z-20 mb-2 w-[17rem] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1"
-            style={{ boxShadow: "var(--chat-elev-2, 0 24px 60px -24px rgba(0,0,0,.6))" }}
-          >
-            {SELECTABLE_MODELS.map((m) => {
-              const active = m.id === value;
-              return (
-                <button
-                  key={m.id}
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => {
-                    onChange(m.id);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-[var(--hover)]"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-medium text-[var(--text-primary)]">
-                      {m.name}
-                    </span>
-                    {/* Une seule ligne sous le nom : la description complète
-                        transformait un choix à deux entrées en pavé de texte. */}
-                    <span className="block truncate text-[12.5px] text-[var(--text-tertiary)]">
-                      {m.tagline}
-                    </span>
-                  </span>
-                  <span className="w-4 shrink-0 text-[var(--primary)]">
-                    {active && <CheckIcon />}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
+      {menu}
     </div>
   );
 }
@@ -114,8 +234,49 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function CheckIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      aria-hidden="true"
+    >
       <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      aria-hidden="true"
+    >
+      <path d="M13 2 4.8 13h6.4L11 22l8.2-11h-6.4L13 2Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SparklesIcon() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
+      <path d="M12 3c.6 3.1 2.4 4.9 5.5 5.5C14.4 9.1 12.6 10.9 12 14c-.6-3.1-2.4-4.9-5.5-5.5C9.6 7.9 11.4 6.1 12 3Z" strokeLinejoin="round" />
+      <path d="M18.5 14.5c.3 1.5 1.2 2.4 2.7 2.7-1.5.3-2.4 1.2-2.7 2.7-.3-1.5-1.2-2.4-2.7-2.7 1.5-.3 2.4-1.2 2.7-2.7Z" strokeLinejoin="round" />
     </svg>
   );
 }
