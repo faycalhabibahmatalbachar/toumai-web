@@ -1,0 +1,30 @@
+name: Toumai Code Workspace
+
+on:
+  pull_request:
+    paths:
+      - "components/ChatMessage.tsx"
+      - "components/chat/ChatContextPanel.tsx"
+      - "components/chat/CodingRunCard.tsx"
+      - "components/chat/CodeWorkspace.tsx"
+      - "lib/chat-stream.ts"
+      - "lib/code-evidence.ts"
+      - "scripts/verify-toumai-code-workspace.mjs"
+      - "package.json"
+      - ".github/workflows/toumai-code-workspace.yml"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:toumai-code
+      - run: npx eslint components/ChatMessage.tsx components/chat/ChatContextPanel.tsx components/chat/CodingRunCard.tsx components/chat/CodeWorkspace.tsx lib/chat-stream.ts lib/code-evidence.ts
