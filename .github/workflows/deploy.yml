@@ -20,17 +20,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Vérifier le jeton de déploiement
-        id: jeton
+      - name: Vérifier que le correctif du sélecteur est dans le build
+        run: grep -R -F "Choisir un modèle" out/_next/static >/dev/null
+      - name: Vérifier les secrets Cloudflare
         run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::CLOUDFLARE_API_TOKEN absent — le site n'a PAS été déployé."
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::Secrets Cloudflare absents — aucun déploiement de production possible."
+            exit 1
           fi
       - name: Déployer sur Cloudflare Pages
-        if: steps.jeton.outputs.present == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
