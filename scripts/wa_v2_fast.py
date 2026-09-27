@@ -5,6 +5,11 @@ FAST is a development gate, not a release certificate. It deliberately reuses
 existing E2E scenario functions against a Next.js dev server, avoiding the
 production build/export cycle. FULL certification remains authoritative before
 phase certification or merge.
+
+Until every WhatsApp V2 surface has its own targeted suite, unknown/shared
+changes fall back to the contacts browser suite rather than silently skipping
+browser coverage. This is intentionally fail-safe: speed may improve later,
+but browser evidence is never traded away for an unmapped change.
 """
 
 from __future__ import annotations
@@ -99,7 +104,7 @@ def auto_suite() -> str:
             text=True,
         ).splitlines()
     except subprocess.CalledProcessError:
-        return "contacts"
+        changed = []
 
     joined = "\n".join(changed)
     if any(token in joined for token in (
@@ -107,18 +112,21 @@ def auto_suite() -> str:
         "e2e_whatsapp_experience_v2_contacts.py",
         "wa_v2_fast.py",
     )):
+        print("WA_V2_FAST_MAPPING=contacts")
         return "contacts"
 
-    # Unknown/shared surfaces still get contract + TypeScript from the workflow,
-    # but we refuse to pretend they received targeted browser coverage.
-    return "contract-only"
+    # Fail-safe while more targeted suites are being added: an unmapped
+    # WhatsApp V2 change still receives a real browser run instead of being
+    # treated as contract-only.
+    print("WA_V2_FAST_MAPPING=fallback-contacts")
+    return "contacts"
 
 
 def main() -> None:
     suite = sys.argv[1] if len(sys.argv) > 1 else auto_suite()
     if suite == "contract-only":
         print("WA_V2_FAST_SUITE=contract-only")
-        print("WA_V2_FAST_BROWSER_E2E=SKIPPED_NO_TARGET_MAPPING")
+        print("WA_V2_FAST_BROWSER_E2E=SKIPPED_EXPLICITLY")
         print("FULL_CERTIFICATION_REQUIRED=YES")
         return
     if suite != "contacts":
