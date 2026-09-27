@@ -13,5 +13,9 @@ This file intentionally triggers the branch certification workflow on the correc
 - Chromium E2E for the real `/chat` integration
 - read-only WhatsApp network contract during chat E2E
 - no automatic `/chat/stream` submission from action selection
+- deterministic focus handoff to the composer immediately on action selection, with a next-frame reaffirmation after React rerender
+- opener focus restoration preserved for Escape, backdrop and explicit-close dismissals
+
+Certification attempt: deterministic composer-focus handoff generated from `scripts/apply-whatsapp-experience-v2-chat.mjs` and applied to the real `/chat` surface.
 
 No provider mutation is part of Phase 2C. Real QR/pairing, connection mutation, expiry and reconnect are Phase 3 and must have their own E2E evidence.
