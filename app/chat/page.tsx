@@ -42,6 +42,9 @@ import {
   type PaletteItem,
 } from "@/components/chat/CommandPalette";
 import { ChatContextPanel } from "@/components/chat/ChatContextPanel";
+import { WhatsAppChatActionCenter } from "@/components/whatsapp-experience/WhatsAppChatActionCenter";
+import { WhatsAppIcon } from "@/components/settings/BrandIcons";
+import { WHATSAPP_EXPERIENCE_V2_ENABLED } from "@/lib/whatsapp-ui/feature";
 
 /** Repère un `/commande` ou un `@modèle` en cours de frappe juste avant le
  * curseur. Le déclencheur ne compte qu'en début de champ ou après un espace,
@@ -180,6 +183,7 @@ export default function ChatPage() {
   const [greeting, setGreeting] = useState("Bonjour");
   const [webSearch, setWebSearch] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [whatsappExperienceOpen, setWhatsAppExperienceOpen] = useState(false);
   const [dictating, setDictating] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   /** La conversation à partager. `null` = boîte fermée.
@@ -1486,6 +1490,16 @@ export default function ChatPage() {
     setPaletteIndex(0);
   }
 
+  function prepareWhatsAppStarter(starter: string) {
+    setInput(starter);
+    requestAnimationFrame(() => {
+      const field = textareaRef.current;
+      if (!field) return;
+      field.focus();
+      field.selectionStart = field.selectionEnd = starter.length;
+    });
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (palette && paletteItems.length > 0) {
       if (e.key === "ArrowDown") {
@@ -1721,9 +1735,14 @@ export default function ChatPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (WHATSAPP_EXPERIENCE_V2_ENABLED) {
+                            setWhatsappExperienceOpen(true);
+                            return;
+                          }
                           setInput("Sur WhatsApp, ");
                           requestAnimationFrame(() => textareaRef.current?.focus());
                         }}
+                        data-testid={WHATSAPP_EXPERIENCE_V2_ENABLED ? "wa-v2-empty-entry" : undefined}
                         className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                       >
                         Faire une action sur WhatsApp
@@ -2127,6 +2146,18 @@ export default function ChatPage() {
                   </>
                 )}
               </div>
+              {WHATSAPP_EXPERIENCE_V2_ENABLED ? (
+                <button
+                  type="button"
+                  onClick={() => setWhatsappExperienceOpen(true)}
+                  aria-label="Actions WhatsApp"
+                  title="Actions WhatsApp"
+                  data-testid="wa-v2-composer-entry"
+                  className="chat-iconbtn"
+                >
+                  <WhatsAppIcon size={17} />
+                </button>
+              ) : null}
               {/* LE SELECTEUR RESTE A DROITE. Je l'avais deplace a gauche le
                   4 septembre pour resserrer la barre sur telephone ; c'etait
                   une erreur de ma part, pas une demande. Sa place est ici,
@@ -2196,6 +2227,13 @@ export default function ChatPage() {
           </DropZone>
         </footer>
       </div>
+      {WHATSAPP_EXPERIENCE_V2_ENABLED ? (
+        <WhatsAppChatActionCenter
+          open={whatsappExperienceOpen}
+          onClose={() => setWhatsappExperienceOpen(false)}
+          onPrepare={prepareWhatsAppStarter}
+        />
+      ) : null}
       {contextMessage ? (
         <ChatContextPanel
           message={contextMessage}
