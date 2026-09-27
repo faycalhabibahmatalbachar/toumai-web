@@ -1,0 +1,56 @@
+name: WhatsApp Experience V2
+
+on:
+  push:
+    branches:
+      - codex/whatsapp-experience-v2
+    paths:
+      - "app/dev/whatsapp-ui/**"
+      - "components/whatsapp-experience/**"
+      - "lib/whatsapp-ui/**"
+      - "scripts/verify-whatsapp-experience-v2.mjs"
+      - "docs/whatsapp-experience-v2/**"
+      - ".github/workflows/whatsapp-experience-v2.yml"
+  pull_request:
+    paths:
+      - "app/dev/whatsapp-ui/**"
+      - "components/whatsapp-experience/**"
+      - "lib/whatsapp-ui/**"
+      - "scripts/verify-whatsapp-experience-v2.mjs"
+      - "docs/whatsapp-experience-v2/**"
+      - ".github/workflows/whatsapp-experience-v2.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: whatsapp-experience-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify WhatsApp Experience contract
+        run: node scripts/verify-whatsapp-experience-v2.mjs
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Build static app
+        run: npm run build
+
+      - name: Verify visual lab export
+        shell: bash
+        run: |
+          test -f out/dev/whatsapp-ui/index.html
+          grep -q "WhatsApp Experience V2" out/dev/whatsapp-ui/index.html
+          echo "WHATSAPP_UI_LAB_EXPORT=PASS"
