@@ -1492,11 +1492,16 @@ export default function ChatPage() {
 
   function prepareWhatsAppStarter(starter: string) {
     setInput(starter);
-    requestAnimationFrame(() => {
-      const field = textareaRef.current;
-      if (!field) return;
+    const field = textareaRef.current;
+    if (field) {
       field.focus();
       field.selectionStart = field.selectionEnd = starter.length;
+    }
+    requestAnimationFrame(() => {
+      const nextField = textareaRef.current;
+      if (!nextField) return;
+      nextField.focus();
+      nextField.selectionStart = nextField.selectionEnd = starter.length;
     });
   }
 
