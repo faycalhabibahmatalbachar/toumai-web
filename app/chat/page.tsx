@@ -1736,7 +1736,7 @@ export default function ChatPage() {
                         type="button"
                         onClick={() => {
                           if (WHATSAPP_EXPERIENCE_V2_ENABLED) {
-                            setWhatsappExperienceOpen(true);
+                            setWhatsAppExperienceOpen(true);
                             return;
                           }
                           setInput("Sur WhatsApp, ");
@@ -2149,7 +2149,7 @@ export default function ChatPage() {
               {WHATSAPP_EXPERIENCE_V2_ENABLED ? (
                 <button
                   type="button"
-                  onClick={() => setWhatsappExperienceOpen(true)}
+                  onClick={() => setWhatsAppExperienceOpen(true)}
                   aria-label="Actions WhatsApp"
                   title="Actions WhatsApp"
                   data-testid="wa-v2-composer-entry"
@@ -2230,7 +2230,7 @@ export default function ChatPage() {
       {WHATSAPP_EXPERIENCE_V2_ENABLED ? (
         <WhatsAppChatActionCenter
           open={whatsappExperienceOpen}
-          onClose={() => setWhatsappExperienceOpen(false)}
+          onClose={() => setWhatsAppExperienceOpen(false)}
           onPrepare={prepareWhatsAppStarter}
         />
       ) : null}
