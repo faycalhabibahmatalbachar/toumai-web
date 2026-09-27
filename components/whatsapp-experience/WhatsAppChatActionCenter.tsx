@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import type { WaEtat, WhatsAppState } from "@/lib/connectors-api";
+import type { WaContact, WaEtat, WhatsAppState } from "@/lib/connectors-api";
 import { useWidgetRuntime } from "@/components/chat/widgets/runtime";
 import { WhatsAppActionCenter } from "./WhatsAppActionCenter";
 import { WhatsAppConnectionFlow } from "./WhatsAppConnectionFlow";
-import { whatsappStarterFor } from "@/lib/whatsapp-ui/presentation";
+import { WhatsAppContactPicker } from "./WhatsAppContactPicker";
+import {
+  whatsappActionNeedsContact,
+  whatsappStarterFor,
+  whatsappStarterForContact,
+} from "@/lib/whatsapp-ui/presentation";
 import type {
   WhatsAppActionDefinition,
   WhatsAppConnectionPresentation,
@@ -70,6 +75,7 @@ export function WhatsAppChatActionCenter({
   const [raw, setRaw] = useState<WhatsAppState | null>(null);
   const [state, setState] = useState<WhatsAppExperienceState>("loading");
   const [connectionFlowOpen, setConnectionFlowOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<WhatsAppActionDefinition | null>(null);
   const generation = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -92,6 +98,7 @@ export function WhatsAppChatActionCenter({
   useEffect(() => {
     if (!open) {
       setConnectionFlowOpen(false);
+      setPendingAction(null);
       return;
     }
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -140,7 +147,28 @@ export function WhatsAppChatActionCenter({
   }
 
   function prepare(action: WhatsAppActionDefinition) {
+    if (whatsappActionNeedsContact(action.id)) {
+      setPendingAction(action);
+      return;
+    }
     handoffToComposer(whatsappStarterFor(action.id));
+  }
+
+  function selectContact(contact: WaContact) {
+    if (!pendingAction || !contact.number) return;
+    const starter = whatsappStarterForContact(pendingAction.id, {
+      name: contact.name,
+      number: contact.number,
+    });
+    setPendingAction(null);
+    handoffToComposer(starter);
+  }
+
+  function backFromContactPicker() {
+    setPendingAction(null);
+    window.requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>('[data-testid="wa-v2-action-center"] button:not([disabled])')?.focus();
+    });
   }
 
   function trapTab(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -157,6 +185,12 @@ export function WhatsAppChatActionCenter({
       first.focus();
     }
   }
+
+  const title = connectionFlowOpen
+    ? "Connexion WhatsApp"
+    : pendingAction
+      ? "Choisir un contact"
+      : "Actions WhatsApp";
 
   return (
     <div className="fixed inset-0 z-[70]" data-testid="wa-v2-chat-overlay">
@@ -179,9 +213,7 @@ export function WhatsAppChatActionCenter({
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Toumaï · Connecteur</p>
-            <h2 id="wa-v2-dialog-title" className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
-              {connectionFlowOpen ? "Connexion WhatsApp" : "Actions WhatsApp"}
-            </h2>
+            <h2 id="wa-v2-dialog-title" className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
           </div>
           <button
             type="button"
@@ -202,12 +234,21 @@ export function WhatsAppChatActionCenter({
               void refresh();
             }}
           />
+        ) : pendingAction ? (
+          <WhatsAppContactPicker
+            actionLabel={pendingAction.label}
+            onBack={backFromContactPicker}
+            onSelect={selectContact}
+          />
         ) : (
           <WhatsAppActionCenter
             connection={connection}
             state={state}
             onAction={prepare}
-            onConnect={() => setConnectionFlowOpen(true)}
+            onConnect={() => {
+              setPendingAction(null);
+              setConnectionFlowOpen(true);
+            }}
             onOpenAdvanced={() => window.location.assign("/whatsapp/")}
           />
         )}
