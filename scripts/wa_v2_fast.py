@@ -72,6 +72,10 @@ def browser_for(playwright):
 
 
 def run_contacts() -> None:
+    # Next dev intentionally exercises React development semantics. The shared
+    # E2E suite uses this marker only for mount-read accounting; all safety,
+    # identity, local-search and no-mutation assertions remain unchanged.
+    os.environ["WA_V2_E2E_DEV_MODE"] = "1"
     suite = load_module("e2e_whatsapp_experience_v2_contacts.py")
     suite.BASE_URL = BASE_URL
     with sync_playwright() as playwright:
