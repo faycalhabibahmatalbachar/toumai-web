@@ -68,7 +68,11 @@ export function WhatsAppConnectionFlow({
       </div>
 
       <div data-testid={`wa-v2-connection-panel-${mode}`}>
-        <WhatsAppConnectorCard key={`${mode}-${expired ? "expired" : "new"}`} intent={intent} />
+        {/* The attempt identity changes only when the user changes method.
+            Canonical state naturally moves expired -> qr/connecting while the
+            same attempt is active; remounting on that transition would start a
+            second QR request and invalidate the code already shown. */}
+        <WhatsAppConnectorCard key={mode} intent={intent} />
       </div>
     </section>
   );
