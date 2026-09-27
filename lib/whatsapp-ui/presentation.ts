@@ -20,6 +20,65 @@ export const WHATSAPP_ACTION_STARTERS: Record<WhatsAppActionId, string> = {
   browse_contacts: "Sur WhatsApp, recherche le contact ",
 };
 
+export const WHATSAPP_CONTACT_ACTIONS: readonly WhatsAppActionId[] = [
+  "send_text",
+  "send_image",
+  "send_document",
+  "send_voice",
+  "read_conversation",
+  "summarize_conversation",
+  "schedule_message",
+  "browse_contacts",
+] as const;
+
+export function whatsappActionNeedsContact(actionId: WhatsAppActionId): boolean {
+  return WHATSAPP_CONTACT_ACTIONS.includes(actionId);
+}
+
 export function whatsappStarterFor(actionId: WhatsAppActionId): string {
   return WHATSAPP_ACTION_STARTERS[actionId];
+}
+
+function normalizedContactNumber(number: string): string {
+  const clean = number.trim().replace(/[^+\d]/g, "");
+  if (!clean) return "";
+  return clean.startsWith("+") ? clean : `+${clean}`;
+}
+
+function trustedContactLabel(contact: { name: string; number: string }): string {
+  const number = normalizedContactNumber(contact.number);
+  const name = contact.name.trim();
+  return name ? `${name} (${number})` : number;
+}
+
+/**
+ * Prepare a request with the exact number returned by the synchronized carnet.
+ * We never derive a phone number from a WhatsApp JID: some JIDs are opaque and
+ * can look numeric while not being a routable phone number.
+ */
+export function whatsappStarterForContact(
+  actionId: WhatsAppActionId,
+  contact: { name: string; number: string },
+): string {
+  const target = trustedContactLabel(contact);
+  switch (actionId) {
+    case "send_text":
+      return `Sur WhatsApp, envoie un message à ${target} : `;
+    case "send_image":
+      return `Sur WhatsApp, envoie une image à ${target} : `;
+    case "send_document":
+      return `Sur WhatsApp, envoie un document à ${target} : `;
+    case "send_voice":
+      return `Sur WhatsApp, envoie un message vocal à ${target} : `;
+    case "read_conversation":
+      return `Sur WhatsApp, lis la conversation avec ${target}`;
+    case "summarize_conversation":
+      return `Sur WhatsApp, résume la conversation avec ${target}`;
+    case "schedule_message":
+      return `Sur WhatsApp, programme un message pour ${target} : `;
+    case "browse_contacts":
+      return `Sur WhatsApp, utilise le contact ${target} pour `;
+    default:
+      return `${WHATSAPP_ACTION_STARTERS[actionId]}${target}`;
+  }
 }
