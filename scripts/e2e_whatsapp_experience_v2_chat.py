@@ -4,6 +4,11 @@
 The static production build is served locally. All API calls are intercepted in
 Chromium so this test cannot mutate the real Toumaï or WhatsApp backend.
 Only GET reads of WhatsApp state are accepted by the test contract.
+
+Phase 4 routes recipient-targeted actions through the Contact Picker. This
+legacy integration test therefore uses the non-recipient Status action to keep
+certifying the direct action -> composer focus/caret contract. Contact-targeted
+handoff is certified separately by e2e_whatsapp_experience_v2_contacts.py.
 """
 
 from __future__ import annotations
@@ -92,18 +97,13 @@ def install_api_mock(context: BrowserContext, traffic: list[dict[str, str]]) -> 
     def handler(route: Route) -> None:
         request = route.request
         parsed = urlparse(request.url)
-        # Only intercept Toumaï API traffic; static assets continue normally.
         is_api = parsed.netloc == "api.toumaiai.com" or "/api/v1/" in parsed.path
         if not is_api:
             route.continue_()
             return
 
         traffic.append({"method": request.method.upper(), "url": request.url, "path": parsed.path})
-        route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=envelope(mock_data(parsed.path)),
-        )
+        route.fulfill(status=200, content_type="application/json", body=envelope(mock_data(parsed.path)))
 
     context.route("**/*", handler)
 
@@ -125,15 +125,10 @@ def inject_session(context: BrowserContext) -> None:
 
 def assert_no_horizontal_overflow(page: Page, label: str) -> None:
     metrics = page.evaluate(
-        """() => ({
-          scrollWidth: document.documentElement.scrollWidth,
-          clientWidth: document.documentElement.clientWidth
-        })"""
+        """() => ({scrollWidth: document.documentElement.scrollWidth,
+                    clientWidth: document.documentElement.clientWidth})"""
     )
-    expect(
-        metrics["scrollWidth"] <= metrics["clientWidth"] + 1,
-        f"{label}: horizontal overflow {metrics}",
-    )
+    expect(metrics["scrollWidth"] <= metrics["clientWidth"] + 1, f"{label}: horizontal overflow {metrics}")
 
 
 def open_chat(context: BrowserContext) -> Page:
@@ -153,6 +148,18 @@ def assert_sheet_desktop(page: Page) -> None:
     expect(box["width"] < 700, f"Desktop WhatsApp sheet is unexpectedly wide: {box}")
 
 
+def exercise_direct_action(page: Page, expected: str) -> None:
+    status = page.locator('[data-action-id="publish_status"]')
+    expect(status.is_enabled(), "Status action should be enabled for connected E2E account")
+    status.click()
+    page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="detached")
+    textarea = page.locator("textarea").first
+    expect(textarea.input_value() == expected, f"Composer starter mismatch: {textarea.input_value()!r}")
+    expect(textarea.evaluate("el => document.activeElement === el"), "Composer did not receive focus after direct action selection")
+    caret = textarea.evaluate("el => ({start: el.selectionStart, end: el.selectionEnd, length: el.value.length})")
+    expect(caret["start"] == caret["length"] and caret["end"] == caret["length"], f"Caret not restored at end: {caret}")
+
+
 def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
     context = browser.new_context(viewport={"width": 1440, "height": 900}, reduced_motion="reduce")
     inject_session(context)
@@ -160,25 +167,12 @@ def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
     try:
         page = open_chat(context)
         assert_no_horizontal_overflow(page, "desktop chat")
-
         entry = page.get_by_test_id("wa-v2-composer-entry")
         entry.click()
         assert_sheet_desktop(page)
         expect(page.get_by_text("Connecté", exact=True).count() >= 1, "Connected status not visible in chat sheet")
+        exercise_direct_action(page, "Sur WhatsApp, publie un statut : ")
 
-        message = page.locator('[data-action-id="send_text"]')
-        expect(message.is_enabled(), "Message action should be enabled for connected E2E account")
-        message.click()
-
-        page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="detached")
-        textarea = page.locator("textarea").first
-        expected = "Sur WhatsApp, envoie un message à "
-        expect(textarea.input_value() == expected, f"Composer starter mismatch: {textarea.input_value()!r}")
-        expect(textarea.evaluate("el => document.activeElement === el"), "Composer did not receive focus after action selection")
-        caret = textarea.evaluate("el => ({start: el.selectionStart, end: el.selectionEnd, length: el.value.length})")
-        expect(caret["start"] == caret["length"] and caret["end"] == caret["length"], f"Caret not restored at end: {caret}")
-
-        # Opening again and pressing Escape must restore focus to the invoking control.
         entry.click()
         page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="visible")
         page.keyboard.press("Escape")
@@ -186,7 +180,6 @@ def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
         active_testid = page.evaluate("document.activeElement?.getAttribute('data-testid')")
         expect(active_testid == "wa-v2-composer-entry", f"Focus was not restored to WhatsApp entry: {active_testid!r}")
 
-        # Empty-state CTA must open the same V2 surface when present.
         empty_entry = page.get_by_test_id("wa-v2-empty-entry")
         if empty_entry.count() and empty_entry.is_visible():
             empty_entry.click()
@@ -194,7 +187,6 @@ def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
             page.get_by_label("Fermer", exact=True).click()
             page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="detached")
 
-        # Basic modal tab containment: repeated Tab must never escape the dialog while open.
         entry.click()
         sheet = page.get_by_test_id("wa-v2-chat-sheet")
         sheet.wait_for(state="visible")
@@ -215,10 +207,7 @@ def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
 
 def test_mobile(browser: Browser, traffic: list[dict[str, str]]) -> None:
     context = browser.new_context(
-        viewport={"width": 390, "height": 844},
-        is_mobile=True,
-        device_scale_factor=1,
-        reduced_motion="reduce",
+        viewport={"width": 390, "height": 844}, is_mobile=True, device_scale_factor=1, reduced_motion="reduce"
     )
     inject_session(context)
     install_api_mock(context, traffic)
@@ -233,13 +222,7 @@ def test_mobile(browser: Browser, traffic: list[dict[str, str]]) -> None:
         expect(box["x"] <= 2, f"Mobile drawer is not edge-to-edge: {box}")
         expect(box["width"] >= 386, f"Mobile drawer does not use viewport width: {box}")
         expect(abs((box["y"] + box["height"]) - 844) <= 3, f"Mobile drawer is not bottom-aligned: {box}")
-
-        message = page.locator('[data-action-id="send_text"]')
-        expect(message.is_enabled(), "Message action should be enabled on mobile")
-        message.click()
-        textarea = page.locator("textarea").first
-        expect(textarea.input_value() == "Sur WhatsApp, envoie un message à ", "Mobile composer starter mismatch")
-        expect(textarea.evaluate("el => document.activeElement === el"), "Mobile composer focus not restored")
+        exercise_direct_action(page, "Sur WhatsApp, publie un statut : ")
         assert_no_horizontal_overflow(page, "mobile chat after WhatsApp selection")
     finally:
         context.close()
@@ -248,37 +231,29 @@ def test_mobile(browser: Browser, traffic: list[dict[str, str]]) -> None:
 def assert_read_only_whatsapp_traffic(traffic: list[dict[str, str]]) -> None:
     whatsapp = [item for item in traffic if "/whatsapp/" in item["path"]]
     expect(whatsapp, "No WhatsApp state reads were observed")
-
     forbidden = [item for item in whatsapp if item["method"] != "GET"]
     expect(not forbidden, f"WhatsApp mutation detected in Phase 2C: {forbidden}")
-
     allowed_suffixes = ("/whatsapp/etat", "/whatsapp/status")
-    unexpected_reads = [
-        item for item in whatsapp if not item["path"].endswith(allowed_suffixes)
-    ]
+    unexpected_reads = [item for item in whatsapp if not item["path"].endswith(allowed_suffixes)]
     expect(not unexpected_reads, f"Unexpected WhatsApp endpoint used in Phase 2C: {unexpected_reads}")
-
     streams = [item for item in traffic if "/chat/stream" in item["path"]]
     expect(not streams, f"Selecting a WhatsApp action auto-submitted chat: {streams}")
 
 
 def main() -> None:
     expect((OUT / "chat" / "index.html").exists(), "Static /chat export missing; run flag-enabled npm run build first")
-
     original_cwd = Path.cwd()
     os.chdir(OUT)
     server = ReusableTCPServer(("127.0.0.1", PORT), QuietHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     traffic: list[dict[str, str]] = []
-
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             test_desktop(browser, traffic)
             test_mobile(browser, traffic)
             browser.close()
-
         assert_read_only_whatsapp_traffic(traffic)
         print("WHATSAPP_EXPERIENCE_V2_CHAT_E2E=PASS")
         print("DESKTOP_CHAT=PASS")
