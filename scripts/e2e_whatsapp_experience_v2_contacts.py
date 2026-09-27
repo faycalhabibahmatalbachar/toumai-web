@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Phase 4 browser E2E for the WhatsApp Experience V2 Contact Picker.
+"""Phase 4 + Phase 5 browser E2E for WhatsApp Experience V2.
 
 The production static /chat build runs in Chromium. Toumaï API calls are
-intercepted so the test can exercise the real picker, real Action Center and
-real composer handoff without sending any WhatsApp message or invoking the
-chat runtime.
+intercepted so the test exercises the real Contact Picker, real Action Preview,
+real Action Center and real composer handoff without sending any WhatsApp
+message or invoking the chat runtime.
 
-The critical safety invariant is that recipient identity comes from the
-synchronized carnet `number` field. A numeric-looking JID is deliberately
-included with `number=null` and must remain unselectable.
+Critical safety invariants:
+- recipient identity comes only from the synchronized carnet `number` field;
+- numeric-looking JIDs are never converted into routable numbers;
+- choosing a contact opens an explicit preview before composer handoff;
+- preview/modify/confirm never performs a WhatsApp mutation;
+- only explicit preview confirmation may prepare the existing Toumaï composer.
 
-The same scenarios are also reused by Pipeline 3X against `next dev`. React's
+The same scenarios are reused by Pipeline 3X against `next dev`. React's
 development mount checks may perform the initial read twice. FAST therefore
 allows one or two initial read-only carnet GETs, but still proves that typing
-never causes any additional network search. FULL production certification
-continues to require exactly one initial carnet GET.
+never causes additional network search. FULL production certification requires
+exactly one initial carnet GET.
 """
 
 from __future__ import annotations
@@ -206,6 +209,20 @@ def open_picker(page: Page, action_id: str = "send_text") -> None:
     expect(search.evaluate("el => document.activeElement === el"), "Contact search did not receive focus")
 
 
+def expect_preview(page: Page, *, action: str, name: str, number: str, starter: str) -> None:
+    preview = page.get_by_test_id("wa-v2-action-preview")
+    preview.wait_for(state="visible")
+    expect(page.get_by_test_id("wa-v2-chat-sheet").is_visible(), "Preview unexpectedly dismissed the WhatsApp sheet")
+    expect(page.get_by_test_id("wa-v2-preview-action").inner_text() == action, "Preview action label mismatch")
+    recipient = page.get_by_test_id("wa-v2-preview-recipient")
+    expect(name in recipient.inner_text(), f"Preview recipient name mismatch: {recipient.inner_text()!r}")
+    expect(page.get_by_test_id("wa-v2-preview-number").inner_text() == number, "Preview did not preserve trusted carnet number")
+    expect(page.get_by_test_id("wa-v2-preview-starter").inner_text() == starter, "Preview starter mismatch")
+    expect("Rien n’est encore envoyé" in page.get_by_test_id("wa-v2-preview-not-sent").inner_text(), "Preview safety notice missing")
+    textarea = page.locator("textarea").first
+    expect(textarea.input_value() == "", "Contact selection prepared the composer before explicit preview confirmation")
+
+
 def assert_no_horizontal_overflow(page: Page, label: str) -> None:
     metrics = page.evaluate(
         """() => ({scrollWidth: document.documentElement.scrollWidth,
@@ -235,14 +252,26 @@ def test_trusted_contact_handoff(browser: Browser) -> Scenario:
         expect(option.get_attribute("data-contact-number") == "23566000002", "Picker changed the trusted carnet number")
         option.click()
 
+        expected = "Sur WhatsApp, envoie un message à Mahamat (+23566000002) : "
+        expect_preview(page, action="Message", name="Mahamat", number="+23566000002", starter=expected)
+        expect("opaque-mahamat" not in page.get_by_test_id("wa-v2-preview-starter").inner_text(), "Preview leaked a WhatsApp JID")
+
+        page.get_by_test_id("wa-v2-preview-modify").click()
+        page.get_by_test_id("wa-v2-contact-picker").wait_for(state="visible")
+        search = page.get_by_test_id("wa-v2-contact-search")
+        expect(search.evaluate("el => document.activeElement === el"), "Modify did not restore focus to contact search")
+        search.fill("Maha")
+        page.locator('[data-contact-jid="opaque-mahamat@s.whatsapp.net"]').click()
+        expect_preview(page, action="Message", name="Mahamat", number="+23566000002", starter=expected)
+
+        page.get_by_test_id("wa-v2-preview-confirm").click()
         page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="detached")
         textarea = page.locator("textarea").first
-        expected = "Sur WhatsApp, envoie un message à Mahamat (+23566000002) : "
         expect(textarea.input_value() == expected, f"Trusted contact handoff mismatch: {textarea.input_value()!r}")
         expect("opaque-mahamat" not in textarea.input_value(), "Composer leaked/used a WhatsApp JID instead of the trusted number")
-        expect(textarea.evaluate("el => document.activeElement === el"), "Composer did not receive focus after contact choice")
+        expect(textarea.evaluate("el => document.activeElement === el"), "Composer did not receive focus after preview confirmation")
         caret = textarea.evaluate("el => ({start: el.selectionStart, end: el.selectionEnd, length: el.value.length})")
-        expect(caret["start"] == caret["length"] and caret["end"] == caret["length"], f"Caret not at end after contact handoff: {caret}")
+        expect(caret["start"] == caret["length"] and caret["end"] == caret["length"], f"Caret not at end after preview confirmation: {caret}")
         return scenario
     finally:
         context.close()
@@ -309,10 +338,14 @@ def test_mobile_picker(browser: Browser) -> Scenario:
         expect(box is not None and box["x"] <= 2 and box["width"] >= 386, f"Mobile contact picker drawer is not edge-to-edge: {box}")
         page.get_by_test_id("wa-v2-contact-search").fill("Ami")
         page.locator('[data-contact-jid="opaque-amina@s.whatsapp.net"]').click()
+        expected = "Sur WhatsApp, envoie un message à Amina (+23566000001) : "
+        expect_preview(page, action="Message", name="Amina", number="+23566000001", starter=expected)
+        assert_no_horizontal_overflow(page, "mobile preview")
+        page.get_by_test_id("wa-v2-preview-confirm").click()
         page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="detached")
         textarea = page.locator("textarea").first
-        expect(textarea.input_value() == "Sur WhatsApp, envoie un message à Amina (+23566000001) : ", "Mobile trusted-contact starter mismatch")
-        expect(textarea.evaluate("el => document.activeElement === el"), "Mobile composer focus not restored after contact selection")
+        expect(textarea.input_value() == expected, "Mobile trusted-contact starter mismatch")
+        expect(textarea.evaluate("el => document.activeElement === el"), "Mobile composer focus not restored after preview confirmation")
         assert_no_horizontal_overflow(page, "mobile after picker")
         return scenario
     finally:
@@ -326,10 +359,10 @@ def assert_read_only_traffic(scenarios: list[Scenario]) -> None:
     expect(all(item["method"] == "GET" for item in contacts_reads), f"Carnet mutation detected: {contacts_reads}")
 
     whatsapp_mutations = [item for item in traffic if "/whatsapp/" in item["path"] and item["method"] != "GET"]
-    expect(not whatsapp_mutations, f"Contact Picker produced WhatsApp mutations: {whatsapp_mutations}")
+    expect(not whatsapp_mutations, f"Contact Picker / Preview produced WhatsApp mutations: {whatsapp_mutations}")
 
     streams = [item for item in traffic if "/chat/stream" in item["path"]]
-    expect(not streams, f"Contact selection auto-submitted chat: {streams}")
+    expect(not streams, f"Contact selection or preview auto-submitted chat: {streams}")
 
 
 def main() -> None:
@@ -355,13 +388,18 @@ def main() -> None:
 
         assert_read_only_traffic(scenarios)
         print("WHATSAPP_EXPERIENCE_V2_CONTACTS_E2E=PASS")
+        print("WHATSAPP_EXPERIENCE_V2_PREVIEW_E2E=PASS")
         print("CONTACT_SEARCH_LOCAL=PASS")
+        print("TRUSTED_NUMBER_PREVIEW=PASS")
+        print("PREVIEW_BEFORE_COMPOSER=PASS")
+        print("PREVIEW_MODIFY_LOOP=PASS")
+        print("PREVIEW_EXPLICIT_CONFIRMATION=PASS")
         print("TRUSTED_NUMBER_HANDOFF=PASS")
         print("OPAQUE_JID_NOT_DERIVED=PASS")
         print("UNROUTABLE_CONTACT_DISABLED=PASS")
         print("STALE_SOURCE_WARNING=PASS")
         print("EMPTY_STATE=PASS")
-        print("MOBILE_390_CONTACT_PICKER=PASS")
+        print("MOBILE_390_CONTACT_PICKER_PREVIEW=PASS")
         print("WHATSAPP_MUTATIONS=NONE")
         print("CHAT_STREAM_AUTO_SUBMIT=NONE")
         print(f"CONTACT_INITIAL_READ_CONTRACT={'DEV_1_OR_2' if DEV_MODE else 'PRODUCTION_EXACTLY_1'}")
