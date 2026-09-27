@@ -88,8 +88,10 @@ function exceptionalCopy(operationState: WhatsAppCanonicalOperationState): { lab
   return null;
 }
 
-function StepIcon({ status }: { status: TimelineStatus }) {
-  if (status === "done") return <Check className="h-3.5 w-3.5" aria-hidden="true" />;
+function StepIcon({ status, terminal }: { status: TimelineStatus; terminal: boolean }) {
+  if (status === "done" || (status === "current" && terminal)) {
+    return <Check className="h-3.5 w-3.5" aria-hidden="true" />;
+  }
   if (status === "current") return <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden="true" />;
   return <Circle className="h-3 w-3" aria-hidden="true" />;
 }
@@ -139,18 +141,20 @@ export function WhatsAppExecutionTimeline({
       <ol className="space-y-1" aria-label="Étapes d’exécution">
         {PROGRESS_STEPS.map((step) => {
           const status = timelineStatusFor(operationState, step.id);
+          const terminal = step.id === "completed";
           return (
             <li
               key={step.id}
               data-testid={`wa-v2-timeline-step-${step.id}`}
               data-step-status={status}
+              data-terminal={terminal ? "true" : "false"}
               className={`flex items-start gap-2.5 rounded-xl px-2.5 py-2 ${status === "current" ? "bg-[var(--hover)]" : ""}`}
             >
               <span
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${status === "done" ? "border-[var(--tmw-success)] text-[var(--tmw-success)]" : status === "current" ? "border-[var(--text-primary)] text-[var(--text-primary)]" : "border-[var(--border)] text-[var(--text-tertiary)]"}`}
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${status === "done" || (status === "current" && terminal) ? "border-[var(--tmw-success)] text-[var(--tmw-success)]" : status === "current" ? "border-[var(--text-primary)] text-[var(--text-primary)]" : "border-[var(--border)] text-[var(--text-tertiary)]"}`}
                 aria-hidden="true"
               >
-                <StepIcon status={status} />
+                <StepIcon status={status} terminal={terminal} />
               </span>
               <div className="min-w-0">
                 <p className={`text-[11.5px] font-semibold ${status === "pending" ? "text-[var(--text-tertiary)]" : "text-[var(--text-primary)]"}`}>{step.label}</p>
