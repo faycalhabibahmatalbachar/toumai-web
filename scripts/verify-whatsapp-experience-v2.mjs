@@ -116,7 +116,8 @@ expect(connectionFlow.includes('data-testid="wa-v2-connection-mode-qr"'), "QR co
 expect(connectionFlow.includes('data-testid="wa-v2-connection-mode-pairing"'), "Pairing-code connection mode missing");
 expect(connectionFlow.includes('mode === "qr"'), "Connection flow must choose its connector intent from the selected mode");
 expect(connectionFlow.includes('intent={intent}'), "Connection flow must delegate connection behavior to the connector card");
-expect(connectionFlow.includes('key={`${mode}-${expired ? "expired" : "new"}`}'), "Changing connection mode must remount the connector intent deterministically");
+expect(connectionFlow.includes("<WhatsAppConnectorCard key={mode} intent={intent} />"), "Connection attempt identity must change only when the user changes connection method");
+expect(!connectionFlow.includes('key={`${mode}-${expired'), "Canonical expired -> connecting transitions must not remount and regenerate the connection attempt");
 
 expect(presentation.includes("WHATSAPP_CONTACT_ACTIONS"), "Contact-targeting action registry missing");
 expect(presentation.includes("whatsappActionNeedsContact"), "Contact routing predicate missing");
@@ -173,5 +174,6 @@ console.log("LAB_PROVIDER_CALLS=NONE_BY_CONTRACT");
 console.log("CHAT_INTEGRATION=FEATURE_GATED");
 console.log("CHAT_ACTION_MUTATIONS=DELEGATED_TO_VERIFIED_CONNECTOR_CARD");
 console.log("CANONICAL_CONNECTED_GATE=ENFORCED");
+console.log("CONNECTION_ATTEMPT_IDENTITY=STABLE_ACROSS_CANONICAL_TRANSITIONS");
 console.log("CONTACT_PICKER=READ_ONLY_LOCAL_FILTER");
 console.log("CONTACT_JID_DERIVATION=FORBIDDEN");
