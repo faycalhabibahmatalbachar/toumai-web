@@ -7,6 +7,7 @@ const files = {
   chatCenter: "components/whatsapp-experience/WhatsAppChatActionCenter.tsx",
   connectionFlow: "components/whatsapp-experience/WhatsAppConnectionFlow.tsx",
   contactPicker: "components/whatsapp-experience/WhatsAppContactPicker.tsx",
+  actionPreview: "components/whatsapp-experience/WhatsAppActionPreview.tsx",
   feature: "lib/whatsapp-ui/feature.ts",
   presentation: "lib/whatsapp-ui/presentation.ts",
   chat: "app/chat/page.tsx",
@@ -28,6 +29,7 @@ const center = read(files.center);
 const chatCenter = read(files.chatCenter);
 const connectionFlow = read(files.connectionFlow);
 const contactPicker = read(files.contactPicker);
+const actionPreview = read(files.actionPreview);
 const feature = read(files.feature);
 const presentation = read(files.presentation);
 const chat = read(files.chat);
@@ -128,9 +130,8 @@ expect(!presentation.includes("contact.jid"), "Presentation layer must never der
 expect(chatCenter.includes("WhatsAppContactPicker"), "Chat Action Center must embed the contact picker");
 expect(chatCenter.includes("whatsappActionNeedsContact(action.id)"), "Contact-targeted actions must route through the picker");
 expect(chatCenter.includes("setPendingAction(action)"), "Selected contact-targeted action must be retained until recipient choice");
-expect(chatCenter.includes("if (!pendingAction || !contact.number) return"), "Unroutable contacts must be rejected before composer handoff");
-expect(chatCenter.includes("whatsappStarterForContact(pendingAction.id"), "Contact selection must use the trusted contact starter");
-expect(chatCenter.includes("number: contact.number"), "Contact selection must pass the carnet number explicitly");
+expect(chatCenter.includes("if (!pendingAction || !contact.number) return"), "Unroutable contacts must be rejected before preview");
+expect(chatCenter.includes("number: selectedContact.number"), "Preview confirmation must pass the selected carnet number explicitly");
 
 expect(contactPicker.includes('data-testid="wa-v2-contact-picker"'), "Contact picker root marker missing");
 expect(contactPicker.includes("getWaCarnet()"), "Contact picker must read the synchronized carnet");
@@ -151,6 +152,36 @@ const forbiddenPickerFragments = [
 ];
 for (const fragment of forbiddenPickerFragments) {
   expect(!contactPicker.includes(fragment), `Read-only contact picker contains forbidden mutation/runtime fragment: ${fragment}`);
+}
+
+expect(chatCenter.includes("WhatsAppActionPreview"), "Phase 5 Action Preview is not integrated in /chat");
+expect(chatCenter.includes("setSelectedContact(contact)"), "Contact choice must enter Preview rather than handing off immediately");
+expect(chatCenter.includes("pendingAction && selectedContact ?"), "Preview must sit between contact choice and composer handoff");
+expect(chatCenter.includes("onModify={modifyPreview}"), "Preview must allow recipient modification");
+expect(chatCenter.includes("onConfirm={confirmPreview}"), "Preview must require an explicit confirmation before composer handoff");
+expect(chatCenter.includes("if (!pendingAction || !selectedContact?.number) return"), "Preview confirmation must reject missing/unroutable target");
+
+expect(actionPreview.includes('data-testid="wa-v2-action-preview"'), "Action Preview root marker missing");
+expect(actionPreview.includes('data-testid="wa-v2-preview-recipient"'), "Action Preview recipient section missing");
+expect(actionPreview.includes('data-testid="wa-v2-preview-number"'), "Action Preview trusted number marker missing");
+expect(actionPreview.includes('data-testid="wa-v2-preview-starter"'), "Action Preview prepared request marker missing");
+expect(actionPreview.includes('data-testid="wa-v2-preview-modify"'), "Action Preview modify control missing");
+expect(actionPreview.includes('data-testid="wa-v2-preview-confirm"'), "Action Preview explicit confirmation control missing");
+expect(actionPreview.includes("Rien n’est encore envoyé."), "Action Preview must explicitly state that nothing was sent");
+expect(actionPreview.includes("parcours normal de confirmation et de permissions"), "Action Preview must preserve downstream confirmation/permission truthfulness");
+expect(!actionPreview.includes("contact.jid"), "Action Preview must not derive or display recipient identity from JID");
+
+const forbiddenPreviewFragments = [
+  "send_whatsapp",
+  "/whatsapp/send",
+  "streamChat",
+  "getWaCarnet(",
+  "linkWhatsApp",
+  "refreshWhatsAppCode",
+  "disconnectWhatsApp",
+];
+for (const fragment of forbiddenPreviewFragments) {
+  expect(!actionPreview.includes(fragment), `Action Preview contains forbidden provider/runtime fragment: ${fragment}`);
 }
 
 const forbiddenDirectMutationFragments = [
@@ -177,3 +208,5 @@ console.log("CANONICAL_CONNECTED_GATE=ENFORCED");
 console.log("CONNECTION_ATTEMPT_IDENTITY=STABLE_ACROSS_CANONICAL_TRANSITIONS");
 console.log("CONTACT_PICKER=READ_ONLY_LOCAL_FILTER");
 console.log("CONTACT_JID_DERIVATION=FORBIDDEN");
+console.log("ACTION_PREVIEW=EXPLICIT_BEFORE_TARGETED_HANDOFF");
+console.log("ACTION_PREVIEW_PROVIDER_MUTATIONS=FORBIDDEN");
