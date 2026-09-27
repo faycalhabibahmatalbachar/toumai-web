@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { WaContact, WaEtat, WhatsAppState } from "@/lib/connectors-api";
 import { useWidgetRuntime } from "@/components/chat/widgets/runtime";
 import { WhatsAppActionCenter } from "./WhatsAppActionCenter";
+import { WhatsAppActionPreview } from "./WhatsAppActionPreview";
 import { WhatsAppConnectionFlow } from "./WhatsAppConnectionFlow";
 import { WhatsAppContactPicker } from "./WhatsAppContactPicker";
 import {
@@ -76,6 +77,7 @@ export function WhatsAppChatActionCenter({
   const [state, setState] = useState<WhatsAppExperienceState>("loading");
   const [connectionFlowOpen, setConnectionFlowOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<WhatsAppActionDefinition | null>(null);
+  const [selectedContact, setSelectedContact] = useState<WaContact | null>(null);
   const generation = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -99,6 +101,7 @@ export function WhatsAppChatActionCenter({
     if (!open) {
       setConnectionFlowOpen(false);
       setPendingAction(null);
+      setSelectedContact(null);
       return;
     }
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -148,6 +151,7 @@ export function WhatsAppChatActionCenter({
 
   function prepare(action: WhatsAppActionDefinition) {
     if (whatsappActionNeedsContact(action.id)) {
+      setSelectedContact(null);
       setPendingAction(action);
       return;
     }
@@ -156,15 +160,28 @@ export function WhatsAppChatActionCenter({
 
   function selectContact(contact: WaContact) {
     if (!pendingAction || !contact.number) return;
+    // Phase 5 inserts an explicit review step. Contact choice alone must never
+    // hand off to the composer or trigger an external WhatsApp action.
+    setSelectedContact(contact);
+  }
+
+  function confirmPreview() {
+    if (!pendingAction || !selectedContact?.number) return;
     const starter = whatsappStarterForContact(pendingAction.id, {
-      name: contact.name,
-      number: contact.number,
+      name: selectedContact.name,
+      number: selectedContact.number,
     });
+    setSelectedContact(null);
     setPendingAction(null);
     handoffToComposer(starter);
   }
 
+  function modifyPreview() {
+    setSelectedContact(null);
+  }
+
   function backFromContactPicker() {
+    setSelectedContact(null);
     setPendingAction(null);
     window.requestAnimationFrame(() => {
       dialogRef.current?.querySelector<HTMLElement>('[data-testid="wa-v2-action-center"] button:not([disabled])')?.focus();
@@ -186,11 +203,20 @@ export function WhatsAppChatActionCenter({
     }
   }
 
+  const previewStarter = pendingAction && selectedContact?.number
+    ? whatsappStarterForContact(pendingAction.id, {
+        name: selectedContact.name,
+        number: selectedContact.number,
+      })
+    : "";
+
   const title = connectionFlowOpen
     ? "Connexion WhatsApp"
-    : pendingAction
-      ? "Choisir un contact"
-      : "Actions WhatsApp";
+    : pendingAction && selectedContact
+      ? "Vérifier avant de continuer"
+      : pendingAction
+        ? "Choisir un contact"
+        : "Actions WhatsApp";
 
   return (
     <div className="fixed inset-0 z-[70]" data-testid="wa-v2-chat-overlay">
@@ -234,6 +260,14 @@ export function WhatsAppChatActionCenter({
               void refresh();
             }}
           />
+        ) : pendingAction && selectedContact ? (
+          <WhatsAppActionPreview
+            action={pendingAction}
+            contact={selectedContact}
+            starter={previewStarter}
+            onModify={modifyPreview}
+            onConfirm={confirmPreview}
+          />
         ) : pendingAction ? (
           <WhatsAppContactPicker
             actionLabel={pendingAction.label}
@@ -246,6 +280,7 @@ export function WhatsAppChatActionCenter({
             state={state}
             onAction={prepare}
             onConnect={() => {
+              setSelectedContact(null);
               setPendingAction(null);
               setConnectionFlowOpen(true);
             }}
