@@ -71,6 +71,7 @@ export function WhatsAppChatActionCenter({
   const generation = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const restorePreviousFocus = useRef(true);
 
   const refresh = useCallback(async () => {
     const current = ++generation.current;
@@ -88,6 +89,7 @@ export function WhatsAppChatActionCenter({
   useEffect(() => {
     if (!open) return;
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    restorePreviousFocus.current = true;
     void refresh();
     const id = window.setTimeout(() => {
       dialogRef.current?.querySelector<HTMLElement>('[data-wa-sheet-close="true"]')?.focus();
@@ -95,7 +97,7 @@ export function WhatsAppChatActionCenter({
     return () => {
       window.clearTimeout(id);
       generation.current += 1;
-      previousFocus.current?.focus();
+      if (restorePreviousFocus.current) previousFocus.current?.focus();
     };
   }, [open, refresh]);
 
@@ -112,14 +114,21 @@ export function WhatsAppChatActionCenter({
 
   const connection = presentationFrom(etat, raw);
 
-  function prepare(action: WhatsAppActionDefinition) {
-    onPrepare(whatsappStarterFor(action.id));
+  function handoffToComposer(starter: string) {
+    // A normal dismissal restores the opener for keyboard continuity. Selecting
+    // an action is different: focus intentionally moves into the composer, so
+    // the dialog cleanup must not steal it back after the handoff.
+    restorePreviousFocus.current = false;
+    onPrepare(starter);
     onClose();
   }
 
+  function prepare(action: WhatsAppActionDefinition) {
+    handoffToComposer(whatsappStarterFor(action.id));
+  }
+
   function prepareConnection() {
-    onPrepare(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp");
-    onClose();
+    handoffToComposer(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp");
   }
 
   function trapTab(event: React.KeyboardEvent<HTMLDivElement>) {
