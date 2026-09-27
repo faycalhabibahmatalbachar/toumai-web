@@ -1,0 +1,8 @@
+FULL CERTIFICATION REQUEST
+
+reason=Pipeline 3X migration + Phase 4 contact picker production contract
+fast_pass_sha=d09174fddd5de7e7d70bf4446158bd7fb8615347
+requested_at=2026-09-27
+
+This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow.
+FAST evidence is not a release certificate. FULL must remain green before phase certification or merge.
