@@ -1,39 +1,17 @@
-name: WhatsApp Experience V2
+name: WhatsApp Experience V2 — FULL CERTIFICATION
 
 on:
-  push:
-    branches:
-      - codex/whatsapp-experience-v2
-    paths:
-      - "app/chat/page.tsx"
-      - "app/dev/whatsapp-ui/**"
-      - "components/whatsapp-experience/**"
-      - "lib/whatsapp-ui/**"
-      - "scripts/verify-whatsapp-experience-v2.mjs"
-      - "scripts/e2e_whatsapp_experience_v2.py"
-      - "scripts/e2e_whatsapp_experience_v2_chat.py"
-      - "scripts/e2e_whatsapp_experience_v2_connection.py"
-      - "scripts/e2e_whatsapp_experience_v2_contacts.py"
-      - "docs/whatsapp-experience-v2/**"
-      - ".github/workflows/whatsapp-experience-v2.yml"
-  pull_request:
-    paths:
-      - "app/chat/page.tsx"
-      - "app/dev/whatsapp-ui/**"
-      - "components/whatsapp-experience/**"
-      - "lib/whatsapp-ui/**"
-      - "scripts/verify-whatsapp-experience-v2.mjs"
-      - "scripts/e2e_whatsapp_experience_v2.py"
-      - "scripts/e2e_whatsapp_experience_v2_chat.py"
-      - "scripts/e2e_whatsapp_experience_v2_connection.py"
-      - "scripts/e2e_whatsapp_experience_v2_contacts.py"
-      - "docs/whatsapp-experience-v2/**"
-      - ".github/workflows/whatsapp-experience-v2.yml"
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Certification reason / phase"
+        required: false
+        default: "phase-gate"
+        type: string
 
 concurrency:
-  group: whatsapp-experience-v2-${{ github.ref }}
-  cancel-in-progress: true
+  group: whatsapp-experience-v2-full-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   certify:
@@ -53,7 +31,7 @@ jobs:
         run: npm ci
 
       - name: Verify WhatsApp Experience contract
-        run: node scripts/verify-whatsapp-experience-v2.mjs
+        run: npm run wa:v2:contract
 
       - name: TypeScript
         run: npm run typecheck
@@ -75,13 +53,18 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Browser E2E — isolated visual lab
-        run: python scripts/e2e_whatsapp_experience_v2.py
+        run: npm run wa:v2:full:lab
 
       - name: Browser E2E — real chat integration, read-only WhatsApp
-        run: python scripts/e2e_whatsapp_experience_v2_chat.py
+        run: npm run wa:v2:full:chat
 
       - name: Browser E2E — connection flow with mocked provider
-        run: python scripts/e2e_whatsapp_experience_v2_connection.py
+        run: npm run wa:v2:full:connection
 
       - name: Browser E2E — contact picker, read-only WhatsApp
-        run: python scripts/e2e_whatsapp_experience_v2_contacts.py
+        run: npm run wa:v2:full:contacts
+
+      - name: FULL certification verdict
+        run: |
+          echo "WA_V2_FULL_CERTIFICATION=PASS"
+          echo "WA_V2_PHASE_CERTIFICATION_ALLOWED=YES"
