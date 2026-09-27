@@ -175,10 +175,14 @@ export default function ChatPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [drawerViewport, setDrawerViewport] = useState(false);
+  const drawerButtonRef = useRef<HTMLButtonElement>(null);
+  const [overlayEpoch, setOverlayEpoch] = useState(0);
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const [greeting, setGreeting] = useState("Bonjour");
   const [webSearch, setWebSearch] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const [dictating, setDictating] = useState(false);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   /** La conversation à partager. `null` = boîte fermée.
@@ -418,6 +422,40 @@ export default function ChatPage() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setDrawerViewport(media.matches);
+    const frame = window.requestAnimationFrame(update);
+    media.addEventListener("change", update);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      media.removeEventListener("change", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!toolsRef.current?.contains(event.target as Node)) setToolsOpen(false);
+    }
+    function onEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setToolsOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [toolsOpen]);
+
+  function closeSidebar() {
+    setSidebarOpen(false);
+    requestAnimationFrame(() => {
+      if (drawerButtonRef.current?.isConnected && drawerViewport) drawerButtonRef.current.focus();
+    });
+  }
+
   // Prénom affiché dans l'accueil pour les comptes réels (comme
   // "À vous la parole, {NOM}" sur Gemini) — les invités gardent la version
   // générique, on n'a pas d'identité à afficher pour eux.
@@ -566,6 +604,9 @@ export default function ChatPage() {
   // Cache persistant : la conversation s'affiche instantanément depuis le
   // localStorage (zéro squelette au retour), puis se revalide en arrière-plan.
   async function openSession(id: string) {
+    setToolsOpen(false);
+    setPalette(null);
+    setOverlayEpoch((epoch) => epoch + 1);
     // Ouvrir une conversation enregistrée SORT du mode éphémère : sinon
     // l'écran montrerait un fil de la base pendant que les nouveaux messages
     // ne seraient jamais enregistrés.
@@ -615,6 +656,9 @@ export default function ChatPage() {
   }
 
   function newChat() {
+    setToolsOpen(false);
+    setPalette(null);
+    setOverlayEpoch((epoch) => epoch + 1);
     // On reste en éphémère si on y était, mais le fil quitté est détruit.
     purgeEphemeral();
 
@@ -1459,10 +1503,10 @@ export default function ChatPage() {
         onShare={setShareId}
         refreshKey={sidebarRefreshKey}
         open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={closeSidebar}
       />
 
-      <div className="relative flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col" inert={sidebarOpen && drawerViewport ? true : undefined}>
         {/* Barre supérieure — flottante au-dessus de la conversation : elle ne
             se matérialise (voile + filet) que lorsque du contenu passe
             dessous, et porte le titre de la conversation en cours. */}
@@ -1474,7 +1518,13 @@ export default function ChatPage() {
               un logo n'annonce pas ce que le clic va faire, et il doublait
               celui de la barre latérale juste à côté. */}
           <button
-            onClick={() => setSidebarOpen(true)}
+            ref={drawerButtonRef}
+            onClick={() => {
+              setToolsOpen(false);
+              setPalette(null);
+              setOverlayEpoch((epoch) => epoch + 1);
+              setSidebarOpen(true);
+            }}
             aria-label="Ouvrir les conversations"
             title="Ouvrir les conversations"
             className="chat-iconbtn md:hidden"
@@ -1898,7 +1948,7 @@ export default function ChatPage() {
                 </div>
               ) : (
               <div className="flex items-center gap-1">
-              <div className="relative">
+              <div ref={toolsRef} className="relative">
                 <button
                   onClick={() => setToolsOpen((o) => !o)}
                   aria-label="Outils"
@@ -1911,7 +1961,6 @@ export default function ChatPage() {
                 </button>
                 {toolsOpen && (
                   <>
-                    <div className="fixed inset-0 z-10" onClick={() => setToolsOpen(false)} />
                     {/* CARTE DES OUTILS — ce qu'on AJOUTE au message, rien
                         d'autre. L'avatar en direct et l'automatisation IA en
                         sont partis : le premier est une action (il vit dans
@@ -2023,7 +2072,7 @@ export default function ChatPage() {
                   d'envoyer, pas au moment ou l'on ajoute une piece jointe.
                   Le resserrement mobile passe par le `gap`, pas par l'ordre. */}
               <div className="flex-1" />
-              <ModelSelector value={model} onChange={setModel} />
+              <ModelSelector value={model} onChange={setModel} dismissKey={overlayEpoch} suspended={sidebarOpen && drawerViewport} />
               <button
                 onClick={toggleDictation}
                 aria-label="Dicter"

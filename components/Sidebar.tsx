@@ -15,6 +15,7 @@ import {
 import { getProfile, type UserProfile, nomAffichable } from "@/lib/user-api";
 import { cacheRead, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { describeError } from "@/lib/errors";
+import { chatUiCopy, chatUiLocale, displayChatTitle, reportTitleFallbacks, type ChatUiLocale } from "@/lib/chat-title";
 import {
   prechargerConversation,
   prechargerLesRecentes,
@@ -48,6 +49,56 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
   });
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [locale, setLocale] = useState<ChatUiLocale>("fr");
+  const [mobile, setMobile] = useState(false);
+  const asideRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => {
+      setLocale(chatUiLocale(document.documentElement.lang));
+      setMobile(media.matches);
+    };
+    const frame = window.requestAnimationFrame(update);
+    media.addEventListener("change", update);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      media.removeEventListener("change", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open || !mobile) return;
+    const aside = asideRef.current;
+    const getFocusable = () => Array.from(aside?.querySelectorAll<HTMLElement>(
+      'a[href], button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ) ?? []).filter((element) => element.getClientRects().length > 0);
+    const focusFrame = requestAnimationFrame(() => getFocusable()[0]?.focus());
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+      } else if (event.key === "Tab") {
+        const focusable = getFocusable();
+        if (!focusable.length) return;
+        const current = focusable.indexOf(document.activeElement as HTMLElement);
+        if (event.shiftKey && current <= 0) {
+          event.preventDefault();
+          focusable[focusable.length - 1].focus();
+        } else if (!event.shiftKey && current === focusable.length - 1) {
+          event.preventDefault();
+          focusable[0].focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, mobile]);
   // Repli façon Gemini (desktop uniquement) — rail d'icônes, persisté.
   const [collapsed, setCollapsed] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -130,6 +181,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
     listSessions()
       .then((data) => {
         if (cancelled) return;
+        reportTitleFallbacks(data);
         setSessions(data);
         cacheWrite("chat:sessions", data);
         // LES QUELQUES PLUS RECENTES, EN TACHE DE FOND.
@@ -284,7 +336,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
   }
 
   const filtered = query.trim()
-    ? sessions.filter((s) => s.title.toLowerCase().includes(query.trim().toLowerCase()))
+    ? sessions.filter((s) => displayChatTitle(s.title, locale).toLowerCase().includes(query.trim().toLowerCase()))
     : sessions;
   const grouped = groupSessionsByDate(filtered);
 
@@ -298,6 +350,11 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
         />
       )}
       <aside
+        ref={asideRef}
+        role={open && mobile ? "dialog" : undefined}
+        aria-modal={open && mobile ? true : undefined}
+        aria-label={open && mobile ? chatUiCopy[locale].conversations : undefined}
+        inert={mobile && !open ? true : undefined}
         className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)] transition-all md:static md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "md:w-[68px]" : "md:w-72"}`}
@@ -439,8 +496,14 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
           )}
           {!loading && !error && sessions.length === 0 && (
             <p className="px-2 py-3 text-xs text-[var(--text-tertiary)]">
-              Aucune conversation enregistrée.
+              {chatUiCopy[locale].emptyHistory}
             </p>
+          )}
+          {!loading && !error && query.trim() && sessions.length > 0 && filtered.length === 0 && (
+            <div className="px-2 py-3 text-sm text-[var(--text-secondary)]" role="status" aria-live="polite">
+              <p className="font-medium text-[var(--text-primary)]">{chatUiCopy[locale].noResults}</p>
+              <p className="mt-1">{chatUiCopy[locale].tryAnother}</p>
+            </div>
           )}
           {grouped.map((group) => (
             /* DÉPOSER DANS UN GROUPE = ÉPINGLER OU DÉTACHER.
@@ -560,7 +623,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
                         // La voie de secours quand l'animation est refusée
                         // (mouvement réduit) ou sur un écran tactile, où il
                         // n'y a pas de survol du tout.
-                        title={s.title || "Sans titre"}
+                        title={displayChatTitle(s.title, locale)}
                         // PAS de `truncate` ici. Cet utilitaire vit dans `@layer utilities`,
                         // declare APRES `@layer components` ou vit la regle de
                         // defilement : il gagnait, et le titre gardait ses trois
@@ -569,7 +632,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
                         // doit pouvoir la lever.
                         className="sb-titre min-w-0 flex-1"
                       >
-                        {s.title || "Sans titre"}
+                        {displayChatTitle(s.title, locale)}
                       </span>
                       <span
                         role="button"
@@ -780,7 +843,7 @@ export function Sidebar({ activeId, onSelect, onNewChat, onShare, refreshKey, op
               Supprimer cette conversation ?
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-              «&nbsp;{toConfirm.title || "Nouvelle conversation"}&nbsp;» et tous ses
+              «&nbsp;{displayChatTitle(toConfirm.title, locale)}&nbsp;» et tous ses
               messages seront définitivement perdus. Pour la retirer de la liste
               sans la perdre, utilisez plutôt <strong>Archiver</strong>.
             </p>

@@ -847,6 +847,8 @@ svg {
 }
 
 [data-theme="light"] .chat-shell {
+  /* UI-1: 4.91:1 on --card and 5.27:1 on --background; dark tokens unchanged. */
+  --text-tertiary: #706658;
   --chat-elev-1: 0 1px 2px rgba(31, 27, 22, 0.05), 0 10px 28px -16px rgba(31, 27, 22, 0.2);
   --chat-elev-2: 0 2px 6px rgba(31, 27, 22, 0.06), 0 28px 64px -30px rgba(31, 27, 22, 0.28);
   --chat-line: color-mix(in srgb, var(--text-primary) 11%, transparent);

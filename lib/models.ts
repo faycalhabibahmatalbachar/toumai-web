@@ -18,6 +18,8 @@ export interface ToumaiModel {
   /** Couleur d'accent, identique à celle du mobile. */
   color: string;
   isNew?: boolean;
+  /** Option unavailable in a particular catalogue; never focus or select it. */
+  disabled?: boolean;
 }
 
 /** Modèles proposés dans le sélecteur — comme sur mobile, seulement ces deux :
