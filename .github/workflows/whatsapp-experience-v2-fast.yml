@@ -6,10 +6,13 @@ on:
       - codex/whatsapp-experience-v2
     paths:
       - "app/chat/page.tsx"
+      - "app/dev/whatsapp-ui/page.tsx"
       - "components/whatsapp-experience/**"
+      - "components/chat/widgets/ActionExecutionCard.tsx"
       - "lib/whatsapp-ui/**"
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/e2e_whatsapp_experience_v2_contacts.py"
+      - "scripts/e2e_whatsapp_experience_v2_timeline.py"
       - "scripts/wa_v2_fast.py"
       - "package.json"
       - ".github/workflows/whatsapp-experience-v2-fast.yml"
@@ -22,6 +25,7 @@ on:
         type: choice
         options:
           - contacts
+          - timeline
           - contract-only
 
 concurrency:
