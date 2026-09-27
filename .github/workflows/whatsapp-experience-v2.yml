@@ -5,20 +5,24 @@ on:
     branches:
       - codex/whatsapp-experience-v2
     paths:
+      - "app/chat/page.tsx"
       - "app/dev/whatsapp-ui/**"
       - "components/whatsapp-experience/**"
       - "lib/whatsapp-ui/**"
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/e2e_whatsapp_experience_v2.py"
+      - "scripts/e2e_whatsapp_experience_v2_chat.py"
       - "docs/whatsapp-experience-v2/**"
       - ".github/workflows/whatsapp-experience-v2.yml"
   pull_request:
     paths:
+      - "app/chat/page.tsx"
       - "app/dev/whatsapp-ui/**"
       - "components/whatsapp-experience/**"
       - "lib/whatsapp-ui/**"
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/e2e_whatsapp_experience_v2.py"
+      - "scripts/e2e_whatsapp_experience_v2_chat.py"
       - "docs/whatsapp-experience-v2/**"
       - ".github/workflows/whatsapp-experience-v2.yml"
   workflow_dispatch:
@@ -30,7 +34,9 @@ concurrency:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
+    env:
+      NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -48,20 +54,24 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
-      - name: Build static app
+      - name: Build static app with WhatsApp V2 enabled
         run: npm run build
 
-      - name: Verify visual lab export
+      - name: Verify visual lab and chat exports
         shell: bash
         run: |
           test -f out/dev/whatsapp-ui/index.html
           grep -q "WhatsApp Experience V2" out/dev/whatsapp-ui/index.html
-          echo "WHATSAPP_UI_LAB_EXPORT=PASS"
+          test -f out/chat/index.html
+          echo "WHATSAPP_UI_EXPORTS=PASS"
 
       - name: Install Playwright browser runtime
         run: |
           python -m pip install --disable-pip-version-check playwright==1.55.0
           python -m playwright install --with-deps chromium
 
-      - name: Browser E2E — desktop, mobile, keyboard, RTL, reduced motion
+      - name: Browser E2E — isolated visual lab
         run: python scripts/e2e_whatsapp_experience_v2.py
+
+      - name: Browser E2E — real chat integration, read-only WhatsApp
+        run: python scripts/e2e_whatsapp_experience_v2_chat.py
