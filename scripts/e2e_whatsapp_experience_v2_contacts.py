@@ -9,6 +9,12 @@ chat runtime.
 The critical safety invariant is that recipient identity comes from the
 synchronized carnet `number` field. A numeric-looking JID is deliberately
 included with `number=null` and must remain unselectable.
+
+The same scenarios are also reused by Pipeline 3X against `next dev`. React's
+development mount checks may perform the initial read twice. FAST therefore
+allows one or two initial read-only carnet GETs, but still proves that typing
+never causes any additional network search. FULL production certification
+continues to require exactly one initial carnet GET.
 """
 
 from __future__ import annotations
@@ -29,6 +35,7 @@ OUT = ROOT / "out"
 PORT = 4180
 BASE_URL = f"http://127.0.0.1:{PORT}/chat/"
 SESSION_KEY = "chadgpt_web_session_v1"
+DEV_MODE = os.environ.get("WA_V2_E2E_DEV_MODE") == "1"
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -76,6 +83,15 @@ class Scenario:
             "derniere_synchronisation": "2026-09-27T18:00:00Z",
             "total_en_base": len(self.contacts),
         }
+
+
+def expect_initial_carnet_reads(scenario: Scenario, label: str) -> int:
+    count = scenario.contacts_gets
+    if DEV_MODE:
+        expect(1 <= count <= 2, f"{label}: dev mode expected one or two initial carnet reads, got {count}")
+    else:
+        expect(count == 1, f"{label}: production expected exactly one initial carnet read, got {count}")
+    return count
 
 
 def common_mock(path: str) -> object:
@@ -203,13 +219,16 @@ def test_trusted_contact_handoff(browser: Browser) -> Scenario:
     context, page = open_chat(browser, scenario)
     try:
         open_picker(page)
-        expect(scenario.contacts_gets == 1, f"Expected exactly one carnet load, got {scenario.contacts_gets}")
+        initial_reads = expect_initial_carnet_reads(scenario, "Trusted contact")
 
         search = page.get_by_test_id("wa-v2-contact-search")
         search.fill("Maha")
         page.get_by_text("Mahamat", exact=True).wait_for(state="visible")
         expect(page.get_by_text("Amina", exact=True).count() == 0, "Local search did not filter unrelated contact")
-        expect(scenario.contacts_gets == 1, "Typing in contact search triggered a network search instead of local filtering")
+        expect(
+            scenario.contacts_gets == initial_reads,
+            f"Typing in contact search triggered network reads: initial={initial_reads}, now={scenario.contacts_gets}",
+        )
 
         option = page.locator('[data-contact-jid="opaque-mahamat@s.whatsapp.net"]')
         expect(option.is_enabled(), "Routable carnet contact should be selectable")
@@ -271,7 +290,7 @@ def test_empty_state(browser: Browser) -> Scenario:
     try:
         open_picker(page)
         page.get_by_test_id("wa-v2-contact-empty").wait_for(state="visible")
-        expect(scenario.contacts_gets == 1, f"Empty carnet should still load exactly once, got {scenario.contacts_gets}")
+        expect_initial_carnet_reads(scenario, "Empty carnet")
         sync_mutations = [item for item in scenario.traffic if "/whatsapp/" in item["path"] and item["method"] != "GET"]
         expect(not sync_mutations, f"Read-only picker tried to mutate/synchronize the carnet: {sync_mutations}")
         return scenario
@@ -345,6 +364,7 @@ def main() -> None:
         print("MOBILE_390_CONTACT_PICKER=PASS")
         print("WHATSAPP_MUTATIONS=NONE")
         print("CHAT_STREAM_AUTO_SUBMIT=NONE")
+        print(f"CONTACT_INITIAL_READ_CONTRACT={'DEV_1_OR_2' if DEV_MODE else 'PRODUCTION_EXACTLY_1'}")
     finally:
         server.shutdown()
         server.server_close()
