@@ -8,6 +8,8 @@ const files = {
   connectionFlow: "components/whatsapp-experience/WhatsAppConnectionFlow.tsx",
   contactPicker: "components/whatsapp-experience/WhatsAppContactPicker.tsx",
   actionPreview: "components/whatsapp-experience/WhatsAppActionPreview.tsx",
+  executionTimeline: "components/whatsapp-experience/WhatsAppExecutionTimeline.tsx",
+  actionRuntime: "components/chat/widgets/ActionExecutionCard.tsx",
   feature: "lib/whatsapp-ui/feature.ts",
   presentation: "lib/whatsapp-ui/presentation.ts",
   chat: "app/chat/page.tsx",
@@ -30,6 +32,8 @@ const chatCenter = read(files.chatCenter);
 const connectionFlow = read(files.connectionFlow);
 const contactPicker = read(files.contactPicker);
 const actionPreview = read(files.actionPreview);
+const executionTimeline = read(files.executionTimeline);
+const actionRuntime = read(files.actionRuntime);
 const feature = read(files.feature);
 const presentation = read(files.presentation);
 const chat = read(files.chat);
@@ -184,6 +188,46 @@ for (const fragment of forbiddenPreviewFragments) {
   expect(!actionPreview.includes(fragment), `Action Preview contains forbidden provider/runtime fragment: ${fragment}`);
 }
 
+const canonicalTimelineStates = [
+  "requested",
+  "dispatching",
+  "provider_accepted",
+  "sent",
+  "delivered",
+  "read",
+  "completed",
+  "unknown",
+  "partial_success",
+  "reconciling",
+  "failed",
+  "blocked",
+  "expired",
+  "needs_relink",
+  "cancelled",
+];
+for (const state of canonicalTimelineStates) {
+  expect(executionTimeline.includes(`\"${state}\"`), `Canonical timeline state missing: ${state}`);
+}
+expect(executionTimeline.includes('data-testid="wa-v2-execution-timeline"'), "Execution Timeline root marker missing");
+expect(executionTimeline.includes("Cela ne prouve pas encore la remise"), "provider_accepted must explicitly deny delivery proof");
+expect(executionTimeline.includes("Cela ne prouve pas encore la remise au destinataire"), "sent must explicitly deny delivery proof");
+expect(executionTimeline.includes("Aucun succès n’est supposé"), "reconciling must explicitly avoid success inference");
+expect(executionTimeline.includes('data-timeline-mode={exceptional.kind === "failed" ? "failed" : "uncertain"}'), "Unknown/failure states must use non-progress timeline mode");
+expect(executionTimeline.includes('if (!operationState || !isWhatsAppCanonicalOperationState(operationState)) return null'), "Timeline must abstain on missing/unsupported canonical state");
+expect(!executionTimeline.includes("verified === true"), "Timeline must not derive truth from legacy verified flag");
+expect(!executionTimeline.includes("connectors-api"), "Timeline must not call connector API");
+expect(!executionTimeline.includes("streamChat"), "Timeline must not call chat runtime");
+expect(!executionTimeline.includes("send_whatsapp"), "Timeline must not execute provider tools");
+
+expect(actionRuntime.includes("WhatsAppExecutionTimeline"), "Canonical timeline is not integrated into ActionExecutionCard");
+expect(actionRuntime.includes("WHATSAPP_EXPERIENCE_V2_ENABLED"), "Execution timeline integration must remain feature-gated");
+expect(actionRuntime.includes("Boolean(etatCanonique)"), "Execution timeline must require server canonical state");
+expect(actionRuntime.includes('confirmation.tool.includes("whatsapp") || confirmation.tool === "__toumai_batch__"'), "Execution timeline must be scoped to WhatsApp runtime actions");
+expect(actionRuntime.includes("<WhatsAppExecutionTimeline operationState={etatCanonique} />"), "Action runtime must pass only canonical operation_state to Timeline");
+expect(lab.includes('data-testid="wa-v2-timeline-lab"'), "Timeline truth laboratory missing");
+expect(lab.includes("WhatsAppExecutionTimeline"), "Timeline lab must render real component");
+expect(lab.includes("ne transforme jamais un état inconnu en succès"), "Timeline lab truthfulness notice missing");
+
 const forbiddenDirectMutationFragments = [
   "whatsapp.linkQr(",
   "whatsapp.refreshCode(",
@@ -210,3 +254,8 @@ console.log("CONTACT_PICKER=READ_ONLY_LOCAL_FILTER");
 console.log("CONTACT_JID_DERIVATION=FORBIDDEN");
 console.log("ACTION_PREVIEW=EXPLICIT_BEFORE_TARGETED_HANDOFF");
 console.log("ACTION_PREVIEW_PROVIDER_MUTATIONS=FORBIDDEN");
+console.log("EXECUTION_TIMELINE=CANONICAL_STATE_ONLY");
+console.log("PROVIDER_ACCEPTED_DELIVERY_INFERENCE=FORBIDDEN");
+console.log("SENT_DELIVERY_INFERENCE=FORBIDDEN");
+console.log("UNKNOWN_SUCCESS_INFERENCE=FORBIDDEN");
+console.log("EXECUTION_TIMELINE_PROVIDER_CALLS=NONE_BY_CONTRACT");
