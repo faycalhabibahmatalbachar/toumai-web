@@ -5,6 +5,7 @@ const files = {
   actions: "lib/whatsapp-ui/capabilities.ts",
   center: "components/whatsapp-experience/WhatsAppActionCenter.tsx",
   chatCenter: "components/whatsapp-experience/WhatsAppChatActionCenter.tsx",
+  connectionFlow: "components/whatsapp-experience/WhatsAppConnectionFlow.tsx",
   feature: "lib/whatsapp-ui/feature.ts",
   presentation: "lib/whatsapp-ui/presentation.ts",
   chat: "app/chat/page.tsx",
@@ -24,6 +25,7 @@ const types = read(files.types);
 const actions = read(files.actions);
 const center = read(files.center);
 const chatCenter = read(files.chatCenter);
+const connectionFlow = read(files.connectionFlow);
 const feature = read(files.feature);
 const presentation = read(files.presentation);
 const chat = read(files.chat);
@@ -98,14 +100,25 @@ expect(chat.includes("field.selectionStart = field.selectionEnd = starter.length
 expect(chatCenter.includes("whatsapp.getEtat()"), "Chat Action Center must read canonical WhatsApp state");
 expect(chatCenter.includes("whatsapp.getStatus()"), "Chat Action Center must read raw WhatsApp status as fallback");
 expect(chatCenter.includes("handoffToComposer(whatsappStarterFor(action.id))"), "Action selection must only hand off a safe starter to the composer");
-expect(chatCenter.includes('handoffToComposer(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp")'), "Connect/reconnect entry must hand off a request rather than mutate provider state");
+expect(chatCenter.includes("WhatsAppConnectionFlow"), "Chat Action Center must embed the verified connection flow");
+expect(chatCenter.includes("onConnect={() => setConnectionFlowOpen(true)}"), "Connect must open the in-chat connection flow instead of submitting chat");
+expect(chatCenter.includes("window.setInterval(() => void refresh(), 2500)"), "Connection flow must periodically re-read canonical state");
+expect(chatCenter.includes('connectionFlowOpen && connection.status === "connected"'), "Connection flow may close automatically only after canonical connected state is observed");
 expect(chatCenter.includes("restorePreviousFocus.current = false"), "Action handoff must explicitly suppress opener focus restoration");
 expect(chatCenter.includes("if (restorePreviousFocus.current) previousFocus.current?.focus()"), "Normal dismissals must still restore focus to the opener");
 expect(chatCenter.includes('role="dialog"'), "Responsive WhatsApp sheet must expose dialog semantics");
 expect(chatCenter.includes('aria-modal="true"'), "Responsive WhatsApp sheet must be modal to assistive technologies");
 expect(chatCenter.includes('event.key === "Escape"'), "WhatsApp sheet must support Escape closure");
 
-const forbiddenMutationFragments = [
+expect(connectionFlow.includes('data-testid="wa-v2-connection-flow"'), "Connection flow test marker missing");
+expect(connectionFlow.includes("WhatsAppConnectorCard"), "Phase 3 must reuse the existing verified connector engine");
+expect(connectionFlow.includes('data-testid="wa-v2-connection-mode-qr"'), "QR connection mode missing");
+expect(connectionFlow.includes('data-testid="wa-v2-connection-mode-pairing"'), "Pairing-code connection mode missing");
+expect(connectionFlow.includes('mode === "qr"'), "Connection flow must choose its connector intent from the selected mode");
+expect(connectionFlow.includes('intent={intent}'), "Connection flow must delegate connection behavior to the connector card");
+expect(connectionFlow.includes('key={`${mode}-${expired ? "expired" : "new"}`}'), "Changing connection mode must remount the connector intent deterministically");
+
+const forbiddenDirectMutationFragments = [
   "whatsapp.linkQr(",
   "whatsapp.refreshCode(",
   "whatsapp.disconnect(",
@@ -115,8 +128,8 @@ const forbiddenMutationFragments = [
   "/whatsapp/send",
   "streamChat",
 ];
-for (const fragment of forbiddenMutationFragments) {
-  expect(!chatCenter.includes(fragment), `Read-only chat Action Center contains forbidden mutation/runtime fragment: ${fragment}`);
+for (const fragment of forbiddenDirectMutationFragments) {
+  expect(!chatCenter.includes(fragment), `Chat Action Center must delegate provider mutations rather than invoke them directly: ${fragment}`);
 }
 
 console.log("WHATSAPP_EXPERIENCE_V2_CONTRACT=PASS");
@@ -124,4 +137,5 @@ console.log(`STATES=${requiredStates.length}`);
 console.log(`ACTIONS=${requiredActions.length}`);
 console.log("LAB_PROVIDER_CALLS=NONE_BY_CONTRACT");
 console.log("CHAT_INTEGRATION=FEATURE_GATED");
-console.log("CHAT_WHATSAPP_MUTATIONS=NONE_BY_CONTRACT");
+console.log("CHAT_ACTION_MUTATIONS=DELEGATED_TO_VERIFIED_CONNECTOR_CARD");
+console.log("CANONICAL_CONNECTED_GATE=ENFORCED");
