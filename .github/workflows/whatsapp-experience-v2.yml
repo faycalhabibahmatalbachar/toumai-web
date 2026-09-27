@@ -12,6 +12,7 @@ on:
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/e2e_whatsapp_experience_v2.py"
       - "scripts/e2e_whatsapp_experience_v2_chat.py"
+      - "scripts/e2e_whatsapp_experience_v2_connection.py"
       - "docs/whatsapp-experience-v2/**"
       - ".github/workflows/whatsapp-experience-v2.yml"
   pull_request:
@@ -23,6 +24,7 @@ on:
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/e2e_whatsapp_experience_v2.py"
       - "scripts/e2e_whatsapp_experience_v2_chat.py"
+      - "scripts/e2e_whatsapp_experience_v2_connection.py"
       - "docs/whatsapp-experience-v2/**"
       - ".github/workflows/whatsapp-experience-v2.yml"
   workflow_dispatch:
@@ -75,3 +77,6 @@ jobs:
 
       - name: Browser E2E — real chat integration, read-only WhatsApp
         run: python scripts/e2e_whatsapp_experience_v2_chat.py
+
+      - name: Browser E2E — connection flow with mocked provider
+        run: python scripts/e2e_whatsapp_experience_v2_connection.py
