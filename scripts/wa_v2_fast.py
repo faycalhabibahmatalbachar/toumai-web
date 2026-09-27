@@ -6,10 +6,9 @@ existing E2E scenario functions against a Next.js dev server, avoiding the
 production build/export cycle. FULL certification remains authoritative before
 phase certification or merge.
 
-Until every WhatsApp V2 surface has its own targeted suite, unknown/shared
-changes fall back to the contacts browser suite rather than silently skipping
-browser coverage. This is intentionally fail-safe: speed may improve later,
-but browser evidence is never traded away for an unmapped change.
+Unknown/shared changes fall back to the contacts browser suite rather than
+silently skipping browser coverage. Dedicated surfaces (currently contacts and
+the canonical execution timeline) are mapped to their smallest truthful suite.
 """
 
 from __future__ import annotations
@@ -30,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("WA_V2_FAST_PORT", "4190"))
 BASE_URL = f"http://{HOST}:{PORT}/chat/"
+LAB_URL = f"http://{HOST}:{PORT}/dev/whatsapp-ui/"
 
 
 def fail(message: str) -> None:
@@ -97,6 +97,21 @@ def run_contacts() -> None:
     print("FAST_GATE_RELEASE_CERTIFICATE=NO")
 
 
+def run_timeline() -> None:
+    suite = load_module("e2e_whatsapp_experience_v2_timeline.py")
+    with sync_playwright() as playwright:
+        browser = browser_for(playwright)
+        try:
+            suite.run_suite(browser, LAB_URL)
+        finally:
+            browser.close()
+
+    print("WA_V2_FAST_SUITE=timeline")
+    print("WHATSAPP_EXPERIENCE_V2_TIMELINE_FAST_E2E=PASS")
+    print("TIMELINE_PROVIDER_CALLS=NONE")
+    print("FAST_GATE_RELEASE_CERTIFICATE=NO")
+
+
 def auto_suite() -> str:
     override = os.environ.get("WA_V2_FAST_SUITE")
     if override:
@@ -112,16 +127,25 @@ def auto_suite() -> str:
 
     joined = "\n".join(changed)
     if any(token in joined for token in (
+        "WhatsAppExecutionTimeline.tsx",
+        "e2e_whatsapp_experience_v2_timeline.py",
+        "ActionExecutionCard.tsx",
+        "app/dev/whatsapp-ui/page.tsx",
+    )):
+        print("WA_V2_FAST_MAPPING=timeline")
+        return "timeline"
+
+    if any(token in joined for token in (
         "WhatsAppContactPicker.tsx",
+        "WhatsAppActionPreview.tsx",
         "e2e_whatsapp_experience_v2_contacts.py",
         "wa_v2_fast.py",
     )):
         print("WA_V2_FAST_MAPPING=contacts")
         return "contacts"
 
-    # Fail-safe while more targeted suites are being added: an unmapped
-    # WhatsApp V2 change still receives a real browser run instead of being
-    # treated as contract-only.
+    # Fail-safe: an unmapped WhatsApp V2 change still receives a real browser
+    # run instead of being treated as contract-only.
     print("WA_V2_FAST_MAPPING=fallback-contacts")
     return "contacts"
 
@@ -133,8 +157,8 @@ def main() -> None:
         print("WA_V2_FAST_BROWSER_E2E=SKIPPED_EXPLICITLY")
         print("FULL_CERTIFICATION_REQUIRED=YES")
         return
-    if suite != "contacts":
-        fail(f"Unsupported FAST suite: {suite}. Supported now: contacts, contract-only")
+    if suite not in {"contacts", "timeline"}:
+        fail(f"Unsupported FAST suite: {suite}. Supported now: contacts, timeline, contract-only")
 
     env = os.environ.copy()
     env["NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"] = "1"
@@ -148,7 +172,10 @@ def main() -> None:
     )
     try:
         wait_for_server()
-        run_contacts()
+        if suite == "timeline":
+            run_timeline()
+        else:
+            run_contacts()
     finally:
         server.terminate()
         try:
