@@ -11,6 +11,16 @@ function replaceOnce(label, before, after) {
   source = source.slice(0, first) + after + source.slice(first + before.length);
 }
 
+// Migration guard: an earlier version of this deterministic patch used a
+// lowercase "a" in three setter calls. Repair an already-applied branch before
+// deciding that the patch is complete, so rerunning the generator is safe.
+const normalized = source.replaceAll("setWhatsappExperienceOpen", "setWhatsAppExperienceOpen");
+if (normalized !== source) {
+  source = normalized;
+  fs.writeFileSync(path, source);
+  console.log("WHATSAPP_CHAT_V2_SETTER_CASE=REPAIRED");
+}
+
 if (source.includes('data-testid="wa-v2-composer-entry"')) {
   console.log("WHATSAPP_CHAT_V2_PATCH=ALREADY_APPLIED");
   process.exit(0);
@@ -41,19 +51,19 @@ replaceOnce(
 replaceOnce(
   "empty-state entry",
   `                        onClick={() => {\n                          setInput("Sur WhatsApp, ");\n                          requestAnimationFrame(() => textareaRef.current?.focus());\n                        }}\n                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"`,
-  `                        onClick={() => {\n                          if (WHATSAPP_EXPERIENCE_V2_ENABLED) {\n                            setWhatsappExperienceOpen(true);\n                            return;\n                          }\n                          setInput("Sur WhatsApp, ");\n                          requestAnimationFrame(() => textareaRef.current?.focus());\n                        }}\n                        data-testid={WHATSAPP_EXPERIENCE_V2_ENABLED ? "wa-v2-empty-entry" : undefined}\n                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"`,
+  `                        onClick={() => {\n                          if (WHATSAPP_EXPERIENCE_V2_ENABLED) {\n                            setWhatsAppExperienceOpen(true);\n                            return;\n                          }\n                          setInput("Sur WhatsApp, ");\n                          requestAnimationFrame(() => textareaRef.current?.focus());\n                        }}\n                        data-testid={WHATSAPP_EXPERIENCE_V2_ENABLED ? "wa-v2-empty-entry" : undefined}\n                        className="rounded-full border border-[var(--border)] px-3.5 py-2 text-[12.5px] text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"`,
 );
 
 replaceOnce(
   "composer entry",
   `              </div>\n              {/* LE SELECTEUR RESTE A DROITE. Je l'avais deplace a gauche le`,
-  `              </div>\n              {WHATSAPP_EXPERIENCE_V2_ENABLED ? (\n                <button\n                  type="button"\n                  onClick={() => setWhatsappExperienceOpen(true)}\n                  aria-label="Actions WhatsApp"\n                  title="Actions WhatsApp"\n                  data-testid="wa-v2-composer-entry"\n                  className="chat-iconbtn"\n                >\n                  <WhatsAppIcon size={17} />\n                </button>\n              ) : null}\n              {/* LE SELECTEUR RESTE A DROITE. Je l'avais deplace a gauche le`,
+  `              </div>\n              {WHATSAPP_EXPERIENCE_V2_ENABLED ? (\n                <button\n                  type="button"\n                  onClick={() => setWhatsAppExperienceOpen(true)}\n                  aria-label="Actions WhatsApp"\n                  title="Actions WhatsApp"\n                  data-testid="wa-v2-composer-entry"\n                  className="chat-iconbtn"\n                >\n                  <WhatsAppIcon size={17} />\n                </button>\n              ) : null}\n              {/* LE SELECTEUR RESTE A DROITE. Je l'avais deplace a gauche le`,
 );
 
 replaceOnce(
   "responsive overlay",
   `      </div>\n      {contextMessage ? (`,
-  `      </div>\n      {WHATSAPP_EXPERIENCE_V2_ENABLED ? (\n        <WhatsAppChatActionCenter\n          open={whatsappExperienceOpen}\n          onClose={() => setWhatsappExperienceOpen(false)}\n          onPrepare={prepareWhatsAppStarter}\n        />\n      ) : null}\n      {contextMessage ? (`,
+  `      </div>\n      {WHATSAPP_EXPERIENCE_V2_ENABLED ? (\n        <WhatsAppChatActionCenter\n          open={whatsappExperienceOpen}\n          onClose={() => setWhatsAppExperienceOpen(false)}\n          onPrepare={prepareWhatsAppStarter}\n        />\n      ) : null}\n      {contextMessage ? (`,
 );
 
 fs.writeFileSync(path, source);
