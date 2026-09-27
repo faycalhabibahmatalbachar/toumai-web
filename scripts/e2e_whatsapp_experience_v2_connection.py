@@ -297,15 +297,20 @@ def test_pairing_expiry_refresh(browser: Browser) -> Scenario:
 
         page.get_by_role("button", name="Connecter", exact=True).click()
         page.get_by_test_id("wa-v2-connection-flow").wait_for(state="visible")
-        page.get_by_test_id("wa-v2-connection-mode-pairing").click()
-        wait_until(lambda: scenario.pairing_calls >= 1, 3.0, "Pairing-code request was not issued")
+        pairing_tab = page.get_by_test_id("wa-v2-connection-mode-pairing")
+        pairing_tab.click()
+        expect(pairing_tab.get_attribute("aria-selected") == "true", "Pairing mode did not become selected")
+
+        # Waiting on the rendered code keeps Playwright's dispatcher alive so
+        # the React timer that requests the code can actually reach our route.
         page.get_by_text("13572468", exact=True).wait_for(state="visible", timeout=4000)
+        expect(scenario.pairing_calls == 1, f"Expected one initial pairing request, got {scenario.pairing_calls}")
         expect(page.get_by_text("Connecté", exact=True).count() == 0, "Pairing flow claimed Connected before canonical confirmation")
 
         page.get_by_text("Code expiré", exact=True).wait_for(state="visible", timeout=5000)
         page.get_by_role("button", name="Nouveau code", exact=True).click()
-        wait_until(lambda: scenario.pairing_calls >= 2, 3.0, "Expired pairing code was not refreshed")
         page.get_by_text("24681357", exact=True).wait_for(state="visible", timeout=4000)
+        expect(scenario.pairing_calls == 2, f"Expected exactly one pairing refresh, got {scenario.pairing_calls}")
 
         scenario.connected = True
         page.get_by_test_id("wa-v2-connection-flow").wait_for(state="detached", timeout=7000)
