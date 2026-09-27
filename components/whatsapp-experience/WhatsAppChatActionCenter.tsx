@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { WaEtat, WhatsAppState } from "@/lib/connectors-api";
 import { useWidgetRuntime } from "@/components/chat/widgets/runtime";
 import { WhatsAppActionCenter } from "./WhatsAppActionCenter";
+import { WhatsAppConnectionFlow } from "./WhatsAppConnectionFlow";
 import { whatsappStarterFor } from "@/lib/whatsapp-ui/presentation";
 import type {
   WhatsAppActionDefinition,
@@ -68,10 +69,12 @@ export function WhatsAppChatActionCenter({
   const [etat, setEtat] = useState<WaEtat | null>(null);
   const [raw, setRaw] = useState<WhatsAppState | null>(null);
   const [state, setState] = useState<WhatsAppExperienceState>("loading");
+  const [connectionFlowOpen, setConnectionFlowOpen] = useState(false);
   const generation = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const restorePreviousFocus = useRef(true);
+  const connection = presentationFrom(etat, raw);
 
   const refresh = useCallback(async () => {
     const current = ++generation.current;
@@ -87,7 +90,10 @@ export function WhatsAppChatActionCenter({
   }, [whatsapp]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setConnectionFlowOpen(false);
+      return;
+    }
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     restorePreviousFocus.current = true;
     void refresh();
@@ -102,6 +108,18 @@ export function WhatsAppChatActionCenter({
   }, [open, refresh]);
 
   useEffect(() => {
+    if (!open || !connectionFlowOpen) return;
+    const id = window.setInterval(() => void refresh(), 2500);
+    return () => window.clearInterval(id);
+  }, [open, connectionFlowOpen, refresh]);
+
+  useEffect(() => {
+    if (connectionFlowOpen && connection.status === "connected") {
+      setConnectionFlowOpen(false);
+    }
+  }, [connectionFlowOpen, connection.status]);
+
+  useEffect(() => {
     if (!open) return;
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -111,8 +129,6 @@ export function WhatsAppChatActionCenter({
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const connection = presentationFrom(etat, raw);
 
   function handoffToComposer(starter: string) {
     // A normal dismissal restores the opener for keyboard continuity. Selecting
@@ -125,10 +141,6 @@ export function WhatsAppChatActionCenter({
 
   function prepare(action: WhatsAppActionDefinition) {
     handoffToComposer(whatsappStarterFor(action.id));
-  }
-
-  function prepareConnection() {
-    handoffToComposer(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp");
   }
 
   function trapTab(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -167,7 +179,9 @@ export function WhatsAppChatActionCenter({
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div>
             <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Toumaï · Connecteur</p>
-            <h2 id="wa-v2-dialog-title" className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">Actions WhatsApp</h2>
+            <h2 id="wa-v2-dialog-title" className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              {connectionFlowOpen ? "Connexion WhatsApp" : "Actions WhatsApp"}
+            </h2>
           </div>
           <button
             type="button"
@@ -180,13 +194,23 @@ export function WhatsAppChatActionCenter({
           </button>
         </div>
 
-        <WhatsAppActionCenter
-          connection={connection}
-          state={state}
-          onAction={prepare}
-          onConnect={prepareConnection}
-          onOpenAdvanced={() => window.location.assign("/whatsapp/")}
-        />
+        {connectionFlowOpen ? (
+          <WhatsAppConnectionFlow
+            expired={connection.status === "expired"}
+            onBack={() => {
+              setConnectionFlowOpen(false);
+              void refresh();
+            }}
+          />
+        ) : (
+          <WhatsAppActionCenter
+            connection={connection}
+            state={state}
+            onAction={prepare}
+            onConnect={() => setConnectionFlowOpen(true)}
+            onOpenAdvanced={() => window.location.assign("/whatsapp/")}
+          />
+        )}
       </div>
     </div>
   );
