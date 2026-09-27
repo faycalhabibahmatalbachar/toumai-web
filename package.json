@@ -14,7 +14,14 @@
     "test:reminder-widget": "node scripts/verify-personal-reminder-widget.mjs",
     "test:notification-channels": "node scripts/verify-reminder-multichannel.mjs",
     "test:notification-diagnostic": "node scripts/verify-notification-channel-test-center.mjs",
-    "test:voice-v1": "node scripts/verify-toumai-voice-v1.mjs"
+    "test:voice-v1": "node scripts/verify-toumai-voice-v1.mjs",
+    "wa:v2:contract": "node scripts/verify-whatsapp-experience-v2.mjs",
+    "wa:v2:fast": "python scripts/wa_v2_fast.py",
+    "wa:v2:fast:contacts": "python scripts/wa_v2_fast.py contacts",
+    "wa:v2:full:lab": "python scripts/e2e_whatsapp_experience_v2.py",
+    "wa:v2:full:chat": "python scripts/e2e_whatsapp_experience_v2_chat.py",
+    "wa:v2:full:connection": "python scripts/e2e_whatsapp_experience_v2_connection.py",
+    "wa:v2:full:contacts": "python scripts/e2e_whatsapp_experience_v2_contacts.py"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
