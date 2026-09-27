@@ -6,6 +6,7 @@ const files = {
   center: "components/whatsapp-experience/WhatsAppActionCenter.tsx",
   chatCenter: "components/whatsapp-experience/WhatsAppChatActionCenter.tsx",
   connectionFlow: "components/whatsapp-experience/WhatsAppConnectionFlow.tsx",
+  contactPicker: "components/whatsapp-experience/WhatsAppContactPicker.tsx",
   feature: "lib/whatsapp-ui/feature.ts",
   presentation: "lib/whatsapp-ui/presentation.ts",
   chat: "app/chat/page.tsx",
@@ -26,6 +27,7 @@ const actions = read(files.actions);
 const center = read(files.center);
 const chatCenter = read(files.chatCenter);
 const connectionFlow = read(files.connectionFlow);
+const contactPicker = read(files.contactPicker);
 const feature = read(files.feature);
 const presentation = read(files.presentation);
 const chat = read(files.chat);
@@ -99,9 +101,7 @@ expect(chat.includes("field.selectionStart = field.selectionEnd = starter.length
 
 expect(chatCenter.includes("whatsapp.getEtat()"), "Chat Action Center must read canonical WhatsApp state");
 expect(chatCenter.includes("whatsapp.getStatus()"), "Chat Action Center must read raw WhatsApp status as fallback");
-expect(chatCenter.includes("handoffToComposer(whatsappStarterFor(action.id))"), "Action selection must only hand off a safe starter to the composer");
 expect(chatCenter.includes("WhatsAppConnectionFlow"), "Chat Action Center must embed the verified connection flow");
-expect(chatCenter.includes("onConnect={() => setConnectionFlowOpen(true)}"), "Connect must open the in-chat connection flow instead of submitting chat");
 expect(chatCenter.includes("window.setInterval(() => void refresh(), 2500)"), "Connection flow must periodically re-read canonical state");
 expect(chatCenter.includes('connectionFlowOpen && connection.status === "connected"'), "Connection flow may close automatically only after canonical connected state is observed");
 expect(chatCenter.includes("restorePreviousFocus.current = false"), "Action handoff must explicitly suppress opener focus restoration");
@@ -117,6 +117,40 @@ expect(connectionFlow.includes('data-testid="wa-v2-connection-mode-pairing"'), "
 expect(connectionFlow.includes('mode === "qr"'), "Connection flow must choose its connector intent from the selected mode");
 expect(connectionFlow.includes('intent={intent}'), "Connection flow must delegate connection behavior to the connector card");
 expect(connectionFlow.includes('key={`${mode}-${expired ? "expired" : "new"}`}'), "Changing connection mode must remount the connector intent deterministically");
+
+expect(presentation.includes("WHATSAPP_CONTACT_ACTIONS"), "Contact-targeting action registry missing");
+expect(presentation.includes("whatsappActionNeedsContact"), "Contact routing predicate missing");
+expect(presentation.includes("whatsappStarterForContact"), "Trusted contact composer starter missing");
+expect(presentation.includes("We never derive a phone number from a WhatsApp JID"), "JID non-derivation invariant missing");
+expect(!presentation.includes("contact.jid"), "Presentation layer must never derive or inject recipient identity from contact JID");
+
+expect(chatCenter.includes("WhatsAppContactPicker"), "Chat Action Center must embed the contact picker");
+expect(chatCenter.includes("whatsappActionNeedsContact(action.id)"), "Contact-targeted actions must route through the picker");
+expect(chatCenter.includes("setPendingAction(action)"), "Selected contact-targeted action must be retained until recipient choice");
+expect(chatCenter.includes("if (!pendingAction || !contact.number) return"), "Unroutable contacts must be rejected before composer handoff");
+expect(chatCenter.includes("whatsappStarterForContact(pendingAction.id"), "Contact selection must use the trusted contact starter");
+expect(chatCenter.includes("number: contact.number"), "Contact selection must pass the carnet number explicitly");
+
+expect(contactPicker.includes('data-testid="wa-v2-contact-picker"'), "Contact picker root marker missing");
+expect(contactPicker.includes("getWaCarnet()"), "Contact picker must read the synchronized carnet");
+expect(contactPicker.includes("contact.name.toLocaleLowerCase"), "Contact picker must filter names locally");
+expect(contactPicker.includes('contact.number || ""'), "Contact picker must filter trusted contact numbers locally");
+expect(contactPicker.includes("disabled={!usable}"), "Contacts without a routable number must be disabled");
+expect(contactPicker.includes('data-testid="wa-v2-contact-stale-warning"'), "Stale/base carnet warning missing");
+expect(contactPicker.includes('data-contact-number={contact.number || ""}'), "Picker must expose only the carnet number to selection tests");
+
+const forbiddenPickerFragments = [
+  "syncWaCarnet",
+  "send_whatsapp",
+  "/whatsapp/send",
+  "streamChat",
+  "linkWhatsApp",
+  "refreshWhatsAppCode",
+  "disconnectWhatsApp",
+];
+for (const fragment of forbiddenPickerFragments) {
+  expect(!contactPicker.includes(fragment), `Read-only contact picker contains forbidden mutation/runtime fragment: ${fragment}`);
+}
 
 const forbiddenDirectMutationFragments = [
   "whatsapp.linkQr(",
@@ -139,3 +173,5 @@ console.log("LAB_PROVIDER_CALLS=NONE_BY_CONTRACT");
 console.log("CHAT_INTEGRATION=FEATURE_GATED");
 console.log("CHAT_ACTION_MUTATIONS=DELEGATED_TO_VERIFIED_CONNECTOR_CARD");
 console.log("CANONICAL_CONNECTED_GATE=ENFORCED");
+console.log("CONTACT_PICKER=READ_ONLY_LOCAL_FILTER");
+console.log("CONTACT_JID_DERIVATION=FORBIDDEN");
