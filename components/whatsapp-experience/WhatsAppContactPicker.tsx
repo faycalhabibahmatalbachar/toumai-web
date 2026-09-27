@@ -40,8 +40,10 @@ export function WhatsAppContactPicker({
 
   useEffect(() => {
     void load();
-    const id = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(id);
+    // autoFocus handles the commit itself; the next-frame focus makes the
+    // handoff robust if a parent modal finishing its own focus work races us.
+    const id = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
   }, [load]);
 
   const visibleContacts = useMemo(() => {
@@ -87,6 +89,7 @@ export function WhatsAppContactPicker({
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" aria-hidden="true" />
         <input
           ref={inputRef}
+          autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher un nom ou un numéro"
