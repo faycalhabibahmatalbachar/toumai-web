@@ -97,12 +97,13 @@ expect(chat.includes("field.selectionStart = field.selectionEnd = starter.length
 
 expect(chatCenter.includes("whatsapp.getEtat()"), "Chat Action Center must read canonical WhatsApp state");
 expect(chatCenter.includes("whatsapp.getStatus()"), "Chat Action Center must read raw WhatsApp status as fallback");
-expect(chatCenter.includes("onPrepare(whatsappStarterFor(action.id))"), "Action selection must only prepare a composer starter");
-expect(chatCenter.includes('onPrepare(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp")'), "Connect/reconnect entry must prepare a request rather than mutate provider state");
+expect(chatCenter.includes("handoffToComposer(whatsappStarterFor(action.id))"), "Action selection must only hand off a safe starter to the composer");
+expect(chatCenter.includes('handoffToComposer(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp")'), "Connect/reconnect entry must hand off a request rather than mutate provider state");
+expect(chatCenter.includes("restorePreviousFocus.current = false"), "Action handoff must explicitly suppress opener focus restoration");
+expect(chatCenter.includes("if (restorePreviousFocus.current) previousFocus.current?.focus()"), "Normal dismissals must still restore focus to the opener");
 expect(chatCenter.includes('role="dialog"'), "Responsive WhatsApp sheet must expose dialog semantics");
 expect(chatCenter.includes('aria-modal="true"'), "Responsive WhatsApp sheet must be modal to assistive technologies");
 expect(chatCenter.includes('event.key === "Escape"'), "WhatsApp sheet must support Escape closure");
-expect(chatCenter.includes("previousFocus.current?.focus()"), "WhatsApp sheet must restore focus to its opener");
 
 const forbiddenMutationFragments = [
   "whatsapp.linkQr(",
