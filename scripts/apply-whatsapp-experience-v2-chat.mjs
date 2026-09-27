@@ -11,15 +11,27 @@ function replaceOnce(label, before, after) {
   source = source.slice(0, first) + after + source.slice(first + before.length);
 }
 
-// Migration guard: an earlier version of this deterministic patch used a
-// lowercase "a" in three setter calls. Repair an already-applied branch before
-// deciding that the patch is complete, so rerunning the generator is safe.
+// Migration guards keep this deterministic patch safe to rerun on an already
+// integrated branch. They repair previously generated shapes before the
+// ALREADY_APPLIED fast path, so the source of truth cannot drift from the
+// generated chat surface.
+let migrated = false;
 const normalized = source.replaceAll("setWhatsappExperienceOpen", "setWhatsAppExperienceOpen");
 if (normalized !== source) {
   source = normalized;
-  fs.writeFileSync(path, source);
+  migrated = true;
   console.log("WHATSAPP_CHAT_V2_SETTER_CASE=REPAIRED");
 }
+
+const oldPrepareHelper = `  function prepareWhatsAppStarter(starter: string) {\n    setInput(starter);\n    requestAnimationFrame(() => {\n      const field = textareaRef.current;\n      if (!field) return;\n      field.focus();\n      field.selectionStart = field.selectionEnd = starter.length;\n    });\n  }`;
+const deterministicPrepareHelper = `  function prepareWhatsAppStarter(starter: string) {\n    setInput(starter);\n    const field = textareaRef.current;\n    if (field) {\n      field.focus();\n      field.selectionStart = field.selectionEnd = starter.length;\n    }\n    requestAnimationFrame(() => {\n      const nextField = textareaRef.current;\n      if (!nextField) return;\n      nextField.focus();\n      nextField.selectionStart = nextField.selectionEnd = starter.length;\n    });\n  }`;
+if (source.includes(oldPrepareHelper)) {
+  source = source.replace(oldPrepareHelper, deterministicPrepareHelper);
+  migrated = true;
+  console.log("WHATSAPP_CHAT_V2_COMPOSER_FOCUS=REPAIRED");
+}
+
+if (migrated) fs.writeFileSync(path, source);
 
 if (source.includes('data-testid="wa-v2-composer-entry"')) {
   console.log("WHATSAPP_CHAT_V2_PATCH=ALREADY_APPLIED");
@@ -45,7 +57,7 @@ replaceOnce(
 replaceOnce(
   "prepare helper",
   `  function syncPalette(value: string, caret: number) {\n    const found = detectTrigger(value, caret);\n    setPalette(found);\n    setPaletteIndex(0);\n  }\n\n  function onKeyDown`,
-  `  function syncPalette(value: string, caret: number) {\n    const found = detectTrigger(value, caret);\n    setPalette(found);\n    setPaletteIndex(0);\n  }\n\n  function prepareWhatsAppStarter(starter: string) {\n    setInput(starter);\n    requestAnimationFrame(() => {\n      const field = textareaRef.current;\n      if (!field) return;\n      field.focus();\n      field.selectionStart = field.selectionEnd = starter.length;\n    });\n  }\n\n  function onKeyDown`,
+  `  function syncPalette(value: string, caret: number) {\n    const found = detectTrigger(value, caret);\n    setPalette(found);\n    setPaletteIndex(0);\n  }\n\n${deterministicPrepareHelper}\n\n  function onKeyDown`,
 );
 
 replaceOnce(
