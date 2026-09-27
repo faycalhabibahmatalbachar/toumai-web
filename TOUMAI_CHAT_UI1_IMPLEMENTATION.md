@@ -62,3 +62,33 @@ KEEP_AS_IS statuses: `READING_COLUMN_WIDTH`, `COMPOSER_ALIGNMENT`, `MESSAGE_DIST
 Final automated rerun: `npm run test:ui1 -- --pool=threads --maxWorkers=1` passed (17/17, exit 0); `npm run typecheck` passed (exit 0); `npm run build` passed (exit 0, 41 routes); targeted ESLint passed with 0 errors and the same 4 existing warnings (exit 0). An initial default Vitest run failed because a fork worker did not start; one threads run had a timeout on the empty-history test under load. That test passed alone and the full 17-test suite passed on rerun.
 
 Authenticated screenshots: none. The requested `auth-*.png` files cannot be truthfully captured before local sign-in. No UI-1 regression has been observed on the patched authenticated route, and none can be ruled out. **UI1_GATE = NOT_PROVEN**. Next step: start the local dev server again (`npm run dev -- -p 3210`), complete normal sign-in on localhost, or provide an authenticated staging URL that runs commit `611b367`; then execute the scenario and viewport matrix above.
+
+## FINAL AUTHENTICATED CERTIFICATION — completed on isolated preview
+
+Certification completed on 28 September 2026 against the isolated Cloudflare Pages preview `https://ui-1-chat-accessibility.toumaiai-web.pages.dev`. Cloudflare reports source revision `114acd7` for preview deployment `4f0afe42-7d90-48cf-b087-8af77a3b4161`. The preview branch is `ui-1-chat-accessibility`; production was not replaced or promoted.
+
+The account owner completed the normal email/password sign-in on the preview. The resulting authenticated `/chat` session exposed the real account history and accepted real Sao 4 generations. Google sign-in remains unavailable on this preview with `origin_mismatch` for `https://ui-1-chat-accessibility.toumaiai-web.pages.dev`. GitHub sign-in still returns to `https://toumaiai.com/chat/`. These are preview OAuth configuration issues; the authenticated certification used email/password and did not change the authentication architecture.
+
+### Authenticated results
+
+| Required scenario | Result | Evidence |
+|---|---|---|
+| New chat and authenticated session | PASS | New-chat greeting and composer rendered at the patched preview origin. |
+| Real generation | PASS | Sao 4 produced a persisted answer ending with `Certification terminée`; response actions appeared. |
+| Stop generation | PASS | Progress state and `Arrêter la génération` appeared; activating it removed both and left the composer usable. |
+| Long draft | PASS | 12 lines / 414 characters were preserved; the textarea scrolled internally and the document stayed at 1440 px. |
+| Conversation history | PASS | The generated title appeared in history and restored the persisted prompt and answer after leaving the chat. |
+| History search empty state | PASS | A zero-result query rendered `Aucune conversation trouvée` and `Essayez un autre mot-clé.` |
+| Title regression | PASS | 186 visible titles were inspected; valid titles remained intact and only 3 existing fallback rows used `Nouvelle conversation`. |
+| Model keyboard | PASS | Enter, Space, ArrowUp, ArrowDown, Escape and Shift+Tab were exercised; selection, dismissal and focus movement behaved as specified. |
+| Mobile overlay | PASS | At 390×844 and 360×800, opening the drawer while the model listbox was open produced `dialog=1`, `listbox=0`, and model `aria-expanded=false`. |
+| Light and dark themes | PASS | Both themes rendered the authenticated conversation and composer. The light audited text is 5.27:1. |
+| Five exact viewports | PASS | 1440×900, 1280×800, 768×1024, 390×844 and 360×800 all matched the requested viewport and had document scroll width equal to viewport width. |
+
+The reading column, composer alignment, incoming/outgoing distinction, progress feedback, stop action, long-draft stability, absence of horizontal overflow and Toumaï identity were visually rechecked in the authenticated preview. The 768 px layout intentionally retains the 288 px sidebar and a 480 px content region. Mobile layouts use the full viewport width and an overlay drawer.
+
+Console capture contained no `error`, React error or hydration error. Warnings were limited to preview/environment behavior: Cloudflare Turnstile `110200`, repeated Google Identity initialization, and the intentional `[chat-title] display fallback used` diagnostic. The dark 11 px disclaimer measures 4.06:1 against the dark page background; this pre-existing dark token was outside the light-contrast UI-1 change and remains an accessibility follow-up.
+
+Authenticated proof files are stored under `output/ui1-auth/`, including the five viewport captures, real generation progress/stop and completion, model keyboard focus, history empty state, mobile model menu/drawer, conversation restoration, and both themes.
+
+**UI1_GATE = PROVEN. MERGE_PERFORMED = NO. DEPLOYMENT_PERFORMED = NO (production).** The isolated preview deployment is the certification environment only.
