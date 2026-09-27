@@ -66,8 +66,11 @@ jobs:
       - name: Browser E2E — connection flow with mocked provider
         run: npm run wa:v2:full:connection
 
-      - name: Browser E2E — contact picker, read-only WhatsApp
+      - name: Browser E2E — contact picker and action preview, read-only WhatsApp
         run: npm run wa:v2:full:contacts
+
+      - name: Browser E2E — canonical execution timeline truthfulness
+        run: npm run wa:v2:full:timeline
 
       - name: FULL certification verdict
         run: |
