@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ToolConfirmation } from "@/lib/chat-stream";
+import { WHATSAPP_EXPERIENCE_V2_ENABLED } from "@/lib/whatsapp-ui/feature";
+import { WhatsAppExecutionTimeline } from "@/components/whatsapp-experience/WhatsAppExecutionTimeline";
 import { useWidgetRuntime } from "./runtime";
 import { describeTool, riskLabel } from "@/lib/tool-ui";
 import { normalizeStatus, toneOf, type StatusKey } from "@/lib/widgets/core";
@@ -299,9 +301,6 @@ function normalizedState(response: ConfirmationResponse): {
   return { state: "success", action, message };
 }
 
-
-
-
 export function ActionExecutionCard({
   confirmation,
   compactWhenDone = true,
@@ -492,6 +491,9 @@ export function ActionExecutionCard({
   const destructive = descriptor.risk === "destructive";
   const status = RUNTIME_STATUS[state];
   const tone = toneOf(status);
+  const whatsappTimeline = WHATSAPP_EXPERIENCE_V2_ENABLED
+    && Boolean(etatCanonique)
+    && (confirmation.tool.includes("whatsapp") || confirmation.tool === "__toumai_batch__");
   const subtitle = compactSuccess && subject
     ? subject
     : state === "awaiting_confirmation"
@@ -590,6 +592,8 @@ export function ActionExecutionCard({
               </motion.div>
             ) : null}
           </AnimatePresence>
+
+          {whatsappTimeline ? <WhatsAppExecutionTimeline operationState={etatCanonique} /> : null}
 
           {showOutcomeRows ? <ProgressSteps steps={outcomeSteps} label="Résultat des actions" /> : null}
 
