@@ -4,6 +4,10 @@ const files = {
   types: "lib/whatsapp-ui/types.ts",
   actions: "lib/whatsapp-ui/capabilities.ts",
   center: "components/whatsapp-experience/WhatsAppActionCenter.tsx",
+  chatCenter: "components/whatsapp-experience/WhatsAppChatActionCenter.tsx",
+  feature: "lib/whatsapp-ui/feature.ts",
+  presentation: "lib/whatsapp-ui/presentation.ts",
+  chat: "app/chat/page.tsx",
   lab: "app/dev/whatsapp-ui/page.tsx",
 };
 
@@ -19,6 +23,10 @@ function expect(condition, message) {
 const types = read(files.types);
 const actions = read(files.actions);
 const center = read(files.center);
+const chatCenter = read(files.chatCenter);
+const feature = read(files.feature);
+const presentation = read(files.presentation);
+const chat = read(files.chat);
 const lab = read(files.lab);
 
 const requiredStates = [
@@ -61,6 +69,7 @@ const requiredActions = [
 
 for (const action of requiredActions) {
   expect(actions.includes(`id: \"${action}\"`), `Missing WhatsApp action definition: ${action}`);
+  expect(presentation.includes(`${action}:`), `Missing safe chat starter: ${action}`);
 }
 
 expect(center.includes('data-testid="wa-v2-action-center"'), "Action Center test marker missing");
@@ -75,7 +84,43 @@ expect(!lab.includes("connectors-api"), "UI lab must not call the WhatsApp conne
 expect(!lab.includes("streamChat"), "UI lab must not call the chat runtime");
 expect(!lab.includes("send_whatsapp"), "UI lab must not embed a provider send action");
 
+expect(feature.includes("NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"), "Explicit WhatsApp V2 feature flag missing");
+expect(feature.includes('=== "1"'), "WhatsApp V2 must be opt-in rather than enabled by default");
+
+expect(chat.includes("WhatsAppChatActionCenter"), "Chat integration component missing");
+expect(chat.includes("WHATSAPP_EXPERIENCE_V2_ENABLED"), "Chat integration is not feature-gated");
+expect(chat.includes('data-testid="wa-v2-composer-entry"'), "Persistent WhatsApp composer entry missing");
+expect(chat.includes('data-testid={WHATSAPP_EXPERIENCE_V2_ENABLED ? "wa-v2-empty-entry"'), "Empty-state WhatsApp entry is not feature-gated");
+expect(chat.includes('setInput("Sur WhatsApp, ")'), "Legacy fallback must remain available with the flag disabled");
+expect(chat.includes("onPrepare={prepareWhatsAppStarter}"), "Action Center must prepare the existing composer instead of executing directly");
+expect(chat.includes("field.selectionStart = field.selectionEnd = starter.length"), "Prepared WhatsApp starter must restore caret at the end");
+
+expect(chatCenter.includes("whatsapp.getEtat()"), "Chat Action Center must read canonical WhatsApp state");
+expect(chatCenter.includes("whatsapp.getStatus()"), "Chat Action Center must read raw WhatsApp status as fallback");
+expect(chatCenter.includes("onPrepare(whatsappStarterFor(action.id))"), "Action selection must only prepare a composer starter");
+expect(chatCenter.includes('onPrepare(connection.status === "expired" ? "Reconnecte mon compte WhatsApp" : "Connecte mon compte WhatsApp")'), "Connect/reconnect entry must prepare a request rather than mutate provider state");
+expect(chatCenter.includes('role="dialog"'), "Responsive WhatsApp sheet must expose dialog semantics");
+expect(chatCenter.includes('aria-modal="true"'), "Responsive WhatsApp sheet must be modal to assistive technologies");
+expect(chatCenter.includes('event.key === "Escape"'), "WhatsApp sheet must support Escape closure");
+expect(chatCenter.includes("previousFocus.current?.focus()"), "WhatsApp sheet must restore focus to its opener");
+
+const forbiddenMutationFragments = [
+  "whatsapp.linkQr(",
+  "whatsapp.refreshCode(",
+  "whatsapp.disconnect(",
+  "send_whatsapp",
+  "/whatsapp/link",
+  "/whatsapp/disconnect",
+  "/whatsapp/send",
+  "streamChat",
+];
+for (const fragment of forbiddenMutationFragments) {
+  expect(!chatCenter.includes(fragment), `Read-only chat Action Center contains forbidden mutation/runtime fragment: ${fragment}`);
+}
+
 console.log("WHATSAPP_EXPERIENCE_V2_CONTRACT=PASS");
 console.log(`STATES=${requiredStates.length}`);
 console.log(`ACTIONS=${requiredActions.length}`);
 console.log("LAB_PROVIDER_CALLS=NONE_BY_CONTRACT");
+console.log("CHAT_INTEGRATION=FEATURE_GATED");
+console.log("CHAT_WHATSAPP_MUTATIONS=NONE_BY_CONTRACT");
