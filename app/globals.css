@@ -844,6 +844,8 @@ svg {
    * glisse dessous sans jamais « traverser » l'interface. */
   --chat-veil: color-mix(in srgb, var(--background) 90%, transparent);
   --chat-line: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  /* 4.65:1 on the dark chat background at the 11 px disclaimer size. */
+  --chat-disclaimer: #8f8675;
 }
 
 [data-theme="light"] .chat-shell {
@@ -852,6 +854,7 @@ svg {
   --chat-elev-1: 0 1px 2px rgba(31, 27, 22, 0.05), 0 10px 28px -16px rgba(31, 27, 22, 0.2);
   --chat-elev-2: 0 2px 6px rgba(31, 27, 22, 0.06), 0 28px 64px -30px rgba(31, 27, 22, 0.28);
   --chat-line: color-mix(in srgb, var(--text-primary) 11%, transparent);
+  --chat-disclaimer: #706658;
 }
 
 /* ── Chrome ──────────────────────────────────────────────────────────────── */
@@ -910,14 +913,18 @@ svg {
 /* ── Boutons d'icône du chat ─────────────────────────────────────────────── */
 .chat-iconbtn {
   display: flex;
-  height: 2.25rem;
-  width: 2.25rem;
+  height: 2.75rem;
+  width: 2.75rem;
   flex: none;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   color: var(--text-tertiary);
   transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.chat-disclaimer {
+  color: var(--chat-disclaimer);
 }
 .chat-iconbtn:hover:not(:disabled) {
   background: var(--hover);

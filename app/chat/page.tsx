@@ -2127,7 +2127,7 @@ export default function ChatPage() {
                 reste faux au troisieme message. */}
             <JaugeUsage signal={signalUsage} />
             {usageOuvert ? <PanneauUsage onClose={() => setUsageOuvert(false)} /> : null}
-            <p className="px-2 text-center text-[11px] leading-relaxed text-[var(--text-tertiary)]">
+            <p className="chat-disclaimer px-2 text-center text-[11px] leading-relaxed">
               Toumaï AI peut faire des erreurs. Vérifiez les informations importantes.
             </p>
           </div>
