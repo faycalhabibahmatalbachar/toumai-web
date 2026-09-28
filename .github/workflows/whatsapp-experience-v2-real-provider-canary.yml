@@ -36,12 +36,12 @@ jobs:
     name: Real WhatsApp provider canary
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    # Configure protection/required reviewers on this Environment before a production canary.
     environment: whatsapp-real-provider-canary
     env:
       WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
       WA_V2_CANARY_ACCESS_TOKEN: ${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}
-      WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT }}
+      # Toumai's already-public official WhatsApp contact; an environment secret may override it.
+      WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT || '23591912191' }}
       WA_V2_CANARY_EXPLICIT_SEND: ${{ github.event_name == 'push' && 'true' || inputs.confirm_real_send }}
       WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ github.event_name == 'push' && '90' || inputs.max_wait_seconds }}
 
@@ -57,21 +57,21 @@ jobs:
             exit 2
           fi
 
-      - name: Validate required canary secrets without printing them
+      - name: Validate required canary authentication without printing it
         shell: bash
         run: |
           set -euo pipefail
-          missing=0
-          for key in WA_V2_CANARY_ACCESS_TOKEN WA_V2_CANARY_RECIPIENT; do
-            if [ -z "${!key:-}" ]; then
-              echo "Missing required secret: ${key}"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
+          if [ -z "${WA_V2_CANARY_ACCESS_TOKEN:-}" ]; then
+            echo "Missing required secret: WA_V2_CANARY_ACCESS_TOKEN"
             echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
             echo "PHASE_11_CERTIFICATION=BLOCKED"
-            echo "BLOCKER=missing_canary_secret"
+            echo "BLOCKER=missing_canary_access_token"
+            exit 2
+          fi
+          if [ -z "${WA_V2_CANARY_RECIPIENT:-}" ]; then
+            echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
+            echo "PHASE_11_CERTIFICATION=BLOCKED"
+            echo "BLOCKER=missing_canary_recipient"
             exit 2
           fi
 
