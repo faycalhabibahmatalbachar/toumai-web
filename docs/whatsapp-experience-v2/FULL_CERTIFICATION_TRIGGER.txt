@@ -1,8 +1,8 @@
 FULL CERTIFICATION REQUEST
 
-reason=Pipeline 3X Phase 9 recent activity after modal focus containment hardening
-fast_pass_sha=a0be40d27bc9faaaa60b0c5f1c4ed39ce1cc9348
+reason=Pipeline 3X Phase 10 rollout readiness and reversible feature-flag certification
+fast_pass_sha=9fcef1487a5f9b4be9ae0fa24a5d864e6909258b
 requested_at=2026-09-28
 
 This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow.
-FAST evidence is not a release certificate. FULL must remain green before phase certification or merge.
+FAST evidence is not a release certificate. FULL must certify both feature-flag ON and production feature-flag OFF builds before rollout readiness can pass.
