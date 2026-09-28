@@ -9,8 +9,8 @@ phase certification or merge.
 Unknown/shared changes fall back to the contacts browser suite rather than
 silently skipping browser coverage. Dedicated surfaces are mapped to their
 smallest truthful suite, including chat integration, connection/reconnect,
-contacts, permissions, recent activity, canonical execution timeline and
-compact canonical result.
+contacts, permissions, recent activity, rollout/rollback, canonical execution
+timeline and compact canonical result.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -49,18 +50,49 @@ def load_module(filename: str):
     return module
 
 
-def wait_for_server(timeout: float = 35.0) -> None:
+def wait_for_url(url: str, timeout: float = 35.0) -> None:
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(BASE_URL, timeout=1.5) as response:
+            with urllib.request.urlopen(url, timeout=1.5) as response:
                 if response.status < 500:
                     return
         except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
             last_error = exc
         time.sleep(0.35)
-    fail(f"Next dev server did not become ready at {BASE_URL}: {last_error}")
+    fail(f"Next dev server did not become ready at {url}: {last_error}")
+
+
+def wait_for_server(timeout: float = 35.0) -> None:
+    wait_for_url(BASE_URL, timeout)
+
+
+def start_dev(flag: str, port: int) -> subprocess.Popen:
+    env = os.environ.copy()
+    env["NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"] = flag
+    return subprocess.Popen(
+        ["npm", "run", "dev", "--", "--hostname", HOST, "--port", str(port)],
+        cwd=ROOT,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+
+
+def stop_dev(server: subprocess.Popen) -> None:
+    if server.poll() is not None:
+        return
+    try:
+        os.killpg(server.pid, signal.SIGTERM)
+        server.wait(timeout=8)
+    except (ProcessLookupError, subprocess.TimeoutExpired):
+        try:
+            os.killpg(server.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        server.wait(timeout=4)
 
 
 def browser_for(playwright):
@@ -214,6 +246,31 @@ def run_result() -> None:
     print("FAST_GATE_RELEASE_CERTIFICATE=NO")
 
 
+def run_rollout() -> None:
+    script = ROOT / "scripts" / "e2e_whatsapp_experience_v2_rollout.py"
+    base_port = PORT
+    for flag, expected, port in (("1", "on", base_port), ("0", "off", base_port + 1)):
+        url = f"http://{HOST}:{port}/chat/"
+        server = start_dev(flag, port)
+        try:
+            wait_for_url(url)
+            env = os.environ.copy()
+            env["WA_V2_ROLLOUT_EXPECT"] = expected
+            env["WA_V2_ROLLOUT_BASE_URL"] = url
+            subprocess.run([sys.executable, str(script)], cwd=ROOT, env=env, check=True)
+        finally:
+            stop_dev(server)
+
+    print("WA_V2_FAST_SUITE=rollout")
+    print("WHATSAPP_EXPERIENCE_V2_ROLLOUT_FAST_E2E=PASS")
+    print("FEATURE_FLAG_ON=V2_ACCESSIBLE")
+    print("FEATURE_FLAG_OFF=LEGACY_FALLBACK")
+    print("FLAG_OFF_WHATSAPP_CALLS=NONE")
+    print("ROLLBACK_PATH=ENV_FLAG_OFF")
+    print("REAL_PHONE_PROVIDER_E2E=NOT_RUN")
+    print("FAST_GATE_RELEASE_CERTIFICATE=NO")
+
+
 def auto_suite() -> str:
     override = os.environ.get("WA_V2_FAST_SUITE")
     if override:
@@ -228,6 +285,14 @@ def auto_suite() -> str:
         changed = []
 
     joined = "\n".join(changed)
+    if any(token in joined for token in (
+        "e2e_whatsapp_experience_v2_rollout.py",
+        "verify-whatsapp-rollout-readiness.mjs",
+        "lib/whatsapp-ui/feature.ts",
+    )):
+        print("WA_V2_FAST_MAPPING=rollout")
+        return "rollout"
+
     if "e2e_whatsapp_experience_v2_chat.py" in joined:
         print("WA_V2_FAST_MAPPING=chat")
         return "chat"
@@ -291,19 +356,14 @@ def main() -> None:
         print("WA_V2_FAST_BROWSER_E2E=SKIPPED_EXPLICITLY")
         print("FULL_CERTIFICATION_REQUIRED=YES")
         return
-    if suite not in {"chat", "connection", "contacts", "permissions", "activity", "timeline", "result"}:
-        fail(f"Unsupported FAST suite: {suite}. Supported now: chat, connection, contacts, permissions, activity, timeline, result, contract-only")
+    if suite not in {"chat", "connection", "contacts", "permissions", "activity", "timeline", "result", "rollout"}:
+        fail(f"Unsupported FAST suite: {suite}. Supported now: chat, connection, contacts, permissions, activity, timeline, result, rollout, contract-only")
 
-    env = os.environ.copy()
-    env["NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"] = "1"
-    command = ["npm", "run", "dev", "--", "--hostname", HOST, "--port", str(PORT)]
-    server = subprocess.Popen(
-        command,
-        cwd=ROOT,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
-    )
+    if suite == "rollout":
+        run_rollout()
+        return
+
+    server = start_dev("1", PORT)
     try:
         wait_for_server()
         if suite == "chat":
@@ -321,12 +381,7 @@ def main() -> None:
         else:
             run_contacts()
     finally:
-        server.terminate()
-        try:
-            server.wait(timeout=8)
-        except subprocess.TimeoutExpired:
-            server.kill()
-            server.wait(timeout=4)
+        stop_dev(server)
 
 
 if __name__ == "__main__":
