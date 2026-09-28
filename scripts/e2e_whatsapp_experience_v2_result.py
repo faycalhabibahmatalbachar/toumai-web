@@ -3,9 +3,9 @@
 
 The real V2 lab is exercised with synthetic canonical states. The test proves
 that provider acceptance and sent are never upgraded to verified success, that
-verified success is reserved for delivered/read/completed, and that details are
-collapsed until the user explicitly opens them. No provider or chat call is
-allowed.
+verified success is reserved for delivered/read/completed, that uncertain and
+failure states stay truthful, and that details are collapsed until the user
+explicitly opens them. No provider or chat call is allowed.
 """
 
 from __future__ import annotations
@@ -70,42 +70,61 @@ def select_state(page: Page, state: str) -> None:
     expect(page.get_by_test_id("wa-v2-result-details-toggle").get_attribute("aria-expanded") == "false", "Details toggle not collapsed")
 
 
-def assert_result(page: Page, *, state: str, tone: str, verified: bool, label: str) -> None:
+def assert_result(
+    page: Page,
+    *,
+    state: str,
+    tone: str,
+    verified: bool,
+    terminal: bool,
+    label: str,
+) -> None:
     card = page.get_by_test_id("wa-v2-result-card")
     expect(card.get_attribute("data-operation-state") == state, f"Canonical state mismatch for {state}")
     expect(card.get_attribute("data-result-tone") == tone, f"Tone mismatch for {state}")
     expect(card.get_attribute("data-result-verified") == ("true" if verified else "false"), f"Verified truth mismatch for {state}")
+    expect(card.get_attribute("data-result-terminal") == ("true" if terminal else "false"), f"Terminal truth mismatch for {state}")
     expect(page.get_by_test_id("wa-v2-result-label").inner_text().startswith(label), f"Label mismatch for {state}")
 
 
 def test_truth_mapping(browser: Browser, base_url: str = BASE_URL) -> list[str]:
     context, page, forbidden = open_lab(browser, base_url)
     try:
-        # Lab starts on sent.
-        assert_result(page, state="sent", tone="neutral", verified=False, label="Envoyée")
+        # Lab starts on sent. A send acknowledgement is not delivery proof.
+        assert_result(page, state="sent", tone="neutral", verified=False, terminal=False, label="Envoyée")
         sent_detail = page.get_by_test_id("wa-v2-result-detail").inner_text()
         expect("remise" in sent_detail.lower() and "pas confirmée" in sent_detail.lower(), "Sent result must deny delivery proof")
 
         select_state(page, "provider_accepted")
-        assert_result(page, state="provider_accepted", tone="neutral", verified=False, label="Acceptée par WhatsApp")
+        assert_result(page, state="provider_accepted", tone="neutral", verified=False, terminal=False, label="Acceptée par WhatsApp")
         provider_detail = page.get_by_test_id("wa-v2-result-detail").inner_text()
         expect("ne prouve" in provider_detail.lower(), "Provider acceptance must explicitly deny final proof")
 
         for state, label in (("delivered", "Remise"), ("read", "Lue"), ("completed", "Action vérifiée")):
             select_state(page, state)
-            assert_result(page, state=state, tone="success", verified=True, label=label)
+            assert_result(page, state=state, tone="success", verified=True, terminal=True, label=label)
 
         select_state(page, "unknown")
-        assert_result(page, state="unknown", tone="warning", verified=False, label="Résultat inconnu")
+        assert_result(page, state="unknown", tone="warning", verified=False, terminal=False, label="Résultat inconnu")
+
+        select_state(page, "reconciling")
+        assert_result(page, state="reconciling", tone="warning", verified=False, terminal=False, label="Vérification en cours")
+        expect("sans supposer de succès" in page.get_by_test_id("wa-v2-result-detail").inner_text().lower(), "Reconciling must explicitly avoid fake success")
 
         select_state(page, "partial_success")
-        assert_result(page, state="partial_success", tone="warning", verified=False, label="Résultat partiel · 1 problème")
+        assert_result(page, state="partial_success", tone="warning", verified=False, terminal=False, label="Résultat partiel · 1 problème")
 
         select_state(page, "failed")
-        assert_result(page, state="failed", tone="error", verified=False, label="Échec confirmé")
+        assert_result(page, state="failed", tone="error", verified=False, terminal=True, label="Échec confirmé")
+
+        select_state(page, "blocked")
+        assert_result(page, state="blocked", tone="error", verified=False, terminal=True, label="Opération bloquée")
+
+        select_state(page, "needs_relink")
+        assert_result(page, state="needs_relink", tone="error", verified=False, terminal=True, label="Reconnexion requise")
 
         select_state(page, "cancelled")
-        assert_result(page, state="cancelled", tone="neutral", verified=False, label="Annulée")
+        assert_result(page, state="cancelled", tone="neutral", verified=False, terminal=True, label="Annulée")
         return forbidden
     finally:
         context.close()
@@ -177,7 +196,11 @@ def main() -> None:
         print("SENT_RESULT_NEUTRAL=PASS")
         print("VERIFIED_SUCCESS_ONLY_DELIVERED_READ_COMPLETED=PASS")
         print("UNKNOWN_RESULT_WARNING=PASS")
+        print("RECONCILING_RESULT_WARNING=PASS")
         print("FAILED_RESULT_ERROR=PASS")
+        print("BLOCKED_RESULT_ERROR=PASS")
+        print("NEEDS_RELINK_RESULT_ERROR=PASS")
+        print("RESULT_TERMINAL_TRUTH_MAPPING=PASS")
         print("RESULT_DETAILS_COLLAPSED_BY_DEFAULT=PASS")
         print("RESULT_DETAILS_EXPLICIT_TOGGLE=PASS")
         print("MOBILE_390_COMPACT_RESULT=PASS")
