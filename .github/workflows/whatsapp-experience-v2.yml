@@ -81,7 +81,33 @@ jobs:
       - name: Browser E2E — compact canonical result truthfulness
         run: npm run wa:v2:full:result
 
+      - name: Browser E2E — rollout readiness, feature flag ON
+        env:
+          WA_V2_ROLLOUT_EXPECT: "on"
+        run: npm run wa:v2:full:rollout
+
+      - name: Build static app with WhatsApp V2 disabled
+        env:
+          NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2: "0"
+        run: npm run build
+
+      - name: Verify legacy chat export with WhatsApp V2 disabled
+        shell: bash
+        run: |
+          test -f out/chat/index.html
+          echo "WHATSAPP_V2_DISABLED_CHAT_EXPORT=PASS"
+
+      - name: Browser E2E — rollback readiness, feature flag OFF
+        env:
+          WA_V2_ROLLOUT_EXPECT: "off"
+        run: npm run wa:v2:full:rollout
+
       - name: FULL certification verdict
         run: |
+          echo "FEATURE_FLAG_ON=PASS"
+          echo "FEATURE_FLAG_OFF=PASS"
+          echo "LEGACY_FALLBACK=PASS"
+          echo "ROLLBACK_ENV_FLAG=PASS"
+          echo "REAL_PHONE_PROVIDER_E2E=NOT_RUN"
           echo "WA_V2_FULL_CERTIFICATION=PASS"
           echo "WA_V2_PHASE_CERTIFICATION_ALLOWED=YES"
