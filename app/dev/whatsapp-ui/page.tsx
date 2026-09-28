@@ -8,6 +8,7 @@ import {
   WhatsAppExecutionTimeline,
   type WhatsAppCanonicalOperationState,
 } from "@/components/whatsapp-experience/WhatsAppExecutionTimeline";
+import { WhatsAppResultCard } from "@/components/whatsapp-experience/WhatsAppResultCard";
 import { WHATSAPP_ACTIONS } from "@/lib/whatsapp-ui/capabilities";
 import type {
   WhatsAppActionDefinition,
@@ -37,10 +38,24 @@ const TIMELINE_STATES: WhatsAppCanonicalOperationState[] = [
   "failed",
 ];
 
+const RESULT_STATES: WhatsAppCanonicalOperationState[] = [
+  "provider_accepted",
+  "sent",
+  "delivered",
+  "read",
+  "completed",
+  "unknown",
+  "partial_success",
+  "failed",
+  "cancelled",
+];
+
 export default function WhatsAppUiLabPage() {
   const [selectedState, setSelectedState] = useState(0);
   const [selectedAction, setSelectedAction] = useState<WhatsAppActionDefinition | null>(null);
   const [timelineState, setTimelineState] = useState<WhatsAppCanonicalOperationState>("provider_accepted");
+  const [resultState, setResultState] = useState<WhatsAppCanonicalOperationState>("sent");
+  const [resultDetailsOpen, setResultDetailsOpen] = useState(false);
   const current = STATES[selectedState];
 
   const connection = useMemo(() => ({
@@ -175,6 +190,49 @@ export default function WhatsAppUiLabPage() {
           </div>
           <div className="mt-4 max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
             <WhatsAppExecutionTimeline operationState={timelineState} />
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-[24px] border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5" data-testid="wa-v2-result-lab">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Phase 7 · résultat compact</p>
+              <h2 className="mt-1 text-sm font-semibold">Résultat final dérivé du même état canonique</h2>
+              <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[var(--text-secondary)]">
+                `sent` et `provider_accepted` restent neutres. Le succès vérifié est réservé à `delivered`, `read` ou `completed`. Les détails sont repliés par défaut.
+              </p>
+            </div>
+            <span className="rounded-full border border-[var(--border)] px-2 py-1 font-mono text-[10px] text-[var(--text-tertiary)]">{resultState}</span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Résultat canonique simulé">
+            {RESULT_STATES.map((entry) => (
+              <button
+                key={entry}
+                type="button"
+                data-testid={`wa-v2-result-select-${entry}`}
+                aria-pressed={resultState === entry}
+                onClick={() => {
+                  setResultState(entry);
+                  setResultDetailsOpen(false);
+                }}
+                className={`rounded-xl border px-2.5 py-2 font-mono text-[10.5px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] ${resultState === entry ? "border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--background)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover)]"}`}
+              >
+                {entry}
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+            <WhatsAppResultCard
+              operationState={resultState}
+              detailsOpen={resultDetailsOpen}
+              onToggleDetails={() => setResultDetailsOpen((current) => !current)}
+              issueCount={resultState === "partial_success" ? 1 : 0}
+            />
+            {resultDetailsOpen ? (
+              <div data-testid="wa-v2-result-expanded">
+                <WhatsAppExecutionTimeline operationState={resultState} />
+              </div>
+            ) : null}
           </div>
         </section>
       </div>
