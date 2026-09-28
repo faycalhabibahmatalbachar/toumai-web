@@ -1,0 +1,78 @@
+name: WhatsApp Experience V2 — REAL PROVIDER CANARY
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_real_send:
+        description: "I understand this sends exactly one REAL WhatsApp canary message"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      max_wait_seconds:
+        description: "Maximum reconciliation wait (15-180 seconds)"
+        required: true
+        default: "60"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whatsapp-experience-v2-real-provider-canary
+  cancel-in-progress: false
+
+jobs:
+  real-provider-canary:
+    name: Real WhatsApp provider canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    # Configure protection/required reviewers on this Environment before a production canary.
+    environment: whatsapp-real-provider-canary
+    env:
+      WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
+      WA_V2_CANARY_ACCESS_TOKEN: ${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}
+      WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT }}
+      WA_V2_CANARY_EXPLICIT_SEND: ${{ inputs.confirm_real_send }}
+      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ inputs.max_wait_seconds }}
+
+    steps:
+      - name: Fail closed unless the operator explicitly authorizes one real send
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${WA_V2_CANARY_EXPLICIT_SEND}" != "true" ]; then
+            echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
+            echo "PHASE_11_CERTIFICATION=BLOCKED"
+            echo "BLOCKER=explicit_real_send_gate_not_true"
+            exit 2
+          fi
+
+      - name: Validate required canary secrets without printing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in WA_V2_CANARY_ACCESS_TOKEN WA_V2_CANARY_RECIPIENT; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required secret: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
+            echo "PHASE_11_CERTIFICATION=BLOCKED"
+            echo "BLOCKER=missing_canary_secret"
+            exit 2
+          fi
+
+      - name: Checkout certified WhatsApp V2 branch
+        uses: actions/checkout@v4
+
+      - name: Run one real-provider canary through the production action path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/wa_v2_real_provider_canary.py
