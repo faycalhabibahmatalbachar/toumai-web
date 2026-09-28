@@ -19,11 +19,13 @@
     "wa:v2:fast": "python scripts/wa_v2_fast.py",
     "wa:v2:fast:contacts": "python scripts/wa_v2_fast.py contacts",
     "wa:v2:fast:timeline": "python scripts/wa_v2_fast.py timeline",
+    "wa:v2:fast:result": "python scripts/wa_v2_fast.py result",
     "wa:v2:full:lab": "python scripts/e2e_whatsapp_experience_v2.py",
     "wa:v2:full:chat": "python scripts/e2e_whatsapp_experience_v2_chat.py",
     "wa:v2:full:connection": "python scripts/e2e_whatsapp_experience_v2_connection.py",
     "wa:v2:full:contacts": "python scripts/e2e_whatsapp_experience_v2_contacts.py",
-    "wa:v2:full:timeline": "python scripts/e2e_whatsapp_experience_v2_timeline.py"
+    "wa:v2:full:timeline": "python scripts/e2e_whatsapp_experience_v2_timeline.py",
+    "wa:v2:full:result": "python scripts/e2e_whatsapp_experience_v2_result.py"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
