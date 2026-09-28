@@ -3,12 +3,13 @@
 
 The static production build is served locally. All API calls are intercepted in
 Chromium so this test cannot mutate the real Toumaï or WhatsApp backend.
-Only GET reads of WhatsApp state are accepted by the test contract.
+Only read-only WhatsApp GETs required by the integrated UX are accepted.
 
 Phase 4 routes recipient-targeted actions through the Contact Picker. This
 legacy integration test therefore uses the non-recipient Status action to keep
-certifying the direct action -> composer focus/caret contract. Contact-targeted
-handoff is certified separately by e2e_whatsapp_experience_v2_contacts.py.
+certifying the direct action -> composer focus/caret contract. Phase 8 adds a
+read-only /whatsapp/settings permission check before that handoff; the dedicated
+permission suite separately certifies allow/deny/error semantics.
 """
 
 from __future__ import annotations
@@ -58,6 +59,10 @@ def mock_data(path: str) -> object:
         }
     if path.endswith("/whatsapp/status"):
         return {"status": "connected", "number": "+23566223344"}
+    if path.endswith("/whatsapp/settings"):
+        # Phase 8 compatibility fixture: missing keys do not invent a denial;
+        # backend tool permissions remain the final authority.
+        return {}
     if path.endswith("/chat/sessions"):
         return []
     if path.endswith("/preferences"):
@@ -233,9 +238,13 @@ def assert_read_only_whatsapp_traffic(traffic: list[dict[str, str]]) -> None:
     expect(whatsapp, "No WhatsApp state reads were observed")
     forbidden = [item for item in whatsapp if item["method"] != "GET"]
     expect(not forbidden, f"WhatsApp mutation detected in Phase 2C: {forbidden}")
-    allowed_suffixes = ("/whatsapp/etat", "/whatsapp/status")
+    # Phase 8 legitimately adds a read-only permission check. No other endpoint
+    # is accepted here, so the old integration gate still catches scope creep.
+    allowed_suffixes = ("/whatsapp/etat", "/whatsapp/status", "/whatsapp/settings")
     unexpected_reads = [item for item in whatsapp if not item["path"].endswith(allowed_suffixes)]
-    expect(not unexpected_reads, f"Unexpected WhatsApp endpoint used in Phase 2C: {unexpected_reads}")
+    expect(not unexpected_reads, f"Unexpected WhatsApp endpoint used in /chat integration: {unexpected_reads}")
+    settings_reads = [item for item in whatsapp if item["path"].endswith("/whatsapp/settings")]
+    expect(settings_reads, "Phase 8 permission read was not exercised by direct action handoff")
     streams = [item for item in traffic if "/chat/stream" in item["path"]]
     expect(not streams, f"Selecting a WhatsApp action auto-submitted chat: {streams}")
 
@@ -262,6 +271,7 @@ def main() -> None:
         print("FOCUS_TRAP=PASS")
         print("COMPOSER_PREPARE=PASS")
         print("WHATSAPP_READS_ONLY=PASS")
+        print("PERMISSION_SETTINGS_READ=PASS")
         print("MUTATION_CALLS=NONE")
         print("CHAT_STREAM_AUTO_SUBMIT=NONE")
     finally:
