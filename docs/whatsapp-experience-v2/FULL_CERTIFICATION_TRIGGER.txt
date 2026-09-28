@@ -1,7 +1,7 @@
 FULL CERTIFICATION REQUEST
 
-reason=Pipeline 3X Phase 8 contextual permission gate truthfulness and safety gate
-fast_pass_sha=fc2d1b014bf0d56568e87c3990c996e57387750a
+reason=Pipeline 3X Phase 8 contextual permission gate after cumulative chat read-only contract alignment
+fast_pass_sha=cda576845a204eec8a8154d5bb93f3d74cb21a11
 requested_at=2026-09-28
 
 This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow.
