@@ -69,6 +69,9 @@ jobs:
       - name: Browser E2E — contact picker and action preview, read-only WhatsApp
         run: npm run wa:v2:full:contacts
 
+      - name: Browser E2E — contextual permission gate, read-only settings
+        run: npm run wa:v2:full:permissions
+
       - name: Browser E2E — canonical execution timeline truthfulness
         run: npm run wa:v2:full:timeline
 
