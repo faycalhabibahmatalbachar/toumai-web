@@ -9,6 +9,7 @@ import { WhatsAppActionPreview } from "./WhatsAppActionPreview";
 import { WhatsAppConnectionFlow } from "./WhatsAppConnectionFlow";
 import { WhatsAppContactPicker } from "./WhatsAppContactPicker";
 import { WhatsAppPermissionGate } from "./WhatsAppPermissionGate";
+import { WhatsAppRecentActivity } from "./WhatsAppRecentActivity";
 import {
   whatsappActionNeedsContact,
   whatsappStarterFor,
@@ -77,6 +78,7 @@ export function WhatsAppChatActionCenter({
   const [raw, setRaw] = useState<WhatsAppState | null>(null);
   const [state, setState] = useState<WhatsAppExperienceState>("loading");
   const [connectionFlowOpen, setConnectionFlowOpen] = useState(false);
+  const [recentActivityOpen, setRecentActivityOpen] = useState(false);
   const [permissionAction, setPermissionAction] = useState<WhatsAppActionDefinition | null>(null);
   const [pendingAction, setPendingAction] = useState<WhatsAppActionDefinition | null>(null);
   const [selectedContact, setSelectedContact] = useState<WaContact | null>(null);
@@ -102,6 +104,7 @@ export function WhatsAppChatActionCenter({
   useEffect(() => {
     if (!open) {
       setConnectionFlowOpen(false);
+      setRecentActivityOpen(false);
       setPermissionAction(null);
       setPendingAction(null);
       setSelectedContact(null);
@@ -144,9 +147,6 @@ export function WhatsAppChatActionCenter({
   if (!open) return null;
 
   function handoffToComposer(starter: string) {
-    // A normal dismissal restores the opener for keyboard continuity. Selecting
-    // an action is different: focus intentionally moves into the composer, so
-    // the dialog cleanup must not steal it back after the handoff.
     restorePreviousFocus.current = false;
     onPrepare(starter);
     onClose();
@@ -163,10 +163,8 @@ export function WhatsAppChatActionCenter({
   }
 
   function prepare(action: WhatsAppActionDefinition) {
-    // Phase 8: every action with a declared backend permission is checked
-    // contextually before target selection or composer handoff. This is an
-    // additional UX gate; the backend registry remains the final authority.
     if (action.permission) {
+      setRecentActivityOpen(false);
       setSelectedContact(null);
       setPendingAction(null);
       setPermissionAction(action);
@@ -177,8 +175,6 @@ export function WhatsAppChatActionCenter({
 
   function selectContact(contact: WaContact) {
     if (!pendingAction || !contact.number) return;
-    // Phase 5 inserts an explicit review step. Contact choice alone must never
-    // hand off to the composer or trigger an external WhatsApp action.
     setSelectedContact(contact);
   }
 
@@ -198,16 +194,13 @@ export function WhatsAppChatActionCenter({
   }
 
   function backToActions() {
+    setRecentActivityOpen(false);
     setPermissionAction(null);
     setSelectedContact(null);
     setPendingAction(null);
     window.requestAnimationFrame(() => {
       dialogRef.current?.querySelector<HTMLElement>('[data-testid="wa-v2-action-center"] button:not([disabled])')?.focus();
     });
-  }
-
-  function backFromContactPicker() {
-    backToActions();
   }
 
   function trapTab(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -234,13 +227,15 @@ export function WhatsAppChatActionCenter({
 
   const title = connectionFlowOpen
     ? "Connexion WhatsApp"
-    : permissionAction
-      ? "Vérifier la permission"
-      : pendingAction && selectedContact
-        ? "Vérifier avant de continuer"
-        : pendingAction
-          ? "Choisir un contact"
-          : "Actions WhatsApp";
+    : recentActivityOpen
+      ? "Activité récente"
+      : permissionAction
+        ? "Vérifier la permission"
+        : pendingAction && selectedContact
+          ? "Vérifier avant de continuer"
+          : pendingAction
+            ? "Choisir un contact"
+            : "Actions WhatsApp";
 
   return (
     <div className="fixed inset-0 z-[70]" data-testid="wa-v2-chat-overlay">
@@ -284,6 +279,11 @@ export function WhatsAppChatActionCenter({
               void refresh();
             }}
           />
+        ) : recentActivityOpen ? (
+          <WhatsAppRecentActivity
+            onBack={backToActions}
+            onOpenAdvanced={() => window.location.assign("/whatsapp/")}
+          />
         ) : permissionAction ? (
           <WhatsAppPermissionGate
             action={permissionAction}
@@ -302,7 +302,7 @@ export function WhatsAppChatActionCenter({
         ) : pendingAction ? (
           <WhatsAppContactPicker
             actionLabel={pendingAction.label}
-            onBack={backFromContactPicker}
+            onBack={backToActions}
             onSelect={selectContact}
           />
         ) : (
@@ -311,10 +311,18 @@ export function WhatsAppChatActionCenter({
             state={state}
             onAction={prepare}
             onConnect={() => {
+              setRecentActivityOpen(false);
               setSelectedContact(null);
               setPendingAction(null);
               setPermissionAction(null);
               setConnectionFlowOpen(true);
+            }}
+            onOpenRecentActivity={() => {
+              setConnectionFlowOpen(false);
+              setPermissionAction(null);
+              setPendingAction(null);
+              setSelectedContact(null);
+              setRecentActivityOpen(true);
             }}
             onOpenAdvanced={() => window.location.assign("/whatsapp/")}
           />
