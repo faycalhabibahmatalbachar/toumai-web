@@ -8,8 +8,8 @@ phase certification or merge.
 
 Unknown/shared changes fall back to the contacts browser suite rather than
 silently skipping browser coverage. Dedicated surfaces are mapped to their
-smallest truthful suite, including connection/reconnect, contacts, permissions,
-canonical execution timeline and compact canonical result.
+smallest truthful suite, including chat integration, connection/reconnect,
+contacts, permissions, canonical execution timeline and compact canonical result.
 """
 
 from __future__ import annotations
@@ -70,6 +70,28 @@ def browser_for(playwright):
         return playwright.chromium.launch(headless=True, executable_path=executable)
     print("WA_V2_FAST_BROWSER=PLAYWRIGHT_BUNDLED")
     return playwright.chromium.launch(headless=True)
+
+
+def run_chat() -> None:
+    suite = load_module("e2e_whatsapp_experience_v2_chat.py")
+    suite.BASE_URL = BASE_URL
+    traffic: list[dict[str, str]] = []
+    with sync_playwright() as playwright:
+        browser = browser_for(playwright)
+        try:
+            suite.test_desktop(browser, traffic)
+            suite.test_mobile(browser, traffic)
+            suite.assert_read_only_whatsapp_traffic(traffic)
+        finally:
+            browser.close()
+
+    print("WA_V2_FAST_SUITE=chat")
+    print("WHATSAPP_EXPERIENCE_V2_CHAT_FAST_E2E=PASS")
+    print("WHATSAPP_READS_ONLY=PASS")
+    print("PERMISSION_SETTINGS_READ=PASS")
+    print("MUTATION_CALLS=NONE")
+    print("CHAT_STREAM_AUTO_SUBMIT=NONE")
+    print("FAST_GATE_RELEASE_CERTIFICATE=NO")
 
 
 def run_connection() -> None:
@@ -186,6 +208,10 @@ def auto_suite() -> str:
         changed = []
 
     joined = "\n".join(changed)
+    if "e2e_whatsapp_experience_v2_chat.py" in joined:
+        print("WA_V2_FAST_MAPPING=chat")
+        return "chat"
+
     if any(token in joined for token in (
         "WhatsAppConnectorCard.tsx",
         "WhatsAppConnectionFlow.tsx",
@@ -237,8 +263,8 @@ def main() -> None:
         print("WA_V2_FAST_BROWSER_E2E=SKIPPED_EXPLICITLY")
         print("FULL_CERTIFICATION_REQUIRED=YES")
         return
-    if suite not in {"connection", "contacts", "permissions", "timeline", "result"}:
-        fail(f"Unsupported FAST suite: {suite}. Supported now: connection, contacts, permissions, timeline, result, contract-only")
+    if suite not in {"chat", "connection", "contacts", "permissions", "timeline", "result"}:
+        fail(f"Unsupported FAST suite: {suite}. Supported now: chat, connection, contacts, permissions, timeline, result, contract-only")
 
     env = os.environ.copy()
     env["NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"] = "1"
@@ -252,7 +278,9 @@ def main() -> None:
     )
     try:
         wait_for_server()
-        if suite == "connection":
+        if suite == "chat":
+            run_chat()
+        elif suite == "connection":
             run_connection()
         elif suite == "permissions":
             run_permissions()
