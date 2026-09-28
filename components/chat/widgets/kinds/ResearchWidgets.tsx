@@ -9,6 +9,16 @@ import { WidgetCard, WidgetHeader } from "../primitives";
 
 type SourceVisit = { retrieved?: boolean; visit_status?: string };
 
+const EDITORIAL_BOILERPLATE = /\b(?:skip to content|aller au contenu|share(?: this)?|partager(?: sur)?|menu menu|facebook\s+x\s+(?:pinterest\s+)?linkedin|youtube archive|substack)\b/i;
+
+/** Keep the source's own summary while hiding obvious navigation/share chrome. */
+export function cleanSourceSnippet(value?: string): string {
+  const snippet = displayText(value, 600).replace(/\s+/g, " ").trim();
+  const marker = snippet.search(EDITORIAL_BOILERPLATE);
+  if (marker >= 24) return snippet.slice(0, marker).replace(/[\s|·:—-]+$/, "").trim();
+  return snippet;
+}
+
 function visited(source: object): boolean {
   const meta = source as SourceVisit;
   return meta.retrieved === true || meta.visit_status === "visited";
@@ -75,6 +85,7 @@ export function SourcesCard({ sources }: { sources: WebSource[] }) {
           {items.map(({ source, url, index }) => {
             const state = visited(source) ? t.search.visited : t.search.found;
             const date = formatDateTime(parseDate(source.published_at), locale, false);
+            const snippet = cleanSourceSnippet(source.snippet);
             return (
               <li key={`${url}-${index}`}>
                 <a
@@ -91,7 +102,11 @@ export function SourcesCard({ sources }: { sources: WebSource[] }) {
                       {displayText(source.title, 140) || hostOf(url)}
                     </span>
                     <span className="mt-0.5 block truncate text-[11px] text-[var(--text-tertiary)]">{[hostOf(url), date, state].filter(Boolean).join(" · ")}</span>
-                    {source.snippet ? <span className="mt-0.5 line-clamp-2 block text-[11.5px] leading-4 text-[var(--text-secondary)]">{displayText(source.snippet, 260)}</span> : null}
+                    {snippet ? (
+                      <span className="mt-1 line-clamp-2 block text-[11.5px] leading-4 text-[var(--text-secondary)]">
+                        {displayText(snippet, 200)}
+                      </span>
+                    ) : null}
                   </span>
                   <ExternalLink className="mt-1 h-3 w-3 shrink-0 text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
                 </a>
