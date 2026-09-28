@@ -1,10 +1,11 @@
 FULL CERTIFICATION REQUEST
 
-reason=Phase 11 real-provider contract + provider-message-id evidence + replay safety certification
-fast_run_id=36489425362
-fast_pass_sha=4214e6bac3f573b595da0014500f1c6e7f11c125
-requested_at=2026-09-28
+reason=Phase 11 3X final certification on current WhatsApp V2 head
+previous_fast_run_id=36499423247
+real_provider_canary_run_id=36499423437
+real_provider_status=BLOCKED_ONLY_BY_ACCESS_TOKEN_AFTER_RECIPIENT_FALLBACK
+requested_at=2026-09-29
 
 This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow on codex/whatsapp-experience-v2.
-FAST evidence is not a Phase 11 release certificate. FULL must certify the complete non-provider regression surface before any Phase 11 PASS can be considered.
-The real-provider runtime canary remains a separate manual, protected, explicit-send gate and is not automatically executed by this marker.
+FULL certifies the complete non-provider regression surface in parallel with the protected real-provider canary.
+No merge to main is authorized by this marker.
