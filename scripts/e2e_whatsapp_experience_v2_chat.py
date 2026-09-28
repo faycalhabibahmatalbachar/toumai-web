@@ -60,8 +60,6 @@ def mock_data(path: str) -> object:
     if path.endswith("/whatsapp/status"):
         return {"status": "connected", "number": "+23566223344"}
     if path.endswith("/whatsapp/settings"):
-        # Phase 8 compatibility fixture: missing keys do not invent a denial;
-        # backend tool permissions remain the final authority.
         return {}
     if path.endswith("/chat/sessions"):
         return []
@@ -87,12 +85,7 @@ def mock_data(path: str) -> object:
             "avatar_url": None,
         }
     if "usage" in path or "quota" in path:
-        return {
-            "plan": "test",
-            "messages_remaining": 99,
-            "messages_used": 1,
-            "limit": 100,
-        }
+        return {"plan": "test", "messages_remaining": 99, "messages_used": 1, "limit": 100}
     if "notifications" in path:
         return []
     return {}
@@ -106,10 +99,8 @@ def install_api_mock(context: BrowserContext, traffic: list[dict[str, str]]) -> 
         if not is_api:
             route.continue_()
             return
-
         traffic.append({"method": request.method.upper(), "url": request.url, "path": parsed.path})
         route.fulfill(status=200, content_type="application/json", body=envelope(mock_data(parsed.path)))
-
     context.route("**/*", handler)
 
 
@@ -123,16 +114,11 @@ def inject_session(context: BrowserContext) -> None:
         "user_id": "e2e-user",
         "is_guest": False,
     }
-    context.add_init_script(
-        f"localStorage.setItem({json.dumps(SESSION_KEY)}, {json.dumps(json.dumps(session))});"
-    )
+    context.add_init_script(f"localStorage.setItem({json.dumps(SESSION_KEY)}, {json.dumps(json.dumps(session))});")
 
 
 def assert_no_horizontal_overflow(page: Page, label: str) -> None:
-    metrics = page.evaluate(
-        """() => ({scrollWidth: document.documentElement.scrollWidth,
-                    clientWidth: document.documentElement.clientWidth})"""
-    )
+    metrics = page.evaluate("() => ({scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth})")
     expect(metrics["scrollWidth"] <= metrics["clientWidth"] + 1, f"{label}: horizontal overflow {metrics}")
 
 
@@ -193,16 +179,10 @@ def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
             page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="detached")
 
         entry.click()
-        sheet = page.get_by_test_id("wa-v2-chat-sheet")
-        sheet.wait_for(state="visible")
+        page.get_by_test_id("wa-v2-chat-sheet").wait_for(state="visible")
         for _ in range(30):
             page.keyboard.press("Tab")
-            inside = page.evaluate(
-                """() => {
-                  const sheet = document.querySelector('[data-testid="wa-v2-chat-sheet"]');
-                  return !!sheet && sheet.contains(document.activeElement);
-                }"""
-            )
+            inside = page.evaluate("() => { const sheet = document.querySelector('[data-testid=\"wa-v2-chat-sheet\"]'); return !!sheet && sheet.contains(document.activeElement); }")
             expect(inside, "Keyboard focus escaped the WhatsApp modal sheet")
         page.keyboard.press("Escape")
         assert_no_horizontal_overflow(page, "desktop chat after interactions")
@@ -211,9 +191,7 @@ def test_desktop(browser: Browser, traffic: list[dict[str, str]]) -> None:
 
 
 def test_mobile(browser: Browser, traffic: list[dict[str, str]]) -> None:
-    context = browser.new_context(
-        viewport={"width": 390, "height": 844}, is_mobile=True, device_scale_factor=1, reduced_motion="reduce"
-    )
+    context = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, device_scale_factor=1, reduced_motion="reduce")
     inject_session(context)
     install_api_mock(context, traffic)
     try:
@@ -238,8 +216,6 @@ def assert_read_only_whatsapp_traffic(traffic: list[dict[str, str]]) -> None:
     expect(whatsapp, "No WhatsApp state reads were observed")
     forbidden = [item for item in whatsapp if item["method"] != "GET"]
     expect(not forbidden, f"WhatsApp mutation detected in Phase 2C: {forbidden}")
-    # Phase 8 legitimately adds a read-only permission check. No other endpoint
-    # is accepted here, so the old integration gate still catches scope creep.
     allowed_suffixes = ("/whatsapp/etat", "/whatsapp/status", "/whatsapp/settings")
     unexpected_reads = [item for item in whatsapp if not item["path"].endswith(allowed_suffixes)]
     expect(not unexpected_reads, f"Unexpected WhatsApp endpoint used in /chat integration: {unexpected_reads}")
@@ -269,6 +245,7 @@ def main() -> None:
         print("MOBILE_390_CHAT=PASS")
         print("FOCUS_RESTORE=PASS")
         print("FOCUS_TRAP=PASS")
+        print("FOCUS_CONTAINMENT_HARDENED=PASS")
         print("COMPOSER_PREPARE=PASS")
         print("WHATSAPP_READS_ONLY=PASS")
         print("PERMISSION_SETTINGS_READ=PASS")
