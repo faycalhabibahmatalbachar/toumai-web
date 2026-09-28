@@ -6,8 +6,6 @@ on:
       - codex/whatsapp-experience-v2
     paths:
       - docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt
-      - .github/workflows/whatsapp-experience-v2-real-provider-canary.yml
-      - scripts/wa_v2_real_provider_canary.py
   workflow_dispatch:
     inputs:
       confirm_real_send:
@@ -26,6 +24,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: whatsapp-experience-v2-real-provider-canary
@@ -35,7 +34,7 @@ jobs:
   real-provider-canary:
     name: Real WhatsApp provider canary
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 30
     environment: whatsapp-real-provider-canary
     env:
       WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
@@ -44,6 +43,7 @@ jobs:
       WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT || '23591912191' }}
       WA_V2_CANARY_EXPLICIT_SEND: ${{ github.event_name == 'push' && 'true' || inputs.confirm_real_send }}
       WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ github.event_name == 'push' && '90' || inputs.max_wait_seconds }}
+      GH_ACTIONS_TOKEN: ${{ github.token }}
 
     steps:
       - name: Fail closed unless the operator explicitly authorizes one real send
@@ -56,6 +56,80 @@ jobs:
             echo "BLOCKER=explicit_real_send_gate_not_true"
             exit 2
           fi
+
+      - name: Require FAST and FULL success on this exact SHA before any provider action
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          import urllib.request
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["GITHUB_SHA"]
+          token = os.environ.get("GH_ACTIONS_TOKEN", "")
+          expected = {
+              "WhatsApp Experience V2 — FAST": "FAST_CURRENT_HEAD",
+              "WhatsApp Experience V2 — FULL CERTIFICATION": "FULL_CURRENT_HEAD",
+          }
+          deadline = time.monotonic() + 22 * 60
+
+          def fail(reason: str) -> None:
+              print("REAL_PHONE_PROVIDER_E2E=BLOCKED", flush=True)
+              print("PHASE_11_CERTIFICATION=BLOCKED", flush=True)
+              print(f"BLOCKER={reason}", flush=True)
+              raise SystemExit(2)
+
+          if not token:
+              fail("github_actions_read_token_missing")
+
+          while True:
+              url = f"https://api.github.com/repos/{repo}/actions/runs?head_sha={sha}&per_page=100"
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      runs = json.load(response).get("workflow_runs", [])
+              except Exception as exc:
+                  fail(f"github_actions_gate_query_failed:{type(exc).__name__}")
+
+              waiting = []
+              for workflow_name, marker in expected.items():
+                  candidates = [
+                      r for r in runs
+                      if r.get("name") == workflow_name and r.get("head_sha") == sha
+                  ]
+                  candidates.sort(key=lambda r: int(r.get("id") or 0), reverse=True)
+                  if not candidates:
+                      waiting.append(workflow_name)
+                      continue
+                  run = candidates[0]
+                  status = str(run.get("status") or "")
+                  conclusion = str(run.get("conclusion") or "")
+                  if status == "completed":
+                      if conclusion != "success":
+                          fail(f"{marker.lower()}_{conclusion or 'not_success'}")
+                      print(f"{marker}=PASS", flush=True)
+                  else:
+                      waiting.append(workflow_name)
+
+              if not waiting:
+                  print(f"PRECANARY_CERTIFIED_SHA={sha}", flush=True)
+                  print("PRECANARY_FAST_FULL_GATE=PASS", flush=True)
+                  break
+              if time.monotonic() >= deadline:
+                  fail("fast_full_same_sha_gate_timeout")
+              time.sleep(10)
+          PY
 
       - name: Validate required canary authentication without printing it
         shell: bash
