@@ -14,10 +14,12 @@ on:
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/verify-whatsapp-connection-race.mjs"
       - "scripts/verify-whatsapp-permission-gate.mjs"
+      - "scripts/verify-whatsapp-recent-activity.mjs"
       - "scripts/e2e_whatsapp_experience_v2_chat.py"
       - "scripts/e2e_whatsapp_experience_v2_connection.py"
       - "scripts/e2e_whatsapp_experience_v2_contacts.py"
       - "scripts/e2e_whatsapp_experience_v2_permissions.py"
+      - "scripts/e2e_whatsapp_experience_v2_activity.py"
       - "scripts/e2e_whatsapp_experience_v2_timeline.py"
       - "scripts/e2e_whatsapp_experience_v2_result.py"
       - "scripts/wa_v2_fast.py"
@@ -35,6 +37,7 @@ on:
           - connection
           - contacts
           - permissions
+          - activity
           - timeline
           - result
           - contract-only
