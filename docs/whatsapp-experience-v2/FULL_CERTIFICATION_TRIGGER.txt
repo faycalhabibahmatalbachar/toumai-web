@@ -1,7 +1,7 @@
 FULL CERTIFICATION REQUEST
 
-reason=Pipeline 3X Phase 9 recent activity read-only masked history gate
-fast_pass_sha=98216249ad472147eef21369ada6ee5398f61879
+reason=Pipeline 3X Phase 9 recent activity after modal focus containment hardening
+fast_pass_sha=a0be40d27bc9faaaa60b0c5f1c4ed39ce1cc9348
 requested_at=2026-09-28
 
 This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow.
