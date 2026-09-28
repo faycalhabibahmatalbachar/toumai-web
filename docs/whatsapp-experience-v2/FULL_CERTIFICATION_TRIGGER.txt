@@ -1,7 +1,7 @@
 FULL CERTIFICATION REQUEST
 
-reason=Pipeline 3X Phase 7 compact canonical result truthfulness gate
-fast_pass_sha=39cfccf649c6ae8480fc2fc83f52d0bfeff0984c
+reason=Pipeline 3X Phase 7 compact canonical result truthfulness gate after QR Strict Mode race fix
+fast_pass_sha=4f5649716e870f596d7272b94792c62f72f4ad68
 requested_at=2026-09-28
 
 This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow.
