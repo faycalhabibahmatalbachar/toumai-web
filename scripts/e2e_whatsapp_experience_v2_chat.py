@@ -272,6 +272,7 @@ def main() -> None:
         print("COMPOSER_PREPARE=PASS")
         print("WHATSAPP_READS_ONLY=PASS")
         print("PERMISSION_SETTINGS_READ=PASS")
+        print("PERMISSION_SETTINGS_SCOPE=READ_ONLY")
         print("MUTATION_CALLS=NONE")
         print("CHAT_STREAM_AUTO_SUBMIT=NONE")
     finally:
