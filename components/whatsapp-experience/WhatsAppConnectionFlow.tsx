@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, KeyRound, QrCode } from "lucide-react";
 import { WhatsAppConnectorCard, type WhatsAppConnectorIntent } from "@/components/chat/WhatsAppConnectorCard";
 
@@ -14,9 +14,28 @@ export function WhatsAppConnectionFlow({
   onBack: () => void;
 }) {
   const [mode, setMode] = useState<WhatsAppConnectionMode>("qr");
-  const intent: WhatsAppConnectorIntent = mode === "qr"
+  const [armedMode, setArmedMode] = useState<WhatsAppConnectionMode | null>(null);
+
+  const requestedIntent: WhatsAppConnectorIntent = mode === "qr"
     ? expired ? "reconnect" : "connect"
     : "pairing_code";
+
+  // React development Strict Mode mounts effects twice. The connector's
+  // mutation intent must therefore be armed only after the connection panel
+  // survives its initial mount/cleanup cycle. Otherwise the first cleanup can
+  // cancel the scheduled QR request after its idempotency ref was already set,
+  // leaving the second mount unable to start the QR at all.
+  //
+  // Arming per mode also guarantees that switching QR <-> pairing mounts the
+  // new connector neutrally first, then starts exactly the mutation belonging
+  // to that mode on the next animation frame.
+  useEffect(() => {
+    setArmedMode(null);
+    const id = window.requestAnimationFrame(() => setArmedMode(mode));
+    return () => window.cancelAnimationFrame(id);
+  }, [mode]);
+
+  const intent: WhatsAppConnectorIntent = armedMode === mode ? requestedIntent : "status";
 
   return (
     <section className="w-full" data-testid="wa-v2-connection-flow" aria-label="Connexion WhatsApp">
