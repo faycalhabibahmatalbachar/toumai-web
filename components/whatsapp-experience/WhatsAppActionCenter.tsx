@@ -5,6 +5,7 @@ import {
   CirclePlus,
   ContactRound,
   FileText,
+  History,
   Image as ImageIcon,
   MessageCircle,
   MessagesSquare,
@@ -91,6 +92,7 @@ export function WhatsAppActionCenter({
   actions = WHATSAPP_ACTIONS,
   onAction,
   onConnect,
+  onOpenRecentActivity,
   onOpenAdvanced,
 }: {
   connection: WhatsAppConnectionPresentation;
@@ -98,6 +100,7 @@ export function WhatsAppActionCenter({
   actions?: readonly WhatsAppActionDefinition[];
   onAction?: (action: WhatsAppActionDefinition) => void;
   onConnect?: () => void;
+  onOpenRecentActivity?: () => void;
   onOpenAdvanced?: () => void;
 }) {
   const usable = connection.status === "connected";
@@ -190,8 +193,18 @@ export function WhatsAppActionCenter({
         }) : null}
       </div>
 
-      <footer className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3">
-        <p className="text-[10.5px] text-[var(--text-tertiary)]">Les actions sensibles demandent une confirmation avant exécution.</p>
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] px-4 py-3">
+        <p className="mr-auto text-[10.5px] text-[var(--text-tertiary)]">Les actions sensibles demandent une confirmation avant exécution.</p>
+        <button
+          type="button"
+          onClick={onOpenRecentActivity}
+          disabled={!usable}
+          data-testid="wa-v2-open-activity"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-[11.5px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+        >
+          <History className="h-3.5 w-3.5" aria-hidden="true" />
+          Activité
+        </button>
         <button
           type="button"
           onClick={onOpenAdvanced}
