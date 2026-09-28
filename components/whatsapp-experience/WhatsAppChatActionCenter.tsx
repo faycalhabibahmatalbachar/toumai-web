@@ -8,6 +8,7 @@ import { WhatsAppActionCenter } from "./WhatsAppActionCenter";
 import { WhatsAppActionPreview } from "./WhatsAppActionPreview";
 import { WhatsAppConnectionFlow } from "./WhatsAppConnectionFlow";
 import { WhatsAppContactPicker } from "./WhatsAppContactPicker";
+import { WhatsAppPermissionGate } from "./WhatsAppPermissionGate";
 import {
   whatsappActionNeedsContact,
   whatsappStarterFor,
@@ -76,6 +77,7 @@ export function WhatsAppChatActionCenter({
   const [raw, setRaw] = useState<WhatsAppState | null>(null);
   const [state, setState] = useState<WhatsAppExperienceState>("loading");
   const [connectionFlowOpen, setConnectionFlowOpen] = useState(false);
+  const [permissionAction, setPermissionAction] = useState<WhatsAppActionDefinition | null>(null);
   const [pendingAction, setPendingAction] = useState<WhatsAppActionDefinition | null>(null);
   const [selectedContact, setSelectedContact] = useState<WaContact | null>(null);
   const generation = useRef(0);
@@ -100,6 +102,7 @@ export function WhatsAppChatActionCenter({
   useEffect(() => {
     if (!open) {
       setConnectionFlowOpen(false);
+      setPermissionAction(null);
       setPendingAction(null);
       setSelectedContact(null);
       return;
@@ -149,13 +152,27 @@ export function WhatsAppChatActionCenter({
     onClose();
   }
 
-  function prepare(action: WhatsAppActionDefinition) {
+  function continueAction(action: WhatsAppActionDefinition) {
+    setPermissionAction(null);
     if (whatsappActionNeedsContact(action.id)) {
       setSelectedContact(null);
       setPendingAction(action);
       return;
     }
     handoffToComposer(whatsappStarterFor(action.id));
+  }
+
+  function prepare(action: WhatsAppActionDefinition) {
+    // Phase 8: every action with a declared backend permission is checked
+    // contextually before target selection or composer handoff. This is an
+    // additional UX gate; the backend registry remains the final authority.
+    if (action.permission) {
+      setSelectedContact(null);
+      setPendingAction(null);
+      setPermissionAction(action);
+      return;
+    }
+    continueAction(action);
   }
 
   function selectContact(contact: WaContact) {
@@ -180,12 +197,17 @@ export function WhatsAppChatActionCenter({
     setSelectedContact(null);
   }
 
-  function backFromContactPicker() {
+  function backToActions() {
+    setPermissionAction(null);
     setSelectedContact(null);
     setPendingAction(null);
     window.requestAnimationFrame(() => {
       dialogRef.current?.querySelector<HTMLElement>('[data-testid="wa-v2-action-center"] button:not([disabled])')?.focus();
     });
+  }
+
+  function backFromContactPicker() {
+    backToActions();
   }
 
   function trapTab(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -212,11 +234,13 @@ export function WhatsAppChatActionCenter({
 
   const title = connectionFlowOpen
     ? "Connexion WhatsApp"
-    : pendingAction && selectedContact
-      ? "Vérifier avant de continuer"
-      : pendingAction
-        ? "Choisir un contact"
-        : "Actions WhatsApp";
+    : permissionAction
+      ? "Vérifier la permission"
+      : pendingAction && selectedContact
+        ? "Vérifier avant de continuer"
+        : pendingAction
+          ? "Choisir un contact"
+          : "Actions WhatsApp";
 
   return (
     <div className="fixed inset-0 z-[70]" data-testid="wa-v2-chat-overlay">
@@ -260,6 +284,13 @@ export function WhatsAppChatActionCenter({
               void refresh();
             }}
           />
+        ) : permissionAction ? (
+          <WhatsAppPermissionGate
+            action={permissionAction}
+            onAllowed={() => continueAction(permissionAction)}
+            onBack={backToActions}
+            onManagePermissions={() => window.location.assign("/settings/?tab=connectors")}
+          />
         ) : pendingAction && selectedContact ? (
           <WhatsAppActionPreview
             action={pendingAction}
@@ -282,6 +313,7 @@ export function WhatsAppChatActionCenter({
             onConnect={() => {
               setSelectedContact(null);
               setPendingAction(null);
+              setPermissionAction(null);
               setConnectionFlowOpen(true);
             }}
             onOpenAdvanced={() => window.location.assign("/whatsapp/")}
