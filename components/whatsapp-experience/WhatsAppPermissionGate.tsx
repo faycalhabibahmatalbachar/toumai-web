@@ -21,11 +21,16 @@ export function WhatsAppPermissionGate({
   const [state, setState] = useState<GateState>("loading");
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
+  const onAllowedRef = useRef(onAllowed);
+
+  useEffect(() => {
+    onAllowedRef.current = onAllowed;
+  }, [onAllowed]);
 
   useEffect(() => {
     const permission = action.permission;
     if (!permission) {
-      onAllowed();
+      onAllowedRef.current();
       return;
     }
 
@@ -37,7 +42,7 @@ export function WhatsAppPermissionGate({
       .then((settings: WaSettings) => {
         if (generation.current !== current) return;
         if (settings[permission] === true) {
-          onAllowed();
+          onAllowedRef.current();
           return;
         }
         setState("denied");
@@ -51,7 +56,7 @@ export function WhatsAppPermissionGate({
     return () => {
       generation.current += 1;
     };
-  }, [action.id, action.permission, onAllowed]);
+  }, [action.id, action.permission]);
 
   return (
     <section
