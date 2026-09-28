@@ -92,6 +92,13 @@ After:
 - `output/ui2/after-stop-generation-1440x900-light.png`
 - `output/ui2/after-long-draft-360x800-light.png`
 
+### Evidence integrity repair
+
+- `after-light-1440x900.png` and `after-light-390x844.png` were recaptured from the authenticated certified UI-2 preview at their exact named viewport dimensions.
+- `before-ux006-a11y-390x844-dark.png` was recaptured at 390 x 844 from the authenticated historical UI-1 preview in dark theme. That runtime measured the three scoped composer controls at 36 x 36 px and retained the pre-fix disclaimer colors.
+- All 19 PNG evidence files were decoded and checked against the dimensions encoded in their filenames: `19 valid`, `0 invalid`.
+- This evidence correction changed no runtime, test or configuration file.
+
 ## Certification
 
 - `UX-006 = FIXED_AND_VERIFIED`
