@@ -45,8 +45,11 @@ const RESULT_STATES: WhatsAppCanonicalOperationState[] = [
   "read",
   "completed",
   "unknown",
+  "reconciling",
   "partial_success",
   "failed",
+  "blocked",
+  "needs_relink",
   "cancelled",
 ];
 
