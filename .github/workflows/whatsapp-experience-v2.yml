@@ -72,6 +72,9 @@ jobs:
       - name: Browser E2E — canonical execution timeline truthfulness
         run: npm run wa:v2:full:timeline
 
+      - name: Browser E2E — compact canonical result truthfulness
+        run: npm run wa:v2:full:result
+
       - name: FULL certification verdict
         run: |
           echo "WA_V2_FULL_CERTIFICATION=PASS"
