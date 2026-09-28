@@ -1,8 +1,10 @@
 FULL CERTIFICATION REQUEST
 
-reason=Pipeline 3X Phase 10 rollout readiness and reversible feature-flag certification
-fast_pass_sha=9fcef1487a5f9b4be9ae0fa24a5d864e6909258b
+reason=Phase 11 real-provider contract + provider-message-id evidence + replay safety certification
+fast_run_id=36489425362
+fast_pass_sha=4214e6bac3f573b595da0014500f1c6e7f11c125
 requested_at=2026-09-28
 
-This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow.
-FAST evidence is not a release certificate. FULL must certify both feature-flag ON and production feature-flag OFF builds before rollout readiness can pass.
+This marker intentionally triggers the WhatsApp Experience V2 FULL CERTIFICATION workflow on codex/whatsapp-experience-v2.
+FAST evidence is not a Phase 11 release certificate. FULL must certify the complete non-provider regression surface before any Phase 11 PASS can be considered.
+The real-provider runtime canary remains a separate manual, protected, explicit-send gate and is not automatically executed by this marker.
