@@ -3,7 +3,8 @@
 
 The same assertions run against a Next dev server in FAST or the exported
 production build in FULL. API calls are intercepted, so the test cannot mutate
-Toumaï or a real WhatsApp account.
+Toumaï or a real WhatsApp account. This file is the targeted Pipeline 3X rollout
+surface: changing it must exercise both feature-ON and feature-OFF behavior.
 """
 
 from __future__ import annotations
