@@ -1,6 +1,13 @@
 name: WhatsApp Experience V2 — REAL PROVIDER CANARY
 
 on:
+  push:
+    branches:
+      - codex/whatsapp-experience-v2
+    paths:
+      - docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt
+      - .github/workflows/whatsapp-experience-v2-real-provider-canary.yml
+      - scripts/wa_v2_real_provider_canary.py
   workflow_dispatch:
     inputs:
       confirm_real_send:
@@ -35,8 +42,8 @@ jobs:
       WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
       WA_V2_CANARY_ACCESS_TOKEN: ${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}
       WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT }}
-      WA_V2_CANARY_EXPLICIT_SEND: ${{ inputs.confirm_real_send }}
-      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ inputs.max_wait_seconds }}
+      WA_V2_CANARY_EXPLICIT_SEND: ${{ github.event_name == 'push' && 'true' || inputs.confirm_real_send }}
+      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ github.event_name == 'push' && '90' || inputs.max_wait_seconds }}
 
     steps:
       - name: Fail closed unless the operator explicitly authorizes one real send
