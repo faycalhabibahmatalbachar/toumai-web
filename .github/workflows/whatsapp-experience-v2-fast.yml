@@ -8,10 +8,15 @@ on:
       - "app/chat/page.tsx"
       - "app/dev/whatsapp-ui/page.tsx"
       - "components/whatsapp-experience/**"
+      - "components/chat/WhatsAppConnectorCard.tsx"
       - "components/chat/widgets/ActionExecutionCard.tsx"
       - "lib/whatsapp-ui/**"
       - "scripts/verify-whatsapp-experience-v2.mjs"
+      - "scripts/verify-whatsapp-connection-race.mjs"
+      - "scripts/verify-whatsapp-permission-gate.mjs"
+      - "scripts/e2e_whatsapp_experience_v2_connection.py"
       - "scripts/e2e_whatsapp_experience_v2_contacts.py"
+      - "scripts/e2e_whatsapp_experience_v2_permissions.py"
       - "scripts/e2e_whatsapp_experience_v2_timeline.py"
       - "scripts/e2e_whatsapp_experience_v2_result.py"
       - "scripts/wa_v2_fast.py"
@@ -25,7 +30,9 @@ on:
         default: "contacts"
         type: choice
         options:
+          - connection
           - contacts
+          - permissions
           - timeline
           - result
           - contract-only
