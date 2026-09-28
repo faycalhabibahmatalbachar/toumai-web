@@ -7,9 +7,9 @@ production build/export cycle. FULL certification remains authoritative before
 phase certification or merge.
 
 Unknown/shared changes fall back to the contacts browser suite rather than
-silently skipping browser coverage. Dedicated surfaces (contacts, canonical
-execution timeline and compact canonical result) are mapped to their smallest
-truthful suite.
+silently skipping browser coverage. Dedicated surfaces are mapped to their
+smallest truthful suite, including connection/reconnect, contacts, canonical
+execution timeline and compact canonical result.
 """
 
 from __future__ import annotations
@@ -70,6 +70,32 @@ def browser_for(playwright):
         return playwright.chromium.launch(headless=True, executable_path=executable)
     print("WA_V2_FAST_BROWSER=PLAYWRIGHT_BUNDLED")
     return playwright.chromium.launch(headless=True)
+
+
+def run_connection() -> None:
+    suite = load_module("e2e_whatsapp_experience_v2_connection.py")
+    suite.BASE_URL = BASE_URL
+    with sync_playwright() as playwright:
+        browser = browser_for(playwright)
+        try:
+            scenarios = [
+                suite.test_qr_flow(browser),
+                suite.test_pairing_expiry_refresh(browser),
+                suite.test_expired_reconnect(browser),
+            ]
+            suite.assert_expected_connection_traffic(scenarios)
+        finally:
+            browser.close()
+
+    print("WA_V2_FAST_SUITE=connection")
+    print("WHATSAPP_EXPERIENCE_V2_CONNECTION_FAST_E2E=PASS")
+    print("QR_FLOW=PASS")
+    print("PAIRING_EXPIRY_REFRESH=PASS")
+    print("RECONNECT_FLOW=PASS")
+    print("CONNECTION_MUTATIONS_EXPECTED_ONLY=PASS")
+    print("CHAT_STREAM_AUTO_SUBMIT=NONE")
+    print("REAL_PHONE_PROVIDER_E2E=NOT_RUN")
+    print("FAST_GATE_RELEASE_CERTIFICATE=NO")
 
 
 def run_contacts() -> None:
@@ -141,6 +167,16 @@ def auto_suite() -> str:
 
     joined = "\n".join(changed)
     if any(token in joined for token in (
+        "WhatsAppConnectorCard.tsx",
+        "WhatsAppConnectionFlow.tsx",
+        "e2e_whatsapp_experience_v2_connection.py",
+        "verify-whatsapp-connection-race.mjs",
+        "wa_v2_fast.py",
+    )):
+        print("WA_V2_FAST_MAPPING=connection")
+        return "connection"
+
+    if any(token in joined for token in (
         "WhatsAppResultCard.tsx",
         "e2e_whatsapp_experience_v2_result.py",
         "ActionExecutionCard.tsx",
@@ -159,7 +195,6 @@ def auto_suite() -> str:
         "WhatsAppContactPicker.tsx",
         "WhatsAppActionPreview.tsx",
         "e2e_whatsapp_experience_v2_contacts.py",
-        "wa_v2_fast.py",
     )):
         print("WA_V2_FAST_MAPPING=contacts")
         return "contacts"
@@ -175,8 +210,8 @@ def main() -> None:
         print("WA_V2_FAST_BROWSER_E2E=SKIPPED_EXPLICITLY")
         print("FULL_CERTIFICATION_REQUIRED=YES")
         return
-    if suite not in {"contacts", "timeline", "result"}:
-        fail(f"Unsupported FAST suite: {suite}. Supported now: contacts, timeline, result, contract-only")
+    if suite not in {"connection", "contacts", "timeline", "result"}:
+        fail(f"Unsupported FAST suite: {suite}. Supported now: connection, contacts, timeline, result, contract-only")
 
     env = os.environ.copy()
     env["NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"] = "1"
@@ -190,7 +225,9 @@ def main() -> None:
     )
     try:
         wait_for_server()
-        if suite == "timeline":
+        if suite == "connection":
+            run_connection()
+        elif suite == "timeline":
             run_timeline()
         elif suite == "result":
             run_result()
