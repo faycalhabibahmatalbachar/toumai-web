@@ -10,6 +10,10 @@ function requireText(source, token, message) {
   if (!source.includes(token)) throw new Error(message);
 }
 
+function requirePattern(source, pattern, message) {
+  if (!pattern.test(source)) throw new Error(message);
+}
+
 const feature = read("lib/whatsapp-ui/feature.ts");
 const chat = read("app/chat/page.tsx");
 
@@ -33,15 +37,10 @@ requireText(
   'data-testid={WHATSAPP_EXPERIENCE_V2_ENABLED ? "wa-v2-empty-entry" : undefined}',
   "Empty-state V2 marker must be feature-gated",
 );
-requireText(
+requirePattern(
   chat,
-  'WHATSAPP_EXPERIENCE_V2_ENABLED && (',
-  "V2-only chat surfaces must be guarded by the rollout flag",
-);
-requireText(
-  chat,
-  "<WhatsAppChatActionCenter",
-  "V2 Action Center integration must remain present behind the flag",
+  /\{\s*WHATSAPP_EXPERIENCE_V2_ENABLED\s*\?\s*\(\s*<WhatsAppChatActionCenter\b[\s\S]*?\)\s*:\s*null\s*\}/m,
+  "V2 Action Center must remain entirely guarded by the rollout flag",
 );
 
 console.log("WHATSAPP_ROLLOUT_READINESS_CONTRACT=PASS");
