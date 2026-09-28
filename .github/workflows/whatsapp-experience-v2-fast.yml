@@ -14,6 +14,7 @@ on:
       - "scripts/verify-whatsapp-experience-v2.mjs"
       - "scripts/verify-whatsapp-connection-race.mjs"
       - "scripts/verify-whatsapp-permission-gate.mjs"
+      - "scripts/e2e_whatsapp_experience_v2_chat.py"
       - "scripts/e2e_whatsapp_experience_v2_connection.py"
       - "scripts/e2e_whatsapp_experience_v2_contacts.py"
       - "scripts/e2e_whatsapp_experience_v2_permissions.py"
@@ -30,6 +31,7 @@ on:
         default: "contacts"
         type: choice
         options:
+          - chat
           - connection
           - contacts
           - permissions
