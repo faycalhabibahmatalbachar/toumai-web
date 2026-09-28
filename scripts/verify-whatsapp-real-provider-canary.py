@@ -56,10 +56,37 @@ require('WA_V2_CANARY_EXPLICIT_SEND' in harness, "runtime_send_gate_missing")
 require('print(recipient' not in harness and 'print(token' not in harness,
         "secret_or_recipient_print_detected")
 
+# Phase 11 evidence must be exportable from the runtime report without exposing
+# recipient or credential material.
+for evidence_marker in (
+    'marker("PENDING_ID"',
+    'marker("ACTION_ID"',
+    'marker("PROVIDER_MESSAGE_ID"',
+    'marker("FINAL_PENDING_STATUS"',
+    'marker("REAL_PROVIDER_REPLAY_GUARD"',
+):
+    require(evidence_marker in harness, f"runtime_evidence_marker_missing:{evidence_marker}")
+
+# The same consumed pending_id must be submitted a second time only as a replay
+# assertion. This verifies the backend returns the stored action instead of
+# issuing a second provider mutation.
+require(
+    'replay = request_json("POST", "/chat/tool/confirm", {"pending_id": pending_id})' in harness,
+    "same_pending_replay_probe_missing",
+)
+require('same_action' in harness and 'same_provider_id' in harness and 'replay_safe' in harness,
+        "replay_identity_assertions_missing")
+require('final_pending == "done" and replay_safe' in harness,
+        "phase11_pass_not_gated_on_replay_safety")
+require('provider_id and sent and final_pending == "done"' in harness,
+        "phase11_pass_not_gated_on_provider_id_and_sent_ack")
+
 print("WA_V2_REAL_PROVIDER_CANARY_CONTRACT=PASS")
 print("REAL_PROVIDER_TRIGGER=MANUAL_ONLY")
 print("REAL_PROVIDER_ENVIRONMENT_GUARD=PASS")
 print("REAL_PROVIDER_SECRET_DISCLOSURE_GUARD=PASS")
 print("REAL_PROVIDER_PRODUCTION_PATH_CONTRACT=PASS")
+print("REAL_PROVIDER_RUNTIME_EVIDENCE_EXPORT=PASS")
+print("REAL_PROVIDER_REPLAY_PROBE_CONTRACT=PASS")
 print("REAL_PROVIDER_AUTOMATIC_SEND=FORBIDDEN")
 print("REAL_PROVIDER_RUNTIME_EXECUTION=NOT_RUN_BY_STATIC_GATE")
