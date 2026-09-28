@@ -144,6 +144,24 @@ export function WhatsAppChatActionCenter({
     return () => window.removeEventListener("keydown", onEscape);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) return;
+    const keepFocusInside = (event: FocusEvent) => {
+      if (!restorePreviousFocus.current || !dialogRef.current) return;
+      const target = event.target;
+      if (target instanceof Node && dialogRef.current.contains(target)) return;
+      const items = focusable(dialogRef.current);
+      const fallback = items[0] || dialogRef.current;
+      window.requestAnimationFrame(() => {
+        if (restorePreviousFocus.current && dialogRef.current && document.contains(fallback)) {
+          fallback.focus();
+        }
+      });
+    };
+    document.addEventListener("focusin", keepFocusInside);
+    return () => document.removeEventListener("focusin", keepFocusInside);
+  }, [open]);
+
   if (!open) return null;
 
   function handoffToComposer(starter: string) {
@@ -207,14 +225,18 @@ export function WhatsAppChatActionCenter({
     if (event.key !== "Tab" || !dialogRef.current) return;
     const items = focusable(dialogRef.current);
     if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
+    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const index = active ? items.indexOf(active) : -1;
+    if (event.shiftKey) {
+      if (index <= 0) {
+        event.preventDefault();
+        items[items.length - 1].focus();
+      }
+      return;
+    }
+    if (index < 0 || index === items.length - 1) {
       event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
+      items[0].focus();
     }
   }
 
@@ -252,6 +274,7 @@ export function WhatsAppChatActionCenter({
         aria-modal="true"
         aria-labelledby="wa-v2-dialog-title"
         onKeyDown={trapTab}
+        tabIndex={-1}
         className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-[28px] border border-[var(--border)] bg-[var(--background)] p-3 shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[min(39rem,92vw)] sm:rounded-none sm:rounded-l-[28px] sm:p-4"
         data-testid="wa-v2-chat-sheet"
       >
