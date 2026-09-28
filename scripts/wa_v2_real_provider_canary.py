@@ -5,6 +5,10 @@ This script intentionally performs ONE real send after an explicit workflow gate
 It uses the same production path as the UI:
   /chat/stream -> pending_id -> /chat/tool/confirm -> /agent/actions/pending/status
 
+After the mutation reaches a terminal state, it submits the SAME pending_id once
+more to prove replay safety. The backend must return the already stored action;
+the canary never creates a second pending action and never changes the payload.
+
 Secrets/recipient are never printed. A missing secret/provider is BLOCKED, never PASS.
 """
 
@@ -90,6 +94,25 @@ def first_uuid(values: list[Any]) -> str | None:
             return str(uuid.UUID(str(value)))
         except (ValueError, TypeError, AttributeError):
             continue
+    return None
+
+
+def first_text(values: list[Any]) -> str | None:
+    for value in values:
+        if value is None or isinstance(value, (dict, list, tuple, set)):
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def provider_message_id(value: Any) -> str | None:
+    """Extract the real gateway/provider message id without printing payload data."""
+    for key in ("provider_operation_id", "provider_message_id", "msg_id", "msgId"):
+        candidate = first_text(recursive_values(value, key))
+        if candidate:
+            return candidate
     return None
 
 
@@ -181,18 +204,21 @@ def main() -> int:
 
     # 3) Create a real server-side pending confirmation through the chat runtime.
     pending_id = stream_pending_id(recipient, canary_message)
+    marker("PENDING_ID", pending_id)
     before_status, _, _ = pending_status(pending_id)
     if before_status != "awaiting_confirmation":
         abort(f"unexpected_pending_state_before_confirm:{before_status}")
     marker("REAL_PROVIDER_ACTION_CREATED", "PASS")
 
-    # 4) Explicit confirmation — this is the only point where the real send is allowed.
+    # 4) Explicit confirmation — this is the ONLY point where the real mutation is allowed.
     confirm = request_json("POST", "/chat/tool/confirm", {"pending_id": pending_id})
     confirm_success = bool(confirm.get("success"))
     confirm_data = envelope_data(confirm)
     observed: set[str] = set()
     for value in recursive_values(confirm_data, "operation_state"):
         observe_state(observed, value)
+    action_id = first_uuid(recursive_values(confirm_data, "action_id"))
+    provider_id = provider_message_id(confirm_data)
     marker("REAL_PROVIDER_CONFIRM", "PASS" if confirm_success else "FAILED")
 
     # Even a false application success can represent an uncertain provider result; reconcile,
@@ -207,8 +233,32 @@ def main() -> int:
             break
         time.sleep(2)
 
-    provider_operation_id = final_action.get("provider_operation_id") if isinstance(final_action, dict) else None
-    accepted = bool(observed & {"provider_accepted", "sent", "delivered", "read"}) or bool(provider_operation_id)
+    # 5) Replay proof. Re-submit ONLY the same consumed pending_id after the first execution.
+    # Backend contract: this must read the stored action and MUST NOT call the provider again.
+    replay = request_json("POST", "/chat/tool/confirm", {"pending_id": pending_id})
+    replay_data = envelope_data(replay)
+    replay_pending = first_text(recursive_values(replay_data, "pending_status"))
+    replay_action_id = first_uuid(recursive_values(replay_data, "action_id"))
+    replay_provider_id = provider_message_id(replay_data)
+
+    if provider_id is None:
+        provider_id = replay_provider_id
+    same_action = bool(action_id and replay_action_id and action_id == replay_action_id)
+    same_provider_id = bool(provider_id and replay_provider_id and provider_id == replay_provider_id)
+    replay_safe = bool(
+        final_pending == "done"
+        and replay.get("success") is True
+        and replay_pending == "done"
+        and same_action
+        and same_provider_id
+    )
+
+    marker("ACTION_ID", action_id or "NOT_PROVEN")
+    marker("PROVIDER_MESSAGE_ID", provider_id or "NOT_PROVEN")
+    marker("FINAL_PENDING_STATUS", final_pending)
+    marker("REAL_PROVIDER_REPLAY_GUARD", "PASS" if replay_safe else "NOT_PROVEN")
+
+    accepted = bool(observed & {"provider_accepted", "sent", "delivered", "read"}) or bool(provider_id)
     sent = bool(observed & {"sent", "delivered", "read"})
     delivered = bool(observed & {"delivered", "read"})
     read = "read" in observed
@@ -218,10 +268,9 @@ def main() -> int:
     marker("REAL_PROVIDER_DELIVERED", "PASS" if delivered else "NOT_PROVEN")
     marker("REAL_PROVIDER_READ", "PASS" if read else "NOT_PROVEN")
 
-    # A real canary is certified only when the backend has evidence at least as strong as SENT.
-    # Delivery/read receipts are desirable but not required because the receiver may be offline
-    # or have receipts disabled. provider_accepted alone is deliberately only PARTIAL.
-    if confirm_success and sent and final_pending == "done":
+    # Certification requires a real provider ID, an ACK at least as strong as SENT,
+    # a terminal done pending, and proof that replay returned the SAME stored action.
+    if confirm_success and provider_id and sent and final_pending == "done" and replay_safe:
         marker("REAL_PHONE_PROVIDER_E2E", "PASS")
         marker("PHASE_11_CERTIFICATION", "PASS")
         return 0
@@ -229,7 +278,10 @@ def main() -> int:
     if accepted:
         marker("REAL_PHONE_PROVIDER_E2E", "PARTIAL")
         marker("PHASE_11_CERTIFICATION", "PARTIAL")
-        print(f"BLOCKER=provider_state_not_strong_enough:pending_{final_pending}", flush=True)
+        print(
+            f"BLOCKER=provider_or_replay_proof_not_strong_enough:pending_{final_pending}",
+            flush=True,
+        )
         return 3
 
     marker("REAL_PHONE_PROVIDER_E2E", "BLOCKED")
