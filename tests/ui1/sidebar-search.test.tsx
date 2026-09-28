@@ -47,7 +47,7 @@ describe("UI-1 sidebar", () => {
   });
 
   it("shows a distinct empty history state when the account has no sessions", async () => {
-    listSessionsMock.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve([]), 30)));
+    listSessionsMock.mockResolvedValue([]);
     render(<Sidebar activeId={null} onSelect={() => {}} onNewChat={() => {}} refreshKey={0} open onClose={() => {}} />);
     await screen.findByText("Aucune conversation enregistrée.");
     expect(screen.queryByText("Aucune conversation trouvée")).toBeNull();
