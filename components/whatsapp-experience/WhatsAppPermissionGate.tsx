@@ -41,11 +41,14 @@ export function WhatsAppPermissionGate({
     void getWaSettings()
       .then((settings: WaSettings) => {
         if (generation.current !== current) return;
-        if (settings[permission] === true) {
-          onAllowedRef.current();
+        // An explicit false is authoritative. Missing keys can occur while an
+        // older backend rolls forward; in that compatibility case the UI does
+        // not invent a denial and the backend registry remains the final gate.
+        if (settings[permission] === false) {
+          setState("denied");
           return;
         }
-        setState("denied");
+        onAllowedRef.current();
       })
       .catch((cause) => {
         if (generation.current !== current) return;
