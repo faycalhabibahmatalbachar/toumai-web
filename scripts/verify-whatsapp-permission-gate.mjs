@@ -16,6 +16,8 @@ requireText(gate, "getWaSettings", "Permission gate must read canonical WhatsApp
 requireText(gate, "settings[permission] === false", "Only explicit backend permission=false may produce the denial UI");
 requireText(gate, "wa-v2-permission-denied", "Permission denied state must remain testable and explicit");
 requireText(gate, "Par sécurité, Toumaï ne continue pas cette action", "Permission read failure must fail closed");
+requireText(center, "const [permissionAction, setPermissionAction]", "Permissioned action must remain isolated before authorization");
+requireText(center, "setPermissionAction(action)", "Selected permissioned action must enter the contextual gate before continuing");
 requireText(center, "<WhatsAppPermissionGate", "Chat Action Center must route permissioned actions through the gate");
 requireText(center, "if (action.permission)", "Only declared action permissions should trigger the contextual gate");
 requireText(center, "onManagePermissions={() => window.location.assign(\"/settings/?tab=connectors\")}", "Denied gate must route to existing permission settings");
@@ -27,6 +29,7 @@ if (gate.includes("updateWaSettings") || gate.includes("http.put") || gate.inclu
 
 console.log("WHATSAPP_PERMISSION_GATE_CONTRACT=PASS");
 console.log("PERMISSION_SOURCE=BACKEND_SETTINGS");
+console.log("PRE_AUTH_ACTION_ISOLATION=ENFORCED");
 console.log("EXPLICIT_FALSE_DENIAL=ENFORCED");
 console.log("PERMISSION_READ_ERROR=FAIL_CLOSED");
 console.log("PERMISSION_GATE_MUTATIONS=FORBIDDEN");
