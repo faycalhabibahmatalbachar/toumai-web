@@ -14,7 +14,15 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ToolConfirmation } from "@/lib/chat-stream";
 import { WHATSAPP_EXPERIENCE_V2_ENABLED } from "@/lib/whatsapp-ui/feature";
-import { WhatsAppExecutionTimeline } from "@/components/whatsapp-experience/WhatsAppExecutionTimeline";
+import {
+  isWhatsAppCanonicalOperationState,
+  WhatsAppExecutionTimeline,
+  type WhatsAppCanonicalOperationState,
+} from "@/components/whatsapp-experience/WhatsAppExecutionTimeline";
+import {
+  WhatsAppResultCard,
+  whatsappResultPresentation,
+} from "@/components/whatsapp-experience/WhatsAppResultCard";
 import { useWidgetRuntime } from "./runtime";
 import { describeTool, riskLabel } from "@/lib/tool-ui";
 import { normalizeStatus, toneOf, type StatusKey } from "@/lib/widgets/core";
@@ -182,8 +190,6 @@ function rowForAction(tool: string, args: Record<string, unknown>, capability = 
     return { title: "Modifier le groupe", detail: group || undefined };
   }
 
-  // Le DESTINATAIRE est l'information qu'on vérifie avant de confirmer : il
-  // figure dans le titre de la ligne, jamais seulement dans les arguments.
   const who = group || (recipient ? (/\d{7,}/.test(recipient) ? maskPhone(recipient) : truncate(recipient, 40)) : "");
   if (tool === "send_whatsapp" || capability === "whatsapp.message.send") {
     return { title: who ? `Envoyer à ${who}` : "Envoyer le message", detail: quote(message) || undefined };
@@ -209,6 +215,18 @@ function previewRows(tool: string, args: Record<string, unknown>): PreviewRow[] 
     record(entry.args),
     text(entry.capability),
   ));
+}
+
+function isWhatsAppRuntimeAction(tool: string, args: Record<string, unknown>): boolean {
+  if (tool !== "__toumai_batch__") return tool.includes("whatsapp");
+  const actions = Array.isArray(args.actions)
+    ? args.actions.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    : [];
+  return actions.length > 0 && actions.every((entry) => {
+    const nestedTool = text(entry.tool);
+    const capability = text(entry.capability);
+    return nestedTool.includes("whatsapp") || capability.startsWith("whatsapp.");
+  });
 }
 
 function batchSubject(rows: PreviewRow[]): string {
@@ -256,8 +274,6 @@ function normalizedState(response: ConfirmationResponse): {
   const message = response.message || "";
   const pendingStatus = text(data.pending_status);
 
-  // Un retry de confirmation peut revenir pendant que la première requête
-  // exécute encore l'action. Cet état n'est ni un succès ni un échec.
   if (pendingStatus === "confirmed" || pendingStatus === "executing") {
     return { state: "running", action, message };
   }
@@ -265,12 +281,6 @@ function normalizedState(response: ConfirmationResponse): {
   if (pendingStatus === "expired") return { state: "expired", action, message };
   if (pendingStatus === "uncertain") return { state: "partial_success", action, message };
 
-  // L'ÉTAT CANONIQUE L'EMPORTE SUR LE STATUT D'EXÉCUTION.
-  //
-  // « success » voulait dire « l'outil n'a pas levé d'erreur », et la carte en
-  // faisait un résultat réussi. Un message accepté par WhatsApp mais jamais
-  // remis tombait donc dans la même case qu'un message lu. Quand le serveur
-  // fournit l'état canonique, c'est lui qui décide.
   const canonique = action?.operation_state || "";
   if (canonique) {
     if (["failed", "blocked", "expired", "needs_relink"].includes(canonique)) {
@@ -278,7 +288,6 @@ function normalizedState(response: ConfirmationResponse): {
     }
     if (canonique === "cancelled") return { state: "cancelled", action, message };
     if (canonique === "awaiting_confirmation") return { state: "awaiting_confirmation", action, message };
-    // Ni réussi ni échoué : une issue inconnue ou partielle ne se peint pas en vert.
     if (["unknown", "partial_success", "reconciling"].includes(canonique)) {
       return { state: "partial_success", action, message };
     }
@@ -291,8 +300,6 @@ function normalizedState(response: ConfirmationResponse): {
   if (response.success === false) {
     const lower = message.toLowerCase();
     if (lower.includes("déjà été traité") || lower.includes("déjà été utilisée") || lower.includes("déjà été utilisé")) {
-      // Compatibilité avec un backend plus ancien : cette phrase ne prouve
-      // jamais que l'action a réussi. On rend donc un état prudent.
       return { state: "partial_success", action, message };
     }
     if (lower.includes("expir")) return { state: "expired", action, message };
@@ -349,8 +356,6 @@ export function ActionExecutionCard({
 
         const status = body.data?.status || "unknown";
         if (status === "awaiting_confirmation") {
-          // Avant le clic, un seul contrôle suffit. Après le clic, un serveur
-          // qui n'a pas encore réclamé l'action est reconsulté.
           if (state === "running" || state === "verifying") scheduleNext();
           return;
         }
@@ -418,8 +423,6 @@ export function ActionExecutionCard({
           setResultMessage(status === "unknown" ? "Cette confirmation n’est plus active." : "Cette confirmation a expiré.");
         }
       } catch {
-        // Pendant une exécution, une panne de lecture ne doit pas transformer
-        // l'action en succès/échec inventé. On continue simplement à vérifier.
         if (state === "running" || state === "verifying") scheduleNext();
       }
     };
@@ -480,20 +483,37 @@ export function ActionExecutionCard({
   })();
 
   const technicalMessage = safeDetail(resultMessage);
-  // « Vérifié » est réservé à ce qui a été CONSTATÉ : remis, lu, ou relu auprès du
-  // connecteur. Un identifiant de message rendu par la passerelle ne l'est pas.
   const etatCanonique = action?.operation_state || "";
-  const verified = etatCanonique
-    ? ["delivered", "read", "completed"].includes(etatCanonique)
-    : action?.verified === true;
+  const whatsAppRuntime = isWhatsAppRuntimeAction(confirmation.tool, args);
+  const canonicalState: WhatsAppCanonicalOperationState | null = WHATSAPP_EXPERIENCE_V2_ENABLED
+    && whatsAppRuntime
+    && isWhatsAppCanonicalOperationState(etatCanonique)
+    ? etatCanonique
+    : null;
+  const canonicalResult = canonicalState ? whatsappResultPresentation(canonicalState) : null;
+  const verified = canonicalResult
+    ? canonicalResult.verified
+    : etatCanonique
+      ? ["delivered", "read", "completed"].includes(etatCanonique)
+      : action?.verified === true;
   const showPreview = state === "awaiting_confirmation" || state === "running" || state === "verifying";
-  const showOutcomeRows = resultSteps.length > 0 && (state === "partial_success" || state === "failed" || detailsOpen);
+  const showOutcomeRows = resultSteps.length > 0 && (
+    canonicalState && done
+      ? detailsOpen
+      : state === "partial_success" || state === "failed" || detailsOpen
+  );
   const destructive = descriptor.risk === "destructive";
   const status = RUNTIME_STATUS[state];
-  const tone = toneOf(status);
-  const whatsappTimeline = WHATSAPP_EXPERIENCE_V2_ENABLED
-    && Boolean(etatCanonique)
-    && (confirmation.tool.includes("whatsapp") || confirmation.tool === "__toumai_batch__");
+  const canonicalToneStatus: StatusKey | null = canonicalResult
+    ? canonicalResult.tone === "success"
+      ? "success"
+      : canonicalResult.tone === "error"
+        ? "failed"
+        : canonicalResult.tone === "warning"
+          ? "partial_success"
+          : "unknown"
+    : null;
+  const tone = done && canonicalToneStatus ? toneOf(canonicalToneStatus) : toneOf(status);
   const subtitle = compactSuccess && subject
     ? subject
     : state === "awaiting_confirmation"
@@ -520,9 +540,6 @@ export function ActionExecutionCard({
 
   return (
     <>
-      {/* Une confirmation structurée remplace le paragraphe généré par le modèle
-          dans le même tour. Cela supprime la duplication texte + carte sans
-          toucher aux réponses ordinaires, aux sources ou au raisonnement. */}
       <style>{`.msg-row:has([data-action-runtime="true"]) .prose-toumai{display:none}`}</style>
       <motion.div
         data-action-runtime="true"
@@ -533,29 +550,38 @@ export function ActionExecutionCard({
         <WidgetCard
           label={descriptor.title}
           tone={tone}
-          accent={state !== "awaiting_confirmation"}
+          accent={state !== "awaiting_confirmation" && (!canonicalResult || canonicalResult.tone === "success")}
           live
-          alert={state === "failed"}
+          alert={canonicalResult ? canonicalResult.tone === "error" : state === "failed"}
           testId="action_execution"
         >
-          <WidgetHeader
-            icon={toolIcon(confirmation.tool, destructive)}
-            tone={state === "awaiting_confirmation" && destructive ? "error" : undefined}
-            title={headline}
-            subtitle={subtitle}
-            status={state === "awaiting_confirmation" ? undefined : status}
-            trailing={done ? (
-              <button
-                type="button"
-                onClick={() => setDetailsOpen((current) => !current)}
-                className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-[11.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                aria-expanded={detailsOpen}
-              >
-                Détails
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-              </button>
-            ) : undefined}
-          />
+          {done && canonicalState ? (
+            <WhatsAppResultCard
+              operationState={canonicalState}
+              detailsOpen={detailsOpen}
+              onToggleDetails={() => setDetailsOpen((current) => !current)}
+              issueCount={problems}
+            />
+          ) : (
+            <WidgetHeader
+              icon={toolIcon(confirmation.tool, destructive)}
+              tone={state === "awaiting_confirmation" && destructive ? "error" : undefined}
+              title={headline}
+              subtitle={subtitle}
+              status={state === "awaiting_confirmation" ? undefined : status}
+              trailing={done ? (
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((current) => !current)}
+                  className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-[11.5px] text-[var(--text-tertiary)] outline-none transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                  aria-expanded={detailsOpen}
+                >
+                  Détails
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                </button>
+              ) : undefined}
+            />
+          )}
 
           <AnimatePresence initial={false}>
             {showPreview ? (
@@ -593,7 +619,7 @@ export function ActionExecutionCard({
             ) : null}
           </AnimatePresence>
 
-          {whatsappTimeline ? <WhatsAppExecutionTimeline operationState={etatCanonique} /> : null}
+          {canonicalState && (!done || detailsOpen) ? <WhatsAppExecutionTimeline operationState={canonicalState} /> : null}
 
           {showOutcomeRows ? <ProgressSteps steps={outcomeSteps} label="Résultat des actions" /> : null}
 
@@ -633,7 +659,6 @@ const RUNTIME_STATUS: Record<ActionRuntimeState, StatusKey> = {
   expired: "expired",
 };
 
-/** Le canal touché, en clair : c'est ce qu'on lit en premier sous le titre. */
 function channelLabel(tool: string): string {
   if (tool.includes("whatsapp") || tool === "__toumai_batch__") return "WhatsApp";
   if (tool.includes("mail")) return "E-mail";
