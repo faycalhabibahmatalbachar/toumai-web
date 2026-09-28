@@ -283,6 +283,7 @@ def main() -> None:
             run_suite(browser, BASE_URL)
             browser.close()
         print("WHATSAPP_EXPERIENCE_V2_ACTIVITY_E2E=PASS")
+        print("ACTIVITY_USER_TRIGGER_NETWORK_GATE=PASS")
         print("ACTIVITY_EXPLICIT_TRIGGER_ONLY=PASS")
         print("ACTIVITY_SERVER_MASK_PRESERVED=PASS")
         print("RAW_RECIPIENT_SYNTHESIS=FORBIDDEN")
