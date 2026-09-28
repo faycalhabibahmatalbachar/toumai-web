@@ -16,6 +16,7 @@ on:
       - "scripts/verify-whatsapp-permission-gate.mjs"
       - "scripts/verify-whatsapp-recent-activity.mjs"
       - "scripts/verify-whatsapp-rollout-readiness.mjs"
+      - "scripts/verify-whatsapp-real-provider-canary.py"
       - "scripts/e2e_whatsapp_experience_v2_chat.py"
       - "scripts/e2e_whatsapp_experience_v2_connection.py"
       - "scripts/e2e_whatsapp_experience_v2_contacts.py"
@@ -24,9 +25,11 @@ on:
       - "scripts/e2e_whatsapp_experience_v2_timeline.py"
       - "scripts/e2e_whatsapp_experience_v2_result.py"
       - "scripts/e2e_whatsapp_experience_v2_rollout.py"
+      - "scripts/wa_v2_real_provider_canary.py"
       - "scripts/wa_v2_fast.py"
       - "package.json"
       - ".github/workflows/whatsapp-experience-v2-fast.yml"
+      - ".github/workflows/whatsapp-experience-v2-real-provider-canary.yml"
   workflow_dispatch:
     inputs:
       suite:
@@ -71,6 +74,9 @@ jobs:
 
       - name: Contract gate
         run: npm run wa:v2:contract
+
+      - name: Phase 11 real-provider canary contract
+        run: python3 scripts/verify-whatsapp-real-provider-canary.py
 
       - name: TypeScript gate
         run: npm run typecheck
