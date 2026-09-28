@@ -8,8 +8,8 @@ phase certification or merge.
 
 Unknown/shared changes fall back to the contacts browser suite rather than
 silently skipping browser coverage. Dedicated surfaces are mapped to their
-smallest truthful suite, including connection/reconnect, contacts, canonical
-execution timeline and compact canonical result.
+smallest truthful suite, including connection/reconnect, contacts, permissions,
+canonical execution timeline and compact canonical result.
 """
 
 from __future__ import annotations
@@ -121,6 +121,26 @@ def run_contacts() -> None:
     print("FAST_GATE_RELEASE_CERTIFICATE=NO")
 
 
+def run_permissions() -> None:
+    os.environ["WA_V2_E2E_DEV_MODE"] = "1"
+    suite = load_module("e2e_whatsapp_experience_v2_permissions.py")
+    with sync_playwright() as playwright:
+        browser = browser_for(playwright)
+        try:
+            suite.run_suite(browser, BASE_URL)
+        finally:
+            browser.close()
+
+    print("WA_V2_FAST_SUITE=permissions")
+    print("WHATSAPP_EXPERIENCE_V2_PERMISSIONS_FAST_E2E=PASS")
+    print("EXPLICIT_PERMISSION_DENIED=BLOCKED")
+    print("PERMISSION_READ_ERROR=FAIL_CLOSED")
+    print("PERMISSION_SETTINGS_MUTATIONS=NONE")
+    print("WHATSAPP_MUTATIONS=NONE")
+    print("CHAT_STREAM_AUTO_SUBMIT=NONE")
+    print("FAST_GATE_RELEASE_CERTIFICATE=NO")
+
+
 def run_timeline() -> None:
     suite = load_module("e2e_whatsapp_experience_v2_timeline.py")
     with sync_playwright() as playwright:
@@ -171,10 +191,17 @@ def auto_suite() -> str:
         "WhatsAppConnectionFlow.tsx",
         "e2e_whatsapp_experience_v2_connection.py",
         "verify-whatsapp-connection-race.mjs",
-        "wa_v2_fast.py",
     )):
         print("WA_V2_FAST_MAPPING=connection")
         return "connection"
+
+    if any(token in joined for token in (
+        "WhatsAppPermissionGate.tsx",
+        "e2e_whatsapp_experience_v2_permissions.py",
+        "verify-whatsapp-permission-gate.mjs",
+    )):
+        print("WA_V2_FAST_MAPPING=permissions")
+        return "permissions"
 
     if any(token in joined for token in (
         "WhatsAppResultCard.tsx",
@@ -210,8 +237,8 @@ def main() -> None:
         print("WA_V2_FAST_BROWSER_E2E=SKIPPED_EXPLICITLY")
         print("FULL_CERTIFICATION_REQUIRED=YES")
         return
-    if suite not in {"connection", "contacts", "timeline", "result"}:
-        fail(f"Unsupported FAST suite: {suite}. Supported now: connection, contacts, timeline, result, contract-only")
+    if suite not in {"connection", "contacts", "permissions", "timeline", "result"}:
+        fail(f"Unsupported FAST suite: {suite}. Supported now: connection, contacts, permissions, timeline, result, contract-only")
 
     env = os.environ.copy()
     env["NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2"] = "1"
@@ -227,6 +254,8 @@ def main() -> None:
         wait_for_server()
         if suite == "connection":
             run_connection()
+        elif suite == "permissions":
+            run_permissions()
         elif suite == "timeline":
             run_timeline()
         elif suite == "result":
