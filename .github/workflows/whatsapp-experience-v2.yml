@@ -13,7 +13,6 @@ on:
       - codex/whatsapp-experience-v2
     paths:
       - "docs/whatsapp-experience-v2/FULL_CERTIFICATION_TRIGGER.txt"
-      - "docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt"
 
 concurrency:
   group: whatsapp-experience-v2-full-${{ github.ref }}
