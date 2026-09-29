@@ -22,6 +22,8 @@ harness = HARNESS.read_text(encoding="utf-8")
 # Python must parse before any real-provider run is even possible.
 ast.parse(harness, filename=str(HARNESS))
 
+# The real-provider workflow is ALWAYS operator-triggered. No push/PR/schedule
+# may ever turn a normal development commit into a real WhatsApp mutation.
 on_block = workflow.split("on:\n", 1)[1].split("\npermissions:", 1)[0]
 require("workflow_dispatch:" in on_block, "manual_dispatch_missing")
 for forbidden in ("push:", "pull_request:", "schedule:", "workflow_run:"):
@@ -31,10 +33,37 @@ require('default: "false"' in workflow, "real_send_default_must_be_false")
 require('WA_V2_CANARY_EXPLICIT_SEND: ${{ inputs.confirm_real_send }}' in workflow,
         "explicit_send_input_not_wired")
 require('environment: whatsapp-real-provider-canary' in workflow, "protected_environment_missing")
-require('permissions:\n  contents: read' in workflow, "permissions_not_read_only")
+require('permissions:\n  contents: read' in workflow, "contents_permission_not_read_only")
+require('  actions: read' in workflow, "actions_read_permission_missing")
 require('${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}' in workflow, "token_not_secret_backed")
 require('${{ secrets.WA_V2_CANARY_RECIPIENT }}' in workflow, "recipient_not_secret_backed")
 require('python3 scripts/wa_v2_real_provider_canary.py' in workflow, "harness_not_executed")
+
+# PRE-CANARY CERTIFICATION GATE.
+# A real-provider mutation is forbidden unless FAST and FULL both succeeded on
+# the EXACT commit SHA being manually dispatched. This is intentionally checked
+# in the workflow itself, not left to operator memory.
+for marker in (
+    'WhatsApp Experience V2 — FAST',
+    'WhatsApp Experience V2 — FULL CERTIFICATION',
+    'FAST_CURRENT_HEAD',
+    'FULL_CURRENT_HEAD',
+    'PRECANARY_CERTIFIED_SHA',
+    'PRECANARY_FAST_FULL_GATE=PASS',
+    'head_sha={sha}',
+):
+    require(marker in workflow, f"same_sha_certification_gate_missing:{marker}")
+
+require(
+    workflow.index("Require FAST and FULL success on this exact SHA before any provider action")
+    < workflow.index("Validate required canary secrets without printing them")
+    < workflow.index("Run one real-provider canary through the production action path"),
+    "precanary_gate_order_invalid",
+)
+require('if conclusion != "success"' in workflow,
+        "precanary_gate_does_not_require_success")
+require('fast_full_same_sha_gate_timeout' in workflow,
+        "precanary_gate_timeout_not_fail_closed")
 
 for route in (
     "/whatsapp/etat",
@@ -88,5 +117,7 @@ print("REAL_PROVIDER_SECRET_DISCLOSURE_GUARD=PASS")
 print("REAL_PROVIDER_PRODUCTION_PATH_CONTRACT=PASS")
 print("REAL_PROVIDER_RUNTIME_EVIDENCE_EXPORT=PASS")
 print("REAL_PROVIDER_REPLAY_PROBE_CONTRACT=PASS")
+print("PRECANARY_SAME_SHA_FAST_FULL_GATE=PASS")
+print("PRECANARY_GATE_ORDER=PASS")
 print("REAL_PROVIDER_AUTOMATIC_SEND=FORBIDDEN")
 print("REAL_PROVIDER_RUNTIME_EXECUTION=NOT_RUN_BY_STATIC_GATE")
