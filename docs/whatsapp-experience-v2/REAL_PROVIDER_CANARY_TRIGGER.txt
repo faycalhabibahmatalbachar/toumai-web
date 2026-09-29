@@ -4,3 +4,4 @@ single_send=true
 purpose=real-provider-e2e-certification
 authorized_by=user_in_chat
 requested_at=2026-09-29
+trigger_round=2
