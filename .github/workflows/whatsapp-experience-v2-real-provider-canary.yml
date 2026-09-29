@@ -1,11 +1,6 @@
 name: WhatsApp Experience V2 — REAL PROVIDER CANARY
 
 on:
-  push:
-    branches:
-      - codex/whatsapp-experience-v2
-    paths:
-      - docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt
   workflow_dispatch:
     inputs:
       confirm_real_send:
@@ -39,10 +34,9 @@ jobs:
     env:
       WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
       WA_V2_CANARY_ACCESS_TOKEN: ${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}
-      # Toumai's already-public official WhatsApp contact; an environment secret may override it.
-      WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT || '23591912191' }}
-      WA_V2_CANARY_EXPLICIT_SEND: ${{ github.event_name == 'push' && 'true' || inputs.confirm_real_send }}
-      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ github.event_name == 'push' && '90' || inputs.max_wait_seconds }}
+      WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT }}
+      WA_V2_CANARY_EXPLICIT_SEND: ${{ inputs.confirm_real_send }}
+      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ inputs.max_wait_seconds }}
       GH_ACTIONS_TOKEN: ${{ github.token }}
 
     steps:
@@ -64,7 +58,6 @@ jobs:
           python3 - <<'PY'
           import json
           import os
-          import sys
           import time
           import urllib.request
 
@@ -131,21 +124,21 @@ jobs:
               time.sleep(10)
           PY
 
-      - name: Validate required canary authentication without printing it
+      - name: Validate required canary secrets without printing them
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${WA_V2_CANARY_ACCESS_TOKEN:-}" ]; then
-            echo "Missing required secret: WA_V2_CANARY_ACCESS_TOKEN"
+          missing=0
+          for key in WA_V2_CANARY_ACCESS_TOKEN WA_V2_CANARY_RECIPIENT; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required secret: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
             echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
             echo "PHASE_11_CERTIFICATION=BLOCKED"
-            echo "BLOCKER=missing_canary_access_token"
-            exit 2
-          fi
-          if [ -z "${WA_V2_CANARY_RECIPIENT:-}" ]; then
-            echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
-            echo "PHASE_11_CERTIFICATION=BLOCKED"
-            echo "BLOCKER=missing_canary_recipient"
+            echo "BLOCKER=missing_canary_secret"
             exit 2
           fi
 
