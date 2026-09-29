@@ -1,0 +1,120 @@
+name: WhatsApp Experience V2 — PRE-CANARY READ-ONLY
+
+on:
+  push:
+    branches:
+      - codex/whatsapp-experience-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whatsapp-experience-v2-precanary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Read-only production pre-canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: whatsapp-real-provider-canary
+    env:
+      WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
+      WA_V2_CANARY_ACCESS_TOKEN: ${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}
+      WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT }}
+
+    steps:
+      - name: Validate required secrets without printing values
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in WA_V2_CANARY_ACCESS_TOKEN WA_V2_CANARY_RECIPIENT; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required secret: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "PRECANARY_READ_ONLY=BLOCKED"
+            echo "BLOCKER=missing_canary_secret"
+            exit 2
+          fi
+          python3 - <<'PY'
+          import os, re
+          recipient = os.environ.get("WA_V2_CANARY_RECIPIENT", "")
+          digits = re.sub(r"\D", "", recipient)
+          if not (8 <= len(digits) <= 15):
+              print("PRECANARY_READ_ONLY=BLOCKED")
+              print("BLOCKER=recipient_secret_invalid_format")
+              raise SystemExit(2)
+          print("ACCESS_TOKEN_SECRET_READY=PASS")
+          print("RECIPIENT_SECRET_READY=PASS")
+          PY
+
+      - name: Read-only production API and WhatsApp connector preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          base = (os.environ.get("WA_V2_CANARY_API_BASE") or "https://api.toumaiai.com/api/v1").strip().rstrip("/")
+          token = (os.environ.get("WA_V2_CANARY_ACCESS_TOKEN") or "").strip()
+
+          def fail(reason: str) -> None:
+              print("PRECANARY_READ_ONLY=BLOCKED", flush=True)
+              print(f"BLOCKER={reason}", flush=True)
+              raise SystemExit(2)
+
+          def get_json(path: str):
+              req = urllib.request.Request(
+                  base + path,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/json",
+                      "User-Agent": "Toumai-Phase11-Precanary/1.0",
+                  },
+                  method="GET",
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      raw = response.read().decode("utf-8", errors="replace")
+              except urllib.error.HTTPError as exc:
+                  if exc.code in (401, 403):
+                      fail(f"access_token_rejected_http_{exc.code}")
+                  fail(f"api_http_{exc.code}:{path}")
+              except Exception as exc:
+                  fail(f"api_network:{path}:{type(exc).__name__}")
+              try:
+                  body = json.loads(raw or "{}")
+              except json.JSONDecodeError:
+                  fail(f"api_invalid_json:{path}")
+              if not isinstance(body, dict):
+                  fail(f"api_invalid_envelope:{path}")
+              return body
+
+          etat_body = get_json("/whatsapp/etat")
+          print("API_BASE_LIVE_REACHABILITY=PASS", flush=True)
+          print("ACCESS_TOKEN_AUTH=PASS", flush=True)
+          etat = etat_body.get("data")
+          connected = isinstance(etat, dict) and etat.get("code") == "connecte" and bool(etat.get("pret"))
+          if not connected:
+              fail("whatsapp_not_connected_or_not_ready")
+          print("REAL_PROVIDER_CONNECTED=PASS", flush=True)
+
+          settings_body = get_json("/whatsapp/settings")
+          settings = settings_body.get("data")
+          if not isinstance(settings, dict) or settings.get("send_text") is not True:
+              fail("send_text_permission_not_enabled")
+          print("SEND_TEXT_PERMISSION=PASS", flush=True)
+
+          # This workflow deliberately performs GET requests only. No pending action,
+          # confirmation endpoint, provider mutation, or WhatsApp send is called.
+          print("NO_PROVIDER_MUTATION=PASS", flush=True)
+          print("PRECANARY_READ_ONLY=PASS", flush=True)
+          PY
