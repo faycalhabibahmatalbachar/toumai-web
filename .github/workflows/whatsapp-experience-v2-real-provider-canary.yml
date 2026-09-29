@@ -16,11 +16,6 @@ on:
         required: true
         default: "60"
         type: string
-  push:
-    branches:
-      - codex/whatsapp-experience-v2
-    paths:
-      - docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt
 
 permissions:
   contents: read
@@ -40,8 +35,8 @@ jobs:
       WA_V2_CANARY_API_BASE: ${{ secrets.WA_V2_CANARY_API_BASE }}
       WA_V2_CANARY_ACCESS_TOKEN: ${{ secrets.WA_V2_CANARY_ACCESS_TOKEN }}
       WA_V2_CANARY_RECIPIENT: ${{ secrets.WA_V2_CANARY_RECIPIENT }}
-      WA_V2_CANARY_EXPLICIT_SEND: ${{ github.event_name == 'push' && 'true' || inputs.confirm_real_send }}
-      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ github.event_name == 'push' && '60' || inputs.max_wait_seconds }}
+      WA_V2_CANARY_EXPLICIT_SEND: ${{ inputs.confirm_real_send }}
+      WA_V2_CANARY_MAX_WAIT_SECONDS: ${{ inputs.max_wait_seconds }}
       GH_ACTIONS_TOKEN: ${{ github.token }}
 
     steps:
@@ -57,16 +52,6 @@ jobs:
             echo "PHASE_11_CERTIFICATION=BLOCKED"
             echo "BLOCKER=explicit_real_send_gate_not_true"
             exit 2
-          fi
-          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-            trigger="docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt"
-            if [ ! -f "$trigger" ] || ! grep -qx 'confirm_real_send=true' "$trigger" || ! grep -qx 'single_send=true' "$trigger"; then
-              echo "REAL_PHONE_PROVIDER_E2E=BLOCKED"
-              echo "PHASE_11_CERTIFICATION=BLOCKED"
-              echo "BLOCKER=push_trigger_authorization_marker_missing"
-              exit 2
-            fi
-            echo "PUSH_TRIGGER_AUTHORIZATION=PASS"
           fi
 
       - name: Require FAST and FULL success on this exact SHA before any provider action
