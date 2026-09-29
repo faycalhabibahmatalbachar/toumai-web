@@ -32,6 +32,7 @@ on:
       - ".github/workflows/whatsapp-experience-v2-precanary.yml"
       - ".github/workflows/whatsapp-experience-v2-real-provider-canary.yml"
       - "docs/whatsapp-experience-v2/FULL_CERTIFICATION_TRIGGER.txt"
+      - "docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt"
   workflow_dispatch:
     inputs:
       suite:
