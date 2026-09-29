@@ -29,6 +29,7 @@ on:
       - "scripts/wa_v2_fast.py"
       - "package.json"
       - ".github/workflows/whatsapp-experience-v2-fast.yml"
+      - ".github/workflows/whatsapp-experience-v2-precanary.yml"
       - ".github/workflows/whatsapp-experience-v2-real-provider-canary.yml"
       - "docs/whatsapp-experience-v2/FULL_CERTIFICATION_TRIGGER.txt"
   workflow_dispatch:
