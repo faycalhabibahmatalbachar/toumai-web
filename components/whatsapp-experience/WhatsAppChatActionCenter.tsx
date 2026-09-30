@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { WaContact, WaEtat, WhatsAppState } from "@/lib/connectors-api";
 import { useWidgetRuntime } from "@/components/chat/widgets/runtime";
@@ -101,7 +101,7 @@ export function WhatsAppChatActionCenter({
     setState(nextEtat || nextRaw ? "ready" : "unknown");
   }, [whatsapp]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) {
       setConnectionFlowOpen(false);
       setRecentActivityOpen(false);
@@ -113,11 +113,8 @@ export function WhatsAppChatActionCenter({
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     restorePreviousFocus.current = true;
     void refresh();
-    const id = window.setTimeout(() => {
-      dialogRef.current?.querySelector<HTMLElement>('[data-wa-sheet-close="true"]')?.focus();
-    }, 0);
+    dialogRef.current?.querySelector<HTMLElement>('[data-wa-sheet-close="true"]')?.focus();
     return () => {
-      window.clearTimeout(id);
       generation.current += 1;
       if (restorePreviousFocus.current) previousFocus.current?.focus();
     };
@@ -152,11 +149,9 @@ export function WhatsAppChatActionCenter({
       if (target instanceof Node && dialogRef.current.contains(target)) return;
       const items = focusable(dialogRef.current);
       const fallback = items[0] || dialogRef.current;
-      window.requestAnimationFrame(() => {
-        if (restorePreviousFocus.current && dialogRef.current && document.contains(fallback)) {
-          fallback.focus();
-        }
-      });
+      if (restorePreviousFocus.current && dialogRef.current && document.contains(fallback)) {
+        fallback.focus();
+      }
     };
     document.addEventListener("focusin", keepFocusInside);
     return () => document.removeEventListener("focusin", keepFocusInside);
