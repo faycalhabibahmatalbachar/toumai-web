@@ -54,7 +54,7 @@ jobs:
             exit 2
           fi
 
-      - name: Require FAST and FULL success on this exact SHA before any provider action
+      - name: Require FAST, FULL, and PRE-CANARY success on this exact SHA before any provider action
         shell: bash
         run: |
           set -euo pipefail
@@ -70,6 +70,7 @@ jobs:
           expected = {
               "WhatsApp Experience V2 — FAST": "FAST_CURRENT_HEAD",
               "WhatsApp Experience V2 — FULL CERTIFICATION": "FULL_CURRENT_HEAD",
+              "WhatsApp Experience V2 — PRE-CANARY READ-ONLY": "PRECANARY_CURRENT_HEAD",
           }
           deadline = time.monotonic() + 22 * 60
 
@@ -121,9 +122,10 @@ jobs:
               if not waiting:
                   print(f"PRECANARY_CERTIFIED_SHA={sha}", flush=True)
                   print("PRECANARY_FAST_FULL_GATE=PASS", flush=True)
+                  print("PRECANARY_READ_ONLY_GATE=PASS", flush=True)
                   break
               if time.monotonic() >= deadline:
-                  fail("fast_full_same_sha_gate_timeout")
+                  fail("fast_full_precanary_same_sha_gate_timeout")
               time.sleep(10)
           PY
 

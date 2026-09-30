@@ -46,12 +46,21 @@ def env_required(name: str) -> str:
     return value
 
 
+def normalize_bearer_secret(raw: str) -> str:
+    token = raw.strip()
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if not token:
+        abort("access_token_secret_empty_after_normalization")
+    return token
+
+
 def api_base() -> str:
     return (os.environ.get("WA_V2_CANARY_API_BASE") or DEFAULT_BASE).strip().rstrip("/")
 
 
 def auth_headers() -> dict[str, str]:
-    token = env_required("WA_V2_CANARY_ACCESS_TOKEN")
+    token = normalize_bearer_secret(env_required("WA_V2_CANARY_ACCESS_TOKEN"))
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
@@ -183,7 +192,7 @@ def main() -> int:
         abort("explicit_real_send_gate_not_true")
 
     recipient = env_required("WA_V2_CANARY_RECIPIENT")
-    _ = env_required("WA_V2_CANARY_ACCESS_TOKEN")
+    _ = normalize_bearer_secret(env_required("WA_V2_CANARY_ACCESS_TOKEN"))
 
     # 1) Real connector preflight.
     etat_body = request_json("GET", "/whatsapp/etat")
