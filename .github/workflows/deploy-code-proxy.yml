@@ -19,7 +19,8 @@ jobs:
       CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: toumai-code-edge
-      CF_DOMAIN: code.toumaiai.com
+      CF_CODE_DOMAIN: code.toumaiai.com
+      CF_PREVIEW_DOMAIN: preview.toumaiai.com
       CF_PAGES_HOST: toumai-code-edge.pages.dev
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +68,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy infra/code-proxy-pages/public --project-name toumai-code-edge --branch codex/code-toumaiai-proxy
 
-      - name: Associer code.toumaiai.com au projet Pages
+      - name: Associer les domaines et configurer le DNS
         shell: bash
         run: |
           set -euo pipefail
@@ -77,100 +78,96 @@ jobs:
             -H "Content-Type: application/json" \
             "$domains_api" > /tmp/cf-domains.json
 
-          if jq -e --arg domain "$CF_DOMAIN" '.result | any(.name == $domain)' /tmp/cf-domains.json >/dev/null; then
-            echo "$CF_DOMAIN est déjà associé au projet."
-          else
+          for domain in "$CF_CODE_DOMAIN" "$CF_PREVIEW_DOMAIN"; do
+            echo "Configuration de $domain"
+            if jq -e --arg domain "$domain" '.result | any(.name == $domain)' /tmp/cf-domains.json >/dev/null; then
+              echo "$domain est déjà associé au projet."
+            else
+              curl -fsS \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -X POST \
+                "$domains_api" \
+                --data "{\"name\":\"$domain\"}" > "/tmp/cf-domain-create-${domain//./-}.json"
+              jq -e '.success == true' "/tmp/cf-domain-create-${domain//./-}.json" >/dev/null
+            fi
+
+            domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$domain"
             curl -fsS \
-              -H "Authorization: Bearer $CF_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              -X POST \
-              "$domains_api" \
-              --data "{\"name\":\"$CF_DOMAIN\"}" \
-              | tee /tmp/cf-domain-create.json
-            jq -e '.success == true' /tmp/cf-domain-create.json >/dev/null
-          fi
-
-      - name: Créer ou corriger le CNAME code.toumaiai.com
-        shell: bash
-        run: |
-          set -euo pipefail
-          domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$CF_DOMAIN"
-          curl -fsS \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            "$domain_api" > /tmp/cf-domain.json
-          zone_id=$(jq -r '.result.zone_tag // empty' /tmp/cf-domain.json)
-          if [ -z "$zone_id" ]; then
-            cat /tmp/cf-domain.json
-            echo "::error::Zone Cloudflare introuvable pour $CF_DOMAIN."
-            exit 1
-          fi
-
-          dns_api="https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records"
-          curl -fsS \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            "$dns_api?type=CNAME&name=$CF_DOMAIN" > /tmp/cf-dns.json
-          jq -e '.success == true' /tmp/cf-dns.json >/dev/null
-          record_id=$(jq -r '.result[0].id // empty' /tmp/cf-dns.json)
-          payload="{\"type\":\"CNAME\",\"name\":\"$CF_DOMAIN\",\"content\":\"$CF_PAGES_HOST\",\"ttl\":1,\"proxied\":true}"
-
-          if [ -z "$record_id" ]; then
-            echo "Création du CNAME $CF_DOMAIN -> $CF_PAGES_HOST"
-            curl -fsS \
-              -H "Authorization: Bearer $CF_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              -X POST \
-              "$dns_api" \
-              --data "$payload" > /tmp/cf-dns-write.json
-          else
-            echo "Mise à jour du CNAME $CF_DOMAIN -> $CF_PAGES_HOST"
-            curl -fsS \
-              -H "Authorization: Bearer $CF_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              -X PUT \
-              "$dns_api/$record_id" \
-              --data "$payload" > /tmp/cf-dns-write.json
-          fi
-          cat /tmp/cf-dns-write.json
-          jq -e '.success == true' /tmp/cf-dns-write.json >/dev/null
-
-      - name: Relancer la validation du domaine Pages
-        shell: bash
-        run: |
-          set -euo pipefail
-          domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$CF_DOMAIN"
-          curl -fsS \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -X PATCH \
-            "$domain_api" > /tmp/cf-domain-retry.json
-          jq -e '.success == true' /tmp/cf-domain-retry.json >/dev/null
-
-      - name: Attendre l'activation du domaine Cloudflare
-        shell: bash
-        run: |
-          set -euo pipefail
-          domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$CF_DOMAIN"
-          for attempt in $(seq 1 36); do
-            curl -sS \
               -H "Authorization: Bearer $CF_API_TOKEN" \
               -H "Content-Type: application/json" \
               "$domain_api" > /tmp/cf-domain.json
-            status=$(jq -r '.result.status // "unknown"' /tmp/cf-domain.json)
-            echo "Domaine $CF_DOMAIN: $status (tentative $attempt/36)"
-            if [ "$status" = "active" ]; then
-              exit 0
-            fi
-            if [ "$status" = "blocked" ] || [ "$status" = "error" ]; then
+            zone_id=$(jq -r '.result.zone_tag // empty' /tmp/cf-domain.json)
+            if [ -z "$zone_id" ]; then
               cat /tmp/cf-domain.json
+              echo "::error::Zone Cloudflare introuvable pour $domain."
               exit 1
             fi
-            sleep 10
+
+            dns_api="https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records"
+            curl -fsS \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              "$dns_api?type=CNAME&name=$domain" > /tmp/cf-dns.json
+            jq -e '.success == true' /tmp/cf-dns.json >/dev/null
+            record_id=$(jq -r '.result[0].id // empty' /tmp/cf-dns.json)
+            payload="{\"type\":\"CNAME\",\"name\":\"$domain\",\"content\":\"$CF_PAGES_HOST\",\"ttl\":1,\"proxied\":true}"
+
+            if [ -z "$record_id" ]; then
+              curl -fsS \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -X POST \
+                "$dns_api" \
+                --data "$payload" > /tmp/cf-dns-write.json
+            else
+              curl -fsS \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -X PUT \
+                "$dns_api/$record_id" \
+                --data "$payload" > /tmp/cf-dns-write.json
+            fi
+            jq -e '.success == true' /tmp/cf-dns-write.json >/dev/null
+
+            curl -fsS \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -X PATCH \
+              "$domain_api" > /tmp/cf-domain-retry.json
+            jq -e '.success == true' /tmp/cf-domain-retry.json >/dev/null
           done
-          cat /tmp/cf-domain.json
-          echo "::error::Le domaine n'est pas devenu actif dans le délai prévu."
-          exit 1
+
+      - name: Attendre l'activation des domaines Cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          for domain in "$CF_CODE_DOMAIN" "$CF_PREVIEW_DOMAIN"; do
+            domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$domain"
+            active=0
+            for attempt in $(seq 1 36); do
+              curl -sS \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                "$domain_api" > /tmp/cf-domain.json
+              status=$(jq -r '.result.status // "unknown"' /tmp/cf-domain.json)
+              echo "Domaine $domain: $status (tentative $attempt/36)"
+              if [ "$status" = "active" ]; then
+                active=1
+                break
+              fi
+              if [ "$status" = "blocked" ] || [ "$status" = "error" ]; then
+                cat /tmp/cf-domain.json
+                exit 1
+              fi
+              sleep 10
+            done
+            if [ "$active" != "1" ]; then
+              cat /tmp/cf-domain.json
+              echo "::error::$domain n'est pas devenu actif dans le délai prévu."
+              exit 1
+            fi
+          done
 
       - name: Vérifier code.toumaiai.com
         shell: bash
@@ -182,8 +179,26 @@ jobs:
               echo "code.toumaiai.com répond avec HTTP $status"
               exit 0
             fi
-            echo "Tentative $attempt/24: HTTP $status, nouvelle vérification dans 10 s"
             sleep 10
           done
-          echo "::error::code.toumaiai.com ne répond pas correctement après le déploiement."
+          echo "::error::code.toumaiai.com ne répond pas correctement."
+          exit 1
+
+      - name: Vérifier la passerelle preview.toumaiai.com
+        shell: bash
+        run: |
+          set +e
+          for attempt in $(seq 1 24); do
+            status=$(curl -sS -o /tmp/toumai-preview.txt -w "%{http_code}" --connect-timeout 10 --max-time 30 https://preview.toumaiai.com/)
+            if [ "$status" = "400" ]; then
+              grep -q "Aucune prévisualisation active" /tmp/toumai-preview.txt && {
+                echo "preview.toumaiai.com est actif et attend un port Toumaï Code."
+                exit 0
+              }
+            fi
+            echo "Tentative $attempt/24: HTTP $status"
+            sleep 10
+          done
+          cat /tmp/toumai-preview.txt
+          echo "::error::preview.toumaiai.com ne répond pas avec la passerelle attendue."
           exit 1
