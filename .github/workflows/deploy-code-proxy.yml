@@ -130,12 +130,24 @@ jobs:
             fi
             jq -e '.success == true' /tmp/cf-dns-write.json >/dev/null
 
+            # Pages peut temporairement afficher status=error avec
+            # validation_data.status=active pendant une course de vérification.
             curl -fsS \
               -H "Authorization: Bearer $CF_API_TOKEN" \
               -H "Content-Type: application/json" \
-              -X PATCH \
-              "$domain_api" > /tmp/cf-domain-retry.json
-            jq -e '.success == true' /tmp/cf-domain-retry.json >/dev/null
+              "$domain_api" > /tmp/cf-domain-after-dns.json
+            domain_status=$(jq -r '.result.status // "unknown"' /tmp/cf-domain-after-dns.json)
+            validation_status=$(jq -r '.result.validation_data.status // "unknown"' /tmp/cf-domain-after-dns.json)
+            if [ "$domain_status" != "active" ] && [ "$validation_status" != "active" ]; then
+              curl -fsS \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -X PATCH \
+                "$domain_api" > /tmp/cf-domain-retry.json
+              jq -e '.success == true' /tmp/cf-domain-retry.json >/dev/null
+            else
+              echo "$domain est déjà validé; pas de revalidation forcée."
+            fi
           done
 
       - name: Attendre l'activation des domaines Cloudflare
@@ -144,27 +156,30 @@ jobs:
           set -euo pipefail
           for domain in "$CF_CODE_DOMAIN" "$CF_PREVIEW_DOMAIN"; do
             domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$domain"
-            active=0
+            ready=0
             for attempt in $(seq 1 36); do
               curl -sS \
                 -H "Authorization: Bearer $CF_API_TOKEN" \
                 -H "Content-Type: application/json" \
                 "$domain_api" > /tmp/cf-domain.json
               status=$(jq -r '.result.status // "unknown"' /tmp/cf-domain.json)
-              echo "Domaine $domain: $status (tentative $attempt/36)"
-              if [ "$status" = "active" ]; then
-                active=1
+              validation=$(jq -r '.result.validation_data.status // "unknown"' /tmp/cf-domain.json)
+              verification=$(jq -r '.result.verification_data.status // "unknown"' /tmp/cf-domain.json)
+              echo "Domaine $domain: status=$status validation=$validation verification=$verification (tentative $attempt/36)"
+
+              if [ "$status" = "active" ] || [ "$validation" = "active" ]; then
+                ready=1
                 break
               fi
-              if [ "$status" = "blocked" ] || [ "$status" = "error" ]; then
+              if [ "$status" = "blocked" ]; then
                 cat /tmp/cf-domain.json
                 exit 1
               fi
               sleep 10
             done
-            if [ "$active" != "1" ]; then
+            if [ "$ready" != "1" ]; then
               cat /tmp/cf-domain.json
-              echo "::error::$domain n'est pas devenu actif dans le délai prévu."
+              echo "::error::$domain n'est pas devenu validé dans le délai prévu."
               exit 1
             fi
           done
@@ -179,6 +194,7 @@ jobs:
               echo "code.toumaiai.com répond avec HTTP $status"
               exit 0
             fi
+            echo "Tentative $attempt/24: HTTP $status"
             sleep 10
           done
           echo "::error::code.toumaiai.com ne répond pas correctement."
