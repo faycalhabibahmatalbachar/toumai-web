@@ -130,8 +130,6 @@ jobs:
             fi
             jq -e '.success == true' /tmp/cf-dns-write.json >/dev/null
 
-            # Pages peut temporairement afficher status=error avec
-            # validation_data.status=active pendant une course de vérification.
             curl -fsS \
               -H "Authorization: Bearer $CF_API_TOKEN" \
               -H "Content-Type: application/json" \
@@ -199,6 +197,17 @@ jobs:
           done
           echo "::error::code.toumaiai.com ne répond pas correctement."
           exit 1
+
+      - name: Vérifier l'API de découverte Preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --connect-timeout 10 --max-time 30 \
+            https://code.toumaiai.com/toumai-preview/api/ports \
+            -o /tmp/toumai-preview-ports.json
+          cat /tmp/toumai-preview-ports.json
+          jq -e '.success == true and (.ports | type == "array") and (.scannedAt | type == "string")' /tmp/toumai-preview-ports.json >/dev/null
+          echo "API de découverte Preview opérationnelle."
 
       - name: Vérifier la passerelle preview.toumaiai.com
         shell: bash
