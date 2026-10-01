@@ -1,0 +1,50 @@
+name: Deploy Toumaï Code Edge
+
+on:
+  push:
+    branches: [codex/code-toumaiai-proxy]
+    paths:
+      - "infra/code-proxy/**"
+      - ".github/workflows/deploy-code-proxy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: toumai-code-edge
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier les secrets Cloudflare
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::Secrets Cloudflare absents dans ce dépôt."
+            exit 1
+          fi
+
+      - name: Déployer le Worker code.toumaiai.com
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config infra/code-proxy/wrangler.jsonc
+
+      - name: Vérifier code.toumaiai.com
+        shell: bash
+        run: |
+          set +e
+          for attempt in $(seq 1 24); do
+            status=$(curl -L -sS -o /tmp/toumai-code.html -w "%{http_code}" --connect-timeout 10 --max-time 25 https://code.toumaiai.com/)
+            if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then
+              echo "code.toumaiai.com répond avec HTTP $status"
+              exit 0
+            fi
+            echo "Tentative $attempt/24: HTTP $status, nouvelle vérification dans 10 s"
+            sleep 10
+          done
+          echo "::error::code.toumaiai.com ne répond pas correctement après le déploiement."
+          exit 1
