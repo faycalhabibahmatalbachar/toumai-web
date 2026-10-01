@@ -4,7 +4,7 @@ on:
   push:
     branches: [codex/code-toumaiai-proxy]
     paths:
-      - "infra/code-proxy/**"
+      - "infra/code-proxy-pages/**"
       - ".github/workflows/deploy-code-proxy.yml"
   workflow_dispatch:
 
@@ -15,30 +15,111 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_PROJECT: toumai-code-edge
+      CF_DOMAIN: code.toumaiai.com
     steps:
       - uses: actions/checkout@v4
 
       - name: Vérifier les secrets Cloudflare
         shell: bash
         run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+          if [ -z "$CF_API_TOKEN" ] || [ -z "$CF_ACCOUNT_ID" ]; then
             echo "::error::Secrets Cloudflare absents dans ce dépôt."
             exit 1
           fi
 
-      - name: Déployer le Worker code.toumaiai.com
+      - name: Créer ou retrouver le projet Cloudflare Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT"
+          code=$(curl -sS -o /tmp/cf-project.json -w "%{http_code}" \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            "$api")
+
+          if [ "$code" = "404" ]; then
+            curl -fsS \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -X POST \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects" \
+              --data "{\"name\":\"$CF_PROJECT\",\"production_branch\":\"codex/code-toumaiai-proxy\"}" \
+              | tee /tmp/cf-project-create.json
+            jq -e '.success == true' /tmp/cf-project-create.json >/dev/null
+          elif [ "$code" = "200" ]; then
+            jq -e '.success == true' /tmp/cf-project.json >/dev/null
+            echo "Projet Pages $CF_PROJECT déjà présent."
+          else
+            cat /tmp/cf-project.json
+            echo "::error::Impossible de lire le projet Pages (HTTP $code)."
+            exit 1
+          fi
+
+      - name: Déployer le proxy Pages vers Render
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config infra/code-proxy/wrangler.jsonc
+          command: pages deploy infra/code-proxy-pages/public --project-name toumai-code-edge --branch codex/code-toumaiai-proxy
+
+      - name: Associer code.toumaiai.com au projet Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          domains_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains"
+          curl -fsS \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            "$domains_api" > /tmp/cf-domains.json
+
+          if jq -e --arg domain "$CF_DOMAIN" '.result | any(.name == $domain)' /tmp/cf-domains.json >/dev/null; then
+            echo "$CF_DOMAIN est déjà associé au projet."
+          else
+            curl -fsS \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -X POST \
+              "$domains_api" \
+              --data "{\"name\":\"$CF_DOMAIN\"}" \
+              | tee /tmp/cf-domain-create.json
+            jq -e '.success == true' /tmp/cf-domain-create.json >/dev/null
+          fi
+
+      - name: Attendre l'activation du domaine Cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          domain_api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains/$CF_DOMAIN"
+          for attempt in $(seq 1 30); do
+            curl -sS \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              "$domain_api" > /tmp/cf-domain.json
+            status=$(jq -r '.result.status // "unknown"' /tmp/cf-domain.json)
+            echo "Domaine $CF_DOMAIN: $status (tentative $attempt/30)"
+            if [ "$status" = "active" ]; then
+              exit 0
+            fi
+            if [ "$status" = "blocked" ] || [ "$status" = "error" ]; then
+              cat /tmp/cf-domain.json
+              exit 1
+            fi
+            sleep 10
+          done
+          cat /tmp/cf-domain.json
+          echo "::error::Le domaine n'est pas devenu actif dans le délai prévu."
+          exit 1
 
       - name: Vérifier code.toumaiai.com
         shell: bash
         run: |
           set +e
           for attempt in $(seq 1 24); do
-            status=$(curl -L -sS -o /tmp/toumai-code.html -w "%{http_code}" --connect-timeout 10 --max-time 25 https://code.toumaiai.com/)
+            status=$(curl -L -sS -o /tmp/toumai-code.html -w "%{http_code}" --connect-timeout 10 --max-time 30 https://code.toumaiai.com/)
             if [ "$status" -ge 200 ] && [ "$status" -lt 500 ]; then
               echo "code.toumaiai.com répond avec HTTP $status"
               exit 0
