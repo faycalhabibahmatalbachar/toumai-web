@@ -1,11 +1,20 @@
 name: WA-AUTH UI production build
 
 on:
+  pull_request:
+    paths:
+      - 'app/login/page.tsx'
+      - 'app/verify-whatsapp/**'
+      - 'lib/whatsapp-auth.ts'
+      - 'lib/http.ts'
+      - '.github/workflows/wa-auth-ui-build.yml'
   push:
     branches: [main]
     paths:
       - 'app/login/page.tsx'
+      - 'app/verify-whatsapp/**'
       - 'lib/whatsapp-auth.ts'
+      - 'lib/http.ts'
       - '.github/workflows/wa-auth-ui-build.yml'
   workflow_dispatch:
 
