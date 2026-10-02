@@ -22,6 +22,12 @@ import { safeAccountReturn } from "@/lib/payment-navigation";
 import { usePaymentPlan, usePaymentLocation } from "@/hooks/use-payment-navigation";
 import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
 import { GuestOnly } from "@/components/auth/GuestOnly";
+import {
+  demanderCodeWhatsApp,
+  signalerWhatsappWidgetIndisponible,
+  verifierCodeWhatsApp,
+  type WhatsAppChallenge,
+} from "@/lib/whatsapp-auth";
 
 const COPY: Record<Lang, {
   title: string;
@@ -36,6 +42,18 @@ const COPY: Record<Lang, {
   submitting: string;
   continueWith: string;
   github: string;
+  whatsapp: string;
+  whatsappTitle: string;
+  whatsappIntro: string;
+  whatsappPhone: string;
+  whatsappPhonePlaceholder: string;
+  whatsappSend: string;
+  whatsappSending: string;
+  whatsappCodeIntro: string;
+  whatsappVerify: string;
+  whatsappVerifying: string;
+  whatsappChangeNumber: string;
+  whatsappError: string;
   noAccount: string;
   createAccount: string;
   expiredTitle: string;
@@ -66,6 +84,18 @@ const COPY: Record<Lang, {
     submitting: "Connexion…",
     continueWith: "Ou continuer avec",
     github: "Continuer avec GitHub",
+    whatsapp: "Continuer avec WhatsApp",
+    whatsappTitle: "Connexion avec WhatsApp",
+    whatsappIntro: "Entrez le numéro WhatsApp lié à votre compte Toumaï. Nous vous enverrons un code à six chiffres.",
+    whatsappPhone: "Numéro WhatsApp",
+    whatsappPhonePlaceholder: "+235 66 00 00 00",
+    whatsappSend: "Recevoir le code",
+    whatsappSending: "Envoi du code…",
+    whatsappCodeIntro: "Si ce numéro est lié à un compte Toumaï, un code de connexion a été envoyé sur WhatsApp.",
+    whatsappVerify: "Se connecter",
+    whatsappVerifying: "Vérification…",
+    whatsappChangeNumber: "Utiliser un autre numéro",
+    whatsappError: "Connexion WhatsApp impossible.",
     noAccount: "Vous n’avez pas encore de compte ?",
     createAccount: "Créer un compte",
     expiredTitle: "Votre session a expiré.",
@@ -96,6 +126,18 @@ const COPY: Record<Lang, {
     submitting: "جاري الدخول…",
     continueWith: "أو واصل بـ",
     github: "واصل بـ GitHub",
+    whatsapp: "واصل بـ WhatsApp",
+    whatsappTitle: "الدخول بـ WhatsApp",
+    whatsappIntro: "اكتب رقم WhatsApp المربوط بحساب Toumaï. بنرسل ليك كود من ستة أرقام.",
+    whatsappPhone: "رقم WhatsApp",
+    whatsappPhonePlaceholder: "+235 66 00 00 00",
+    whatsappSend: "أرسل الكود",
+    whatsappSending: "جاري إرسال الكود…",
+    whatsappCodeIntro: "لو الرقم مربوط بحساب Toumaï، اتبعت ليه كود دخول على WhatsApp.",
+    whatsappVerify: "ادخل",
+    whatsappVerifying: "جاري التحقق…",
+    whatsappChangeNumber: "استعمل رقم تاني",
+    whatsappError: "الدخول بـ WhatsApp ما تم.",
     noAccount: "ما عندك حساب؟",
     createAccount: "اعمل حساب",
     expiredTitle: "الجلسة خلصت.",
@@ -126,6 +168,18 @@ const COPY: Record<Lang, {
     submitting: "جارٍ تسجيل الدخول…",
     continueWith: "أو تابع باستخدام",
     github: "المتابعة باستخدام GitHub",
+    whatsapp: "المتابعة باستخدام WhatsApp",
+    whatsappTitle: "تسجيل الدخول عبر WhatsApp",
+    whatsappIntro: "أدخل رقم WhatsApp المرتبط بحساب Toumaï. سنرسل رمزاً من ستة أرقام.",
+    whatsappPhone: "رقم WhatsApp",
+    whatsappPhonePlaceholder: "+235 66 00 00 00",
+    whatsappSend: "إرسال الرمز",
+    whatsappSending: "جارٍ إرسال الرمز…",
+    whatsappCodeIntro: "إذا كان الرقم مرتبطاً بحساب Toumaï، فقد أُرسل رمز تسجيل الدخول عبر WhatsApp.",
+    whatsappVerify: "تسجيل الدخول",
+    whatsappVerifying: "جارٍ التحقق…",
+    whatsappChangeNumber: "استخدام رقم آخر",
+    whatsappError: "تعذر تسجيل الدخول عبر WhatsApp.",
     noAccount: "ليس لديك حساب بعد؟",
     createAccount: "إنشاء حساب",
     expiredTitle: "انتهت جلستك.",
@@ -156,6 +210,18 @@ const COPY: Record<Lang, {
     submitting: "Signing in…",
     continueWith: "Or continue with",
     github: "Continue with GitHub",
+    whatsapp: "Continue with WhatsApp",
+    whatsappTitle: "Sign in with WhatsApp",
+    whatsappIntro: "Enter the WhatsApp number linked to your Toumaï account. We’ll send a six-digit code.",
+    whatsappPhone: "WhatsApp number",
+    whatsappPhonePlaceholder: "+235 66 00 00 00",
+    whatsappSend: "Send code",
+    whatsappSending: "Sending code…",
+    whatsappCodeIntro: "If this number is linked to a Toumaï account, a sign-in code was sent on WhatsApp.",
+    whatsappVerify: "Sign in",
+    whatsappVerifying: "Verifying…",
+    whatsappChangeNumber: "Use another number",
+    whatsappError: "WhatsApp sign-in failed.",
     noAccount: "Don’t have an account yet?",
     createAccount: "Create an account",
     expiredTitle: "Your session has expired.",
@@ -209,6 +275,14 @@ function IconeGithub() {
   );
 }
 
+function IconeWhatsapp() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12.04 2a9.84 9.84 0 0 0-8.45 14.88L2 22l5.28-1.54A9.9 9.9 0 1 0 12.04 2Zm0 17.98a8.1 8.1 0 0 1-4.13-1.13l-.3-.18-3.13.91.91-3.05-.2-.31a8.06 8.06 0 1 1 6.85 3.76Zm4.44-6.05c-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.54.12-.16.24-.62.79-.76.95-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28Z" />
+    </svg>
+  );
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const { lang } = useLang();
@@ -222,6 +296,11 @@ function LoginPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [modeWhatsapp, setModeWhatsapp] = useState(false);
+  const [telephoneWhatsapp, setTelephoneWhatsapp] = useState("+235");
+  const [defiWhatsapp, setDefiWhatsapp] = useState<WhatsAppChallenge | null>(null);
+  const [codeWhatsapp, setCodeWhatsapp] = useState("");
+  const whatsappRequestKey = useRef<string | null>(null);
 
   usePaymentPlan();
   const location = usePaymentLocation();
@@ -235,6 +314,20 @@ function LoginPageContent() {
     planUrl === "essentiel" || planUrl === "toumai_5" ? planUrl : null;
   const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
   const oauthLanguage = lang === "ar-td" ? "ar" : lang;
+
+  function onTurnstileUnavailable() {
+    signalerWidgetIndisponible();
+    signalerWhatsappWidgetIndisponible();
+  }
+
+  function resetWhatsapp() {
+    setModeWhatsapp(false);
+    setDefiWhatsapp(null);
+    setCodeWhatsapp("");
+    setError(null);
+    whatsappRequestKey.current = null;
+    turnstile.current?.reinitialiser();
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -266,6 +359,58 @@ function LoginPageContent() {
     } catch (err) {
       setError(messageAuth(err, text.invalidCode));
       setCodeMfa("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function demanderWhatsapp(e: React.FormEvent) {
+    e.preventDefault();
+    const phone = telephoneWhatsapp.trim();
+    if (!phone) return;
+    setError(null);
+    setLoading(true);
+    try {
+      if (!whatsappRequestKey.current) {
+        whatsappRequestKey.current = `wa-login:${crypto.randomUUID()}`;
+      }
+      const challenge = await demanderCodeWhatsApp(
+        phone,
+        turnstileToken,
+        whatsappRequestKey.current,
+      );
+      setDefiWhatsapp(challenge);
+      setCodeWhatsapp("");
+    } catch (err) {
+      setError(messageAuth(err, text.whatsappError));
+      turnstile.current?.reinitialiser();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifierWhatsapp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!defiWhatsapp) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await verifierCodeWhatsApp(
+        telephoneWhatsapp.trim(),
+        defiWhatsapp.challenge_id,
+        codeWhatsapp.trim(),
+      );
+      if (result.status === "mfa_required") {
+        setDefiMfa(result.pendingToken);
+        setModeWhatsapp(false);
+        setDefiWhatsapp(null);
+        setCodeWhatsapp("");
+        return;
+      }
+      window.location.replace(destination);
+    } catch (err) {
+      setError(messageAuth(err, text.invalidCode));
+      setCodeWhatsapp("");
     } finally {
       setLoading(false);
     }
@@ -359,6 +504,125 @@ function LoginPageContent() {
     );
   }
 
+  if (modeWhatsapp) {
+    const whatsappCorps = (
+      <>
+        <form
+          onSubmit={defiWhatsapp ? verifierWhatsapp : demanderWhatsapp}
+          className="auth-formulaire"
+        >
+          {!defiWhatsapp ? (
+            <>
+              <label className="auth-champ">
+                <span className="auth-etiquette">{text.whatsappPhone}</span>
+                <span className="auth-input-wrap">
+                  <IconeWhatsapp />
+                  <input
+                    type="tel"
+                    required
+                    autoComplete="tel"
+                    inputMode="tel"
+                    placeholder={text.whatsappPhonePlaceholder}
+                    value={telephoneWhatsapp}
+                    onChange={(e) => {
+                      setTelephoneWhatsapp(e.target.value);
+                      whatsappRequestKey.current = null;
+                    }}
+                    disabled={loading}
+                    className="auth-saisie"
+                  />
+                </span>
+              </label>
+              {messageErreur}
+              <button type="submit" disabled={loading || telephoneWhatsapp.trim().length < 6} className="auth-bouton">
+                {loading && <span className="auth-rotative" aria-hidden="true" />}
+                {loading ? text.whatsappSending : text.whatsappSend}
+                {!loading && <IconeFleche />}
+              </button>
+              <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
+                <Turnstile
+                  onToken={setTurnstileToken}
+                  onIndisponible={onTurnstileUnavailable}
+                  poignee={turnstile}
+                  language={oauthLanguage}
+                  appearance="always"
+                  size="normal"
+                  unavailableText={text.antiBotUnavailable}
+                />
+                {turnstileToken ? (
+                  <p className="auth-turnstile-ok" role="status">✓ {text.antiBotVerified}</p>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="auth-avis" role="status">
+                <IconeInfo />
+                <span>{text.whatsappCodeIntro}</span>
+              </p>
+              <label className="auth-champ">
+                <span className="auth-etiquette">{text.verificationCode}</span>
+                <input
+                  autoFocus
+                  required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  placeholder={text.verificationPlaceholder}
+                  value={codeWhatsapp}
+                  onChange={(e) => setCodeWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  disabled={loading}
+                  className="auth-saisie auth-code"
+                />
+              </label>
+              {messageErreur}
+              <button type="submit" disabled={loading || codeWhatsapp.length !== 6} className="auth-bouton">
+                {loading && <span className="auth-rotative" aria-hidden="true" />}
+                {loading ? text.whatsappVerifying : text.whatsappVerify}
+                {!loading && <IconeFleche />}
+              </button>
+              <button
+                type="button"
+                className="auth-bouton-discret"
+                onClick={() => {
+                  setDefiWhatsapp(null);
+                  setCodeWhatsapp("");
+                  setError(null);
+                  whatsappRequestKey.current = null;
+                  turnstile.current?.reinitialiser();
+                }}
+              >
+                {text.whatsappChangeNumber}
+              </button>
+            </>
+          )}
+          <button type="button" className="auth-bouton-discret" onClick={resetWhatsapp}>
+            {text.back}
+          </button>
+        </form>
+      </>
+    );
+
+    if (planChoisi) {
+      return (
+        <AuthShell planId={planChoisi}>
+          <div className="w-full" dir="ltr">
+            <h1 className="mb-2 text-2xl font-semibold">{text.whatsappTitle}</h1>
+            <p className="text-sm text-[var(--text-secondary)]">{text.whatsappIntro}</p>
+            {whatsappCorps}
+          </div>
+        </AuthShell>
+      );
+    }
+
+    return (
+      <AuthPremium titre={text.whatsappTitle} intro={text.whatsappIntro} langueActive>
+        {whatsappCorps}
+      </AuthPremium>
+    );
+  }
+
   const corps = (
     <>
       {sessionExpiree && (
@@ -438,7 +702,7 @@ function LoginPageContent() {
         <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
           <Turnstile
             onToken={setTurnstileToken}
-            onIndisponible={signalerWidgetIndisponible}
+            onIndisponible={onTurnstileUnavailable}
             poignee={turnstile}
             language={oauthLanguage}
             appearance="always"
@@ -454,6 +718,19 @@ function LoginPageContent() {
       <p className="auth-separateur">{text.continueWith}</p>
 
       <div className="auth-socials">
+        <button
+          type="button"
+          className="auth-social"
+          onClick={() => {
+            setModeWhatsapp(true);
+            setError(null);
+          }}
+          disabled={loading}
+          aria-label={text.whatsapp}
+        >
+          <IconeWhatsapp />
+          <span>{text.whatsapp}</span>
+        </button>
         <div className="auth-google">
           <GoogleSignInButton
             onCredential={onGoogleCredential}
