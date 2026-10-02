@@ -7,24 +7,58 @@ interface ApiEnvelope<T> {
   success: boolean;
   message?: string;
   data?: T;
+  detail?: unknown;
+}
+
+function enrollmentCode(body: ApiEnvelope<unknown>): string | null {
+  const detail = body.detail;
+  if (typeof detail === "object" && detail !== null) {
+    const code = (detail as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  if (typeof body.data === "object" && body.data !== null) {
+    const code = (body.data as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  return null;
+}
+
+function safeCurrentPath(): string {
+  if (typeof window === "undefined") return "/chat";
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (!current.startsWith("/") || current.startsWith("//")) return "/chat";
+  if (current.startsWith("/verify-whatsapp")) return "/chat";
+  return current;
+}
+
+/**
+ * Un 428 WA-AUTH n'est pas une panne : le mot de passe est valide, mais le
+ * compte doit terminer son enrôlement WhatsApp. Le serveur reste la source de
+ * vérité ; ce redirect ne remplace jamais le gate backend.
+ */
+async function redirectEnrollmentIfRequired(res: Response): Promise<boolean> {
+  if (res.status !== 428 || typeof window === "undefined") return false;
+  let body: ApiEnvelope<unknown> = { success: false };
+  try {
+    body = (await res.clone().json()) as ApiEnvelope<unknown>;
+  } catch {
+    return false;
+  }
+  if (enrollmentCode(body) !== "WHATSAPP_ENROLLMENT_REQUIRED") return false;
+  if (window.location.pathname.startsWith("/verify-whatsapp")) return true;
+  const next = safeCurrentPath();
+  window.location.assign(`/verify-whatsapp?next=${encodeURIComponent(next)}`);
+  return true;
 }
 
 /**
  * LE SEUL CHEMIN VERS UNE ROUTE AUTHENTIFIÉE.
  *
- * Avant, chaque module refaisait son `fetch` — et trois d'entre eux
- * (chat-api, documents-api, voice-api) déconnectaient au PREMIER 401 sans
- * jamais tenter le renouvellement. Le jeton d'accès durant trente minutes,
- * il suffisait de laisser un onglet ouvert une demi-heure : le premier
- * chargement de l'historique renvoyait la personne sur « votre session a
- * expiré ».
- *
- * Ici, dans l'ordre :
- *   1. on renouvelle EN AVANCE si le jeton est sur le point d'expirer ;
- *   2. sur 401, on renouvelle puis on REJOUE la requête une fois ;
- *   3. on ne déconnecte que si le serveur a explicitement refusé le
- *      renouvellement. Une panne réseau ou un serveur qui redémarre laissent
- *      la session en place — elle repartira toute seule.
+ * Dans l'ordre :
+ *   1. renouvellement anticipé du jeton ;
+ *   2. une seule reprise après 401 ;
+ *   3. redirection vers l'enrôlement sur le 428 WA-AUTH explicite ;
+ *   4. déconnexion uniquement quand le serveur refuse vraiment le refresh.
  */
 export async function authFetch(path: string, init?: RequestInit): Promise<Response> {
   await ensureFreshSession();
@@ -36,16 +70,20 @@ export async function authFetch(path: string, init?: RequestInit): Promise<Respo
     });
 
   let res = await send();
-  if (res.status !== 401) return res;
+  if (res.status !== 401) {
+    await redirectEnrollmentIfRequired(res);
+    return res;
+  }
 
   const outcome = await refreshSession();
   if (outcome.status === "ok") {
     res = await send();
-    if (res.status !== 401) return res;
+    if (res.status !== 401) {
+      await redirectEnrollmentIfRequired(res);
+      return res;
+    }
   }
   if (outcome.status === "unavailable") {
-    // Le serveur n'a rien refusé : il n'a pas répondu. On garde la session et
-    // on remonte une erreur passagère, que l'appelant affichera comme telle.
     throw new HttpError(503);
   }
   handleUnauthorized();
@@ -58,14 +96,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
-  const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T> & {
-    detail?: unknown;
-  };
+  const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!res.ok || body.success === false) {
-    // On remonte le statut ET le corps. Le statut suffit à choisir une phrase
-    // générique ; le corps porte ce qu'un refus de quota a de précis, et
-    // `describeError` s'en sert quand il est là. FastAPI place ce corps dans
-    // `detail`, hors de notre enveloppe applicative.
     const message =
       body.message ??
       (typeof body.detail === "object" && body.detail !== null
@@ -82,7 +114,7 @@ export async function postForm<T>(path: string, form: FormData): Promise<T> {
   const res = await authFetch(path, { method: "POST", body: form });
   const body = (await res.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!res.ok || body.success === false) {
-    throw new HttpError(res.ok ? 400 : res.status, body.message);
+    throw new HttpError(res.ok ? 400 : res.status, body.message, body.detail);
   }
   return body.data as T;
 }
