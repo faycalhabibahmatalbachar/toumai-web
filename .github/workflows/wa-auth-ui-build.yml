@@ -1,0 +1,27 @@
+name: WA-AUTH UI production build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/login/page.tsx'
+      - 'lib/whatsapp-auth.ts'
+      - '.github/workflows/wa-auth-ui-build.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
