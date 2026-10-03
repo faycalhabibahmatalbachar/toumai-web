@@ -24,11 +24,15 @@ import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
 import { GuestOnly } from "@/components/auth/GuestOnly";
 import {
   demanderCodeWhatsApp,
+  demanderRecuperationMfaWhatsapp,
   estNumeroWhatsappValide,
+  etatRecuperationMfaWhatsapp,
   isWhatsAppAuthError,
   signalerWhatsappWidgetIndisponible,
   verifierCodeWhatsApp,
+  verifierRecuperationMfaWhatsapp,
   type WhatsAppChallenge,
+  type WhatsAppMfaRecoveryStatus,
 } from "@/lib/whatsapp-auth";
 
 const COPY: Record<Lang, {
@@ -78,6 +82,14 @@ const COPY: Record<Lang, {
   verify: string;
   verifying: string;
   invalidCode: string;
+  mfaRecoveryAction: string;
+  mfaRecoveryTitle: string;
+  mfaRecoveryIntro: string;
+  mfaRecoverySent: string;
+  mfaRecoveryVerify: string;
+  mfaRecoveryVerifying: string;
+  mfaRecoveryBack: string;
+  mfaRecoveryUnavailable: string;
   back: string;
 }> = {
   fr: {
@@ -118,15 +130,23 @@ const COPY: Record<Lang, {
     expiredBody: "Reconnectez-vous pour continuer.",
     loginError: "Échec de connexion.",
     googleError: "Échec de connexion Google.",
-    antiBotUnavailable: "Vérification anti-robot indisponible sur ce navigateur. Vous pouvez continuer.",
+    antiBotUnavailable: "",
     antiBotVerified: "Vérification de sécurité réussie",
     verificationTitle: "Vérification",
-    verificationIntro: "Saisissez le code à six chiffres de votre application d’authentification.",
+    verificationIntro: "Saisissez le code de votre application d’authentification ou un code de secours.",
     verificationCode: "Code de vérification",
     verificationPlaceholder: "123456",
     verify: "Continuer",
     verifying: "Vérification…",
     invalidCode: "Code invalide ou expiré.",
+    mfaRecoveryAction: "J’ai perdu mon application et mes codes",
+    mfaRecoveryTitle: "Récupération avec WhatsApp",
+    mfaRecoveryIntro: "Confirmez le numéro WhatsApp vérifié {phone}. Après le code reçu, l’ancienne double authentification sera réinitialisée.",
+    mfaRecoverySent: "Code de récupération envoyé sur WhatsApp au {phone}. Saisissez les 6 chiffres reçus.",
+    mfaRecoveryVerify: "Récupérer mon compte",
+    mfaRecoveryVerifying: "Récupération…",
+    mfaRecoveryBack: "Utiliser l’application ou un code de secours",
+    mfaRecoveryUnavailable: "Aucun numéro WhatsApp vérifié n’est disponible pour cette récupération.",
     back: "Revenir à la connexion",
   },
   "ar-td": {
@@ -167,15 +187,23 @@ const COPY: Record<Lang, {
     expiredBody: "ادخل من جديد عشان تواصل.",
     loginError: "الدخول ما تم.",
     googleError: "الدخول بـ Google ما تم.",
-    antiBotUnavailable: "فحص الحماية ما اشتغل في المتصفح دا. تقدر تواصل.",
+    antiBotUnavailable: "",
     antiBotVerified: "فحص الحماية تم",
     verificationTitle: "التأكيد",
-    verificationIntro: "اكتب الكود المكوّن من ستة أرقام من تطبيق التحقق.",
+    verificationIntro: "اكتب كود تطبيق التحقق أو واحد من أكواد الاسترجاع.",
     verificationCode: "كود التحقق",
     verificationPlaceholder: "123456",
     verify: "واصل",
     verifying: "جاري التحقق…",
     invalidCode: "الكود غلط أو خلص.",
+    mfaRecoveryAction: "ضيعت تطبيق التحقق وأكواد الاسترجاع",
+    mfaRecoveryTitle: "استرجاع الحساب بـ WhatsApp",
+    mfaRecoveryIntro: "أكد رقم WhatsApp الموثق {phone}. بعد الكود، التحقق القديم حيتعمل ليه إعادة ضبط.",
+    mfaRecoverySent: "رسلنا كود الاسترجاع على WhatsApp للرقم {phone}. اكتب الستة أرقام.",
+    mfaRecoveryVerify: "استرجع حسابي",
+    mfaRecoveryVerifying: "جاري الاسترجاع…",
+    mfaRecoveryBack: "استعمل تطبيق التحقق أو كود استرجاع",
+    mfaRecoveryUnavailable: "ما في رقم WhatsApp موثق متاح للاسترجاع.",
     back: "ارجع للدخول",
   },
   ar: {
@@ -216,15 +244,23 @@ const COPY: Record<Lang, {
     expiredBody: "سجّل الدخول من جديد للمتابعة.",
     loginError: "تعذر تسجيل الدخول.",
     googleError: "تعذر تسجيل الدخول عبر Google.",
-    antiBotUnavailable: "التحقق المضاد للروبوت غير متاح على هذا المتصفح. يمكنك المتابعة.",
+    antiBotUnavailable: "",
     antiBotVerified: "تم التحقق الأمني",
     verificationTitle: "التحقق",
-    verificationIntro: "أدخل الرمز المكوّن من ستة أرقام من تطبيق المصادقة.",
+    verificationIntro: "أدخل رمز تطبيق المصادقة أو أحد رموز الاسترداد.",
     verificationCode: "رمز التحقق",
     verificationPlaceholder: "123456",
     verify: "متابعة",
     verifying: "جارٍ التحقق…",
     invalidCode: "الرمز غير صالح أو منتهي الصلاحية.",
+    mfaRecoveryAction: "فقدت تطبيق المصادقة ورموز الاسترداد",
+    mfaRecoveryTitle: "استرداد الحساب عبر WhatsApp",
+    mfaRecoveryIntro: "أكد رقم WhatsApp الموثق {phone}. بعد التحقق من الرمز ستتم إعادة ضبط المصادقة الثنائية القديمة.",
+    mfaRecoverySent: "أرسلنا رمز الاسترداد عبر WhatsApp إلى {phone}. أدخل الأرقام الستة.",
+    mfaRecoveryVerify: "استرداد حسابي",
+    mfaRecoveryVerifying: "جارٍ الاسترداد…",
+    mfaRecoveryBack: "استخدام تطبيق المصادقة أو رمز استرداد",
+    mfaRecoveryUnavailable: "لا يوجد رقم WhatsApp موثق متاح لهذا الاسترداد.",
     back: "العودة إلى تسجيل الدخول",
   },
   en: {
@@ -265,15 +301,23 @@ const COPY: Record<Lang, {
     expiredBody: "Sign in again to continue.",
     loginError: "Sign-in failed.",
     googleError: "Google sign-in failed.",
-    antiBotUnavailable: "Anti-bot verification is unavailable in this browser. You can continue.",
+    antiBotUnavailable: "",
     antiBotVerified: "Security verification complete",
     verificationTitle: "Verification",
-    verificationIntro: "Enter the six-digit code from your authenticator app.",
+    verificationIntro: "Enter a code from your authenticator app or one of your recovery codes.",
     verificationCode: "Verification code",
     verificationPlaceholder: "123456",
     verify: "Continue",
     verifying: "Verifying…",
     invalidCode: "Invalid or expired code.",
+    mfaRecoveryAction: "I lost my authenticator app and recovery codes",
+    mfaRecoveryTitle: "Recover with WhatsApp",
+    mfaRecoveryIntro: "Confirm the verified WhatsApp number {phone}. After the code is verified, the old two-factor setup will be reset.",
+    mfaRecoverySent: "We sent a recovery code on WhatsApp to {phone}. Enter the six digits you received.",
+    mfaRecoveryVerify: "Recover my account",
+    mfaRecoveryVerifying: "Recovering…",
+    mfaRecoveryBack: "Use my authenticator or a recovery code",
+    mfaRecoveryUnavailable: "No verified WhatsApp number is available for this recovery.",
     back: "Back to sign in",
   },
 };
@@ -347,6 +391,15 @@ function LoginPageContent() {
   const { loginWithPassword, finirAvecCode, loginWithGoogle } = useAuth();
   const [defiMfa, setDefiMfa] = useState<string | null>(null);
   const [codeMfa, setCodeMfa] = useState("");
+  const [mfaRecoveryStatus, setMfaRecoveryStatus] = useState<WhatsAppMfaRecoveryStatus | null>(null);
+  const [mfaRecoveryMode, setMfaRecoveryMode] = useState(false);
+  const [mfaRecoveryPhone, setMfaRecoveryPhone] = useState("+235");
+  const [mfaRecoveryChallenge, setMfaRecoveryChallenge] = useState<WhatsAppChallenge | null>(null);
+  const [mfaRecoveryCode, setMfaRecoveryCode] = useState("");
+  const [mfaRecoveryRequestedAt, setMfaRecoveryRequestedAt] = useState<number | null>(null);
+  const [mfaRecoveryClock, setMfaRecoveryClock] = useState(0);
+  const [mfaRecoveryRetryUntil, setMfaRecoveryRetryUntil] = useState<number | null>(null);
+  const mfaRecoveryRequestKey = useRef<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [voirMotDePasse, setVoirMotDePasse] = useState(false);
@@ -384,6 +437,32 @@ function LoginPageContent() {
     return () => window.clearInterval(timer);
   }, [defiWhatsapp, whatsappRequestedAt]);
 
+  useEffect(() => {
+    if (!mfaRecoveryChallenge || !mfaRecoveryRequestedAt) return;
+    setMfaRecoveryClock(Date.now());
+    const timer = window.setInterval(() => setMfaRecoveryClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [mfaRecoveryChallenge, mfaRecoveryRequestedAt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!defiMfa) {
+      setMfaRecoveryStatus(null);
+      setMfaRecoveryMode(false);
+      return;
+    }
+    etatRecuperationMfaWhatsapp(defiMfa)
+      .then((status) => {
+        if (!cancelled) setMfaRecoveryStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setMfaRecoveryStatus({ available: false, phone_masked: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [defiMfa]);
+
   const whatsappExpiresAt = defiWhatsapp && whatsappRequestedAt
     ? whatsappRequestedAt + defiWhatsapp.expires_in * 1000
     : 0;
@@ -403,10 +482,31 @@ function LoginPageContent() {
     masquerNumeroWhatsapp(telephoneWhatsapp),
   );
 
+  const mfaRecoveryExpiresAt = mfaRecoveryChallenge && mfaRecoveryRequestedAt
+    ? mfaRecoveryRequestedAt + mfaRecoveryChallenge.expires_in * 1000
+    : 0;
+  const mfaRecoveryResendAt = mfaRecoveryChallenge && mfaRecoveryRequestedAt
+    ? Math.max(
+        mfaRecoveryRequestedAt + mfaRecoveryChallenge.resend_after * 1000,
+        mfaRecoveryRetryUntil ?? 0,
+      )
+    : 0;
+  const mfaRecoveryResendSeconds = mfaRecoveryResendAt
+    ? Math.max(0, Math.ceil((mfaRecoveryResendAt - mfaRecoveryClock) / 1000))
+    : 0;
+  const mfaRecoveryExpired = Boolean(
+    mfaRecoveryChallenge && mfaRecoveryExpiresAt && mfaRecoveryClock >= mfaRecoveryExpiresAt,
+  );
+
   function onTurnstileUnavailable() {
     signalerWidgetIndisponible();
     signalerWhatsappWidgetIndisponible();
     setWhatsappWidgetUnavailable(true);
+  }
+
+  function onTurnstileToken(token: string | null) {
+    setTurnstileToken(token);
+    if (token) setWhatsappWidgetUnavailable(false);
   }
 
   function resetWhatsappChallenge() {
@@ -427,9 +527,36 @@ function LoginPageContent() {
     setError(null);
   }
 
+  function resetMfaRecoveryChallenge() {
+    setMfaRecoveryChallenge(null);
+    setMfaRecoveryCode("");
+    setMfaRecoveryRequestedAt(null);
+    setMfaRecoveryClock(0);
+    setMfaRecoveryRetryUntil(null);
+    mfaRecoveryRequestKey.current = null;
+    setTurnstileToken(null);
+    turnstile.current?.reinitialiser();
+  }
+
+  function ouvrirRecuperationMfa() {
+    setError(null);
+    setMfaRecoveryMode(true);
+    resetMfaRecoveryChallenge();
+  }
+
+  function fermerRecuperationMfa() {
+    setMfaRecoveryMode(false);
+    resetMfaRecoveryChallenge();
+    setError(null);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // Le widget Cloudflare peut être bloqué par le navigateur, une extension
+    // ou une clé de site en retard de propagation. Dans ce cas on déclare le
+    // fallback AVANT la requête au lieu d'obtenir « validation manquante ».
+    if (!turnstileToken) onTurnstileUnavailable();
     setLoading(true);
     try {
       const defi = await loginWithPassword(email, password, turnstileToken);
@@ -462,12 +589,103 @@ function LoginPageContent() {
     }
   }
 
+  async function envoyerRecuperationMfa(forceNewKey = false) {
+    if (!defiMfa) return;
+    const phone = mfaRecoveryPhone.trim();
+    if (!estNumeroWhatsappValide(phone)) {
+      setError(text.whatsappInvalidPhone);
+      return;
+    }
+    if (!turnstileToken) onTurnstileUnavailable();
+    setError(null);
+    setLoading(true);
+    try {
+      if (forceNewKey) mfaRecoveryRequestKey.current = null;
+      if (!mfaRecoveryRequestKey.current) {
+        mfaRecoveryRequestKey.current = `mfa-recovery:${crypto.randomUUID()}`;
+      }
+      const challenge = await demanderRecuperationMfaWhatsapp(
+        defiMfa,
+        phone,
+        turnstileToken,
+        mfaRecoveryRequestKey.current,
+      );
+      const now = Date.now();
+      setMfaRecoveryChallenge(challenge);
+      setMfaRecoveryCode("");
+      setMfaRecoveryRequestedAt(now);
+      setMfaRecoveryClock(now);
+      setMfaRecoveryRetryUntil(now + challenge.resend_after * 1000);
+      setTurnstileToken(null);
+      turnstile.current?.reinitialiser();
+    } catch (err) {
+      if (isWhatsAppAuthError(err) && err.retryAfter) {
+        setMfaRecoveryRetryUntil(Date.now() + err.retryAfter * 1000);
+        setMfaRecoveryClock(Date.now());
+      }
+      if (isWhatsAppAuthError(err) && err.code === "RATE_LIMITED") {
+        setError(text.whatsappRateLimited);
+      } else if (isWhatsAppAuthError(err) && err.code === "RESEND_TOO_SOON") {
+        const seconds = err.retryAfter ?? Math.max(1, mfaRecoveryResendSeconds);
+        setError(text.whatsappResendIn.replace("{seconds}", String(seconds)));
+      } else {
+        setError(messageAuth(err, text.mfaRecoveryUnavailable));
+      }
+      turnstile.current?.reinitialiser();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function demanderRecuperationMfa(e: React.FormEvent) {
+    e.preventDefault();
+    await envoyerRecuperationMfa(false);
+  }
+
+  async function renvoyerRecuperationMfa() {
+    if (!mfaRecoveryChallenge || mfaRecoveryResendSeconds > 0 || loading) return;
+    await envoyerRecuperationMfa(true);
+  }
+
+  async function verifierRecuperationMfa(e: React.FormEvent) {
+    e.preventDefault();
+    if (!defiMfa || !mfaRecoveryChallenge) return;
+    if (mfaRecoveryExpired) {
+      setError(text.whatsappExpired);
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      await verifierRecuperationMfaWhatsapp(
+        defiMfa,
+        mfaRecoveryPhone.trim(),
+        mfaRecoveryChallenge.challenge_id,
+        mfaRecoveryCode.trim(),
+      );
+      window.location.replace(destination);
+    } catch (err) {
+      const code = isWhatsAppAuthError(err) ? err.code : null;
+      if (code === "CODE_EXPIRED") {
+        setError(text.whatsappExpired);
+      } else if (code === "TOO_MANY_ATTEMPTS") {
+        setError(text.whatsappLocked);
+      } else {
+        setError(messageAuth(err, text.invalidCode));
+      }
+      setMfaRecoveryCode("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function envoyerCodeWhatsapp(forceNewKey = false) {
     const phone = telephoneWhatsapp.trim();
     if (!estNumeroWhatsappValide(phone)) {
       setError(text.whatsappInvalidPhone);
       return;
     }
+    if (!turnstileToken) onTurnstileUnavailable();
     setError(null);
     setLoading(true);
     try {
@@ -487,8 +705,6 @@ function LoginPageContent() {
       setWhatsappRequestedAt(requestedAt);
       setWhatsappClock(requestedAt);
       setWhatsappRetryUntil(requestedAt + challenge.resend_after * 1000);
-      // Les jetons Turnstile sont à usage unique. La vue du code monte un
-      // nouveau widget afin qu'un renvoi ne réutilise jamais le premier jeton.
       setTurnstileToken(null);
     } catch (err) {
       if (isWhatsAppAuthError(err) && err.retryAfter) {
@@ -556,10 +772,6 @@ function LoginPageContent() {
       ].includes(code ?? "");
 
       if (verificationFailure) {
-        // IMPORTANT : INVALID_CODE et INVALID_CHALLENGE restent visuellement
-        // indistinguables. Cela évite de révéler si le numéro est réellement
-        // lié à un compte Toumaï. Le verrouillage UX dépend uniquement du
-        // nombre de tentatives faites dans ce navigateur.
         const nextFailures = code === "TOO_MANY_ATTEMPTS"
           ? 5
           : Math.min(5, whatsappFailures + 1);
@@ -605,6 +817,152 @@ function LoginPageContent() {
   );
 
   if (defiMfa) {
+    if (mfaRecoveryMode) {
+      const recoveryIntro = text.mfaRecoveryIntro.replace(
+        "{phone}",
+        mfaRecoveryStatus?.phone_masked || "WhatsApp",
+      );
+      const recoveryCorps = (
+        <form
+          onSubmit={mfaRecoveryChallenge ? verifierRecuperationMfa : demanderRecuperationMfa}
+          className="auth-formulaire"
+        >
+          {!mfaRecoveryChallenge ? (
+            <>
+              <label className="auth-champ">
+                <span className="auth-etiquette">{text.whatsappPhone}</span>
+                <span className="auth-input-wrap">
+                  <IconeWhatsapp />
+                  <input
+                    type="tel"
+                    required
+                    autoComplete="tel"
+                    inputMode="tel"
+                    placeholder={text.whatsappPhonePlaceholder}
+                    value={mfaRecoveryPhone}
+                    onChange={(e) => {
+                      setMfaRecoveryPhone(e.target.value);
+                      mfaRecoveryRequestKey.current = null;
+                      setError(null);
+                    }}
+                    disabled={loading}
+                    className="auth-saisie"
+                  />
+                </span>
+              </label>
+              {messageErreur}
+              <button type="submit" disabled={loading || !mfaRecoveryPhone.trim()} className="auth-bouton">
+                {loading && <span className="auth-rotative" aria-hidden="true" />}
+                {loading ? text.whatsappSending : text.whatsappSend}
+                {!loading && <IconeFleche />}
+              </button>
+              <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
+                <Turnstile
+                  onToken={onTurnstileToken}
+                  onIndisponible={onTurnstileUnavailable}
+                  poignee={turnstile}
+                  language={oauthLanguage}
+                  appearance="always"
+                  size="normal"
+                  unavailableText={text.antiBotUnavailable}
+                />
+                {turnstileToken ? (
+                  <p className="auth-turnstile-ok" role="status">✓ {text.antiBotVerified}</p>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="auth-avis" role="status">
+                <IconeInfo />
+                <span>{text.mfaRecoverySent.replace("{phone}", mfaRecoveryChallenge.destination)}</span>
+              </p>
+              {mfaRecoveryExpired ? (
+                <p className="auth-avis" role="status">
+                  <IconeInfo />
+                  <span>{text.whatsappExpired}</span>
+                </p>
+              ) : null}
+              <label className="auth-champ">
+                <span className="auth-etiquette">{text.verificationCode}</span>
+                <input
+                  autoFocus
+                  required
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  placeholder={text.verificationPlaceholder}
+                  value={mfaRecoveryCode}
+                  onChange={(e) => setMfaRecoveryCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  disabled={loading || mfaRecoveryExpired}
+                  className="auth-saisie auth-code"
+                />
+              </label>
+              {messageErreur}
+              <button
+                type="submit"
+                disabled={loading || mfaRecoveryCode.length !== 6 || mfaRecoveryExpired}
+                className="auth-bouton"
+              >
+                {loading && <span className="auth-rotative" aria-hidden="true" />}
+                {loading ? text.mfaRecoveryVerifying : text.mfaRecoveryVerify}
+                {!loading && <IconeFleche />}
+              </button>
+              <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
+                <Turnstile
+                  onToken={onTurnstileToken}
+                  onIndisponible={onTurnstileUnavailable}
+                  poignee={turnstile}
+                  language={oauthLanguage}
+                  appearance="always"
+                  size="normal"
+                  unavailableText={text.antiBotUnavailable}
+                />
+                {turnstileToken ? (
+                  <p className="auth-turnstile-ok" role="status">✓ {text.antiBotVerified}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="auth-bouton-discret"
+                onClick={renvoyerRecuperationMfa}
+                disabled={
+                  loading ||
+                  mfaRecoveryResendSeconds > 0 ||
+                  (!turnstileToken && !whatsappWidgetUnavailable)
+                }
+              >
+                {mfaRecoveryResendSeconds > 0
+                  ? text.whatsappResendIn.replace("{seconds}", String(mfaRecoveryResendSeconds))
+                  : text.whatsappResend}
+              </button>
+            </>
+          )}
+          <button type="button" className="auth-bouton-discret" onClick={fermerRecuperationMfa}>
+            {text.mfaRecoveryBack}
+          </button>
+        </form>
+      );
+
+      if (planChoisi) {
+        return (
+          <AuthShell planId={planChoisi}>
+            <div className="w-full" dir="ltr">
+              <h1 className="mb-2 text-2xl font-semibold">{text.mfaRecoveryTitle}</h1>
+              <p className="text-sm text-[var(--text-secondary)]">{recoveryIntro}</p>
+              {recoveryCorps}
+            </div>
+          </AuthShell>
+        );
+      }
+      return (
+        <AuthPremium titre={text.mfaRecoveryTitle} intro={recoveryIntro} langueActive>
+          {recoveryCorps}
+        </AuthPremium>
+      );
+    }
+
     const codeCorps = (
       <form onSubmit={soumettreCode} className="auth-formulaire">
         <label className="auth-champ">
@@ -628,12 +986,25 @@ function LoginPageContent() {
           {loading ? text.verifying : text.verify}
           {!loading && <IconeFleche />}
         </button>
+        {mfaRecoveryStatus?.available ? (
+          <button
+            type="button"
+            className="auth-bouton-discret"
+            onClick={ouvrirRecuperationMfa}
+            disabled={loading}
+          >
+            <IconeWhatsapp />
+            <span>{text.mfaRecoveryAction}</span>
+          </button>
+        ) : null}
         <button
           type="button"
           className="auth-bouton-discret"
           onClick={() => {
             setDefiMfa(null);
             setCodeMfa("");
+            setMfaRecoveryStatus(null);
+            setMfaRecoveryMode(false);
             setError(null);
             turnstile.current?.reinitialiser();
           }}
@@ -701,7 +1072,7 @@ function LoginPageContent() {
               </button>
               <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
                 <Turnstile
-                  onToken={setTurnstileToken}
+                  onToken={onTurnstileToken}
                   onIndisponible={onTurnstileUnavailable}
                   poignee={turnstile}
                   language={oauthLanguage}
@@ -760,7 +1131,7 @@ function LoginPageContent() {
 
               <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
                 <Turnstile
-                  onToken={setTurnstileToken}
+                  onToken={onTurnstileToken}
                   onIndisponible={onTurnstileUnavailable}
                   poignee={turnstile}
                   language={oauthLanguage}
@@ -909,7 +1280,7 @@ function LoginPageContent() {
 
         <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
           <Turnstile
-            onToken={setTurnstileToken}
+            onToken={onTurnstileToken}
             onIndisponible={onTurnstileUnavailable}
             poignee={turnstile}
             language={oauthLanguage}
