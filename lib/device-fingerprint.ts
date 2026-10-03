@@ -2,10 +2,17 @@
 // CÔTÉ CLIENT uniquement des attributs réellement disponibles via les API
 // navigateur standard. Aucune empreinte tierce, aucun tracking publicitaire.
 // Best-effort : toute erreur est silencieuse, ne doit jamais gêner le produit.
-import { API_BASE } from "./config";
-import { authHeaders } from "./api";
+import { loadSession } from "./api";
+import { authFetch } from "./http";
 
-const REGISTERED_KEY = "toumai_device_registered_v1";
+const REGISTERED_KEY_PREFIX = "toumai_device_registered_v2";
+
+function registeredKey(userId: string): string {
+  // Le même navigateur peut changer de compte sans fermer l'onglet. Un drapeau
+  // global ferait alors croire que le second compte a déjà enregistré
+  // l'appareil. Le marqueur est donc isolé par utilisateur.
+  return `${REGISTERED_KEY_PREFIX}:${userId}`;
+}
 
 function detectDeviceType(): "desktop" | "mobile" | "tablet" | "unknown" {
   if (typeof navigator === "undefined") return "unknown";
@@ -109,12 +116,15 @@ export async function empreinteActuelle(): Promise<string | null> {
   }
 }
 
-/** Enregistre l'appareil courant une fois par session de navigation. */
+/** Enregistre l'appareil courant une fois par session de navigation et par compte. */
 export async function registerDeviceOnce(): Promise<void> {
   if (typeof window === "undefined") return;
-  if (window.sessionStorage.getItem(REGISTERED_KEY)) return;
-  const auth = authHeaders();
-  if (!("Authorization" in auth)) return; // pas de session active
+
+  const session = loadSession();
+  if (!session?.access_token || !session.user_id) return; // pas de session active
+
+  const marker = registeredKey(session.user_id);
+  if (window.sessionStorage.getItem(marker)) return;
 
   try {
     const { browser, version: browser_version } = detectBrowser();
@@ -139,12 +149,18 @@ export async function registerDeviceOnce(): Promise<void> {
       language: attrs.language, timezone: attrs.timezone, gpu_renderer: attrs.gpu_renderer,
     });
 
-    await fetch(`${API_BASE}/user/device-register`, {
+    // Ne contourne jamais la mécanique commune d'authentification : elle
+    // renouvelle le jeton avant expiration et rejoue une seule fois après 401.
+    const response = await authFetch("/user/device-register", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...auth },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fingerprint, ...attrs }),
     });
-    window.sessionStorage.setItem(REGISTERED_KEY, "1");
+
+    // Un 401/403/5xx n'est PAS un enregistrement réussi. L'ancien code posait
+    // quand même le drapeau local et empêchait tout nouvel essai dans l'onglet.
+    if (!response.ok) return;
+    window.sessionStorage.setItem(marker, "1");
   } catch {
     // Silencieux — l'instrumentation ne doit jamais impacter l'expérience produit.
   }
