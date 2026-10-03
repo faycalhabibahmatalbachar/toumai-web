@@ -7,6 +7,7 @@ import {
   updatePreferences,
   type Preferences,
 } from "@/lib/preferences-api";
+import { getProfile, prenomAffichable } from "@/lib/user-api";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
 import {
   getToumaiVoiceServerSnapshot,
@@ -18,15 +19,21 @@ import {
 import { Panel, Row, Segmented } from "./Rows";
 
 const PREVIEW_OWNER = "settings:zenaba";
-const PREVIEW_TEXT =
-  "Bonjour Fayçal, comment puis-je vous aider aujourd’hui ? " +
-  "Je peux lire vos réponses, vos rappels et vos notifications " +
-  "avec une voix naturelle et agréable.";
+
+function previewText(firstName: string | null): string {
+  const salutation = firstName ? `Bonjour ${firstName},` : "Bonjour,";
+  return (
+    `${salutation} comment puis-je vous aider aujourd’hui ? ` +
+    "Je peux lire vos réponses, vos rappels et vos notifications " +
+    "avec une voix naturelle et agréable."
+  );
+}
 
 export function VoiceSection() {
   const [speed, setSpeed] = useState<number>(
     () => cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1.0,
   );
+  const [previewFirstName, setPreviewFirstName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const voice = useSyncExternalStore(
@@ -50,6 +57,14 @@ export function VoiceSection() {
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Chargement impossible");
       });
+
+    // La démo appartient au compte connecté. On ne garde jamais un nom
+    // statique dans le code : chaque compte entend son propre prénom quand le
+    // profil en possède un. Si le profil n'est pas disponible, on reste
+    // volontairement générique plutôt que de prononcer le nom d'un autre.
+    getProfile()
+      .then((profile) => setPreviewFirstName(prenomAffichable(profile.full_name)))
+      .catch(() => setPreviewFirstName(null));
 
     return () => {
       stopToumaiVoice(PREVIEW_OWNER);
@@ -79,7 +94,7 @@ export function VoiceSection() {
 
   function togglePreview() {
     setError(null);
-    void playToumaiVoice(PREVIEW_TEXT, PREVIEW_OWNER, speed);
+    void playToumaiVoice(previewText(previewFirstName), PREVIEW_OWNER, speed);
   }
 
   return (
