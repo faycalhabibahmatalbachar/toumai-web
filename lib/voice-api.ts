@@ -82,6 +82,108 @@ async function zenabaFetch(path: string, init: RequestInit): Promise<Response> {
   return res;
 }
 
+// ── Smart Pre-Warm Zenaba ──────────────────────────────────────────────────
+//
+// Ce texte est un protocole interne entre le Web et le backend. Le backend
+// l'intercepte avant l'appel Chatterbox, coordonne toutes ses répliques via
+// Redis et ne laisse passer qu'un vrai réveil ZeroGPU par fenêtre globale.
+// L'audio produit n'est JAMAIS joué : il sert uniquement à payer le cold start
+// avant que l'utilisateur demande réellement à Zenaba de parler.
+const ZENABA_PREWARM_SENTINEL = "Préparation vocale interne Toumaï.";
+const ZENABA_PREWARM_CLIENT_KEY = "toumai:zenaba:prewarm-client:v1";
+const ZENABA_PREWARM_CLIENT_COOLDOWN_MS = 5 * 60 * 1000;
+
+let zenabaPrewarmInFlight: Promise<boolean> | null = null;
+
+function shouldRunZenabaPrewarm(): boolean {
+  if (typeof window === "undefined" || document.visibilityState === "hidden") return false;
+  try {
+    const raw = window.localStorage.getItem(ZENABA_PREWARM_CLIENT_KEY);
+    const last = raw ? Number(raw) : 0;
+    return !Number.isFinite(last) || Date.now() - last >= ZENABA_PREWARM_CLIENT_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+function stampZenabaPrewarm(now = Date.now()): void {
+  try {
+    window.localStorage.setItem(ZENABA_PREWARM_CLIENT_KEY, String(now));
+  } catch {
+    // Stockage bloqué : la coordination Redis côté backend reste l'autorité.
+  }
+}
+
+function unstampZenabaPrewarm(): void {
+  try {
+    window.localStorage.removeItem(ZENABA_PREWARM_CLIENT_KEY);
+  } catch {
+    // noop
+  }
+}
+
+/**
+ * Réveille Zenaba en arrière-plan sans jouer de son et sans bloquer l'UI.
+ *
+ * Deux niveaux empêchent le gaspillage :
+ * - localStorage : plusieurs onglets du même navigateur ne relancent pas la
+ *   sonde toutes les secondes ;
+ * - Redis backend : plusieurs utilisateurs/répliques ne déclenchent qu'un
+ *   seul vrai passage ZeroGPU par fenêtre globale.
+ *
+ * `false` signifie seulement « pas chauffée maintenant » ; cette fonction ne
+ * doit jamais casser l'expérience principale.
+ */
+export function prewarmZenaba(): Promise<boolean> {
+  if (zenabaPrewarmInFlight) return zenabaPrewarmInFlight;
+  if (!shouldRunZenabaPrewarm()) return Promise.resolve(false);
+
+  // Posé AVANT le réseau pour que deux événements navigateur simultanés ne
+  // lancent pas deux requêtes. En cas d'échec, on l'enlève pour autoriser une
+  // prochaine opportunité de réveil.
+  stampZenabaPrewarm();
+
+  const started = typeof performance !== "undefined" ? performance.now() : Date.now();
+  zenabaPrewarmInFlight = (async () => {
+    try {
+      const res = await zenabaFetch("/voice/synthesize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: ZENABA_PREWARM_SENTINEL,
+          language: "fr",
+          voice: "zenaba",
+        }),
+      });
+      if (!res.ok) {
+        unstampZenabaPrewarm();
+        return false;
+      }
+      const body = await res.json().catch(() => ({}));
+      if (body?.success === false) {
+        unstampZenabaPrewarm();
+        return false;
+      }
+      const elapsed = Math.round(
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) - started,
+      );
+      try {
+        window.sessionStorage.setItem("toumai:zenaba:last-prewarm-ms", String(elapsed));
+      } catch {
+        // Télémétrie locale best-effort seulement.
+      }
+      return true;
+    } catch {
+      unstampZenabaPrewarm();
+      return false;
+    } finally {
+      zenabaPrewarmInFlight = null;
+    }
+  })();
+
+  return zenabaPrewarmInFlight;
+}
+
 /**
  * Toumaï Voice V1 est volontairement figée sur Zenaba, en français.
  * Le paramètre legacyVoice reste toléré pendant la migration des anciens
