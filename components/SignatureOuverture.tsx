@@ -29,7 +29,6 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { useZenabaSmartPrewarm } from "@/hooks/useZenabaSmartPrewarm";
 
 /** La durée du tracé, puis celle du retrait. Deux secondes en tout : au-delà,
  *  ce n'est plus une signature, c'est une porte fermée. */
@@ -39,12 +38,6 @@ const RETRAIT_MS = 520;
 const CLE = "toumai:signature-vue";
 
 export function SignatureOuverture() {
-  // La signature est montée sous AuthProvider sur toutes les pages : c'est le
-  // point le plus tôt où l'on connaît la session sans ajouter un second bridge
-  // global. Le hook ne dépend pas de l'animation et continue de vivre après
-  // son retrait visuel.
-  useZenabaSmartPrewarm();
-
   const [monte, setMonte] = useState(false);
   const [sort, setSort] = useState(false);
   const minuteries = useRef<number[]>([]);
@@ -96,9 +89,6 @@ export function SignatureOuverture() {
     >
       <svg width="132" height="132" viewBox="0 0 120 120" fill="none">
         <defs>
-          {/* Le spectre de la marque, du bleu au terracotta. C'est celui du
-              logo, et c'est ce qui fait qu'on reconnaît le T avant même
-              qu'il soit fini. */}
           <linearGradient id="sig-spectre" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#1c4b8a" />
             <stop offset="0.45" stopColor="#d97857" />
@@ -106,10 +96,6 @@ export function SignatureOuverture() {
           </linearGradient>
         </defs>
 
-        {/* Deux traits, dans l'ordre où une main les ferait : la barre
-            horizontale d'abord, la hampe ensuite. Le `stroke-dasharray` vaut
-            la longueur de chaque trait ; l'offset part de cette longueur et
-            va à zéro, ce qui donne un trait qui pousse au lieu d'apparaître. */}
         <path
           d="M22 30 H98"
           stroke="url(#sig-spectre)"
