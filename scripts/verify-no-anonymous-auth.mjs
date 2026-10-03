@@ -56,4 +56,28 @@ if (violations.length) {
   process.exit(1);
 }
 
+// Device registration is an authenticated request too. It used to bypass
+// authFetch, keep an expired Bearer token, receive 401, and nevertheless mark
+// the device as registered. That made account switching especially misleading.
+const deviceRegistration = fs.readFileSync("lib/device-fingerprint.ts", "utf8");
+const deviceAuthFailures = [];
+if (!deviceRegistration.includes('authFetch("/user/device-register"')) {
+  deviceAuthFailures.push("device registration must use authFetch");
+}
+if (!deviceRegistration.includes("if (!response.ok) return")) {
+  deviceAuthFailures.push("failed device registration must not be cached as success");
+}
+if (!deviceRegistration.includes("registeredKey(session.user_id)")) {
+  deviceAuthFailures.push("device registration cache must be scoped to the active user");
+}
+if (deviceRegistration.includes("fetch(`${API_BASE}/user/device-register`")) {
+  deviceAuthFailures.push("device registration must not bypass shared auth refresh");
+}
+if (deviceAuthFailures.length) {
+  console.error("Authenticated device-registration regression detected:");
+  for (const failure of deviceAuthFailures) console.error(` - ${failure}`);
+  process.exit(1);
+}
+
 console.log("Anonymous-auth guard OK: no executable guest/anonymous login path found.");
+console.log("Device registration auth guard OK: refresh/retry and per-user cache enforced.");
