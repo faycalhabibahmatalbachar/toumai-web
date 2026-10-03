@@ -46,6 +46,42 @@ async function ttsHttpError(res: Response): Promise<HttpError> {
   return new HttpError(res.status || 500, message);
 }
 
+const ZENABA_TRANSIENT_RETRY_MS = 900;
+
+async function waitForZenabaRetry(signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  }
+  await new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ZENABA_TRANSIENT_RETRY_MS);
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/**
+ * ZeroGPU peut rendre un 503 applicatif pendant un réveil/une attribution GPU.
+ * Une seule reprise courte suffit à absorber ce cas sans transformer un vrai
+ * incident fournisseur en boucle de requêtes. L'authentification reste gérée
+ * exclusivement par authFetch (refresh + retry 401 séparés de ce retry TTS).
+ */
+async function zenabaFetch(path: string, init: RequestInit): Promise<Response> {
+  let res = await authFetch(path, init);
+  if (res.status !== 503) return res;
+
+  if (res.body) await res.body.cancel().catch(() => {});
+  await waitForZenabaRetry(init.signal ?? undefined);
+  res = await authFetch(path, init);
+  return res;
+}
+
 /**
  * Toumaï Voice V1 est volontairement figée sur Zenaba, en français.
  * Le paramètre legacyVoice reste toléré pendant la migration des anciens
@@ -57,7 +93,7 @@ export async function synthesizeSpeech(
   _legacyVoice?: string,
   signal?: AbortSignal,
 ): Promise<SynthesizeResult> {
-  const res = await authFetch("/voice/synthesize", {
+  const res = await zenabaFetch("/voice/synthesize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
@@ -84,7 +120,7 @@ export async function openLiveSpeechStream(
   text: string,
   signal?: AbortSignal,
 ): Promise<ReadableStreamDefaultReader<Uint8Array>> {
-  const res = await authFetch("/voice/synthesize/live", {
+  const res = await zenabaFetch("/voice/synthesize/live", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "audio/wav" },
     body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
@@ -107,7 +143,7 @@ export async function* streamSpeech(
   text: string,
   signal?: AbortSignal,
 ): AsyncGenerator<SpeechSegment> {
-  const res = await authFetch("/voice/synthesize/stream?format=ndjson", {
+  const res = await zenabaFetch("/voice/synthesize/stream?format=ndjson", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
     body: JSON.stringify({ text, language: "fr", voice: "zenaba" }),
