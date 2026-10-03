@@ -29,6 +29,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useZenabaSmartPrewarm } from "@/hooks/useZenabaSmartPrewarm";
 
 /** La durée du tracé, puis celle du retrait. Deux secondes en tout : au-delà,
  *  ce n'est plus une signature, c'est une porte fermée. */
@@ -38,6 +39,12 @@ const RETRAIT_MS = 520;
 const CLE = "toumai:signature-vue";
 
 export function SignatureOuverture() {
+  // La signature est montée sous AuthProvider sur toutes les pages : c'est le
+  // point le plus tôt où l'on connaît la session sans ajouter un second bridge
+  // global. Le hook ne dépend pas de l'animation et continue de vivre après
+  // son retrait visuel.
+  useZenabaSmartPrewarm();
+
   const [monte, setMonte] = useState(false);
   const [sort, setSort] = useState(false);
   const minuteries = useRef<number[]>([]);
