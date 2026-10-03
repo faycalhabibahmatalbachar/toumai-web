@@ -17,6 +17,8 @@ must(client, "/^\\+[1-9]\\d{7,14}$/", "international phone validation is not E.1
 must(page, "whatsappExpiresAt", "OTP expiry clock missing");
 must(page, "whatsappResendSeconds", "resend cooldown clock missing");
 must(page, "renvoyerWhatsapp", "resend action missing");
+must(page, "await envoyerCodeWhatsapp(true)", "resend does not force a fresh request key");
+must(page, "if (forceNewKey) whatsappRequestKey.current = null", "fresh resend idempotency reset missing");
 must(page, "whatsappFailures >= 5", "five-attempt browser lock missing");
 must(page, '"INVALID_CODE",\n        "INVALID_CHALLENGE",', "enumeration-safe verification grouping missing");
 must(page, "nextFailures >= 5 ? text.whatsappLocked : text.invalidCode", "generic invalid/locked presentation missing");
