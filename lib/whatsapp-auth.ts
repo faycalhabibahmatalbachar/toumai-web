@@ -32,6 +32,15 @@ export interface WhatsAppEnrollmentVerified {
   verified_at?: string | null;
 }
 
+export interface WhatsAppMfaRecoveryStatus {
+  available: boolean;
+  phone_masked?: string | null;
+}
+
+export type WhatsAppMfaRecoveryPayload = TokenPayload & {
+  mfa_reset?: boolean;
+};
+
 export type WhatsAppVerifyResult =
   | { status: "authenticated" }
   | { status: "mfa_required"; pendingToken: string };
@@ -65,6 +74,14 @@ let widgetUnavailable = false;
 
 export function signalerWhatsappWidgetIndisponible(): void {
   widgetUnavailable = true;
+}
+
+function garantirFallbackTurnstile(turnstileToken: string | null): void {
+  // Un utilisateur ne doit jamais rester bloqué parce que le widget tiers est
+  // lent, filtré par le navigateur ou vient d'expirer. Le backend connaît ce
+  // client comme « navigateur-sans-widget » et conserve ses vraies défenses :
+  // rate-limit, lockout, idempotence et vérification du numéro lié.
+  if (!turnstileToken) widgetUnavailable = true;
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
@@ -111,6 +128,7 @@ export async function demanderCodeWhatsApp(
   turnstileToken: string | null,
   idempotencyKey: string,
 ): Promise<WhatsAppChallenge> {
+  garantirFallbackTurnstile(turnstileToken);
   return request<WhatsAppChallenge>("/auth/whatsapp/request", {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
@@ -138,6 +156,63 @@ export async function verifierCodeWhatsApp(
   return { status: "authenticated" };
 }
 
+/** Vérifie si le compte bloqué sur l'étape MFA possède déjà un WhatsApp
+ * vérifié. Le serveur ne renvoie jamais le numéro complet, seulement son masque. */
+export async function etatRecuperationMfaWhatsapp(
+  pendingToken: string,
+): Promise<WhatsAppMfaRecoveryStatus> {
+  return request<WhatsAppMfaRecoveryStatus>("/auth/2fa/recovery/whatsapp/status", {
+    method: "POST",
+    body: JSON.stringify({ pending_token: pendingToken }),
+  });
+}
+
+/** Demande le code de récupération. Le numéro saisi doit correspondre au
+ * numéro WhatsApp déjà vérifié du même compte côté serveur. */
+export async function demanderRecuperationMfaWhatsapp(
+  pendingToken: string,
+  phone: string,
+  turnstileToken: string | null,
+  idempotencyKey: string,
+): Promise<WhatsAppChallenge> {
+  garantirFallbackTurnstile(turnstileToken);
+  return request<WhatsAppChallenge>("/auth/2fa/recovery/whatsapp/request", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({
+      pending_token: pendingToken,
+      phone,
+      turnstile_token: turnstileToken,
+    }),
+  });
+}
+
+/** Deuxième preuve de récupération : mot de passe déjà validé + OTP du numéro
+ * WhatsApp lié. Le backend détruit alors l'ancien TOTP et ses codes de secours,
+ * révoque les anciennes sessions et rend une session neuve. */
+export async function verifierRecuperationMfaWhatsapp(
+  pendingToken: string,
+  phone: string,
+  challengeId: string,
+  code: string,
+): Promise<WhatsAppMfaRecoveryPayload> {
+  const data = await request<WhatsAppMfaRecoveryPayload>(
+    "/auth/2fa/recovery/whatsapp/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        pending_token: pendingToken,
+        phone,
+        challenge_id: challengeId,
+        code,
+      }),
+    },
+  );
+  const payload: WhatsAppMfaRecoveryPayload = { ...data, is_guest: false };
+  saveSession(payload);
+  return payload;
+}
+
 /** État d'enrôlement du compte déjà authentifié. Le serveur décide si ce
  * compte fait partie du périmètre obligatoire (email/mot de passe). */
 export async function etatEnrolementWhatsApp(): Promise<WhatsAppEnrollmentStatus> {
@@ -154,6 +229,7 @@ export async function demanderCodeEnrolementWhatsApp(
   turnstileToken: string | null,
   idempotencyKey: string,
 ): Promise<WhatsAppChallenge> {
+  garantirFallbackTurnstile(turnstileToken);
   return authenticatedRequest<WhatsAppChallenge>("/auth/whatsapp/enrollment/request", {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
