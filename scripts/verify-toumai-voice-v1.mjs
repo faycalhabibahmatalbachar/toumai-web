@@ -28,18 +28,21 @@ expect(api.includes("getReader()"), "Pocket live API must consume response.body 
 expect(api.includes('mime.includes("mp4")'), "STT upload must preserve Safari/MP4 recorder containers");
 expect(api.includes("audio.${ext}"), "STT upload filename must match the recorded container");
 
-// Smart pre-warm : doit passer par le même authFetch/Zenaba que la vraie voix,
-// ne jamais jouer l'audio, et rester borné côté navigateur avant le verrou
-// distribué Redis du backend.
+// Smart pre-warm : passe par le même authFetch/Zenaba que la vraie voix,
+// n'est jamais lu, reste borné côté navigateur puis Redis, et surtout ne se
+// transforme pas en heartbeat ZeroGPU pendant que l'utilisateur clique/tape.
 expect(api.includes("ZENABA_PREWARM_SENTINEL"), "Zenaba prewarm sentinel missing");
 expect(api.includes("Préparation vocale interne Toumaï."), "web/backend prewarm protocol text missing");
 expect(api.includes("ZENABA_PREWARM_CLIENT_COOLDOWN_MS"), "browser prewarm throttle missing");
 expect(api.includes("export function prewarmZenaba"), "Zenaba prewarm entrypoint missing");
 expect(api.includes('zenabaFetch("/voice/synthesize"'), "prewarm must use authenticated Zenaba endpoint");
-expect(prewarmHook.includes("prewarmZenaba"), "authenticated activity must trigger Zenaba prewarm");
+expect(prewarmHook.includes("prewarmZenaba"), "authenticated lifecycle must trigger Zenaba prewarm");
 expect(prewarmHook.includes("visibilitychange"), "tab return must opportunistically warm Zenaba");
-expect(prewarmHook.includes("pointerdown"), "user activity must opportunistically warm Zenaba");
 expect(prewarmHook.includes("online"), "network recovery must opportunistically warm Zenaba");
+expect(!prewarmHook.includes('addEventListener("pointerdown"'), "prewarm must not run from every pointer click");
+expect(!prewarmHook.includes('addEventListener("keydown"'), "prewarm must not run from every keystroke");
+expect(!prewarmHook.includes('addEventListener("touchstart"'), "prewarm must not run from every touch");
+expect(!prewarmHook.includes("setInterval("), "prewarm must never become a 24/7 heartbeat");
 expect(signature.includes("useZenabaSmartPrewarm()"), "app shell must mount the Zenaba prewarm hook");
 
 expect(player.includes("let audio: HTMLAudioElement | null = null"), "one global audio element must be owned centrally");
