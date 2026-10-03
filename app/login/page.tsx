@@ -100,7 +100,7 @@ const COPY: Record<Lang, {
     whatsappPhonePlaceholder: "+235 66 00 00 00",
     whatsappSend: "Recevoir le code",
     whatsappSending: "Envoi du code…",
-    whatsappCodeIntro: "Si ce numéro est lié à un compte Toumaï, un code de connexion a été envoyé sur WhatsApp.",
+    whatsappCodeIntro: "Code envoyé sur WhatsApp au {phone}. Saisissez les 6 chiffres reçus.",
     whatsappVerify: "Se connecter",
     whatsappVerifying: "Vérification…",
     whatsappChangeNumber: "Utiliser un autre numéro",
@@ -149,7 +149,7 @@ const COPY: Record<Lang, {
     whatsappPhonePlaceholder: "+235 66 00 00 00",
     whatsappSend: "أرسل الكود",
     whatsappSending: "جاري إرسال الكود…",
-    whatsappCodeIntro: "لو الرقم مربوط بحساب Toumaï، اتبعت ليه كود دخول على WhatsApp.",
+    whatsappCodeIntro: "رسلنا كود الدخول على WhatsApp للرقم {phone}. اكتب الستة أرقام الواصلين ليك.",
     whatsappVerify: "ادخل",
     whatsappVerifying: "جاري التحقق…",
     whatsappChangeNumber: "استعمل رقم تاني",
@@ -198,7 +198,7 @@ const COPY: Record<Lang, {
     whatsappPhonePlaceholder: "+235 66 00 00 00",
     whatsappSend: "إرسال الرمز",
     whatsappSending: "جارٍ إرسال الرمز…",
-    whatsappCodeIntro: "إذا كان الرقم مرتبطاً بحساب Toumaï، فقد أُرسل رمز تسجيل الدخول عبر WhatsApp.",
+    whatsappCodeIntro: "أرسلنا رمز تسجيل الدخول عبر WhatsApp إلى {phone}. أدخل الأرقام الستة التي استلمتها.",
     whatsappVerify: "تسجيل الدخول",
     whatsappVerifying: "جارٍ التحقق…",
     whatsappChangeNumber: "استخدام رقم آخر",
@@ -247,7 +247,7 @@ const COPY: Record<Lang, {
     whatsappPhonePlaceholder: "+235 66 00 00 00",
     whatsappSend: "Send code",
     whatsappSending: "Sending code…",
-    whatsappCodeIntro: "If this number is linked to a Toumaï account, a sign-in code was sent on WhatsApp.",
+    whatsappCodeIntro: "We sent a sign-in code on WhatsApp to {phone}. Enter the six digits you received.",
     whatsappVerify: "Sign in",
     whatsappVerifying: "Verifying…",
     whatsappChangeNumber: "Use another number",
@@ -320,6 +320,26 @@ function IconeWhatsapp() {
   );
 }
 
+function masquerNumeroWhatsapp(numero: string) {
+  const valeur = numero.trim();
+  const chiffres = valeur.replace(/\D/g, "");
+  if (!chiffres) return "";
+
+  const prefixLength = chiffres.length > 5 ? 3 : 0;
+  const suffixLength = Math.min(2, Math.max(0, chiffres.length - prefixLength));
+  const prefix = chiffres.slice(0, prefixLength);
+  const suffix = suffixLength ? chiffres.slice(-suffixLength) : "";
+  const maskLength = Math.max(0, chiffres.length - prefixLength - suffixLength);
+  const masque = "*".repeat(maskLength).match(/.{1,2}/g)?.join(" ") ?? "";
+  const signe = valeur.startsWith("+") ? "+" : "";
+
+  return [
+    `${signe}${prefix}`,
+    masque,
+    suffix,
+  ].filter(Boolean).join(" ");
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const { lang } = useLang();
@@ -373,14 +393,15 @@ function LoginPageContent() {
         whatsappRetryUntil ?? 0,
       )
     : 0;
-  const whatsappSecondsLeft = whatsappExpiresAt
-    ? Math.max(0, Math.ceil((whatsappExpiresAt - whatsappClock) / 1000))
-    : 0;
   const whatsappResendSeconds = whatsappResendAt
     ? Math.max(0, Math.ceil((whatsappResendAt - whatsappClock) / 1000))
     : 0;
   const whatsappExpired = Boolean(defiWhatsapp && whatsappExpiresAt && whatsappClock >= whatsappExpiresAt);
   const whatsappLocked = whatsappFailures >= 5;
+  const whatsappCodeMessage = text.whatsappCodeIntro.replace(
+    "{phone}",
+    masquerNumeroWhatsapp(telephoneWhatsapp),
+  );
 
   function onTurnstileUnavailable() {
     signalerWidgetIndisponible();
@@ -697,18 +718,14 @@ function LoginPageContent() {
             <>
               <p className="auth-avis" role="status">
                 <IconeInfo />
-                <span>{text.whatsappCodeIntro}</span>
+                <span>{whatsappCodeMessage}</span>
               </p>
-              <p className="auth-avis" role="status" aria-live="polite">
-                <IconeInfo />
-                <span>
-                  {whatsappExpired
-                    ? text.whatsappExpired
-                    : whatsappLocked
-                      ? text.whatsappLocked
-                      : text.whatsappExpiresIn.replace("{seconds}", String(whatsappSecondsLeft))}
-                </span>
-              </p>
+              {(whatsappExpired || whatsappLocked) ? (
+                <p className="auth-avis" role="status" aria-live="polite">
+                  <IconeInfo />
+                  <span>{whatsappExpired ? text.whatsappExpired : text.whatsappLocked}</span>
+                </p>
+              ) : null}
               <label className="auth-champ">
                 <span className="auth-etiquette">{text.verificationCode}</span>
                 <input
@@ -794,7 +811,9 @@ function LoginPageContent() {
         <AuthShell planId={planChoisi}>
           <div className="w-full" dir="ltr">
             <h1 className="mb-2 text-2xl font-semibold">{text.whatsappTitle}</h1>
-            <p className="text-sm text-[var(--text-secondary)]">{text.whatsappIntro}</p>
+            {!defiWhatsapp ? (
+              <p className="text-sm text-[var(--text-secondary)]">{text.whatsappIntro}</p>
+            ) : null}
             {whatsappCorps}
           </div>
         </AuthShell>
@@ -802,7 +821,11 @@ function LoginPageContent() {
     }
 
     return (
-      <AuthPremium titre={text.whatsappTitle} intro={text.whatsappIntro} langueActive>
+      <AuthPremium
+        titre={text.whatsappTitle}
+        intro={defiWhatsapp ? undefined : text.whatsappIntro}
+        langueActive
+      >
         {whatsappCorps}
       </AuthPremium>
     );
