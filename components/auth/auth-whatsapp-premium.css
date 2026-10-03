@@ -1,0 +1,270 @@
+/*
+ * WhatsApp sign-in — premium right-hand form only.
+ *
+ * Important: every selector is scoped to the authentication panel and to the
+ * presence of the phone input. The visual scene on the left (.auth-vitrine)
+ * is intentionally untouched.
+ */
+
+.auth-login .auth-panneau:has(input[type="tel"]) {
+  --wa-green: #25d366;
+  --wa-green-soft: rgba(37, 211, 102, 0.12);
+  --wa-card: rgba(17, 14, 12, 0.9);
+  --wa-card-border: rgba(255, 255, 255, 0.1);
+  --wa-field: rgba(255, 255, 255, 0.045);
+  --wa-field-hover: rgba(255, 255, 255, 0.062);
+  --wa-muted: #a99f98;
+  --wa-text: #f8f3ee;
+  background:
+    radial-gradient(circle at 78% 14%, rgba(240, 91, 47, 0.085), transparent 34%),
+    radial-gradient(circle at 18% 82%, rgba(37, 211, 102, 0.035), transparent 28%),
+    linear-gradient(180deg, #100d0b 0%, #0b0908 100%);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) {
+  width: min(100%, 470px);
+  max-width: 470px;
+  margin-inline: auto;
+  padding: clamp(28px, 4vh, 40px) clamp(22px, 2.4vw, 32px);
+  justify-content: center;
+  border: 1px solid var(--wa-card-border);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.008)),
+    var(--wa-card);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-brand-lockup {
+  margin-bottom: 24px;
+  transform: scale(0.92);
+  transform-origin: center;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) > h1 {
+  max-width: 12ch;
+  margin-inline: auto;
+  text-align: center;
+  font-family: var(--font-sans), Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(28px, 2.15vw, 34px);
+  font-weight: 650;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  color: var(--wa-text);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) > .auth-sous-titre {
+  max-width: 38ch;
+  margin: 11px auto 0;
+  text-align: center;
+  color: #b9afa8;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-formulaire {
+  margin-top: 27px;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-etiquette {
+  margin-bottom: 8px;
+  color: #ddd4cd;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/*
+ * The WhatsApp icon in the current markup is a bare SVG. Explicitly pinning
+ * its size here prevents it from inheriting a large SVG size and dominating
+ * the form.
+ */
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-input-wrap > svg {
+  position: absolute;
+  z-index: 2;
+  left: 17px;
+  top: 50%;
+  width: 21px;
+  height: 21px;
+  transform: translateY(-50%);
+  color: var(--wa-green);
+  filter: drop-shadow(0 0 8px rgba(37, 211, 102, 0.12));
+  pointer-events: none;
+}
+
+.auth-login .auth-panneau[dir="rtl"] .auth-panneau-corps:has(input[type="tel"]) .auth-input-wrap > svg {
+  left: auto;
+  right: 17px;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie {
+  height: 58px;
+  padding-inline: 52px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 13px;
+  background: var(--wa-field);
+  color: var(--wa-text);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  caret-color: #ff7044;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie::placeholder {
+  color: #756d67;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--wa-field-hover);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie:focus {
+  border-color: rgba(240, 91, 47, 0.92);
+  background: rgba(255, 255, 255, 0.067);
+  box-shadow:
+    0 0 0 3px rgba(240, 91, 47, 0.11),
+    0 10px 26px rgba(0, 0, 0, 0.12);
+}
+
+.auth-login .auth-panneau[dir="rtl"] .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie {
+  padding-inline: 16px 52px;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton {
+  min-height: 56px;
+  margin-top: 14px;
+  border: 1px solid rgba(255, 129, 82, 0.25);
+  border-radius: 13px;
+  background:
+    linear-gradient(90deg, #e95029 0%, #f16236 52%, #ea542c 100%);
+  color: #fff;
+  box-shadow:
+    0 15px 34px rgba(219, 73, 35, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.045);
+  box-shadow:
+    0 18px 42px rgba(219, 73, 35, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.17);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton:focus-visible,
+.auth-login .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie:focus-visible,
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton-discret:focus-visible {
+  outline: 2px solid #ff7a4e;
+  outline-offset: 3px;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton-fleche {
+  width: 18px;
+  height: 18px;
+  opacity: 0.9;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-turnstile {
+  min-height: 74px;
+  margin-top: 15px;
+  padding: 10px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-turnstile-valide {
+  border-color: rgba(37, 211, 102, 0.2);
+  background: rgba(37, 211, 102, 0.025);
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-turnstile-ok {
+  color: #8ed9aa;
+  font-size: 11.5px;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton-discret {
+  width: fit-content;
+  margin: 13px auto 0;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: #968c85;
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton-discret:hover {
+  color: #e9dfd7;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.auth-login .auth-panneau:has(input[type="tel"]) .auth-pied {
+  max-width: 470px;
+  padding-top: 14px;
+  color: #6f6762;
+}
+
+.auth-login .auth-panneau:has(input[type="tel"]) .auth-pied a {
+  color: #8f8781;
+}
+
+@media (max-width: 1023px) {
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) {
+    max-width: 460px;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-login .auth-panneau:has(input[type="tel"]) {
+    padding-inline: 18px;
+  }
+
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) {
+    width: 100%;
+    max-width: 100%;
+    padding: 28px 0 18px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) > h1 {
+    font-size: 29px;
+  }
+
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) > .auth-sous-titre {
+    max-width: 34ch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton,
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) input[type="tel"].auth-saisie,
+  .auth-login .auth-panneau-corps:has(input[type="tel"]) .auth-bouton-discret {
+    transition: none;
+  }
+}

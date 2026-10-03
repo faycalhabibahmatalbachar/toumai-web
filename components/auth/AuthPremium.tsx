@@ -11,6 +11,7 @@ import { LANG_META, LANGS, useLang, type Lang } from "@/lib/i18n/context";
 import "./auth.css";
 import "./auth-reference.css";
 import "./auth-compact.css";
+import "./auth-whatsapp-premium.css";
 
 const LANG_SHORT: Record<Lang, string> = {
   fr: "FR",
