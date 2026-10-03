@@ -38,6 +38,130 @@ export interface SearchImage {
 }
 
 
+/** État public d'une preuve Toumaï Code. Ce n'est jamais une chaîne de pensée. */
+export type CodingEvidenceState =
+  | "planned"
+  | "queued"
+  | "running"
+  | "passed"
+  | "failed"
+  | "blocked"
+  | "skipped"
+  | "cancelled"
+  | "unknown"
+  | string;
+
+export interface CodingTaskEvidence {
+  id?: string;
+  label: string;
+  status?: CodingEvidenceState;
+  agent?: string;
+  detail?: string;
+  file?: string;
+}
+
+export interface CodingAgentEvidence {
+  id: string;
+  label?: string;
+  role?: string;
+  status?: CodingEvidenceState;
+  task_id?: string;
+  detail?: string;
+}
+
+export interface CodingDiffEvidence {
+  path: string;
+  status?: "added" | "modified" | "deleted" | "renamed" | string;
+  additions?: number;
+  deletions?: number;
+  patch?: string;
+}
+
+export interface CodingTerminalEvidence {
+  id?: string;
+  stream?: "stdout" | "stderr" | "system" | string;
+  text: string;
+  command?: string;
+  exit_code?: number | null;
+  timestamp?: string;
+}
+
+export interface CodingTestEvidence {
+  id?: string;
+  name: string;
+  status?: CodingEvidenceState;
+  command?: string;
+  exit_code?: number | null;
+  passed?: boolean | null;
+  output?: string;
+  duration_ms?: number;
+}
+
+export interface CodingSecurityEvidence {
+  status?: CodingEvidenceState;
+  summary?: string;
+  checks?: Array<{
+    id?: string;
+    label: string;
+    status?: CodingEvidenceState;
+    detail?: string;
+  }>;
+  findings?: Array<{
+    id?: string;
+    severity?: "critical" | "high" | "medium" | "low" | "info" | string;
+    title: string;
+    detail?: string;
+    path?: string;
+  }>;
+}
+
+export interface CodingReviewEvidence {
+  status?: CodingEvidenceState;
+  summary?: string;
+  findings?: Array<{
+    id?: string;
+    severity?: string;
+    title: string;
+    detail?: string;
+    path?: string;
+  }>;
+}
+
+export interface CodingDeploymentEvidence {
+  id?: string;
+  environment?: string;
+  provider?: string;
+  status?: CodingEvidenceState;
+  url?: string;
+  commit_sha?: string;
+  detail?: string;
+}
+
+export interface CodingArtifactEvidence {
+  name: string;
+  kind?: string;
+  url?: string;
+  size_bytes?: number;
+  sha256?: string;
+}
+
+export interface CodingPreviewEvidence {
+  status?: CodingEvidenceState;
+  url?: string;
+  screenshot_url?: string;
+  browser_url?: string;
+}
+
+export interface CodingPublicEvent {
+  id?: string;
+  kind?: string;
+  label: string;
+  status?: CodingEvidenceState;
+  detail?: string;
+  evidence?: string;
+  timestamp?: string;
+}
+
 export interface CodingRunSnapshot {
   active?: boolean;
   phase?: "plan" | "build" | "verify" | "repair" | "review" | "package" | "release" | "done" | "error" | string;
@@ -103,6 +227,26 @@ export interface CodingRunSnapshot {
     }>;
     sandbox_id?: string | null;
   };
+  /** Journal public : actions, états et preuves observables uniquement. */
+  tasks?: CodingTaskEvidence[];
+  agents?: CodingAgentEvidence[];
+  diffs?: CodingDiffEvidence[];
+  terminal_logs?: CodingTerminalEvidence[];
+  tests?: CodingTestEvidence[];
+  repair_loop?: {
+    status?: CodingEvidenceState;
+    attempt?: number;
+    max_attempts?: number;
+    reason?: string;
+    fixed_issue_ids?: string[];
+  };
+  security?: CodingSecurityEvidence;
+  review?: CodingReviewEvidence;
+  preview?: CodingPreviewEvidence;
+  browser_screenshot_url?: string;
+  artifacts?: CodingArtifactEvidence[];
+  deployments?: CodingDeploymentEvidence[];
+  public_events?: CodingPublicEvent[];
   error_type?: string;
 }
 

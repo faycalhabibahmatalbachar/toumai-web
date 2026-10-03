@@ -15,6 +15,7 @@ import type { ChatImage } from "@/components/chat/media/types";
 import { SourceFavicon } from "@/components/chat/widgets/kinds/ResearchWidgets";
 import { WorkspaceResult } from "@/components/chat/WorkspaceResult";
 import { CodingRunCard } from "@/components/chat/CodingRunCard";
+import { CodeWorkspace } from "@/components/chat/CodeWorkspace";
 
 type ContextTab = "result" | "sources" | "files" | "images" | "action";
 
@@ -186,11 +187,19 @@ export function ChatContextPanel({
     [files.length, hasWorkspaceResult, images.length, message.toolConfirmation, sources.length],
   );
 
-  const [tab, setTab] = useState<ContextTab>(tabs[0]?.id ?? "sources");
-
-  useEffect(() => {
-    setTab(tabs[0]?.id ?? "sources");
-  }, [message.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [tabSelection, setTabSelection] = useState<{
+    messageId: string;
+    tab: ContextTab;
+  }>(() => ({
+    messageId: message.id,
+    tab: tabs[0]?.id ?? "sources",
+  }));
+  const defaultTab = tabs[0]?.id ?? "sources";
+  const tab =
+    tabSelection.messageId === message.id &&
+    tabs.some((candidate) => candidate.id === tabSelection.tab)
+      ? tabSelection.tab
+      : defaultTab;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -201,6 +210,8 @@ export function ChatContextPanel({
   }, [onClose]);
 
   if (!tabs.length) return null;
+
+  const isCodeWorkspace = Boolean(message.codingRun || message.codingProject);
 
   return (
     <>
@@ -213,13 +224,13 @@ export function ChatContextPanel({
       <aside
         role="complementary"
         aria-label="Workspace de la réponse"
-        className="chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full max-w-[34rem] flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:w-[30rem] xl:max-w-[30rem] xl:shrink-0 xl:shadow-none 2xl:w-[34rem] 2xl:max-w-[34rem]"
+        className={"chat-context-panel fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-[var(--border)] bg-[var(--surface)] shadow-2xl xl:relative xl:z-10 xl:shrink-0 xl:shadow-none " + (isCodeWorkspace ? "max-w-none xl:w-[44rem] xl:max-w-[44rem] 2xl:w-[52rem] 2xl:max-w-[52rem]" : "max-w-[34rem] xl:w-[30rem] xl:max-w-[30rem] 2xl:w-[34rem] 2xl:max-w-[34rem]")}
       >
         <header className="flex min-h-14 items-center gap-3 border-b border-[var(--border)] px-4">
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-[var(--text-primary)]">Workspace</p>
+            <p className="text-[13px] font-semibold text-[var(--text-primary)]">{isCodeWorkspace ? "Workspace Code" : "Workspace"}</p>
             <p className="truncate text-[11px] text-[var(--text-tertiary)]">
-              Travaillez sur le résultat sans quitter la conversation
+              {isCodeWorkspace ? "Actions, fichiers et preuves publiques du run" : "Travaillez sur le résultat sans quitter la conversation"}
             </p>
           </div>
           <button
@@ -233,12 +244,18 @@ export function ChatContextPanel({
           </button>
         </header>
 
+        {isCodeWorkspace ? (
+          <div className="min-h-0 flex-1">
+            <CodeWorkspace run={message.codingRun} project={message.codingProject} />
+          </div>
+        ) : (
+          <>
         <div className="flex gap-1 overflow-x-auto border-b border-[var(--border)] px-3 py-2">
           {tabs.map(({ id, label, count, icon: Icon }) => (
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => setTabSelection({ messageId: message.id, tab: id })}
               aria-pressed={tab === id}
               className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--hover)] hover:text-[var(--text-primary)] data-[active=true]:bg-[var(--hover)] data-[active=true]:text-[var(--text-primary)]"
               data-active={tab === id}
@@ -375,6 +392,8 @@ export function ChatContextPanel({
             </div>
           ) : null}
         </div>
+          </>
+        )}
       </aside>
     </>
   );
