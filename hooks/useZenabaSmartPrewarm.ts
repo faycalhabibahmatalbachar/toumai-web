@@ -5,13 +5,13 @@ import { useAuth } from "@/lib/auth-context";
 import { prewarmZenaba } from "@/lib/voice-api";
 
 /**
- * Réveille Zenaba au moment utile : connexion, retour sur l'onglet et activité
- * utilisateur. Aucun heartbeat 24/7 n'est envoyé quand personne n'utilise
- * Toumaï AI.
+ * Réveille Zenaba aux vrais changements de disponibilité : connexion,
+ * réapparition de l'onglet et retour réseau.
  *
- * La fonction réseau possède son propre throttle navigateur (5 min) et le
- * backend un throttle global Redis (15 min), donc les événements fréquents ne
- * se transforment jamais en rafale ZeroGPU.
+ * PAS de heartbeat et PAS de listener sur chaque clic/touche : ZeroGPU rend le
+ * GPU après la fonction, donc simuler de l'activité en continu gaspillerait le
+ * quota sans garantir un GPU réservé. Le préchauffage paie seulement le cold
+ * start en avance lorsqu'une session redevient réellement active.
  */
 export function useZenabaSmartPrewarm(): void {
   const { session, loading } = useAuth();
@@ -22,8 +22,9 @@ export function useZenabaSmartPrewarm(): void {
 
     const nudge = () => {
       const now = Date.now();
-      // Évite même la lecture de localStorage à chaque clic/touche. Le vrai
-      // throttle demeure dans prewarmZenaba et côté Redis.
+      // Garde locale très courte contre deux événements lifecycle simultanés.
+      // Le throttle navigateur (5 min) puis Redis (15 min) restent les vraies
+      // protections contre les doubles réveils.
       if (now - lastNudgeAt.current < 30_000) return;
       lastNudgeAt.current = now;
       void prewarmZenaba();
@@ -40,16 +41,10 @@ export function useZenabaSmartPrewarm(): void {
 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("online", onOnline);
-    window.addEventListener("pointerdown", nudge, { passive: true });
-    window.addEventListener("keydown", nudge);
-    window.addEventListener("touchstart", nudge, { passive: true });
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("pointerdown", nudge);
-      window.removeEventListener("keydown", nudge);
-      window.removeEventListener("touchstart", nudge);
     };
   }, [loading, session]);
 }
