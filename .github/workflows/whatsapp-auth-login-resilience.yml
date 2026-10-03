@@ -1,0 +1,34 @@
+name: WhatsApp auth login resilience
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/login/page.tsx'
+      - 'lib/whatsapp-auth.ts'
+      - 'scripts/verify-whatsapp-auth-login-resilience.mjs'
+      - '.github/workflows/whatsapp-auth-login-resilience.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck WhatsApp login changes
+        run: npm run typecheck
+      - name: Lint WhatsApp login changes
+        run: npx eslint app/login/page.tsx lib/whatsapp-auth.ts
+      - name: Certify OTP expiry, resend, lockout, validation and privacy UX
+        run: node scripts/verify-whatsapp-auth-login-resilience.mjs
+      - name: Build production web bundle
+        run: npm run build
