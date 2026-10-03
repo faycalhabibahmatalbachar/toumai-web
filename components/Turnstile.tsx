@@ -92,7 +92,14 @@ export function Turnstile({
     }, DELAI_MAX_MS);
 
     const accuser = (jeton: string | null) => {
-      if (jeton) recu = true;
+      if (jeton) {
+        recu = true;
+        clearTimeout(minuterie);
+        // Le challenge peut réussir juste après le délai de secours. Dans ce
+        // cas, retirer immédiatement l'état « indisponible » évite d'afficher
+        // simultanément un échec et « vérification réussie ».
+        if (vivant) setEchec(false);
+      }
       rappel.current(jeton);
     };
 
@@ -142,6 +149,7 @@ export function Turnstile({
     poignee.current = {
       reinitialiser: () => {
         rappel.current(null);
+        setEchec(false);
         if (identifiantWidget.current && window.turnstile) {
           try {
             window.turnstile.reset(identifiantWidget.current);
@@ -159,7 +167,7 @@ export function Turnstile({
   if (!TURNSTILE_SITE_KEY) return null;
   if (echec) {
     return (
-      <p className="text-xs" style={{ color: "var(--landing-muted)" }}>
+      <p className="turnstile-unavailable text-xs" style={{ color: "var(--landing-muted)" }}>
         {unavailableText}
       </p>
     );
