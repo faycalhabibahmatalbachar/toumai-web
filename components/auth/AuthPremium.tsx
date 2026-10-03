@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { Logo } from "@/components/Logo";
 import { ToumaiLogoMotion } from "@/components/auth/ToumaiLogoMotion";
+import { WhatsAppPhoneEnhancer } from "@/components/auth/WhatsAppPhoneEnhancer";
 import { LANG_META, LANGS, useLang, type Lang } from "@/lib/i18n/context";
 
 import "./auth.css";
@@ -204,6 +205,7 @@ export function AuthPremium({
           <h1>{titre}</h1>
           {intro ? <p className="auth-sous-titre">{intro}</p> : null}
           {children}
+          {langueActive ? <WhatsAppPhoneEnhancer /> : null}
         </div>
 
         <footer className="auth-pied">
