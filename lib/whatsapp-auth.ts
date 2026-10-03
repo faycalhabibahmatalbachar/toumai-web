@@ -77,11 +77,10 @@ export function signalerWhatsappWidgetIndisponible(): void {
 }
 
 function garantirFallbackTurnstile(turnstileToken: string | null): void {
-  // Un utilisateur ne doit jamais rester bloqué parce que le widget tiers est
-  // lent, filtré par le navigateur ou vient d'expirer. Le backend connaît ce
-  // client comme « navigateur-sans-widget » et conserve ses vraies défenses :
-  // rate-limit, lockout, idempotence et vérification du numéro lié.
-  if (!turnstileToken) widgetUnavailable = true;
+  // Si un vrai jeton arrive, on revient immédiatement à la validation
+  // Cloudflare normale. Sans jeton, on déclare le fallback prévu par le
+  // backend afin qu'un widget bloqué ne ferme jamais la porte du compte.
+  widgetUnavailable = !turnstileToken;
 }
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
