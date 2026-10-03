@@ -18,9 +18,6 @@ export async function transcribeAudio(blob: Blob): Promise<TranscribeResult> {
         : mime.includes("wav")
           ? "wav"
           : "webm";
-  // Safari peut produire audio/mp4 alors que Chromium produit généralement
-  // audio/webm. Conserver une extension cohérente évite que le backend STT
-  // interprète mal le conteneur.
   form.append("file", blob, `audio.${ext}`);
   return postForm<TranscribeResult>("/voice/transcribe", form);
 }
@@ -46,142 +43,28 @@ async function ttsHttpError(res: Response): Promise<HttpError> {
   return new HttpError(res.status || 500, message);
 }
 
-const ZENABA_TRANSIENT_RETRY_MS = 900;
-
-async function waitForZenabaRetry(signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) {
-    throw signal.reason ?? new DOMException("Aborted", "AbortError");
-  }
-  await new Promise<void>((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ZENABA_TRANSIENT_RETRY_MS);
-    const onAbort = () => {
-      window.clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 /**
- * ZeroGPU peut rendre un 503 applicatif pendant un réveil/une attribution GPU.
- * Une seule reprise courte suffit à absorber ce cas sans transformer un vrai
- * incident fournisseur en boucle de requêtes. L'authentification reste gérée
- * exclusivement par authFetch (refresh + retry 401 séparés de ce retry TTS).
+ * Les reprises TTS sont centralisées côté backend.
+ *
+ * Important : un seul clic ne doit jamais devenir deux requêtes HTTP puis
+ * quatre jobs Gradio. `authFetch` conserve uniquement son mécanisme normal de
+ * refresh 401 ; les 503 Zenaba ne sont pas réessayés dans le navigateur.
  */
 async function zenabaFetch(path: string, init: RequestInit): Promise<Response> {
-  let res = await authFetch(path, init);
-  if (res.status !== 503) return res;
-
-  if (res.body) await res.body.cancel().catch(() => {});
-  await waitForZenabaRetry(init.signal ?? undefined);
-  res = await authFetch(path, init);
-  return res;
-}
-
-// ── Smart Pre-Warm Zenaba ──────────────────────────────────────────────────
-//
-// Ce texte est un protocole interne entre le Web et le backend. Le backend
-// l'intercepte avant l'appel Chatterbox, coordonne toutes ses répliques via
-// Redis et ne laisse passer qu'un vrai réveil ZeroGPU par fenêtre globale.
-// L'audio produit n'est JAMAIS joué : il sert uniquement à payer le cold start
-// avant que l'utilisateur demande réellement à Zenaba de parler.
-const ZENABA_PREWARM_SENTINEL = "Préparation vocale interne Toumaï.";
-const ZENABA_PREWARM_CLIENT_KEY = "toumai:zenaba:prewarm-client:v1";
-const ZENABA_PREWARM_CLIENT_COOLDOWN_MS = 5 * 60 * 1000;
-
-let zenabaPrewarmInFlight: Promise<boolean> | null = null;
-
-function shouldRunZenabaPrewarm(): boolean {
-  if (typeof window === "undefined" || document.visibilityState === "hidden") return false;
-  try {
-    const raw = window.localStorage.getItem(ZENABA_PREWARM_CLIENT_KEY);
-    const last = raw ? Number(raw) : 0;
-    return !Number.isFinite(last) || Date.now() - last >= ZENABA_PREWARM_CLIENT_COOLDOWN_MS;
-  } catch {
-    return true;
-  }
-}
-
-function stampZenabaPrewarm(now = Date.now()): void {
-  try {
-    window.localStorage.setItem(ZENABA_PREWARM_CLIENT_KEY, String(now));
-  } catch {
-    // Stockage bloqué : la coordination Redis côté backend reste l'autorité.
-  }
-}
-
-function unstampZenabaPrewarm(): void {
-  try {
-    window.localStorage.removeItem(ZENABA_PREWARM_CLIENT_KEY);
-  } catch {
-    // noop
-  }
+  return authFetch(path, init);
 }
 
 /**
- * Réveille Zenaba en arrière-plan sans jouer de son et sans bloquer l'UI.
+ * Compatibilité d'API pour les anciens composants.
  *
- * Deux niveaux empêchent le gaspillage :
- * - localStorage : plusieurs onglets du même navigateur ne relancent pas la
- *   sonde toutes les secondes ;
- * - Redis backend : plusieurs utilisateurs/répliques ne déclenchent qu'un
- *   seul vrai passage ZeroGPU par fenêtre globale.
- *
- * `false` signifie seulement « pas chauffée maintenant » ; cette fonction ne
- * doit jamais casser l'expérience principale.
+ * Le Smart Pre-Warm GPU est désactivé avec ZeroGPU : le GPU est rendu après la
+ * fonction, donc une synthèse silencieuse à l'ouverture ne garantit pas que le
+ * prochain appel sera chaud et peut au contraire entrer en concurrence avec la
+ * vraie lecture. Le backend accepte toujours l'ancien sentinel sans consommer
+ * de GPU pour les clients déjà déployés.
  */
 export function prewarmZenaba(): Promise<boolean> {
-  if (zenabaPrewarmInFlight) return zenabaPrewarmInFlight;
-  if (!shouldRunZenabaPrewarm()) return Promise.resolve(false);
-
-  // Posé AVANT le réseau pour que deux événements navigateur simultanés ne
-  // lancent pas deux requêtes. En cas d'échec, on l'enlève pour autoriser une
-  // prochaine opportunité de réveil.
-  stampZenabaPrewarm();
-
-  const started = typeof performance !== "undefined" ? performance.now() : Date.now();
-  zenabaPrewarmInFlight = (async () => {
-    try {
-      const res = await zenabaFetch("/voice/synthesize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: ZENABA_PREWARM_SENTINEL,
-          language: "fr",
-          voice: "zenaba",
-        }),
-      });
-      if (!res.ok) {
-        unstampZenabaPrewarm();
-        return false;
-      }
-      const body = await res.json().catch(() => ({}));
-      if (body?.success === false) {
-        unstampZenabaPrewarm();
-        return false;
-      }
-      const elapsed = Math.round(
-        (typeof performance !== "undefined" ? performance.now() : Date.now()) - started,
-      );
-      try {
-        window.sessionStorage.setItem("toumai:zenaba:last-prewarm-ms", String(elapsed));
-      } catch {
-        // Télémétrie locale best-effort seulement.
-      }
-      return true;
-    } catch {
-      unstampZenabaPrewarm();
-      return false;
-    } finally {
-      zenabaPrewarmInFlight = null;
-    }
-  })();
-
-  return zenabaPrewarmInFlight;
+  return Promise.resolve(false);
 }
 
 /**
