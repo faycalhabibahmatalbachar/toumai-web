@@ -22,14 +22,11 @@ const PREVIEW_OWNER = "settings:zenaba";
 
 function previewText(firstName: string | null): string {
   const salutation = firstName ? `Bonjour ${firstName},` : "Bonjour,";
-  // Une seule phrase volontairement. Le backend Zenaba découpe sur les fins
-  // de phrase : deux phrases courtes déclenchaient deux allocations ZeroGPU.
+  // Une seule phrase courte volontairement. Le backend Zenaba découpe sur les
+  // fins de phrase : deux phrases déclenchaient deux allocations ZeroGPU.
   // Le premier segment pouvait être joué puis le second échouer en AppError,
   // ce qui affichait une erreur après une démonstration pourtant audible.
-  return (
-    `${salutation} je suis Zenaba, la voix officielle de Toumaï, ` +
-    "je peux lire vos réponses, vos rappels et vos notifications avec une voix naturelle et agréable."
-  );
+  return `${salutation} je suis Zenaba, la voix officielle de Toumaï.`;
 }
 
 export function VoiceSection() {
