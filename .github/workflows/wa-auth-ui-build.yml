@@ -37,7 +37,9 @@ jobs:
       - name: Lint WhatsApp auth changes
         # The OTP clock synchronizes once when a challenge mounts, then the
         # interval callback advances it. All other hook rules stay blocking.
-        run: npx eslint app/login/page.tsx lib/whatsapp-auth.ts --rule 'react-hooks/set-state-in-effect: off'
+        run: >-
+          npx eslint app/login/page.tsx lib/whatsapp-auth.ts
+          --rule 'react-hooks/set-state-in-effect: off'
       - name: Certify OTP expiry, resend, lockout and idempotency
         run: node scripts/verify-whatsapp-auth-login-resilience.mjs
       - name: Certify anti-enumeration copy
