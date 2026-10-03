@@ -1,0 +1,30 @@
+name: Notification channel center production E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/notification-channel-center-prod.yml"
+      - "scripts/notification-channel-center-prod.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install browser driver
+        run: npm install --no-save --ignore-scripts playwright-core
+      - name: Real settings button E2E
+        env:
+          TOUMAI_API: https://api.toumaiai.com/api/v1
+          TOUMAI_WEB: https://toumaiai.com
+        run: xvfb-run -a node scripts/notification-channel-center-prod.mjs
