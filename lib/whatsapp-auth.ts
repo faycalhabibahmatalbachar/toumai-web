@@ -4,7 +4,7 @@ import { authHeaders, saveSession, type TokenPayload } from "./api";
 interface ApiEnvelope<T> {
   success: boolean;
   message?: string;
-  data?: T;
+  data?: T | Record<string, unknown>;
 }
 
 export interface WhatsAppChallenge {
@@ -36,6 +36,31 @@ export type WhatsAppVerifyResult =
   | { status: "authenticated" }
   | { status: "mfa_required"; pendingToken: string };
 
+export class WhatsAppAuthError extends Error {
+  readonly code: string | null;
+  readonly status: number;
+  readonly retryAfter: number | null;
+
+  constructor(message: string, options: { code?: string | null; status: number; retryAfter?: number | null }) {
+    super(message);
+    this.name = "WhatsAppAuthError";
+    this.code = options.code ?? null;
+    this.status = options.status;
+    this.retryAfter = options.retryAfter ?? null;
+  }
+}
+
+export function isWhatsAppAuthError(value: unknown): value is WhatsAppAuthError {
+  return value instanceof WhatsAppAuthError;
+}
+
+/** Validation de forme uniquement. Elle ne doit jamais servir à révéler si un
+ * numéro possède un compte Toumaï ou s'il est inscrit sur WhatsApp. */
+export function estNumeroWhatsappValide(value: string): boolean {
+  const compact = value.trim().replace(/[\s().-]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(compact);
+}
+
 let widgetUnavailable = false;
 
 export function signalerWhatsappWidgetIndisponible(): void {
@@ -55,9 +80,20 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   });
   const body = (await response.json().catch(() => ({}))) as ApiEnvelope<T>;
   if (!response.ok || body.success === false || !body.data) {
-    throw new Error(body.message || `Erreur ${response.status}`);
+    const details = body.data && typeof body.data === "object"
+      ? body.data as Record<string, unknown>
+      : {};
+    const retryAfterRaw = details.retry_after;
+    const retryAfter = typeof retryAfterRaw === "number" && Number.isFinite(retryAfterRaw)
+      ? Math.max(0, Math.floor(retryAfterRaw))
+      : null;
+    throw new WhatsAppAuthError(body.message || `Erreur ${response.status}`, {
+      code: typeof details.code === "string" ? details.code : null,
+      status: response.status,
+      retryAfter,
+    });
   }
-  return body.data;
+  return body.data as T;
 }
 
 async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {

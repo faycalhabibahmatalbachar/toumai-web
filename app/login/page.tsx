@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -24,6 +24,8 @@ import { LangProvider, useLang, type Lang } from "@/lib/i18n/context";
 import { GuestOnly } from "@/components/auth/GuestOnly";
 import {
   demanderCodeWhatsApp,
+  estNumeroWhatsappValide,
+  isWhatsAppAuthError,
   signalerWhatsappWidgetIndisponible,
   verifierCodeWhatsApp,
   type WhatsAppChallenge,
@@ -54,6 +56,13 @@ const COPY: Record<Lang, {
   whatsappVerifying: string;
   whatsappChangeNumber: string;
   whatsappError: string;
+  whatsappResend: string;
+  whatsappResendIn: string;
+  whatsappExpiresIn: string;
+  whatsappExpired: string;
+  whatsappLocked: string;
+  whatsappInvalidPhone: string;
+  whatsappRateLimited: string;
   noAccount: string;
   createAccount: string;
   expiredTitle: string;
@@ -96,6 +105,13 @@ const COPY: Record<Lang, {
     whatsappVerifying: "Vérification…",
     whatsappChangeNumber: "Utiliser un autre numéro",
     whatsappError: "Connexion WhatsApp impossible.",
+    whatsappResend: "Renvoyer le code",
+    whatsappResendIn: "Renvoyer dans {seconds} s",
+    whatsappExpiresIn: "Le code expire dans {seconds} s.",
+    whatsappExpired: "Ce code a expiré. Demandez-en un nouveau.",
+    whatsappLocked: "Trop de tentatives. Demandez un nouveau code.",
+    whatsappInvalidPhone: "Entrez un numéro international valide, par exemple +23566000000.",
+    whatsappRateLimited: "Trop de demandes de code. Réessayez plus tard.",
     noAccount: "Vous n’avez pas encore de compte ?",
     createAccount: "Créer un compte",
     expiredTitle: "Votre session a expiré.",
@@ -110,7 +126,7 @@ const COPY: Record<Lang, {
     verificationPlaceholder: "123456",
     verify: "Continuer",
     verifying: "Vérification…",
-    invalidCode: "Code invalide.",
+    invalidCode: "Code invalide ou expiré.",
     back: "Revenir à la connexion",
   },
   "ar-td": {
@@ -138,6 +154,13 @@ const COPY: Record<Lang, {
     whatsappVerifying: "جاري التحقق…",
     whatsappChangeNumber: "استعمل رقم تاني",
     whatsappError: "الدخول بـ WhatsApp ما تم.",
+    whatsappResend: "أرسل الكود تاني",
+    whatsappResendIn: "تقدر ترسل بعد {seconds} ثانية",
+    whatsappExpiresIn: "الكود بخلص بعد {seconds} ثانية.",
+    whatsappExpired: "الكود خلص. اطلب كود جديد.",
+    whatsappLocked: "المحاولات كتّرت. اطلب كود جديد.",
+    whatsappInvalidPhone: "اكتب رقم دولي صحيح، مثلاً +23566000000.",
+    whatsappRateLimited: "طلبات الكود كتّرت. جرّب بعد شوية.",
     noAccount: "ما عندك حساب؟",
     createAccount: "اعمل حساب",
     expiredTitle: "الجلسة خلصت.",
@@ -152,7 +175,7 @@ const COPY: Record<Lang, {
     verificationPlaceholder: "123456",
     verify: "واصل",
     verifying: "جاري التحقق…",
-    invalidCode: "الكود ما صحيح.",
+    invalidCode: "الكود غلط أو خلص.",
     back: "ارجع للدخول",
   },
   ar: {
@@ -180,6 +203,13 @@ const COPY: Record<Lang, {
     whatsappVerifying: "جارٍ التحقق…",
     whatsappChangeNumber: "استخدام رقم آخر",
     whatsappError: "تعذر تسجيل الدخول عبر WhatsApp.",
+    whatsappResend: "إعادة إرسال الرمز",
+    whatsappResendIn: "إعادة الإرسال بعد {seconds} ثانية",
+    whatsappExpiresIn: "تنتهي صلاحية الرمز خلال {seconds} ثانية.",
+    whatsappExpired: "انتهت صلاحية هذا الرمز. اطلب رمزاً جديداً.",
+    whatsappLocked: "محاولات كثيرة. اطلب رمزاً جديداً.",
+    whatsappInvalidPhone: "أدخل رقماً دولياً صالحاً، مثل +23566000000.",
+    whatsappRateLimited: "طلبات كثيرة للرمز. حاول لاحقاً.",
     noAccount: "ليس لديك حساب بعد؟",
     createAccount: "إنشاء حساب",
     expiredTitle: "انتهت جلستك.",
@@ -194,7 +224,7 @@ const COPY: Record<Lang, {
     verificationPlaceholder: "123456",
     verify: "متابعة",
     verifying: "جارٍ التحقق…",
-    invalidCode: "الرمز غير صحيح.",
+    invalidCode: "الرمز غير صالح أو منتهي الصلاحية.",
     back: "العودة إلى تسجيل الدخول",
   },
   en: {
@@ -222,6 +252,13 @@ const COPY: Record<Lang, {
     whatsappVerifying: "Verifying…",
     whatsappChangeNumber: "Use another number",
     whatsappError: "WhatsApp sign-in failed.",
+    whatsappResend: "Resend code",
+    whatsappResendIn: "Resend in {seconds}s",
+    whatsappExpiresIn: "Code expires in {seconds}s.",
+    whatsappExpired: "This code has expired. Request a new one.",
+    whatsappLocked: "Too many attempts. Request a new code.",
+    whatsappInvalidPhone: "Enter a valid international number, for example +23566000000.",
+    whatsappRateLimited: "Too many code requests. Try again later.",
     noAccount: "Don’t have an account yet?",
     createAccount: "Create an account",
     expiredTitle: "Your session has expired.",
@@ -236,7 +273,7 @@ const COPY: Record<Lang, {
     verificationPlaceholder: "123456",
     verify: "Continue",
     verifying: "Verifying…",
-    invalidCode: "Invalid code.",
+    invalidCode: "Invalid or expired code.",
     back: "Back to sign in",
   },
 };
@@ -300,6 +337,11 @@ function LoginPageContent() {
   const [telephoneWhatsapp, setTelephoneWhatsapp] = useState("+235");
   const [defiWhatsapp, setDefiWhatsapp] = useState<WhatsAppChallenge | null>(null);
   const [codeWhatsapp, setCodeWhatsapp] = useState("");
+  const [whatsappRequestedAt, setWhatsappRequestedAt] = useState<number | null>(null);
+  const [whatsappClock, setWhatsappClock] = useState(0);
+  const [whatsappRetryUntil, setWhatsappRetryUntil] = useState<number | null>(null);
+  const [whatsappFailures, setWhatsappFailures] = useState(0);
+  const [whatsappWidgetUnavailable, setWhatsappWidgetUnavailable] = useState(false);
   const whatsappRequestKey = useRef<string | null>(null);
 
   usePaymentPlan();
@@ -315,18 +357,53 @@ function LoginPageContent() {
   const destination = planChoisi ? checkoutUrl(planChoisi) : retourCompte ?? "/chat";
   const oauthLanguage = lang === "ar-td" ? "ar" : lang;
 
+  useEffect(() => {
+    if (!defiWhatsapp || !whatsappRequestedAt) return;
+    setWhatsappClock(Date.now());
+    const timer = window.setInterval(() => setWhatsappClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [defiWhatsapp, whatsappRequestedAt]);
+
+  const whatsappExpiresAt = defiWhatsapp && whatsappRequestedAt
+    ? whatsappRequestedAt + defiWhatsapp.expires_in * 1000
+    : 0;
+  const whatsappResendAt = defiWhatsapp && whatsappRequestedAt
+    ? Math.max(
+        whatsappRequestedAt + defiWhatsapp.resend_after * 1000,
+        whatsappRetryUntil ?? 0,
+      )
+    : 0;
+  const whatsappSecondsLeft = whatsappExpiresAt
+    ? Math.max(0, Math.ceil((whatsappExpiresAt - whatsappClock) / 1000))
+    : 0;
+  const whatsappResendSeconds = whatsappResendAt
+    ? Math.max(0, Math.ceil((whatsappResendAt - whatsappClock) / 1000))
+    : 0;
+  const whatsappExpired = Boolean(defiWhatsapp && whatsappExpiresAt && whatsappClock >= whatsappExpiresAt);
+  const whatsappLocked = whatsappFailures >= 5;
+
   function onTurnstileUnavailable() {
     signalerWidgetIndisponible();
     signalerWhatsappWidgetIndisponible();
+    setWhatsappWidgetUnavailable(true);
+  }
+
+  function resetWhatsappChallenge() {
+    setDefiWhatsapp(null);
+    setCodeWhatsapp("");
+    setWhatsappRequestedAt(null);
+    setWhatsappClock(0);
+    setWhatsappRetryUntil(null);
+    setWhatsappFailures(0);
+    whatsappRequestKey.current = null;
+    setTurnstileToken(null);
+    turnstile.current?.reinitialiser();
   }
 
   function resetWhatsapp() {
     setModeWhatsapp(false);
-    setDefiWhatsapp(null);
-    setCodeWhatsapp("");
+    resetWhatsappChallenge();
     setError(null);
-    whatsappRequestKey.current = null;
-    turnstile.current?.reinitialiser();
   }
 
   async function submit(e: React.FormEvent) {
@@ -364,13 +441,16 @@ function LoginPageContent() {
     }
   }
 
-  async function demanderWhatsapp(e: React.FormEvent) {
-    e.preventDefault();
+  async function envoyerCodeWhatsapp(forceNewKey = false) {
     const phone = telephoneWhatsapp.trim();
-    if (!phone) return;
+    if (!estNumeroWhatsappValide(phone)) {
+      setError(text.whatsappInvalidPhone);
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
+      if (forceNewKey) whatsappRequestKey.current = null;
       if (!whatsappRequestKey.current) {
         whatsappRequestKey.current = `wa-login:${crypto.randomUUID()}`;
       }
@@ -379,19 +459,56 @@ function LoginPageContent() {
         turnstileToken,
         whatsappRequestKey.current,
       );
+      const requestedAt = Date.now();
       setDefiWhatsapp(challenge);
       setCodeWhatsapp("");
+      setWhatsappFailures(0);
+      setWhatsappRequestedAt(requestedAt);
+      setWhatsappClock(requestedAt);
+      setWhatsappRetryUntil(requestedAt + challenge.resend_after * 1000);
+      // Les jetons Turnstile sont à usage unique. La vue du code monte un
+      // nouveau widget afin qu'un renvoi ne réutilise jamais le premier jeton.
+      setTurnstileToken(null);
     } catch (err) {
-      setError(messageAuth(err, text.whatsappError));
+      if (isWhatsAppAuthError(err) && err.retryAfter) {
+        setWhatsappRetryUntil(Date.now() + err.retryAfter * 1000);
+        setWhatsappClock(Date.now());
+      }
+      if (isWhatsAppAuthError(err) && err.code === "RATE_LIMITED") {
+        setError(text.whatsappRateLimited);
+      } else if (isWhatsAppAuthError(err) && err.code === "RESEND_TOO_SOON") {
+        const seconds = err.retryAfter ?? Math.max(1, whatsappResendSeconds);
+        setError(text.whatsappResendIn.replace("{seconds}", String(seconds)));
+      } else {
+        setError(messageAuth(err, text.whatsappError));
+      }
       turnstile.current?.reinitialiser();
     } finally {
       setLoading(false);
     }
   }
 
+  async function demanderWhatsapp(e: React.FormEvent) {
+    e.preventDefault();
+    await envoyerCodeWhatsapp(false);
+  }
+
+  async function renvoyerWhatsapp() {
+    if (!defiWhatsapp || whatsappResendSeconds > 0 || loading) return;
+    await envoyerCodeWhatsapp(true);
+  }
+
   async function verifierWhatsapp(e: React.FormEvent) {
     e.preventDefault();
     if (!defiWhatsapp) return;
+    if (whatsappExpired) {
+      setError(text.whatsappExpired);
+      return;
+    }
+    if (whatsappLocked) {
+      setError(text.whatsappLocked);
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -403,13 +520,33 @@ function LoginPageContent() {
       if (result.status === "mfa_required") {
         setDefiMfa(result.pendingToken);
         setModeWhatsapp(false);
-        setDefiWhatsapp(null);
-        setCodeWhatsapp("");
+        resetWhatsappChallenge();
         return;
       }
       window.location.replace(destination);
     } catch (err) {
-      setError(messageAuth(err, text.invalidCode));
+      const code = isWhatsAppAuthError(err) ? err.code : null;
+      const verificationFailure = [
+        "INVALID_CODE",
+        "INVALID_CHALLENGE",
+        "CODE_EXPIRED",
+        "CHALLENGE_ALREADY_USED",
+        "TOO_MANY_ATTEMPTS",
+      ].includes(code ?? "");
+
+      if (verificationFailure) {
+        // IMPORTANT : INVALID_CODE et INVALID_CHALLENGE restent visuellement
+        // indistinguables. Cela évite de révéler si le numéro est réellement
+        // lié à un compte Toumaï. Le verrouillage UX dépend uniquement du
+        // nombre de tentatives faites dans ce navigateur.
+        const nextFailures = code === "TOO_MANY_ATTEMPTS"
+          ? 5
+          : Math.min(5, whatsappFailures + 1);
+        setWhatsappFailures(nextFailures);
+        setError(nextFailures >= 5 ? text.whatsappLocked : text.invalidCode);
+      } else {
+        setError(messageAuth(err, text.invalidCode));
+      }
       setCodeWhatsapp("");
     } finally {
       setLoading(false);
@@ -527,14 +664,16 @@ function LoginPageContent() {
                     onChange={(e) => {
                       setTelephoneWhatsapp(e.target.value);
                       whatsappRequestKey.current = null;
+                      setError(null);
                     }}
                     disabled={loading}
+                    aria-invalid={error === text.whatsappInvalidPhone ? true : undefined}
                     className="auth-saisie"
                   />
                 </span>
               </label>
               {messageErreur}
-              <button type="submit" disabled={loading || telephoneWhatsapp.trim().length < 6} className="auth-bouton">
+              <button type="submit" disabled={loading || !telephoneWhatsapp.trim()} className="auth-bouton">
                 {loading && <span className="auth-rotative" aria-hidden="true" />}
                 {loading ? text.whatsappSending : text.whatsappSend}
                 {!loading && <IconeFleche />}
@@ -560,6 +699,16 @@ function LoginPageContent() {
                 <IconeInfo />
                 <span>{text.whatsappCodeIntro}</span>
               </p>
+              <p className="auth-avis" role="status" aria-live="polite">
+                <IconeInfo />
+                <span>
+                  {whatsappExpired
+                    ? text.whatsappExpired
+                    : whatsappLocked
+                      ? text.whatsappLocked
+                      : text.whatsappExpiresIn.replace("{seconds}", String(whatsappSecondsLeft))}
+                </span>
+              </p>
               <label className="auth-champ">
                 <span className="auth-etiquette">{text.verificationCode}</span>
                 <input
@@ -572,25 +721,61 @@ function LoginPageContent() {
                   placeholder={text.verificationPlaceholder}
                   value={codeWhatsapp}
                   onChange={(e) => setCodeWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  disabled={loading}
+                  disabled={loading || whatsappExpired || whatsappLocked}
                   className="auth-saisie auth-code"
                 />
               </label>
               {messageErreur}
-              <button type="submit" disabled={loading || codeWhatsapp.length !== 6} className="auth-bouton">
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  codeWhatsapp.length !== 6 ||
+                  whatsappExpired ||
+                  whatsappLocked
+                }
+                className="auth-bouton"
+              >
                 {loading && <span className="auth-rotative" aria-hidden="true" />}
                 {loading ? text.whatsappVerifying : text.whatsappVerify}
                 {!loading && <IconeFleche />}
+              </button>
+
+              <div className={`auth-turnstile${turnstileToken ? " auth-turnstile-valide" : ""}`}>
+                <Turnstile
+                  onToken={setTurnstileToken}
+                  onIndisponible={onTurnstileUnavailable}
+                  poignee={turnstile}
+                  language={oauthLanguage}
+                  appearance="always"
+                  size="normal"
+                  unavailableText={text.antiBotUnavailable}
+                />
+                {turnstileToken ? (
+                  <p className="auth-turnstile-ok" role="status">✓ {text.antiBotVerified}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                className="auth-bouton-discret"
+                onClick={renvoyerWhatsapp}
+                disabled={
+                  loading ||
+                  whatsappResendSeconds > 0 ||
+                  (!turnstileToken && !whatsappWidgetUnavailable)
+                }
+              >
+                {whatsappResendSeconds > 0
+                  ? text.whatsappResendIn.replace("{seconds}", String(whatsappResendSeconds))
+                  : text.whatsappResend}
               </button>
               <button
                 type="button"
                 className="auth-bouton-discret"
                 onClick={() => {
-                  setDefiWhatsapp(null);
-                  setCodeWhatsapp("");
+                  resetWhatsappChallenge();
                   setError(null);
-                  whatsappRequestKey.current = null;
-                  turnstile.current?.reinitialiser();
                 }}
               >
                 {text.whatsappChangeNumber}

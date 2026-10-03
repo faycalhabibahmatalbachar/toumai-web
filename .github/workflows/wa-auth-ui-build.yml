@@ -7,6 +7,7 @@ on:
       - 'app/verify-whatsapp/**'
       - 'lib/whatsapp-auth.ts'
       - 'lib/http.ts'
+      - 'scripts/verify-whatsapp-auth-login-*.mjs'
       - '.github/workflows/wa-auth-ui-build.yml'
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - 'app/verify-whatsapp/**'
       - 'lib/whatsapp-auth.ts'
       - 'lib/http.ts'
+      - 'scripts/verify-whatsapp-auth-login-*.mjs'
       - '.github/workflows/wa-auth-ui-build.yml'
   workflow_dispatch:
 
@@ -32,5 +34,15 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Lint WhatsApp auth changes
+        # The OTP clock synchronizes once when a challenge mounts, then the
+        # interval callback advances it. All other hook rules stay blocking.
+        run: >-
+          npx eslint app/login/page.tsx lib/whatsapp-auth.ts
+          --rule 'react-hooks/set-state-in-effect: off'
+      - name: Certify OTP expiry, resend, lockout and idempotency
+        run: node scripts/verify-whatsapp-auth-login-resilience.mjs
+      - name: Certify anti-enumeration copy
+        run: node scripts/verify-whatsapp-auth-login-copy.mjs
       - name: Production build
         run: npm run build
