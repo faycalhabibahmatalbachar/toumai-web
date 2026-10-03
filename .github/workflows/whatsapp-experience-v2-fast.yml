@@ -1,0 +1,110 @@
+name: WhatsApp Experience V2 — FAST
+
+on:
+  push:
+    branches:
+      - codex/whatsapp-experience-v2
+    paths:
+      - "app/chat/page.tsx"
+      - "app/dev/whatsapp-ui/page.tsx"
+      - "components/whatsapp-experience/**"
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - "components/chat/widgets/ActionExecutionCard.tsx"
+      - "lib/whatsapp-ui/**"
+      - "scripts/verify-whatsapp-experience-v2.mjs"
+      - "scripts/verify-whatsapp-connection-race.mjs"
+      - "scripts/verify-whatsapp-permission-gate.mjs"
+      - "scripts/verify-whatsapp-recent-activity.mjs"
+      - "scripts/verify-whatsapp-rollout-readiness.mjs"
+      - "scripts/verify-whatsapp-real-provider-canary.py"
+      - "scripts/e2e_whatsapp_experience_v2_chat.py"
+      - "scripts/e2e_whatsapp_experience_v2_connection.py"
+      - "scripts/e2e_whatsapp_experience_v2_contacts.py"
+      - "scripts/e2e_whatsapp_experience_v2_permissions.py"
+      - "scripts/e2e_whatsapp_experience_v2_activity.py"
+      - "scripts/e2e_whatsapp_experience_v2_timeline.py"
+      - "scripts/e2e_whatsapp_experience_v2_result.py"
+      - "scripts/e2e_whatsapp_experience_v2_rollout.py"
+      - "scripts/wa_v2_real_provider_canary.py"
+      - "scripts/wa_v2_fast.py"
+      - "package.json"
+      - ".github/workflows/whatsapp-experience-v2-fast.yml"
+      - ".github/workflows/whatsapp-experience-v2-precanary.yml"
+      - ".github/workflows/whatsapp-experience-v2-real-provider-canary.yml"
+      - "docs/whatsapp-experience-v2/FULL_CERTIFICATION_TRIGGER.txt"
+      - "docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Targeted FAST browser suite"
+        required: false
+        default: "contacts"
+        type: choice
+        options:
+          - chat
+          - connection
+          - contacts
+          - permissions
+          - activity
+          - timeline
+          - result
+          - rollout
+          - contract-only
+
+concurrency:
+  group: whatsapp-experience-v2-fast-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2: "1"
+      WA_V2_FAST_SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Contract gate
+        run: npm run wa:v2:contract
+
+      - name: Phase 11 real-provider canary contract
+        run: python3 scripts/verify-whatsapp-real-provider-canary.py
+
+      - name: TypeScript gate
+        run: npm run typecheck
+
+      - name: Install Playwright Python runtime only
+        run: python -m pip install --disable-pip-version-check playwright==1.55.0
+
+      - name: Resolve browser without apt reinstall
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "WA_V2_BROWSER_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
+            google-chrome --version
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "WA_V2_BROWSER_EXECUTABLE=$(command -v chromium)" >> "$GITHUB_ENV"
+            chromium --version
+          else
+            echo "System Chromium unavailable; installing Playwright Chromium fallback"
+            python -m playwright install chromium
+          fi
+
+      - name: Targeted browser E2E
+        run: npm run wa:v2:fast
+
+      - name: FAST verdict
+        run: |
+          echo "WA_V2_FAST_GATE=PASS"
+          echo "WA_V2_FULL_CERTIFICATION_REQUIRED_BEFORE_PHASE_PASS=YES"

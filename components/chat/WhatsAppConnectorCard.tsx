@@ -122,8 +122,6 @@ function countdown(expiry: number | null, now: number) {
   return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
-
-
 export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   const { whatsapp: wa } = useWidgetRuntime();
   const [etat, setEtat] = useState<WaEtat | null>(null);
@@ -156,6 +154,11 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   }, [wa]);
 
   const startQr = useCallback(async () => {
+    // A connection mutation must win over any older read already in flight.
+    // Without invalidating that read, a stale `session_expiree` response can
+    // arrive after the fresh QR and hide it permanently because expired state
+    // is not polled. This is especially visible on reconnect under CI latency.
+    generation.current += 1;
     setBusy(true);
     setError(null);
     setCopiedCode(false);
@@ -189,9 +192,13 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   }, [refresh, wa]);
 
   useEffect(() => {
+    // Connection intents immediately perform a mutation that returns the fresh
+    // QR/code state. Do not start a competing mount read that can overwrite it
+    // with the stale disconnected/expired state captured just before mutation.
+    if (CONNECTION_INTENTS.has(intent)) return;
     const id = window.setTimeout(() => void refresh(), 0);
     return () => { window.clearTimeout(id); generation.current += 1; };
-  }, [refresh]);
+  }, [intent, refresh]);
 
   const rawStatus = raw?.status;
   useEffect(() => {

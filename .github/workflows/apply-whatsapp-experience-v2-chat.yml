@@ -1,0 +1,55 @@
+name: Apply WhatsApp Experience V2 Chat Patch
+
+on:
+  push:
+    branches:
+      - codex/whatsapp-experience-v2
+    paths:
+      - "scripts/apply-whatsapp-experience-v2-chat.mjs"
+      - ".github/workflows/apply-whatsapp-experience-v2-chat.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-whatsapp-experience-v2-chat
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/whatsapp-experience-v2
+          fetch-depth: 1
+
+      - name: Apply exact anchored patch
+        run: node scripts/apply-whatsapp-experience-v2-chat.mjs
+
+      - name: Prove idempotence
+        run: node scripts/apply-whatsapp-experience-v2-chat.mjs
+
+      - name: Verify patch shape
+        shell: bash
+        run: |
+          git diff --check
+          grep -q 'WhatsAppChatActionCenter' app/chat/page.tsx
+          grep -q 'data-testid="wa-v2-composer-entry"' app/chat/page.tsx
+          grep -q 'WHATSAPP_EXPERIENCE_V2_ENABLED' app/chat/page.tsx
+
+      - name: Commit patched chat surface
+        shell: bash
+        run: |
+          if git diff --quiet -- app/chat/page.tsx; then
+            echo "WHATSAPP_CHAT_PATCH_COMMIT=NO_CHANGE"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/chat/page.tsx
+          git commit -m "feat(whatsapp-ui): integrate action center into chat behind flag"
+          git push origin HEAD:codex/whatsapp-experience-v2
+          echo "WHATSAPP_CHAT_PATCH_COMMIT=PUSHED"

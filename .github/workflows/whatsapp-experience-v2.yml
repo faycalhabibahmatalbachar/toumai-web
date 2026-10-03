@@ -1,0 +1,114 @@
+name: WhatsApp Experience V2 — FULL CERTIFICATION
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Certification reason / phase"
+        required: false
+        default: "phase-gate"
+        type: string
+  push:
+    branches:
+      - codex/whatsapp-experience-v2
+    paths:
+      - "docs/whatsapp-experience-v2/FULL_CERTIFICATION_TRIGGER.txt"
+      - "docs/whatsapp-experience-v2/REAL_PROVIDER_CANARY_TRIGGER.txt"
+
+concurrency:
+  group: whatsapp-experience-v2-full-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify WhatsApp Experience contract
+        run: npm run wa:v2:contract
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Build static app with WhatsApp V2 enabled
+        run: npm run build
+
+      - name: Verify visual lab and chat exports
+        shell: bash
+        run: |
+          test -f out/dev/whatsapp-ui/index.html
+          grep -q "WhatsApp Experience V2" out/dev/whatsapp-ui/index.html
+          test -f out/chat/index.html
+          echo "WHATSAPP_UI_EXPORTS=PASS"
+
+      - name: Install Playwright browser runtime
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.55.0
+          python -m playwright install --with-deps chromium
+
+      - name: Browser E2E — isolated visual lab
+        run: npm run wa:v2:full:lab
+
+      - name: Browser E2E — real chat integration, read-only WhatsApp
+        run: npm run wa:v2:full:chat
+
+      - name: Browser E2E — connection flow with mocked provider
+        run: npm run wa:v2:full:connection
+
+      - name: Browser E2E — contact picker and action preview, read-only WhatsApp
+        run: npm run wa:v2:full:contacts
+
+      - name: Browser E2E — contextual permission gate, read-only settings
+        run: npm run wa:v2:full:permissions
+
+      - name: Browser E2E — recent activity, read-only masked history
+        run: npm run wa:v2:full:activity
+
+      - name: Browser E2E — canonical execution timeline truthfulness
+        run: npm run wa:v2:full:timeline
+
+      - name: Browser E2E — compact canonical result truthfulness
+        run: npm run wa:v2:full:result
+
+      - name: Browser E2E — rollout readiness, feature flag ON
+        env:
+          WA_V2_ROLLOUT_EXPECT: "on"
+        run: npm run wa:v2:full:rollout
+
+      - name: Build static app with WhatsApp V2 disabled
+        env:
+          NEXT_PUBLIC_WHATSAPP_EXPERIENCE_V2: "0"
+        run: npm run build
+
+      - name: Verify legacy chat export with WhatsApp V2 disabled
+        shell: bash
+        run: |
+          test -f out/chat/index.html
+          echo "WHATSAPP_V2_DISABLED_CHAT_EXPORT=PASS"
+
+      - name: Browser E2E — rollback readiness, feature flag OFF
+        env:
+          WA_V2_ROLLOUT_EXPECT: "off"
+        run: npm run wa:v2:full:rollout
+
+      - name: FULL certification verdict
+        run: |
+          echo "FEATURE_FLAG_ON=PASS"
+          echo "FEATURE_FLAG_OFF=PASS"
+          echo "LEGACY_FALLBACK=PASS"
+          echo "ROLLBACK_ENV_FLAG=PASS"
+          echo "REAL_PHONE_PROVIDER_E2E=NOT_RUN"
+          echo "WA_V2_FULL_CERTIFICATION=PASS"
+          echo "WA_V2_PHASE_CERTIFICATION_ALLOWED=YES"
