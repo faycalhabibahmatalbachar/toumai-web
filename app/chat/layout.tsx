@@ -75,7 +75,7 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
             display: block !important;
           }
 
-          /* Cartes de synthèse : 3 connectés / erreurs / chiffrement. */
+          /* Cartes de synthèse : connectés / erreurs / chiffrement. */
           [role="dialog"][aria-label="Paramètres"]
             .animate-fade-in > .cx-scope > .cx-scope > div:nth-child(2)
             > div:first-child > div:first-child {
@@ -159,6 +159,16 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
           [role="dialog"][aria-label="Paramètres"]
             .animate-fade-in > .cx-scope > .cx-scope > div:nth-child(2)
             > div:first-child > div:nth-child(3) > section:nth-of-type(3) {
+            display: none !important;
+          }
+
+          /* Les notifications web restent opérationnelles dans Toumaï AI,
+             mais ne sont plus présentées comme un connecteur utilisateur :
+             on retire toute la carte de cette fenêtre (icône, statut,
+             description et bouton Désactiver). */
+          [role="dialog"][aria-label="Paramètres"]
+            .animate-fade-in > .cx-scope > .cx-scope > div:nth-child(2)
+            > div:first-child > div:nth-child(3) > section:nth-of-type(4) {
             display: none !important;
           }
 
