@@ -3,16 +3,21 @@ import { FaWhatsapp } from "react-icons/fa6";
 /**
  * Icônes de marque des connecteurs.
  *
- * Elles restent volontairement sans tuile : la carte de connecteur contrôle
- * le fond, le rayon et l'ombre. Cela permet d'avoir une empreinte optique
- * identique pour toutes les marques tout en gardant leurs vraies couleurs.
+ * Les anciennes cartes demandaient des tailles adaptées à de petits glyphes.
+ * Une icône d'application a besoin d'une empreinte optique légèrement plus
+ * grande pour paraître équilibrée dans une tuile SaaS de 50–56 px.
  */
+function opticalSize(size: number) {
+  return Math.round(size * 1.28);
+}
+
 export function GoogleCalendarIcon({ size = 30 }: { size?: number }) {
+  const s = opticalSize(size);
   return (
     <svg
       data-brand="google-calendar"
-      width={size}
-      height={size}
+      width={s}
+      height={s}
       viewBox="0 0 32 32"
       fill="none"
       aria-hidden="true"
@@ -30,11 +35,12 @@ export function GoogleCalendarIcon({ size = 30 }: { size?: number }) {
 }
 
 export function GmailIcon({ size = 30 }: { size?: number }) {
+  const s = opticalSize(size);
   return (
     <svg
       data-brand="gmail"
-      width={size}
-      height={size}
+      width={s}
+      height={s}
       viewBox="0 0 32 32"
       fill="none"
       aria-hidden="true"
@@ -49,22 +55,35 @@ export function GmailIcon({ size = 30 }: { size?: number }) {
   );
 }
 
-export function WhatsAppIcon({
-  size = 30,
-  color = "#25D366",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return <FaWhatsapp data-brand="whatsapp" size={size} color={color} aria-hidden="true" />;
+export function WhatsAppIcon({ size = 30 }: { size?: number }) {
+  const glyph = opticalSize(size);
+  const tile = Math.round(glyph * 1.22);
+  const radius = Math.max(8, Math.round(tile * 0.25));
+  return (
+    <span
+      data-brand="whatsapp"
+      className="inline-flex shrink-0 items-center justify-center"
+      style={{
+        width: tile,
+        height: tile,
+        borderRadius: radius,
+        background: "linear-gradient(145deg, #2DDA72, #18B957)",
+        boxShadow: "0 2px 6px rgba(37,211,102,0.24)",
+      }}
+      aria-hidden="true"
+    >
+      <FaWhatsapp size={glyph} color="#fff" aria-hidden="true" />
+    </span>
+  );
 }
 
 export function MeteoIcon({ size = 30 }: { size?: number }) {
+  const s = opticalSize(size);
   return (
     <svg
       data-brand="weather"
-      width={size}
-      height={size}
+      width={s}
+      height={s}
       viewBox="0 0 32 32"
       fill="none"
       aria-hidden="true"
