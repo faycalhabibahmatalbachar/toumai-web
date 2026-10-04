@@ -7,20 +7,19 @@ import {
   ArrowLeft,
   Bot,
   ChevronRight,
-  CircleAlert,
   Clock3,
-  ExternalLink,
   MessageSquareText,
   Settings2,
   ShieldCheck,
-  Sparkles,
+  Smartphone,
+  Users,
   Workflow,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppPermissionsPanel } from "@/components/settings/WhatsAppPermissionsPanel";
-import { cxDisplayStyle, cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
+import { cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -71,20 +70,22 @@ export default function WhatsAppEnterprisePage() {
   const items = activity?.items ?? [];
   const connected = etat?.code === "connecte" && etat.pret;
   const protectionHealthy = etat?.protection?.available !== false && etat?.protection?.mode !== "prudence";
+  const accountName = etat?.nom_profil || "Compte WhatsApp";
+  const accountNumber = etat?.numero || "Numéro non disponible";
 
   return (
     <div className={`${cxScopeClass} min-h-dvh bg-[var(--background)] text-[var(--cx-text-primary)]`} style={cxScopeStyle}>
-      <header className="sticky top-0 z-30 border-b border-[var(--cx-border-subtle)] bg-[var(--background)]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 w-full max-w-[1380px] items-center justify-between px-4 md:px-7">
+      <header className="sticky top-0 z-30 border-b border-[var(--cx-border-subtle)] bg-[var(--background)]/92 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 w-full max-w-[1240px] items-center justify-between px-4 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/chat"
               aria-label="Retour au chat"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--cx-text-muted)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[var(--cx-text-muted)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
             >
               <ArrowLeft size={18} strokeWidth={1.8} />
             </Link>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
               <WhatsAppIcon size={22} />
             </div>
             <div className="min-w-0">
@@ -100,156 +101,175 @@ export default function WhatsAppEnterprisePage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1380px] px-4 pb-20 pt-10 md:px-7 md:pt-14">
-        <section className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-16">
-          <div className="min-w-0">
-            <div className="max-w-3xl">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--cx-accent-text)]">Canal WhatsApp</p>
-              <h1
-                className="max-w-2xl text-[36px] font-medium leading-[1.04] tracking-[-0.035em] sm:text-[48px]"
-                style={cxDisplayStyle}
-              >
-                Un espace calme pour piloter WhatsApp avec Toumaï AI.
-              </h1>
-              <p className="mt-5 max-w-2xl text-[15px] leading-7 text-[var(--cx-text-muted)] sm:text-base">
-                Le canal, les permissions de l&apos;IA, les automatisations et les preuves d&apos;exécution restent séparés. Vous ne voyez ici que ce qui est réellement disponible sur votre compte.
-              </p>
-            </div>
-
-            <div className="mt-9 flex flex-wrap gap-2.5">
-              <Link
-                href="/whatsapp/ai"
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--cx-text-primary)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
-              >
-                <Bot size={16} />
-                AI Agent
-              </Link>
-              <button
-                type="button"
-                onClick={() => setPermissionsOpen(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] px-4 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
-              >
-                <ShieldCheck size={16} />
-                Permissions
-              </button>
-              <Link
-                href="/automations"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] px-4 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
-              >
-                <Workflow size={16} />
-                Automatisations
-              </Link>
-            </div>
-
-            <div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-border-subtle)] sm:grid-cols-3">
-              <SignalCell
-                icon={<MessageSquareText size={17} />}
-                label="Canal"
-                value={etatLoading ? "Vérification…" : connected ? "Opérationnel" : etat?.libelle ?? "Indisponible"}
-                tone={connected ? "good" : "neutral"}
-              />
-              <SignalCell
-                icon={<ShieldCheck size={17} />}
-                label="Protection"
-                value={!etat?.protection ? "Standard" : protectionHealthy ? "Normale" : "Prudence"}
-                tone={protectionHealthy ? "good" : "warn"}
-              />
-              <SignalCell
-                icon={<Clock3 size={17} />}
-                label="Dernière activité"
-                value={etat?.derniere_activite_ms ? formatRelative(etat.derniere_activite_ms) : "Aucune activité récente"}
-                tone="neutral"
-              />
-            </div>
-
-            <section className="mt-14">
-              <div className="mb-5 flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cx-text-faint)]">Exécution</p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em]">Activité récente</h2>
-                </div>
-                <span className="hidden text-xs text-[var(--cx-text-faint)] sm:inline">7 derniers jours · numéros masqués</span>
-              </div>
-
-              <div className="overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
-                {activityLoading && (
-                  <div className="space-y-1 p-3" aria-hidden="true">
-                    {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-[var(--cx-input)]" />)}
-                  </div>
-                )}
-
-                {!activityLoading && activityError && (
-                  <div className="flex items-center gap-3 px-5 py-6 text-sm text-[var(--cx-error-text)]">
-                    <CircleAlert size={17} />
-                    {activityError}
-                  </div>
-                )}
-
-                {!activityLoading && !activityError && items.length === 0 && (
-                  <div className="px-6 py-14 text-center">
-                    <Activity className="mx-auto text-[var(--cx-text-faint)]" size={22} />
-                    <p className="mt-3 text-sm font-medium">Aucune action récente</p>
-                    <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[var(--cx-text-faint)]">
-                      Les actions exécutées par Toumaï AI apparaîtront ici avec leur résultat et leur horodatage.
-                    </p>
-                  </div>
-                )}
-
-                {!activityLoading && !activityError && items.map((item, index) => (
-                  <ActivityRow key={`${item.created_at}-${index}`} item={item} />
-                ))}
-              </div>
-            </section>
+      <main className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-8 md:px-6 md:pt-10">
+        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cx-text-faint)]">Canal connecté</p>
+            <h1 className="mt-1 text-[30px] font-semibold tracking-[-0.035em] sm:text-[34px]">WhatsApp</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--cx-text-muted)]">
+              Gérez le compte connecté, l’agent IA, les permissions et les dernières actions exécutées.
+            </p>
           </div>
 
-          <aside className="space-y-4 xl:pt-20">
-            <QuietCard icon={<Bot size={18} />} title="AI Agent" description="Pilotez le mode de réponse, la persona, la langue, la signature et les réponses dans les groupes avec le vrai auto-pilote.">
-              <Link
-                href="/whatsapp/ai"
-                className="mt-5 flex w-full items-center justify-between rounded-xl border border-[var(--cx-border-subtle)] px-3.5 py-3 text-sm font-medium transition hover:bg-[var(--cx-hover)]"
-              >
-                Configurer l&apos;agent
-                <ChevronRight size={16} className="text-[var(--cx-text-faint)]" />
-              </Link>
-            </QuietCard>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setPermissionsOpen(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] px-4 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+            >
+              <ShieldCheck size={16} />
+              Permissions
+            </button>
+            <Link
+              href="/whatsapp/ai"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--cx-text-primary)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+            >
+              <Bot size={16} />
+              Agent IA
+            </Link>
+          </div>
+        </div>
 
-            <QuietCard icon={<Workflow size={18} />} title="Automatisations" description="Les scénarios existants restent accessibles dans le centre d’automatisation actuel.">
-              <Link
-                href="/automations"
-                className="mt-5 flex w-full items-center justify-between rounded-xl border border-[var(--cx-border-subtle)] px-3.5 py-3 text-sm font-medium transition hover:bg-[var(--cx-hover)]"
-              >
-                Voir les automatisations
-                <ExternalLink size={15} className="text-[var(--cx-text-faint)]" />
-              </Link>
-            </QuietCard>
-
-            <QuietCard icon={<Settings2 size={18} />} title="Canal & permissions" description="Les réglages techniques du connecteur et les permissions de l’IA restent séparés de son comportement.">
-              <div className="mt-5 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPermissionsOpen(true)}
-                  className="flex w-full items-center justify-between rounded-xl border border-[var(--cx-border-subtle)] px-3.5 py-3 text-sm font-medium transition hover:bg-[var(--cx-hover)]"
-                >
-                  Permissions
-                  <ChevronRight size={16} className="text-[var(--cx-text-faint)]" />
-                </button>
-                <Link
-                  href="/settings?tab=connectors"
-                  className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-sm text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)]"
-                >
-                  Connecteur
-                  <ExternalLink size={15} className="text-[var(--cx-text-faint)]" />
-                </Link>
+        <section className="overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
+                <WhatsAppIcon size={30} />
               </div>
-            </QuietCard>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-base font-semibold">{accountName}</h2>
+                  <InlineState connected={connected} loading={etatLoading} label={etat?.libelle} />
+                </div>
+                <p className="mt-1 truncate text-sm tabular-nums text-[var(--cx-text-muted)]">{accountNumber}</p>
+              </div>
+            </div>
 
-            <QuietCard icon={<Sparkles size={18} />} title="Suite Enterprise" description="Inbox partagé, opérations et Business Platform seront ajoutés seulement quand leurs données sont réellement disponibles.">
-              <p className="mt-5 border-t border-[var(--cx-border-subtle)] pt-4 text-xs leading-5 text-[var(--cx-text-faint)]">
-                Aucun écran factice n&apos;est exposé dans cette console.
-              </p>
-            </QuietCard>
-          </aside>
+            <Link
+              href="/settings?tab=connectors"
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border border-[var(--cx-border-default)] px-3.5 text-sm font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+            >
+              Gérer le connecteur
+            </Link>
+          </div>
+
+          <div className="grid border-t border-[var(--cx-border-subtle)] sm:grid-cols-2 lg:grid-cols-4">
+            <OverviewStat
+              icon={<MessageSquareText size={16} />}
+              label="État du canal"
+              value={etatLoading ? "Vérification…" : connected ? "Opérationnel" : etat?.libelle ?? "Indisponible"}
+              tone={connected ? "good" : "neutral"}
+            />
+            <OverviewStat
+              icon={<ShieldCheck size={16} />}
+              label="Protection"
+              value={!etat?.protection ? "Standard" : protectionHealthy ? "Normale" : "Prudence"}
+              tone={protectionHealthy ? "good" : "warn"}
+            />
+            <OverviewStat
+              icon={<Clock3 size={16} />}
+              label="Dernière activité"
+              value={etat?.derniere_activite_ms ? formatRelative(etat.derniere_activite_ms) : "Aucune récente"}
+              tone="neutral"
+            />
+            <OverviewStat
+              icon={<Users size={16} />}
+              label="Contacts"
+              value={typeof etat?.contacts === "number" ? etat.contacts.toLocaleString("fr-FR") : "—"}
+              tone="neutral"
+            />
+          </div>
         </section>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--cx-border-subtle)] px-5 py-4 md:px-6">
+              <div>
+                <h2 className="text-sm font-semibold">Activité récente</h2>
+                <p className="mt-1 text-xs text-[var(--cx-text-faint)]">7 derniers jours · numéros masqués</p>
+              </div>
+              <Activity size={18} className="text-[var(--cx-text-faint)]" />
+            </div>
+
+            {activityLoading && (
+              <div className="space-y-1 p-3" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-[var(--cx-input)]" />)}
+              </div>
+            )}
+
+            {!activityLoading && activityError && (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm font-medium text-[var(--cx-error-text)]">Impossible de charger l’activité</p>
+                <p className="mt-1 text-sm text-[var(--cx-text-faint)]">{activityError}</p>
+              </div>
+            )}
+
+            {!activityLoading && !activityError && items.length === 0 && (
+              <div className="px-6 py-14 text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-faint)]">
+                  <Activity size={19} />
+                </div>
+                <p className="mt-4 text-sm font-medium">Aucune action récente</p>
+                <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[var(--cx-text-faint)]">
+                  Les actions réellement exécutées par Toumaï AI apparaîtront ici avec leur résultat et leur horodatage.
+                </p>
+              </div>
+            )}
+
+            {!activityLoading && !activityError && items.map((item, index) => (
+              <ActivityRow key={`${item.created_at}-${index}`} item={item} />
+            ))}
+          </section>
+
+          <aside className="space-y-4">
+            <section className="overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
+              <div className="border-b border-[var(--cx-border-subtle)] px-5 py-4">
+                <h2 className="text-sm font-semibold">Configuration</h2>
+                <p className="mt-1 text-xs text-[var(--cx-text-faint)]">Fonctions du canal WhatsApp</p>
+              </div>
+
+              <ActionLink
+                href="/whatsapp/ai"
+                icon={<Bot size={17} />}
+                title="Agent IA"
+                description="Réponses, persona et comportement"
+              />
+              <ActionButton
+                onClick={() => setPermissionsOpen(true)}
+                icon={<ShieldCheck size={17} />}
+                title="Permissions"
+                description="Contrôler les actions autorisées"
+              />
+              <ActionLink
+                href="/automations"
+                icon={<Workflow size={17} />}
+                title="Automatisations"
+                description="Scénarios et exécutions planifiées"
+              />
+              <ActionLink
+                href="/settings?tab=connectors"
+                icon={<Settings2 size={17} />}
+                title="Connecteur"
+                description="Connexion et configuration du compte"
+              />
+            </section>
+
+            <section className="rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-5">
+              <div className="flex items-center gap-2 text-[var(--cx-text-secondary)]">
+                <Smartphone size={17} />
+                <h2 className="text-sm font-semibold text-[var(--cx-text-primary)]">Compte</h2>
+              </div>
+              <dl className="mt-4 space-y-3 text-sm">
+                <DetailRow label="Plateforme" value={etat?.plateforme || "WhatsApp"} />
+                <DetailRow
+                  label="Connecté depuis"
+                  value={etat?.connecte_depuis_ms ? formatRelative(etat.connecte_depuis_ms) : "—"}
+                />
+                <DetailRow label="Lecture" value={etat?.lecture_possible ? "Disponible" : "Indisponible"} />
+              </dl>
+            </section>
+          </aside>
+        </div>
       </main>
 
       {permissionsOpen && <WhatsAppPermissionsPanel onClose={() => setPermissionsOpen(false)} />}
@@ -267,11 +287,34 @@ function StatusPill({ connected, loading, label }: { connected: boolean; loading
   );
 }
 
-function SignalCell({ icon, label, value, tone }: { icon: ReactNode; label: string; value: string; tone: "good" | "warn" | "neutral" }) {
+function InlineState({ connected, loading, label }: { connected: boolean; loading: boolean; label?: string }) {
+  const text = loading ? "Vérification…" : connected ? "Connecté" : label || "Non connecté";
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] px-2.5 py-1 text-[11px] font-medium text-[var(--cx-text-secondary)]">
+      <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-[var(--cx-text-faint)]"}`} />
+      {text}
+    </span>
+  );
+}
+
+function OverviewStat({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone: "good" | "warn" | "neutral";
+}) {
   const toneClass = tone === "good" ? "text-emerald-500" : tone === "warn" ? "text-amber-500" : "text-[var(--cx-text-muted)]";
   return (
-    <div className="bg-[var(--cx-surface)] px-5 py-5">
-      <div className={`flex items-center gap-2 ${toneClass}`}>{icon}<span className="text-xs font-medium">{label}</span></div>
+    <div className="border-b border-[var(--cx-border-subtle)] px-5 py-4 last:border-b-0 sm:[&:nth-child(odd)]:border-r lg:border-b-0 lg:border-r lg:last:border-r-0">
+      <div className={`flex items-center gap-2 ${toneClass}`}>
+        {icon}
+        <span className="text-xs font-medium text-[var(--cx-text-faint)]">{label}</span>
+      </div>
       <p className="mt-2 truncate text-sm font-semibold text-[var(--cx-text-primary)]">{value}</p>
     </div>
   );
@@ -279,8 +322,8 @@ function SignalCell({ icon, label, value, tone }: { icon: ReactNode; label: stri
 
 function ActivityRow({ item }: { item: WaActivityItem }) {
   return (
-    <div className="flex items-start gap-4 border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 hover:bg-[var(--cx-hover-row)]">
-      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.ok ? "bg-emerald-500" : "bg-red-500"}`} />
+    <div className="flex items-start gap-4 border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 transition hover:bg-[var(--cx-hover-row)] md:px-6">
+      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.ok ? "bg-emerald-500" : "bg-red-500"}`} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="text-sm font-medium">{CATEGORY_LABEL[item.category] ?? item.tool}</p>
@@ -296,14 +339,65 @@ function ActivityRow({ item }: { item: WaActivityItem }) {
   );
 }
 
-function QuietCard({ icon, title, description, children }: { icon: ReactNode; title: string; description: string; children: ReactNode }) {
+function ActionLink({
+  href,
+  icon,
+  title,
+  description,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
   return (
-    <section className="rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-secondary)]">{icon}</div>
-      <h3 className="mt-4 text-sm font-semibold">{title}</h3>
-      <p className="mt-1.5 text-sm leading-6 text-[var(--cx-text-muted)]">{description}</p>
-      {children}
-    </section>
+    <Link
+      href={href}
+      className="flex items-center gap-3 border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 transition hover:bg-[var(--cx-hover-row)]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-secondary)]">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-[var(--cx-text-faint)]">{description}</span>
+      </span>
+      <ChevronRight size={16} className="shrink-0 text-[var(--cx-text-faint)]" />
+    </Link>
+  );
+}
+
+function ActionButton({
+  onClick,
+  icon,
+  title,
+  description,
+}: {
+  onClick: () => void;
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 border-t border-[var(--cx-border-subtle)] px-5 py-4 text-left transition hover:bg-[var(--cx-hover-row)]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-secondary)]">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-[var(--cx-text-faint)]">{description}</span>
+      </span>
+      <ChevronRight size={16} className="shrink-0 text-[var(--cx-text-faint)]" />
+    </button>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-[var(--cx-text-faint)]">{label}</dt>
+      <dd className="truncate text-right font-medium text-[var(--cx-text-secondary)]">{value}</dd>
+    </div>
   );
 }
 
