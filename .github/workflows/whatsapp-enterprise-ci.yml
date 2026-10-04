@@ -1,0 +1,38 @@
+name: WhatsApp Enterprise CI
+
+on:
+  push:
+    branches:
+      - codex/whatsapp-enterprise-v1
+    paths:
+      - "app/whatsapp/**"
+      - "components/settings/WhatsAppPermissionsPanel.tsx"
+      - "lib/connectors-api.ts"
+      - ".github/workflows/whatsapp-enterprise-ci.yml"
+  pull_request:
+    paths:
+      - "app/whatsapp/**"
+      - "components/settings/WhatsAppPermissionsPanel.tsx"
+      - "lib/connectors-api.ts"
+
+concurrency:
+  group: whatsapp-enterprise-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint WhatsApp surface
+        run: npx eslint app/whatsapp/page.tsx
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
