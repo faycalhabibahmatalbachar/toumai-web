@@ -19,6 +19,22 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
           [role="dialog"][aria-label="Paramètres"] > div > aside {
             width: 220px !important;
           }
+
+          /* La modale est plus petite que la page /settings complète :
+             son contenu doit donc adopter une densité de vraie fenêtre,
+             sans modifier la page de paramètres autonome. */
+          [role="dialog"][aria-label="Paramètres"] .animate-fade-in {
+            padding: 28px 32px 48px !important;
+          }
+
+          [role="dialog"][aria-label="Paramètres"] .cx-scope {
+            zoom: 0.9;
+          }
+
+          [role="dialog"][aria-label="Paramètres"] aside nav button {
+            min-height: 40px !important;
+            font-size: 12.5px !important;
+          }
         }
       `}</style>
     </>
