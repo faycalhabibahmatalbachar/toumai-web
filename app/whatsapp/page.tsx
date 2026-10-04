@@ -117,13 +117,20 @@ export default function WhatsAppEnterprisePage() {
             </div>
 
             <div className="mt-9 flex flex-wrap gap-2.5">
+              <Link
+                href="/whatsapp/ai"
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--cx-text-primary)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+              >
+                <Bot size={16} />
+                AI Agent
+              </Link>
               <button
                 type="button"
                 onClick={() => setPermissionsOpen(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--cx-text-primary)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] px-4 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
               >
                 <ShieldCheck size={16} />
-                Permissions de l&apos;IA
+                Permissions
               </button>
               <Link
                 href="/automations"
@@ -131,13 +138,6 @@ export default function WhatsAppEnterprisePage() {
               >
                 <Workflow size={16} />
                 Automatisations
-              </Link>
-              <Link
-                href="/settings?tab=connectors"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] px-4 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
-              >
-                <Settings2 size={16} />
-                Connecteur
               </Link>
             </div>
 
@@ -203,15 +203,14 @@ export default function WhatsAppEnterprisePage() {
           </div>
 
           <aside className="space-y-4 xl:pt-20">
-            <QuietCard icon={<Bot size={18} />} title="Toumaï AI" description="Contrôlez précisément ce que l’assistant peut lire, envoyer ou gérer sur WhatsApp.">
-              <button
-                type="button"
-                onClick={() => setPermissionsOpen(true)}
+            <QuietCard icon={<Bot size={18} />} title="AI Agent" description="Pilotez le mode de réponse, la persona, la langue, la signature et les réponses dans les groupes avec le vrai auto-pilote.">
+              <Link
+                href="/whatsapp/ai"
                 className="mt-5 flex w-full items-center justify-between rounded-xl border border-[var(--cx-border-subtle)] px-3.5 py-3 text-sm font-medium transition hover:bg-[var(--cx-hover)]"
               >
-                Ouvrir les permissions
+                Configurer l&apos;agent
                 <ChevronRight size={16} className="text-[var(--cx-text-faint)]" />
-              </button>
+              </Link>
             </QuietCard>
 
             <QuietCard icon={<Workflow size={18} />} title="Automatisations" description="Les scénarios existants restent accessibles dans le centre d’automatisation actuel.">
@@ -224,9 +223,29 @@ export default function WhatsAppEnterprisePage() {
               </Link>
             </QuietCard>
 
-            <QuietCard icon={<Sparkles size={18} />} title="Architecture Enterprise" description="Inbox partagé, AI Agent Center, opérations et Business Platform seront ajoutés sans inventer de données ni de capacités.">
+            <QuietCard icon={<Settings2 size={18} />} title="Canal & permissions" description="Les réglages techniques du connecteur et les permissions de l’IA restent séparés de son comportement.">
+              <div className="mt-5 grid gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPermissionsOpen(true)}
+                  className="flex w-full items-center justify-between rounded-xl border border-[var(--cx-border-subtle)] px-3.5 py-3 text-sm font-medium transition hover:bg-[var(--cx-hover)]"
+                >
+                  Permissions
+                  <ChevronRight size={16} className="text-[var(--cx-text-faint)]" />
+                </button>
+                <Link
+                  href="/settings?tab=connectors"
+                  className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-sm text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)]"
+                >
+                  Connecteur
+                  <ExternalLink size={15} className="text-[var(--cx-text-faint)]" />
+                </Link>
+              </div>
+            </QuietCard>
+
+            <QuietCard icon={<Sparkles size={18} />} title="Suite Enterprise" description="Inbox partagé, opérations et Business Platform seront ajoutés seulement quand leurs données sont réellement disponibles.">
               <p className="mt-5 border-t border-[var(--cx-border-subtle)] pt-4 text-xs leading-5 text-[var(--cx-text-faint)]">
-                Première tranche : fondation visuelle + fonctions déjà prouvées.
+                Aucun écran factice n&apos;est exposé dans cette console.
               </p>
             </QuietCard>
           </aside>
