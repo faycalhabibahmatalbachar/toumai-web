@@ -153,6 +153,15 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
             display: none !important;
           }
 
+          /* La météo reste disponible pour Toumaï AI, mais n'est pas un
+             connecteur utilisateur à configurer : on retire entièrement sa
+             carte (icône, badge, titre et description) de cette fenêtre. */
+          [role="dialog"][aria-label="Paramètres"]
+            .animate-fade-in > .cx-scope > .cx-scope > div:nth-child(2)
+            > div:first-child > div:nth-child(3) > section:nth-of-type(3) {
+            display: none !important;
+          }
+
           [role="dialog"][aria-label="Paramètres"]
             .animate-fade-in > .cx-scope > .cx-scope > div:nth-child(2)
             > div:first-child > div:nth-child(3) > section > p {
