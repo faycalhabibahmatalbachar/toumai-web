@@ -152,6 +152,10 @@ export interface WaLiveConversation {
 export interface WaLiveConversations {
   conversations: WaLiveConversation[];
   count: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+  next_offset: number | null;
   source: "baileys";
 }
 
@@ -185,11 +189,15 @@ export interface WaMessageStatus {
 export function getWaLiveConversations(params?: {
   search?: string;
   pending?: boolean;
+  unread?: boolean;
+  offset?: number;
   limit?: number;
 }): Promise<WaLiveConversations> {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.pending) query.set("pending", "true");
+  if (params?.unread) query.set("unread", "true");
+  if (typeof params?.offset === "number") query.set("offset", String(params.offset));
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.size ? `?${query.toString()}` : "";
   return http.get(`/whatsapp/conversations${suffix}`);
