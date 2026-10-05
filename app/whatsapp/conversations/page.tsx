@@ -131,7 +131,12 @@ export default function WhatsAppConversationsPage() {
       if (requested) {
         const exact = data.conversations.find((item) => item.id === requested);
         if (exact) setSelected(exact);
-      } else if (!selected && data.conversations.length) {
+      } else if (
+        !selected &&
+        data.conversations.length &&
+        typeof window !== "undefined" &&
+        window.innerWidth >= 1024
+      ) {
         setSelected(data.conversations[0]);
       }
     } catch (error) {
@@ -166,6 +171,16 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
+  function backToConversationList() {
+    setSelected(null);
+    setMessages([]);
+    if (typeof window !== "undefined") {
+      const next = new URL(window.location.href);
+      next.searchParams.delete("chat");
+      window.history.replaceState(null, "", next);
+    }
+  }
+
   return (
     <div className="min-h-dvh" style={{ background: BG, color: TEXT }}>
       <header className="sticky top-0 z-30 border-b" style={{ background: "rgba(6,17,26,.96)", borderColor: BORDER, backdropFilter: "blur(16px)" }}>
@@ -192,7 +207,7 @@ export default function WhatsAppConversationsPage() {
       </header>
 
       <main className="mx-auto grid min-h-[calc(100dvh-70px)] max-w-[1540px] lg:grid-cols-[390px_minmax(0,1fr)]">
-        <aside className="border-r" style={{ borderColor: BORDER, background: SURFACE }}>
+        <aside className={`${selected ? "hidden lg:block" : "block"} border-r`} style={{ borderColor: BORDER, background: SURFACE }}>
           <div className="border-b p-4" style={{ borderColor: BORDER }}>
             <div className="relative">
               <Search className="absolute left-3 top-3" size={17} color={MUTED} />
@@ -286,7 +301,7 @@ export default function WhatsAppConversationsPage() {
           </div>
         </aside>
 
-        <section className="min-w-0">
+        <section className={`${selected ? "block" : "hidden lg:block"} min-w-0`}>
           {!selected ? (
             <div className="flex h-[calc(100dvh-70px)] items-center justify-center px-6 text-center">
               <div>
@@ -298,6 +313,15 @@ export default function WhatsAppConversationsPage() {
           ) : (
             <div className="flex h-[calc(100dvh-70px)] flex-col">
               <div className="flex min-h-[72px] items-center gap-3 border-b px-4 md:px-6" style={{ borderColor: BORDER, background: SURFACE }}>
+                <button
+                  type="button"
+                  aria-label="Retour aux conversations"
+                  onClick={backToConversationList}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl hover:bg-white/5 lg:hidden"
+                  style={{ color: MUTED }}
+                >
+                  <ArrowLeft size={18} />
+                </button>
                 <Avatar name={selected.name} kind={selected.kind} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{selected.name}</p>
