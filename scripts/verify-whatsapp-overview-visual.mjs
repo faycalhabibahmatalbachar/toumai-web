@@ -14,6 +14,7 @@ const context = await browser.newContext({
 });
 
 await context.addInitScript(() => {
+  sessionStorage.setItem("toumai:signature-vue", "1");
   localStorage.setItem(
     "chadgpt_web_session_v1",
     JSON.stringify({
@@ -275,10 +276,14 @@ assert((await page.getByText("+235 68 66 37 37", { exact: true }).count()) === 1
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 assert(overflow <= 1, `Débordement horizontal détecté: ${overflow}px`);
 
-await page.screenshot({
+const screenshot = await page.screenshot({
   path: `${artifactDir}/overview-1672x941.png`,
   fullPage: false,
 });
+assert(
+  screenshot.byteLength > 20_000,
+  `Capture visuelle anormalement uniforme ou masquée (${screenshot.byteLength} octets).`,
+);
 
 const report = {
   viewport: { width: 1672, height: 941 },
