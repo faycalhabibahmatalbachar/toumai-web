@@ -332,7 +332,7 @@ export default function WhatsAppOverviewPage() {
                   </div>
                   {conversationsLoading && [0, 1, 2, 3].map((index) => <div key={index} className="mt-1 h-[54px] animate-pulse rounded-lg bg-white/[0.025]" />)}
                   {!conversationsLoading && conversations.length === 0 && <div className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune conversation récente.</div>}
-                  {!conversationsLoading && conversations.map((conversation, index) => <ConversationRow key={conversation.chat_id || `${conversation.last_at}-${index}`} conversation={conversation} index={index} />)}
+                  {!conversationsLoading && conversations.map((conversation, index) => <ConversationRow key={conversation.id || `${conversation.last_message.timestamp_ms}-${index}`} conversation={conversation} index={index} />)}
                 </div>
               </div>
             </Card>
