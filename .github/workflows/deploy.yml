@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          whatsapp_marker="Un espace calme pour piloter WhatsApp avec Toumaï AI."
+          whatsapp_marker="WhatsApp Overview"
           ai_marker="Contrôlez la manière dont l’IA répond."
           for attempt in 1 2 3 4 5 6; do
             stamp="${GITHUB_SHA}-${attempt}-$(date +%s)"
