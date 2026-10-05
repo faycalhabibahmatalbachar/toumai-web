@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
+import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -88,6 +89,7 @@ export default function WhatsAppOverviewPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [contactSyncing, setContactSyncing] = useState(false);
   const [contactSyncMessage, setContactSyncMessage] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [automationBusy, setAutomationBusy] = useState<Record<string, boolean>>({});
   const [automationOverride, setAutomationOverride] = useState<Record<string, boolean>>({});
 
@@ -300,13 +302,22 @@ export default function WhatsAppOverviewPage() {
             <Card className="p-5 md:p-6">
               <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Actions rapides</h2>
               <div className="mt-4 space-y-2.5">
-                <QuickAction href="/chat" icon={<Send size={21} />} label="Nouveau message" primary />
+                <button
+                  type="button"
+                  onClick={() => setComposeOpen(true)}
+                  className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:brightness-110"
+                  style={{ background: "linear-gradient(90deg,#06aa62,#079a59)", borderColor: "rgba(37,211,102,.55)", color: TEXT }}
+                >
+                  <Send size={21} />
+                  <span className="flex-1 text-[14px] font-medium">Nouveau message</span>
+                  <ChevronRight size={18} color="#d9fff0" />
+                </button>
                 <button type="button" disabled={contactSyncing} onClick={handleContactSync} className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:bg-white/[0.035] disabled:opacity-60" style={{ background: SURFACE_RAISED, borderColor: BORDER }}>
                   {contactSyncing ? <RefreshCw size={22} className="animate-spin" /> : <UserRoundPlus size={22} />}
                   <span className="flex-1 text-[14px] font-medium">Importer des contacts</span>
                   <ChevronRight size={18} color={MUTED} />
                 </button>
-                <QuickAction href="/automations" icon={<Settings size={22} />} label="Créer une automatisation" />
+                <QuickAction href="/whatsapp/automations" icon={<Settings size={22} />} label="Gérer les automatisations" />
               </div>
               {contactSyncMessage && <p className="mt-3 text-xs" style={{ color: MUTED }}>{contactSyncMessage}</p>}
             </Card>
@@ -316,7 +327,7 @@ export default function WhatsAppOverviewPage() {
             <Card className="overflow-hidden p-0">
               <div className="flex items-center justify-between px-5 pb-2 pt-4 md:px-6">
                 <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Conversations récentes</h2>
-                <Link href="/chat" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
+                <Link href="/whatsapp/conversations" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
               </div>
               <div className="overflow-x-auto px-4 pb-2 md:px-5">
                 <div className="min-w-[650px]">
@@ -333,7 +344,7 @@ export default function WhatsAppOverviewPage() {
             <Card className="overflow-hidden p-0">
               <div className="flex items-center justify-between border-b px-5 py-4 md:px-6" style={{ borderColor: BORDER }}>
                 <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Automatisations actives ({activeAutomations.length})</h2>
-                <Link href="/automations" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
+                <Link href="/whatsapp/automations" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
               </div>
               <div className="px-5 md:px-6">
                 {automationsLoading && [0, 1, 2].map((index) => <div key={index} className="my-2 h-[62px] animate-pulse rounded-lg bg-white/[0.025]" />)}
@@ -356,6 +367,11 @@ export default function WhatsAppOverviewPage() {
           </section>
         </main>
       </div>
+
+      <WhatsAppComposeModal
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+      />
     </div>
   );
 }
@@ -514,13 +530,17 @@ function ConversationRow({ conversation, index }: { conversation: WaAutopilotCon
   const statusColor = conversation.pending > 0 ? ORANGE : conversation.last_reply ? BLUE : GREEN;
   const avatarColors = ["#16b868", "#ff8d1a", "#2f8cff", "#8b4fd4"];
   return (
-    <div className="grid min-h-[47px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-1 last:border-0" style={{ borderColor: BORDER }}>
+    <Link
+      href={`/whatsapp/conversations?chat=${encodeURIComponent(conversation.chat_id)}`}
+      className="grid min-h-[47px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-1 transition hover:bg-white/[0.025] last:border-0"
+      style={{ borderColor: BORDER }}
+    >
       <div className="flex min-w-0 items-center gap-2.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColors[index % avatarColors.length] }}>{makeInitials(name)}</div><div className="min-w-0"><p className="truncate text-[12px] font-semibold">{name}</p><p className="mt-0.5 truncate text-[10px] tabular-nums" style={{ color: MUTED }}>{secondary}</p></div></div>
       <p className="truncate text-[11px]" style={{ color: "#b7c2cb" }}>{preview}</p>
       <div><span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: `${statusColor}18`, color: statusColor }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />{status}</span></div>
       <time className="text-[10px]" style={{ color: MUTED }} dateTime={conversation.last_at}>{formatRelativeDate(conversation.last_at)}</time>
-      <button type="button" aria-label={`Actions pour ${name}`} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/5" style={{ color: MUTED }}><MoreHorizontal size={16} /></button>
-    </div>
+      <span className="flex h-7 w-7 items-center justify-center rounded-md" style={{ color: MUTED }}><ChevronRight size={16} /></span>
+    </Link>
   );
 }
 
