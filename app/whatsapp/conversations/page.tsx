@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -52,6 +52,9 @@ export default function WhatsAppConversationsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -95,21 +98,32 @@ export default function WhatsAppConversationsPage() {
     void loadThread(selected);
   }, [selected?.id, session]);
 
-  const visible = useMemo(() => {
-    if (filter === "unread") return conversations.filter((conversation) => conversation.unread_count > 0);
-    return conversations;
-  }, [conversations, filter]);
-
-  async function loadConversations(search: string, selectedFilter: Filter) {
-    setLoadingList(true);
+  async function loadConversations(
+    search: string,
+    selectedFilter: Filter,
+    options: { append?: boolean; offset?: number } = {},
+  ) {
+    const append = Boolean(options.append);
+    const offset = options.offset ?? 0;
+    if (append) setLoadingMore(true);
+    else setLoadingList(true);
     setListError(null);
     try {
       const data = await getWaLiveConversations({
         search: search.trim() || undefined,
         pending: selectedFilter === "pending",
-        limit: 120,
+        unread: selectedFilter === "unread",
+        offset,
+        limit: 80,
       });
-      setConversations(data.conversations);
+      setConversations((current) => {
+        if (!append) return data.conversations;
+        const merged = [...current, ...data.conversations];
+        return Array.from(new Map(merged.map((item) => [item.id, item])).values());
+      });
+      setHasMore(data.has_more);
+      setNextOffset(data.next_offset);
+
       const requested =
         typeof window === "undefined"
           ? ""
@@ -121,10 +135,11 @@ export default function WhatsAppConversationsPage() {
         setSelected(data.conversations[0]);
       }
     } catch (error) {
-      setConversations([]);
+      if (!append) setConversations([]);
       setListError(error instanceof Error ? error.message : "Impossible de lire les conversations WhatsApp.");
     } finally {
-      setLoadingList(false);
+      if (append) setLoadingMore(false);
+      else setLoadingList(false);
     }
   }
 
@@ -214,7 +229,7 @@ export default function WhatsAppConversationsPage() {
               </div>
             )}
 
-            {!loadingList && !listError && visible.length === 0 && (
+            {!loadingList && !listError && conversations.length === 0 && (
               <div className="px-6 py-12 text-center">
                 <MessageCircle className="mx-auto" size={24} color={MUTED} />
                 <p className="mt-3 text-sm font-medium">Aucune conversation</p>
@@ -222,7 +237,7 @@ export default function WhatsAppConversationsPage() {
               </div>
             )}
 
-            {!loadingList && !listError && visible.map((conversation) => (
+            {!loadingList && !listError && conversations.map((conversation) => (
               <button
                 type="button"
                 key={conversation.id}
@@ -253,6 +268,21 @@ export default function WhatsAppConversationsPage() {
                 </div>
               </button>
             ))}
+
+            {!loadingList && !listError && hasMore && nextOffset !== null && (
+              <div className="p-3">
+                <button
+                  type="button"
+                  disabled={loadingMore}
+                  onClick={() => void loadConversations(query, filter, { append: true, offset: nextOffset })}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-xs font-semibold disabled:opacity-50"
+                  style={{ borderColor: BORDER, color: MUTED }}
+                >
+                  <RefreshCw size={14} className={loadingMore ? "animate-spin" : ""} />
+                  {loadingMore ? "Chargement…" : "Charger plus"}
+                </button>
+              </div>
+            )}
           </div>
         </aside>
 
