@@ -1,0 +1,28 @@
+name: Cache Service Worker CI
+
+on:
+  push:
+    branches:
+      - feat/cache-service-worker-m2
+  pull_request:
+    paths:
+      - 'public/sw.js'
+      - 'scripts/verify-service-worker-cache.mjs'
+      - '.github/workflows/cache-service-worker-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cache-009:
+    name: CACHE-009 service worker
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check worker
+        run: node --check public/sw.js
+      - name: Execute service-worker cache certification
+        run: node scripts/verify-service-worker-cache.mjs
