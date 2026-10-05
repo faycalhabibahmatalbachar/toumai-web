@@ -1,0 +1,49 @@
+name: Cache Client CI
+
+on:
+  push:
+    branches:
+      - feat/cache-client-m2
+  pull_request:
+    paths:
+      - 'lib/swr-cache.ts'
+      - 'lib/cache-request-coalescer.mjs'
+      - 'lib/cache-request-coalescer.d.ts'
+      - 'scripts/verify-cache-request-coalescer.mjs'
+      - 'scripts/verify-cache-client-contract.mjs'
+      - 'scripts/verify-cache-entree-sans-valeur.mjs'
+      - '.github/workflows/cache-client-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cache-008:
+    name: CACHE-008 client server-state cache
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact lockfile
+        run: npm ci
+
+      - name: Certify request coalescing
+        run: node scripts/verify-cache-request-coalescer.mjs
+
+      - name: Certify session/isolation source contract
+        run: node scripts/verify-cache-client-contract.mjs
+
+      - name: Preserve corrupt-entry regression guard
+        run: node scripts/verify-cache-entree-sans-valeur.mjs
+
+      - name: React 19 lint on hardened cache
+        run: npx eslint lib/swr-cache.ts
+
+      - name: Strict TypeScript
+        run: npm run typecheck
