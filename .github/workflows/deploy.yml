@@ -39,12 +39,19 @@ jobs:
         run: |
           set -euo pipefail
           whatsapp_marker="WhatsApp Overview"
+          conversations_marker="Conversations WhatsApp"
+          automations_marker="Automatisations WhatsApp"
           ai_marker="Contrôlez la manière dont l’IA répond."
           for attempt in 1 2 3 4 5 6; do
             stamp="${GITHUB_SHA}-${attempt}-$(date +%s)"
             whatsapp_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/?deploy=${stamp}" || true)"
+            conversations_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/conversations/?deploy=${stamp}" || true)"
+            automations_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/automations/?deploy=${stamp}" || true)"
             ai_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/ai/?deploy=${stamp}" || true)"
-            if grep -Fq "$whatsapp_marker" <<<"$whatsapp_html" && grep -Fq "$ai_marker" <<<"$ai_html"; then
+            if grep -Fq "$whatsapp_marker" <<<"$whatsapp_html" \
+              && grep -Fq "$conversations_marker" <<<"$conversations_html" \
+              && grep -Fq "$automations_marker" <<<"$automations_html" \
+              && grep -Fq "$ai_marker" <<<"$ai_html"; then
               echo "Production verified on toumaiai.com for ${GITHUB_SHA}"
               exit 0
             fi
