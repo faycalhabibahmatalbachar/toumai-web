@@ -126,3 +126,101 @@ export function getWaAutopilotConversations(
     `/whatsapp/autopilot/conversations?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`,
   );
 }
+
+
+export interface WaLiveMessage {
+  id: string;
+  chat_id: string;
+  text: string;
+  from_me: boolean;
+  sender: string;
+  type: string;
+  timestamp_ms: number;
+  status?: string | null;
+}
+
+export interface WaLiveConversation {
+  id: string;
+  name: string;
+  number: string | null;
+  kind: "contact" | "group";
+  unread_count: number;
+  pending: boolean;
+  last_message: WaLiveMessage;
+}
+
+export interface WaLiveConversations {
+  conversations: WaLiveConversation[];
+  count: number;
+  source: "baileys";
+}
+
+export interface WaConversationMessages {
+  chat_id: string;
+  messages: WaLiveMessage[];
+  count: number;
+  source: "baileys";
+}
+
+export interface WaManualSendResult {
+  chat_id: string;
+  msg_id: string | null;
+  status: "accepted" | "unknown";
+  accepted_by_gateway: boolean;
+  delivery_confirmed: boolean;
+  read_confirmed: boolean;
+}
+
+export interface WaMessageStatus {
+  msg_id: string;
+  chat_id?: string | null;
+  known: boolean;
+  status: "unknown" | "sent" | "delivered" | "read" | "played" | "failed" | string;
+  server_ack_confirmed: boolean;
+  delivery_confirmed: boolean;
+  read_confirmed: boolean;
+  failed: boolean;
+}
+
+export function getWaLiveConversations(params?: {
+  search?: string;
+  pending?: boolean;
+  limit?: number;
+}): Promise<WaLiveConversations> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.pending) query.set("pending", "true");
+  if (params?.limit) query.set("limit", String(params.limit));
+  const suffix = query.size ? `?${query.toString()}` : "";
+  return http.get(`/whatsapp/conversations${suffix}`);
+}
+
+export function getWaConversationMessages(
+  chatId: string,
+  limit = 80,
+  sinceMs = 0,
+): Promise<WaConversationMessages> {
+  const query = new URLSearchParams({
+    chat_id: chatId,
+    limit: String(limit),
+    since_ms: String(sinceMs),
+  });
+  return http.get(`/whatsapp/conversation/messages?${query.toString()}`);
+}
+
+export function sendWaManualMessage(input: {
+  to: string;
+  message: string;
+  chat_name?: string;
+}): Promise<WaManualSendResult> {
+  return http.post("/whatsapp/message/send", input);
+}
+
+export function getWaMessageStatus(
+  msgId: string,
+  chatId = "",
+): Promise<WaMessageStatus> {
+  const query = new URLSearchParams({ msg_id: msgId });
+  if (chatId) query.set("chat_id", chatId);
+  return http.get(`/whatsapp/message/status?${query.toString()}`);
+}
