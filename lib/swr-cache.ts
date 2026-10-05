@@ -369,7 +369,7 @@ export function useCached<T>(
           : current,
       );
     }
-  }, [identity, key, scope]);
+  }, [identity, key, scope, setState]);
 
   useEffect(() => {
     if (!enabled) return;
