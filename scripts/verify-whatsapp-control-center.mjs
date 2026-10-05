@@ -334,6 +334,8 @@ async function certifyConversations() {
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
   await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
+  await noHorizontalOverflow(page, "conversations-workspace");
+  await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.getByRole("button", { name: "Répondre", exact: true }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   await page.getByRole("dialog").getByText("Mahamat Ali", { exact: true }).waitFor();
@@ -347,6 +349,8 @@ async function certifyAutomations() {
   await page.goto(`${BASE}/whatsapp/automations/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Automatisations WhatsApp" }).waitFor();
   await page.getByText("Relance Mahamat", { exact: true }).waitFor();
+  await noHorizontalOverflow(page, "automations-workspace");
+  await page.screenshot({ path: `${artifacts}/automations-workspace.png`, fullPage: false });
   await page.getByRole("button", { name: "Mettre en pause" }).first().click();
   await page.waitForTimeout(250);
   assert(state.pauses.length === 1, "Le bouton pause doit appeler l'endpoint de pause exactement une fois.");
@@ -357,9 +361,47 @@ async function certifyAutomations() {
   await page.close();
 }
 
+async function certifyMobile() {
+  const overview = await context.newPage();
+  await overview.setViewportSize({ width: 390, height: 844 });
+  await overview.goto(`${BASE}/whatsapp/`, { waitUntil: "domcontentloaded" });
+  await overview.getByRole("heading", { name: "WhatsApp Overview" }).waitFor();
+  await noHorizontalOverflow(overview, "mobile-overview");
+  await overview.getByRole("button", { name: /Nouveau message/ }).click();
+  await overview.getByRole("heading", { name: "Nouveau message" }).waitFor();
+  const modalBox = await overview.getByRole("dialog").boundingBox();
+  assert(Boolean(modalBox), "mobile-overview: composeur absent");
+  assert(modalBox.width <= 382, `mobile-overview: composeur trop large (${modalBox.width}px)`);
+  await overview.screenshot({ path: `${artifacts}/mobile-overview-compose.png`, fullPage: false });
+  await overview.close();
+
+  const conversationsPage = await context.newPage();
+  await conversationsPage.setViewportSize({ width: 390, height: 844 });
+  await conversationsPage.goto(`${BASE}/whatsapp/conversations/`, { waitUntil: "domcontentloaded" });
+  await conversationsPage.getByRole("heading", { name: "Conversations WhatsApp" }).waitFor();
+  await conversationsPage.getByText("Mahamat Ali", { exact: true }).first().waitFor();
+  await noHorizontalOverflow(conversationsPage, "mobile-conversation-list");
+  await conversationsPage.getByText("Mahamat Ali", { exact: true }).first().click();
+  await conversationsPage.getByRole("button", { name: "Retour aux conversations" }).waitFor();
+  await conversationsPage.getByText("Bonjour Mahamat", { exact: true }).waitFor();
+  await noHorizontalOverflow(conversationsPage, "mobile-conversation-thread");
+  await conversationsPage.screenshot({ path: `${artifacts}/mobile-conversation-thread.png`, fullPage: false });
+  await conversationsPage.close();
+
+  const automationsPage = await context.newPage();
+  await automationsPage.setViewportSize({ width: 390, height: 844 });
+  await automationsPage.goto(`${BASE}/whatsapp/automations/`, { waitUntil: "domcontentloaded" });
+  await automationsPage.getByRole("heading", { name: "Automatisations WhatsApp" }).waitFor();
+  await automationsPage.getByText("Relance Mahamat", { exact: true }).waitFor();
+  await noHorizontalOverflow(automationsPage, "mobile-automations");
+  await automationsPage.screenshot({ path: `${artifacts}/mobile-automations.png`, fullPage: false });
+  await automationsPage.close();
+}
+
 await certifyOverviewComposer();
 await certifyConversations();
 await certifyAutomations();
+await certifyMobile();
 
 await fs.writeFile(
   `${artifacts}/control-center-report.json`,
@@ -367,7 +409,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations", "automations"],
+    pages: ["overview-compose", "conversations", "automations", "mobile-overview", "mobile-conversations", "mobile-automations"],
   }, null, 2),
 );
 
