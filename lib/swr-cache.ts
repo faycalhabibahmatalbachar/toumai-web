@@ -1,192 +1,252 @@
 "use client";
 
-/** Cache intelligent persistant — stratégie stale-while-revalidate sur
- * localStorage : chaque page affiche INSTANTANÉMENT les dernières données
- * connues (zéro squelette au retour), puis revalide en arrière-plan et met
- * à jour l'écran + le cache. Un échec réseau conserve silencieusement les
- * données en cache au lieu de vider la page.
+/**
+ * Cache server-state persistant de Toumai AI.
  *
- * CE QUI LE REND RÉSISTANT
- * ------------------------
- * 1. CLOISONNÉ PAR COMPTE. Chaque entrée est rangée sous l'identifiant de
- *    l'utilisateur. Deux comptes sur le même navigateur ne peuvent pas se
- *    voir, même si une purge est oubliée quelque part — le cloisonnement ne
- *    dépend d'aucun appel à faire au bon moment.
- * 2. VERSIONNÉ. Un changement de forme des données invalide l'ancien cache au
- *    lieu de nourrir l'écran avec un objet qui n'a plus la bonne tête.
- * 3. ÉVICTION PAR ANCIENNETÉ. Quota plein : on retire les entrées les plus
- *    vieilles jusqu'à ce que ça rentre, au lieu de tout jeter et de renvoyer
- *    l'utilisateur à un écran vide.
- * 4. SYNCHRONISÉ ENTRE ONGLETS. Une écriture dans un onglet met à jour les
- *    autres, sans rechargement.
- * 5. REVALIDÉ AU BON MOMENT. Retour sur l'onglet, retour du réseau : les
- *    données se rafraîchissent d'elles-mêmes.
- * 6. TOLÉRANT AUX PANNES. Toute erreur de stockage (mode privé, quota, JSON
- *    corrompu) est absorbée : le cache est une accélération, jamais une
- *    dépendance. */
+ * Stratégie : stale-while-revalidate dans localStorage, cloisonnée par compte,
+ * tolérante aux pannes et synchronisée entre onglets. CACHE-008 ajoute deux
+ * garanties qui manquaient au cache historique :
+ *
+ * - l'identité de compte fait aussi partie de l'état React en mémoire, pas
+ *   seulement de la clé localStorage ; un changement de compte ne peut donc
+ *   jamais laisser l'ancien écran réutiliser sa valeur en RAM ;
+ * - deux composants qui revalident la même clé au même instant partagent la
+ *   même Promise réseau (singleflight navigateur), sans mettre le flux
+ *   `/chat/stream` dans ce mécanisme.
+ */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { loadSession } from "./api";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { loadSession, SESSION_STORAGE_KEY } from "./api";
+import { coalesceRequest } from "./cache-request-coalescer.mjs";
 
-/* IMPORTANT hydratation : les pages sont pré-rendues SANS localStorage. Lire
- * le cache pendant le rendu initial (useState(() => cacheSeed(...))) fait
- * diverger le HTML serveur et le premier rendu client → erreur d'hydratation
- * React. La règle : état initial NEUTRE, puis seed via useLayoutEffect —
- * il s'exécute après l'hydratation mais AVANT la peinture, donc l'utilisateur
- * voit quand même le cache instantanément, sans flash ni erreur. */
+/* IMPORTANT hydratation : le serveur n'a ni session navigateur ni
+ * localStorage. Le snapshot serveur est donc toujours `anon`; React adopte le
+ * vrai propriétaire après hydratation via useSyncExternalStore. */
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const PREFIX = "toumai:cache:";
-/** Incrémenter invalide TOUT l'ancien cache — à faire quand la forme des
- * données mises en cache change. */
-const VERSION = 2;
+/** V3 invalide les entrées antérieures lors du déploiement CACHE-008. */
+const VERSION = 3;
 
 interface Entry<T> {
   v: T;
   at: number;
-  /** Version du format et propriétaire, vérifiés à la lecture. */
   ver?: number;
   who?: string;
 }
 
-/** Identifiant du compte auquel appartiennent les données mises en cache.
- * « anon » avant toute session : ces entrées-là ne survivront pas au login. */
+interface CachedState<T> {
+  identity: string;
+  data: T | null;
+  fromCache: boolean;
+  loading: boolean;
+  error: string | null;
+}
+
+/** Identifiant logique du compte. Ce n'est jamais partagé entre comptes. */
 function owner(): string {
   return loadSession()?.user_id || "anon";
 }
 
-function fullKey(key: string): string {
-  return `${PREFIX}${owner()}:${key}`;
+function fullKeyFor(scope: string, key: string): string {
+  return `${PREFIX}${scope}:${key}`;
 }
 
-/** Lit une entrée brute du cache (valeur + horodatage), null si absente,
- * périmée par version, ou appartenant à un autre compte. */
-export function cacheRead<T>(key: string): Entry<T> | null {
+function fullKey(key: string): string {
+  return fullKeyFor(owner(), key);
+}
+
+function identityFor(scope: string, key: string): string {
+  return `${scope}:${key}`;
+}
+
+function neutralState<T>(identity: string): CachedState<T> {
+  return {
+    identity,
+    data: null,
+    fromCache: false,
+    loading: true,
+    error: null,
+  };
+}
+
+// ── Identité de session réactive ───────────────────────────────────────────
+// `storage` ne se déclenche pas dans l'onglet qui écrit. AuthProvider appelle
+// cachePurge() à chaque login/logout : la purge émet donc aussi ce signal local.
+type OwnerListener = () => void;
+const ownerListeners = new Set<OwnerListener>();
+
+function notifyOwnerChange(): void {
+  ownerListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {}
+  });
+}
+
+function subscribeOwner(fn: OwnerListener): () => void {
+  if (typeof window === "undefined") return () => {};
+  ownerListeners.add(fn);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === SESSION_STORAGE_KEY) fn();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    ownerListeners.delete(fn);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function getOwnerSnapshot(): string {
+  return owner();
+}
+
+function getServerOwnerSnapshot(): string {
+  return "anon";
+}
+
+function useCacheOwner(): string {
+  return useSyncExternalStore(subscribeOwner, getOwnerSnapshot, getServerOwnerSnapshot);
+}
+
+// ── Lecture / écriture ─────────────────────────────────────────────────────
+function cacheReadFor<T>(scope: string, key: string): Entry<T> | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(fullKey(key));
+    const raw = localStorage.getItem(fullKeyFor(scope, key));
     if (!raw) return null;
-    const e = JSON.parse(raw) as Entry<T>;
-    if (!e || typeof e.at !== "number") return null;
-    if (e.ver !== VERSION) return null;
-    // UNE ENTRÉE SANS VALEUR EST UN DÉFAUT DE CACHE, PAS UNE VALEUR.
-    //
-    // Le 20/09/2026, `toumai:cache:anon:user:profile` existait en
-    // localStorage sans champ `v`. L'entrée était donc « trouvée », et les
-    // appelants recevaient `undefined` là où ils attendaient un profil :
-    // `p.full_name` levait une TypeError pendant le rendu, et TOUTE la page
-    // /chat tombait sur « This page couldn't load ». Un cache est censé
-    // accélérer une page, jamais l'empêcher de s'afficher.
-    //
-    // Une entrée peut arriver dans cet état par une écriture interrompue, un
-    // quota atteint en cours d'écriture, ou une version antérieure du format.
-    // Dans les trois cas, la bonne réponse est la même : faire comme si de
-    // rien n'était et laisser le réseau fournir la valeur.
-    if (!Object.prototype.hasOwnProperty.call(e, "v") || e.v === undefined) {
+    const entry = JSON.parse(raw) as Entry<T>;
+    if (!entry || typeof entry.at !== "number") return null;
+    if (entry.ver !== VERSION) return null;
+
+    // Une entrée physiquement présente mais sans valeur est corrompue : MISS.
+    if (!Object.prototype.hasOwnProperty.call(entry, "v") || entry.v === undefined) {
       return null;
     }
-    // Double garde : la clé porte déjà le propriétaire, mais un cache écrit
-    // avant connexion ne doit pas être servi au compte qui se connecte.
-    if (e.who && e.who !== owner()) return null;
-    return e;
+    if (entry.who && entry.who !== scope) return null;
+    return entry;
   } catch {
     return null;
   }
 }
 
-/** Valeur en cache si plus récente que maxAgeMs (par défaut : toujours). */
-export function cacheSeed<T>(key: string, maxAgeMs = Infinity): T | null {
-  const e = cacheRead<T>(key);
-  if (!e) return null;
-  return Date.now() - e.at <= maxAgeMs ? e.v : null;
+export function cacheRead<T>(key: string): Entry<T> | null {
+  return cacheReadFor<T>(owner(), key);
 }
 
-/** Retire les entrées les plus anciennes du cache applicatif jusqu'à libérer
- * de la place. Tout jeter renverrait l'utilisateur à un écran vide alors
- * qu'une poignée d'entrées suffit à faire de la place. */
+export function cacheSeed<T>(key: string, maxAgeMs = Infinity): T | null {
+  const entry = cacheRead<T>(key);
+  if (!entry) return null;
+  return Date.now() - entry.at <= maxAgeMs ? entry.v : null;
+}
+
+/** Retire les entrées les plus anciennes jusqu'à libérer de la place. */
 function evictOldest(count: number): void {
+  if (typeof window === "undefined") return;
   const entries: { k: string; at: number }[] = [];
   for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (!k || !k.startsWith(PREFIX)) continue;
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith(PREFIX)) continue;
     let at = 0;
     try {
-      at = (JSON.parse(localStorage.getItem(k) || "{}") as Entry<unknown>).at || 0;
+      at = (JSON.parse(localStorage.getItem(key) || "{}") as Entry<unknown>).at || 0;
     } catch {
-      at = 0; // illisible : candidat idéal à l'éviction
+      at = 0;
     }
-    entries.push({ k, at });
+    entries.push({ k: key, at });
   }
   entries.sort((a, b) => a.at - b.at);
-  for (const e of entries.slice(0, Math.max(1, count))) {
+  for (const entry of entries.slice(0, Math.max(1, count))) {
     try {
-      localStorage.removeItem(e.k);
+      localStorage.removeItem(entry.k);
     } catch {}
   }
 }
 
-export function cacheWrite<T>(key: string, value: T): void {
+function cacheWriteFor<T>(scope: string, key: string, value: T): void {
   if (typeof window === "undefined") return;
-  const payload = JSON.stringify({ v: value, at: Date.now(), ver: VERSION, who: owner() });
+  const payload = JSON.stringify({ v: value, at: Date.now(), ver: VERSION, who: scope });
+  const storageKey = fullKeyFor(scope, key);
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      localStorage.setItem(fullKey(key), payload);
-      notifyLocal(key);
+      localStorage.setItem(storageKey, payload);
+      notifyLocal(storageKey);
       return;
     } catch {
-      // Quota plein : on fait de la place par les plus vieilles entrées.
       evictOldest(4 * (attempt + 1));
     }
   }
-  // Toujours impossible (mode privé, stockage désactivé) : on abandonne
-  // silencieusement — le cache n'est jamais une condition d'affichage.
+  // Le cache est une optimisation : jamais une condition de fonctionnement.
+}
+
+export function cacheWrite<T>(key: string, value: T): void {
+  cacheWriteFor(owner(), key, value);
 }
 
 export function cacheRemove(key: string): void {
+  if (typeof window === "undefined") return;
+  const storageKey = fullKey(key);
   try {
-    localStorage.removeItem(fullKey(key));
-    notifyLocal(key);
+    localStorage.removeItem(storageKey);
+    notifyLocal(storageKey);
   } catch {}
 }
 
-/** Purge le cache applicatif. Sans argument : tout, tous comptes confondus
- * (déconnexion). Avec un sous-préfixe : seulement les clés du compte courant
- * qui commencent par ce préfixe. */
+/**
+ * Purge le cache applicatif.
+ * Sans préfixe : toutes les identités — utilisé lors d'un login/logout.
+ * Avec préfixe : seulement les clés correspondantes du compte courant.
+ */
 export function cachePurge(prefix?: string): void {
   if (typeof window === "undefined") return;
   const target = prefix === undefined ? PREFIX : `${PREFIX}${owner()}:${prefix}`;
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(target)) localStorage.removeItem(k);
+      const key = localStorage.key(i);
+      if (key && key.startsWith(target)) localStorage.removeItem(key);
     }
   } catch {}
+  notifyPurge();
+  if (prefix === undefined) notifyOwnerChange();
 }
 
-// ── Diffusion des écritures ────────────────────────────────────────────────
-//
-// `storage` ne se déclenche QUE dans les autres onglets. Pour que les
-// composants du même onglet réagissent aussi, on double l'événement natif
-// d'un bus local.
-type Listener = (key: string) => void;
+// ── Diffusion locale / inter-onglets ───────────────────────────────────────
+// null signifie « purge » ; une clé concrète signifie « cette entrée change ».
+type Listener = (storageKey: string | null) => void;
 const listeners = new Set<Listener>();
 
-function notifyLocal(key: string): void {
+function notifyLocal(storageKey: string): void {
   listeners.forEach((fn) => {
     try {
-      fn(key);
+      fn(storageKey);
     } catch {}
   });
 }
 
-/** S'abonne aux changements d'une clé, dans cet onglet comme dans les autres. */
-export function onCacheChange(key: string, fn: () => void): () => void {
-  const local: Listener = (k) => {
-    if (k === key) fn();
+function notifyPurge(): void {
+  listeners.forEach((fn) => {
+    try {
+      fn(null);
+    } catch {}
+  });
+}
+
+function onCacheChangeFor(scope: string, key: string, fn: () => void): () => void {
+  const storageKey = fullKeyFor(scope, key);
+  const local: Listener = (changed) => {
+    if (changed === null || changed === storageKey) fn();
   };
   listeners.add(local);
-  const onStorage = (e: StorageEvent) => {
-    if (e.key === fullKey(key)) fn();
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === storageKey || event.key === SESSION_STORAGE_KEY) fn();
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -195,45 +255,51 @@ export function onCacheChange(key: string, fn: () => void): () => void {
   };
 }
 
-/** Seed hydration-safe : applique la valeur en cache UNE fois, juste après
- * l'hydratation et avant la peinture. À utiliser à la place de
- * `useState(() => cacheSeed(key))` dans les composants pré-rendus. */
+/** S'abonne aux changements de la clé pour le propriétaire courant. */
+export function onCacheChange(key: string, fn: () => void): () => void {
+  return onCacheChangeFor(owner(), key, fn);
+}
+
+/** Seed hydration-safe, également réinitialisé lors d'un changement de compte. */
 export function useCacheSeed<T>(key: string, apply: (value: T) => void): void {
-  const appliedRef = useRef(false);
-  const applyRef = useRef(apply);
-  applyRef.current = apply;
+  const scope = useCacheOwner();
+  const identity = identityFor(scope, key);
+  const appliedIdentityRef = useRef<string | null>(null);
+
   useIsoLayoutEffect(() => {
-    if (appliedRef.current) return;
-    appliedRef.current = true;
-    const e = cacheRead<T>(key);
-    if (e) applyRef.current(e.v);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (appliedIdentityRef.current === identity) return;
+    appliedIdentityRef.current = identity;
+    const entry = cacheReadFor<T>(scope, key);
+    if (entry) apply(entry.v);
+  }, [apply, identity, key, scope]);
 }
 
 interface UseCachedOptions {
-  /** Ne déclenche pas la revalidation tant que false (ex. session absente). */
+  /** Ne déclenche pas la revalidation tant que false. */
   enabled?: boolean;
-  /** Fraîcheur : si le cache est plus jeune, la revalidation est différée
-   * (0 = revalider systématiquement). */
+  /** Fraîcheur : 0 = revalider systématiquement. */
   ttlMs?: number;
-  /** Revalider au retour sur l'onglet et au retour du réseau (défaut : oui). */
+  /** Revalider au retour onglet/réseau. */
   revalidateOnFocus?: boolean;
 }
 
 interface UseCachedResult<T> {
   data: T | null;
-  /** true si les données affichées viennent du cache (revalidation en cours). */
   fromCache: boolean;
-  /** true uniquement quand on n'a RIEN à afficher (premier chargement). */
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 }
 
-/** Hook SWR : rend immédiatement la valeur en cache pour `key`, revalide en
- * arrière-plan via `fetcher`, persiste le résultat. Changer `key` bascule
- * instantanément sur le cache de la nouvelle clé. */
+/**
+ * Hook SWR server-state.
+ *
+ * La réponse affichée appartient toujours à `scope + key`. Une Promise lancée
+ * sous le compte A continue éventuellement après un logout, mais elle écrit
+ * uniquement dans le namespace A et ne peut jamais mettre à jour l'état du
+ * compte B. Les lectures identiques déjà en vol sont mutualisées par cette
+ * même identité.
+ */
 export function useCached<T>(
   key: string,
   fetcher: () => Promise<T>,
@@ -242,70 +308,94 @@ export function useCached<T>(
   const enabled = opts?.enabled ?? true;
   const ttlMs = opts?.ttlMs ?? 0;
   const revalidateOnFocus = opts?.revalidateOnFocus ?? true;
+  const scope = useCacheOwner();
+  const identity = identityFor(scope, key);
+
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  }, [fetcher]);
 
-  // État initial NEUTRE (identique au HTML pré-rendu) — le cache est appliqué
-  // en layout-effect ci-dessous, après l'hydratation.
-  const [state, setState] = useState<{
-    key: string;
-    data: T | null;
-    fromCache: boolean;
-    loading: boolean;
-    error: string | null;
-  }>({ key, data: null, fromCache: false, loading: true, error: null });
+  const [state, setState] = useState<CachedState<T>>(() => neutralState<T>(""));
+  // Ne JAMAIS rendre une valeur portant l'identité précédente, même pendant
+  // le rendu qui précède le layout-effect de resynchronisation.
+  const visibleState = state.identity === identity ? state : neutralState<T>(identity);
 
-  // Changement de clé (filtre, période…) : reset synchrone pour ne jamais
-  // afficher les données de l'ancienne clé.
-  if (state.key !== key) {
-    setState({ key, data: null, fromCache: false, loading: true, error: null });
-  }
-
-  // Seed depuis le cache — avant peinture, donc affichage instantané sans
-  // divergence d'hydratation.
   useIsoLayoutEffect(() => {
-    const e = cacheRead<T>(key);
-    if (!e) return;
-    setState((s) =>
-      s.key === key && s.data === null
-        ? { ...s, data: e.v, fromCache: true, loading: false }
-        : s,
-    );
-  }, [key]);
+    const entry = cacheReadFor<T>(scope, key);
+    setState((current) => {
+      if (current.identity === identity && current.data !== null) return current;
+      return entry
+        ? {
+            identity,
+            data: entry.v,
+            fromCache: true,
+            loading: false,
+            error: null,
+          }
+        : neutralState<T>(identity);
+    });
+  }, [identity, key, scope]);
 
   const revalidate = useCallback(async () => {
+    const requestedIdentity = identity;
+    const requestedScope = scope;
+    // Capture le fetcher au départ : un changement de compte/props pendant
+    // l'attente ne doit pas transformer rétroactivement cette requête.
+    const runFetcher = fetcherRef.current;
     try {
-      const v = await fetcherRef.current();
-      cacheWrite(key, v);
-      setState((s) =>
-        s.key === key ? { ...s, data: v, fromCache: false, loading: false, error: null } : s,
+      const value = await coalesceRequest<T>(requestedIdentity, runFetcher);
+      cacheWriteFor(requestedScope, key, value);
+      setState((current) =>
+        current.identity === requestedIdentity
+          ? {
+              ...current,
+              data: value,
+              fromCache: false,
+              loading: false,
+              error: null,
+            }
+          : current,
       );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Chargement impossible";
-      // Échec réseau : on garde les données en cache si on en a.
-      setState((s) =>
-        s.key === key ? { ...s, loading: false, error: s.data ? null : msg } : s,
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Chargement impossible";
+      setState((current) =>
+        current.identity === requestedIdentity
+          ? {
+              ...current,
+              loading: false,
+              error: current.data ? null : message,
+            }
+          : current,
       );
     }
-  }, [key]);
+  }, [identity, key, scope, setState]);
 
   useEffect(() => {
     if (!enabled) return;
-    const e = cacheRead<T>(key);
-    if (e && ttlMs > 0 && Date.now() - e.at <= ttlMs) return; // encore frais
-    revalidate();
-  }, [key, enabled, ttlMs, revalidate]);
+    const entry = cacheReadFor<T>(scope, key);
+    if (entry && ttlMs > 0 && Date.now() - entry.at <= ttlMs) return;
+    void revalidate();
+  }, [enabled, key, revalidate, scope, ttlMs]);
 
-  // Un autre onglet a écrit cette clé : on adopte sa valeur sans requête.
   useEffect(() => {
     if (!enabled) return;
-    return onCacheChange(key, () => {
-      const e = cacheRead<T>(key);
-      if (e) setState((s) => (s.key === key ? { ...s, data: e.v, loading: false } : s));
+    return onCacheChangeFor(scope, key, () => {
+      const entry = cacheReadFor<T>(scope, key);
+      setState((current) => {
+        if (current.identity !== identity) return current;
+        if (!entry) return neutralState<T>(identity);
+        return {
+          identity,
+          data: entry.v,
+          fromCache: true,
+          loading: false,
+          error: null,
+        };
+      });
     });
-  }, [key, enabled]);
+  }, [enabled, identity, key, scope]);
 
-  // Retour sur l'onglet / retour du réseau : les données se rafraîchissent.
   useEffect(() => {
     if (!enabled || !revalidateOnFocus) return;
     const onVisible = () => {
@@ -320,10 +410,10 @@ export function useCached<T>(
   }, [enabled, revalidateOnFocus, revalidate]);
 
   return {
-    data: state.data,
-    fromCache: state.fromCache,
-    loading: state.loading && enabled,
-    error: state.error,
+    data: visibleState.data,
+    fromCache: visibleState.fromCache,
+    loading: visibleState.loading && enabled,
+    error: visibleState.error,
     refresh: revalidate,
   };
 }
