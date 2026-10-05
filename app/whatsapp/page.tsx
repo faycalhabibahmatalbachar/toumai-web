@@ -300,7 +300,7 @@ export default function WhatsAppOverviewPage() {
             <Card className="p-5 md:p-6">
               <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Actions rapides</h2>
               <div className="mt-4 space-y-2.5">
-                <QuickAction href="/whatsapp/ai" icon={<Send size={21} />} label="Nouveau message" primary />
+                <QuickAction href="/chat" icon={<Send size={21} />} label="Nouveau message" primary />
                 <button type="button" disabled={contactSyncing} onClick={handleContactSync} className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:bg-white/[0.035] disabled:opacity-60" style={{ background: SURFACE_RAISED, borderColor: BORDER }}>
                   {contactSyncing ? <RefreshCw size={22} className="animate-spin" /> : <UserRoundPlus size={22} />}
                   <span className="flex-1 text-[14px] font-medium">Importer des contacts</span>
@@ -316,7 +316,7 @@ export default function WhatsAppOverviewPage() {
             <Card className="overflow-hidden p-0">
               <div className="flex items-center justify-between px-5 pb-2 pt-4 md:px-6">
                 <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Conversations récentes</h2>
-                <Link href="/whatsapp/ai" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
+                <Link href="/chat" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
               </div>
               <div className="overflow-x-auto px-4 pb-2 md:px-5">
                 <div className="min-w-[650px]">
