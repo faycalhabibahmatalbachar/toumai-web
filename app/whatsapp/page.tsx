@@ -280,7 +280,7 @@ export default function WhatsAppOverviewPage() {
                 </div>
               </div>
 
-              <div className="h-[215px] px-4 pb-4 pt-3 md:px-5">
+              <div className="h-[203px] px-4 pb-3 pt-2 md:px-5">
                 {logsLoading ? (
                   <div className="h-full animate-pulse rounded-xl bg-white/[0.025]" />
                 ) : chartData.some((point) => point.sent > 0 || point.received > 0) ? (
@@ -314,13 +314,13 @@ export default function WhatsAppOverviewPage() {
 
           <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
             <Card className="overflow-hidden p-0">
-              <div className="flex items-center justify-between px-5 pb-3 pt-5 md:px-6">
+              <div className="flex items-center justify-between px-5 pb-2 pt-4 md:px-6">
                 <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Conversations récentes</h2>
                 <Link href="/whatsapp/ai" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
               </div>
-              <div className="overflow-x-auto px-4 pb-3 md:px-5">
+              <div className="overflow-x-auto px-4 pb-2 md:px-5">
                 <div className="min-w-[650px]">
-                  <div className="grid grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] gap-3 rounded-md px-2 py-2 text-[11px]" style={{ background: "rgba(255,255,255,.025)", color: MUTED }}>
+                  <div className="grid grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] gap-3 rounded-md px-2 py-1.5 text-[11px]" style={{ background: "rgba(255,255,255,.025)", color: MUTED }}>
                     <span>Contact</span><span>Dernier message</span><span>Statut</span><span>Date</span><span />
                   </div>
                   {conversationsLoading && [0, 1, 2, 3].map((index) => <div key={index} className="mt-1 h-[54px] animate-pulse rounded-lg bg-white/[0.025]" />)}
@@ -331,7 +331,7 @@ export default function WhatsAppOverviewPage() {
             </Card>
 
             <Card className="overflow-hidden p-0">
-              <div className="flex items-center justify-between border-b px-5 py-5 md:px-6" style={{ borderColor: BORDER }}>
+              <div className="flex items-center justify-between border-b px-5 py-4 md:px-6" style={{ borderColor: BORDER }}>
                 <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Automatisations actives ({activeAutomations.length})</h2>
                 <Link href="/automations" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>Voir tout <ChevronRight size={15} /></Link>
               </div>
@@ -465,7 +465,7 @@ function Card({ children, className = "" }: { children: ReactNode; className?: s
 }
 
 function MetricCard({ label, value, delta, unit, loading, icon, tone }: { label: string; value: string; delta?: number | null; unit?: "pct" | "pts"; loading: boolean; icon: ReactNode; tone: "green" | "orange" | "purple" }) {
-  const palette = { green: { bg: "#073d2c", fg: GREEN }, orange: { bg: "#4a2c13", fg: ORANGE }, purple: { bg: "#3c2058", fg: "#a85af0" } }[tone];
+  const palette = { green: { bg: "#073d2c", fg: "#e9fff5" }, orange: { bg: "#4a2c13", fg: "#fff5e7" }, purple: { bg: "#3c2058", fg: "#f7edff" } }[tone];
   const trend = delta ?? null;
   const positive = trend !== null && trend >= 0;
   return (
@@ -514,7 +514,7 @@ function ConversationRow({ conversation, index }: { conversation: WaAutopilotCon
   const statusColor = conversation.pending > 0 ? ORANGE : conversation.last_reply ? BLUE : GREEN;
   const avatarColors = ["#16b868", "#ff8d1a", "#2f8cff", "#8b4fd4"];
   return (
-    <div className="grid min-h-[54px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-2 last:border-0" style={{ borderColor: BORDER }}>
+    <div className="grid min-h-[47px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-1 last:border-0" style={{ borderColor: BORDER }}>
       <div className="flex min-w-0 items-center gap-2.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColors[index % avatarColors.length] }}>{makeInitials(name)}</div><div className="min-w-0"><p className="truncate text-[12px] font-semibold">{name}</p><p className="mt-0.5 truncate text-[10px] tabular-nums" style={{ color: MUTED }}>{secondary}</p></div></div>
       <p className="truncate text-[11px]" style={{ color: "#b7c2cb" }}>{preview}</p>
       <div><span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: `${statusColor}18`, color: statusColor }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />{status}</span></div>
@@ -567,7 +567,26 @@ function buildActivitySeries(logs: WaAutopilotLog[], days: PeriodDays): Activity
 
 function linePath(points: readonly (readonly [number, number])[]) {
   if (!points.length) return "";
-  return points.map(([x, y], index) => `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+  if (points.length === 1) {
+    return `M${points[0][0].toFixed(2)},${points[0][1].toFixed(2)}`;
+  }
+
+  // Courbe Catmull-Rom convertie en Bézier cubique : elle suit les mesures
+  // sans inventer de points et retrouve le mouvement fluide de la maquette.
+  const tension = 1 / 6;
+  let path = `M${points[0][0].toFixed(2)},${points[0][1].toFixed(2)}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[Math.max(0, index - 1)];
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    const p3 = points[Math.min(points.length - 1, index + 2)];
+    const c1x = p1[0] + (p2[0] - p0[0]) * tension;
+    const c1y = p1[1] + (p2[1] - p0[1]) * tension;
+    const c2x = p2[0] - (p3[0] - p1[0]) * tension;
+    const c2y = p2[1] - (p3[1] - p1[1]) * tension;
+    path += ` C${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+  }
+  return path;
 }
 
 function areaPath(points: readonly (readonly [number, number])[], baseline: number) {
