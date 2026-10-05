@@ -50,6 +50,51 @@ export interface WaAutopilotAnalytics {
   not_instrumented: string[];
 }
 
+export interface WaAutopilotLog {
+  id: string;
+  chat_id: string;
+  chat_name?: string | null;
+  incoming: string;
+  reply: string;
+  mode: string;
+  msg_type?: string | null;
+  lang?: string | null;
+  latency_ms?: number | null;
+  tokens?: number | null;
+  delivered?: boolean | null;
+  created_at: string;
+}
+
+export interface WaAutopilotLogsPage {
+  logs: WaAutopilotLog[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total: number;
+  };
+}
+
+export interface WaAutopilotConversation {
+  chat_id: string;
+  name: string | null;
+  number: string | null;
+  kind: string;
+  last_incoming: string;
+  last_reply: string;
+  last_mode: string;
+  last_type: string;
+  lang: string;
+  last_at: string;
+  exchanges: number;
+  pending: number;
+}
+
+export interface WaAutopilotConversations {
+  conversations: WaAutopilotConversation[];
+  total: number;
+  period_days: number;
+}
+
 export function getWaAutopilot(): Promise<WaAutopilotSettings> {
   return http.get("/whatsapp/autopilot");
 }
@@ -62,4 +107,22 @@ export function updateWaAutopilot(
 
 export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics> {
   return http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`);
+}
+
+export function getWaAutopilotLogs(
+  page = 1,
+  pageSize = 100,
+): Promise<WaAutopilotLogsPage> {
+  return http.get(
+    `/whatsapp/autopilot/logs?page=${encodeURIComponent(page)}&page_size=${encodeURIComponent(pageSize)}`,
+  );
+}
+
+export function getWaAutopilotConversations(
+  days = 30,
+  limit = 4,
+): Promise<WaAutopilotConversations> {
+  return http.get(
+    `/whatsapp/autopilot/conversations?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`,
+  );
 }
