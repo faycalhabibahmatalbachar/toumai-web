@@ -1,0 +1,51 @@
+name: WhatsApp Overview Visual Gate
+
+on:
+  pull_request:
+    paths:
+      - "app/whatsapp/**"
+      - "lib/whatsapp-enterprise-api.ts"
+      - "scripts/verify-whatsapp-overview-visual.mjs"
+      - ".github/workflows/whatsapp-overview-visual.yml"
+  workflow_dispatch:
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: Install Playwright for visual certification
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Production build
+        run: npm run build
+      - name: Start static export
+        run: |
+          python3 -m http.server 3100 -d out > /tmp/whatsapp-overview-server.log 2>&1 &
+          echo $! > /tmp/whatsapp-overview-server.pid
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:3100/whatsapp/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/whatsapp-overview-server.log
+          exit 1
+      - name: Certify 1672x941 overview geometry and render
+        run: node scripts/verify-whatsapp-overview-visual.mjs
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: whatsapp-overview-visual
+          path: artifacts/whatsapp-overview/
+          if-no-files-found: warn
+          retention-days: 14
