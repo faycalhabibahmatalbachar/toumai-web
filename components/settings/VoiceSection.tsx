@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Pause, Play } from "lucide-react";
 import {
   getPreferences,
@@ -33,8 +33,9 @@ export function VoiceSection() {
   const [speed, setSpeed] = useState<number>(
     () => cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1.0,
   );
-  const [previewFirstName, setPreviewFirstName] = useState<string | null>(null);
+  const [resolvingName, setResolvingName] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const previewRequestRef = useRef(0);
 
   const voice = useSyncExternalStore(
     subscribeToumaiVoice,
@@ -43,6 +44,7 @@ export function VoiceSection() {
   );
   const phase = voice.owner === PREVIEW_OWNER ? voice.phase : "idle";
   const voiceError = voice.owner === PREVIEW_OWNER ? voice.error : null;
+  const previewBusy = resolvingName || phase !== "idle";
 
   useEffect(() => {
     getPreferences()
@@ -58,15 +60,11 @@ export function VoiceSection() {
         setError(err instanceof Error ? err.message : "Chargement impossible");
       });
 
-    // La démo appartient au compte connecté. On ne garde jamais un nom
-    // statique dans le code : chaque compte entend son propre prénom quand le
-    // profil en possède un. Si le profil n'est pas disponible, on reste
-    // volontairement générique plutôt que de prononcer le nom d'un autre.
-    getProfile()
-      .then((profile) => setPreviewFirstName(prenomAffichable(profile.full_name)))
-      .catch(() => setPreviewFirstName(null));
-
     return () => {
+      // Invalide aussi une lecture encore en train de résoudre le profil. Sans
+      // cela, un changement de compte ou un démontage de la page pourrait
+      // laisser une promesse tardive démarrer la voix avec l'ancien prénom.
+      previewRequestRef.current += 1;
       stopToumaiVoice(PREVIEW_OWNER);
     };
   }, []);
@@ -92,9 +90,36 @@ export function VoiceSection() {
     }
   }
 
-  function togglePreview() {
+  async function togglePreview() {
     setError(null);
-    void playToumaiVoice(previewText(previewFirstName), PREVIEW_OWNER, speed);
+
+    // Le second clic reste un vrai Stop, même pendant la résolution du nom.
+    if (previewBusy) {
+      previewRequestRef.current += 1;
+      setResolvingName(false);
+      stopToumaiVoice(PREVIEW_OWNER);
+      return;
+    }
+
+    const requestId = ++previewRequestRef.current;
+    setResolvingName(true);
+
+    // Le prénom est résolu AU MOMENT DU CLIC, avec la session authentifiée
+    // courante. Le conserver dans un state chargé au montage pouvait faire
+    // prononcer le prénom du compte précédent après un changement de compte
+    // dans la même SPA. En cas d'échec du profil, Zenaba reste générique :
+    // jamais de nom inventé, jamais de nom appartenant à une autre session.
+    let firstName: string | null = null;
+    try {
+      const profile = await getProfile();
+      firstName = prenomAffichable(profile.full_name);
+    } catch {
+      firstName = null;
+    }
+
+    if (requestId !== previewRequestRef.current) return;
+    setResolvingName(false);
+    void playToumaiVoice(previewText(firstName), PREVIEW_OWNER, speed);
   }
 
   return (
@@ -122,18 +147,18 @@ export function VoiceSection() {
 
           <button
             type="button"
-            onClick={togglePreview}
-            aria-label={phase === "idle" ? "Écouter Zenaba" : "Arrêter Zenaba"}
+            onClick={() => void togglePreview()}
+            aria-label={previewBusy ? "Arrêter Zenaba" : "Écouter Zenaba"}
             className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-secondary)] transition hover:border-[var(--primary)] hover:text-[var(--text-primary)]"
           >
-            {phase === "loading" ? (
+            {resolvingName || phase === "loading" ? (
               <span className="h-3 w-3 animate-pulse rounded-full bg-current" />
             ) : phase === "playing" ? (
               <Pause size={13} fill="currentColor" />
             ) : (
               <Play size={13} fill="currentColor" />
             )}
-            {phase === "playing" ? "Arrêter" : phase === "loading" ? "Annuler" : "Écouter"}
+            {phase === "playing" ? "Arrêter" : previewBusy ? "Annuler" : "Écouter"}
           </button>
         </div>
       </Panel>
