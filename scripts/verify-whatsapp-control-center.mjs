@@ -317,8 +317,7 @@ async function certifyOverviewComposer() {
   await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
   await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
   await page.getByRole("button", { name: "Envoyer maintenant" }).click();
-  await page.getByRole("heading", { name: /Message (accepté|livré)/ }).waitFor();
-  await page.getByText("Livré", { exact: true }).waitFor({ timeout: 5000 });
+  await page.getByRole("heading", { name: "Message livré" }).waitFor({ timeout: 5000 });
 
   assert(state.sends.length === 1, `Un clic doit produire exactement un envoi, obtenu ${state.sends.length}`);
   assert(state.sends[0].to === "23566111111@s.whatsapp.net", "Le JID du carnet doit être conservé sans reconstruction.");
