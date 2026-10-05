@@ -1,421 +1,819 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Activity,
-  ArrowLeft,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  ArrowDown,
+  ArrowUp,
+  Bell,
   Bot,
+  BookOpen,
+  CalendarDays,
+  ChevronDown,
   ChevronRight,
+  CircleGauge,
   Clock3,
-  MessageSquareText,
-  Settings2,
-  ShieldCheck,
-  Smartphone,
+  ExternalLink,
+  LayoutDashboard,
+  Menu,
+  MessageCircle,
+  MoreHorizontal,
+  Plug,
+  RefreshCw,
+  Search,
+  Send,
+  Settings,
+  UserRoundPlus,
   Users,
   Workflow,
+  X,
 } from "lucide-react";
 
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
-import { WhatsAppPermissionsPanel } from "@/components/settings/WhatsAppPermissionsPanel";
-import { cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import {
-  getWaActivity,
   getWaEtat,
-  type WaActivityItem,
+  getWhatsAppAutomations,
+  pauseWhatsAppAutomation,
+  resumeWhatsAppAutomation,
+  syncWaCarnet,
   type WaEtat,
+  type WhatsAppAutomation,
 } from "@/lib/connectors-api";
+import {
+  getWaAutopilotAnalytics,
+  getWaAutopilotConversations,
+  getWaAutopilotLogs,
+  type WaAutopilotAnalytics,
+  type WaAutopilotConversation,
+  type WaAutopilotLog,
+} from "@/lib/whatsapp-enterprise-api";
 import { useCached } from "@/lib/swr-cache";
 
-const CATEGORY_LABEL: Record<string, string> = {
-  message: "Message envoyé",
-  image: "Image envoyée",
-  video: "Vidéo envoyée",
-  audio: "Audio envoyé",
-  document: "Document envoyé",
-  fichier: "Fichier envoyé",
-  statut: "Statut publié",
-  lecture: "Messages consultés",
-  resume: "Conversation résumée",
-  recherche: "Recherche effectuée",
-  analyse: "Analyse effectuée",
-  gestion: "Conversation gérée",
-  contacts: "Contacts synchronisés",
-  avance: "Action avancée",
-  autre: "Action WhatsApp",
-};
+const PAGE_BG = "#06111a";
+const SIDEBAR_BG = "#0a151e";
+const SURFACE = "#0d1923";
+const SURFACE_RAISED = "#101e29";
+const BORDER = "#1e2c36";
+const TEXT = "#f4f7f9";
+const MUTED = "#9ba8b3";
+const FAINT = "#6f7f8d";
+const GREEN = "#08c875";
+const GREEN_BRAND = "#25d366";
+const BLUE = "#2f8cff";
+const ORANGE = "#ff9518";
+const PURPLE = "#8b3fd5";
 
-export default function WhatsAppEnterprisePage() {
+const PERIODS = [7, 30, 90] as const;
+type PeriodDays = (typeof PERIODS)[number];
+
+const NAV_ITEMS = [
+  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+  { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/agent", label: "Agents", icon: Bot },
+  { href: "/library", label: "Connaissances", icon: BookOpen },
+  { href: "/automations", label: "Automatisations", icon: Workflow },
+] as const;
+
+const LOWER_NAV = [
+  { href: "/settings?tab=connectors", label: "Intégrations", icon: Plug },
+  { href: "/settings", label: "Paramètres", icon: Settings },
+] as const;
+
+export default function WhatsAppOverviewPage() {
   const { session } = useAuth();
   useExigerCompte();
-  const [permissionsOpen, setPermissionsOpen] = useState(false);
+
+  const [days, setDays] = useState<PeriodDays>(30);
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [contactSyncing, setContactSyncing] = useState(false);
+  const [contactSyncMessage, setContactSyncMessage] = useState<string | null>(null);
+  const [automationBusy, setAutomationBusy] = useState<Record<string, boolean>>({});
+  const [automationOverride, setAutomationOverride] = useState<Record<string, boolean>>({});
 
   const { data: etat, loading: etatLoading } = useCached<WaEtat>("wa:etat", getWaEtat, {
     enabled: !!session,
+    ttlMs: 5_000,
   });
 
-  const {
-    data: activity,
-    loading: activityLoading,
-    error: activityError,
-  } = useCached<{ items: WaActivityItem[] }>(
-    "wa:enterprise:activity:7",
-    () => getWaActivity({ days: 7, limit: 8 }),
-    { enabled: !!session },
+  const { data: analytics, loading: analyticsLoading } = useCached<WaAutopilotAnalytics>(
+    `wa:overview:analytics:${days}`,
+    () => getWaAutopilotAnalytics(days),
+    { enabled: !!session, ttlMs: 15_000 },
   );
 
-  const items = activity?.items ?? [];
+  const { data: conversationsData, loading: conversationsLoading } = useCached<{
+    conversations: WaAutopilotConversation[];
+    total: number;
+    period_days: number;
+  }>(
+    `wa:overview:conversations:${days}`,
+    () => getWaAutopilotConversations(days, 4),
+    { enabled: !!session, ttlMs: 10_000 },
+  );
+
+  const {
+    data: automationsData,
+    loading: automationsLoading,
+    refresh: refreshAutomations,
+  } = useCached<{ tasks: WhatsAppAutomation[]; count: number }>(
+    "wa:overview:automations",
+    () => getWhatsAppAutomations({ limit: 20 }),
+    { enabled: !!session, ttlMs: 10_000 },
+  );
+
+  const { data: logs, loading: logsLoading } = useCached<WaAutopilotLog[]>(
+    `wa:overview:logs:${days}`,
+    () => loadLogsForPeriod(days),
+    { enabled: !!session, ttlMs: 30_000 },
+  );
+
   const connected = etat?.code === "connecte" && etat.pret;
-  const protectionHealthy = etat?.protection?.available !== false && etat?.protection?.mode !== "prudence";
-  const accountName = etat?.nom_profil || "Compte WhatsApp";
-  const accountNumber = etat?.numero || "Numéro non disponible";
+  const connection = connectionPresentation(etat, etatLoading);
+  const chartData = useMemo(() => buildActivitySeries(logs ?? [], days), [logs, days]);
+  const conversations = conversationsData?.conversations ?? [];
+  const activeAutomations = useMemo(
+    () =>
+      (automationsData?.tasks ?? [])
+        .filter((task) => ["pending", "processing", "paused"].includes(task.status))
+        .slice(0, 3),
+    [automationsData],
+  );
+
+  const conversationKpi = analytics?.kpis.conversations.value ?? conversationsData?.total ?? 0;
+  const messageKpi = analytics?.kpis.messages.value ?? 0;
+  const responseKpi = analytics?.kpis.success_rate.value ?? 0;
+
+  const profileName = etat?.nom_profil?.trim() || "Mon espace";
+  const initials = makeInitials(profileName);
+
+  async function handleContactSync() {
+    if (contactSyncing) return;
+    setContactSyncing(true);
+    setContactSyncMessage(null);
+    try {
+      await syncWaCarnet(false);
+      setContactSyncMessage("Contacts synchronisés.");
+    } catch (error) {
+      setContactSyncMessage(error instanceof Error ? error.message : "Synchronisation impossible.");
+    } finally {
+      setContactSyncing(false);
+    }
+  }
+
+  async function toggleAutomation(task: WhatsAppAutomation) {
+    if (automationBusy[task.id]) return;
+    const current = automationOverride[task.id] ?? isAutomationEnabled(task);
+    const next = !current;
+    setAutomationOverride((value) => ({ ...value, [task.id]: next }));
+    setAutomationBusy((value) => ({ ...value, [task.id]: true }));
+    try {
+      if (next) await resumeWhatsAppAutomation(task.id);
+      else await pauseWhatsAppAutomation(task.id);
+      await refreshAutomations();
+      setAutomationOverride((value) => {
+        const clone = { ...value };
+        delete clone[task.id];
+        return clone;
+      });
+    } catch {
+      setAutomationOverride((value) => ({ ...value, [task.id]: current }));
+    } finally {
+      setAutomationBusy((value) => ({ ...value, [task.id]: false }));
+    }
+  }
 
   return (
-    <div className={`${cxScopeClass} min-h-dvh bg-[var(--background)] text-[var(--cx-text-primary)]`} style={cxScopeStyle}>
-      <header className="sticky top-0 z-30 border-b border-[var(--cx-border-subtle)] bg-[var(--background)]/92 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 w-full max-w-[1240px] items-center justify-between px-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href="/chat"
-              aria-label="Retour au chat"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[var(--cx-text-muted)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
-            >
-              <ArrowLeft size={18} strokeWidth={1.8} />
-            </Link>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
-              <WhatsAppIcon size={22} />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">WhatsApp</p>
-              <p className="truncate text-xs text-[var(--cx-text-faint)]">Toumaï AI</p>
-            </div>
-          </div>
+    <div className="min-h-dvh text-[#f4f7f9]" style={{ background: PAGE_BG }}>
+      <aside
+        className="fixed inset-y-0 left-0 z-50 hidden w-[253px] border-r lg:block"
+        style={{ background: SIDEBAR_BG, borderColor: BORDER }}
+      >
+        <SidebarContent />
+      </aside>
 
-          <div className="flex items-center gap-2">
-            <StatusPill connected={connected} loading={etatLoading} label={etat?.libelle} />
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-8 md:px-6 md:pt-10">
-        <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cx-text-faint)]">Canal connecté</p>
-            <h1 className="mt-1 text-[30px] font-semibold tracking-[-0.035em] sm:text-[34px]">WhatsApp</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--cx-text-muted)]">
-              Gérez le compte connecté, l’agent IA, les permissions et les dernières actions exécutées.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="Fermer la navigation"
+            className="absolute inset-0 bg-black/65"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="relative h-full w-[286px] border-r shadow-2xl" style={{ background: SIDEBAR_BG, borderColor: BORDER }}>
             <button
               type="button"
-              onClick={() => setPermissionsOpen(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--cx-border-default)] px-4 text-sm font-semibold text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
+              aria-label="Fermer la navigation"
+              onClick={() => setMobileNavOpen(false)}
+              className="absolute right-3 top-4 flex h-9 w-9 items-center justify-center rounded-lg text-[#9ba8b3] hover:bg-white/5"
             >
-              <ShieldCheck size={16} />
-              Permissions
+              <X size={19} />
             </button>
-            <Link
-              href="/whatsapp/ai"
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--cx-text-primary)] px-4 text-sm font-semibold text-[var(--background)] transition hover:opacity-90"
-            >
-              <Bot size={16} />
-              Agent IA
-            </Link>
-          </div>
-        </div>
-
-        <section className="overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
-          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
-                <WhatsAppIcon size={30} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-base font-semibold">{accountName}</h2>
-                  <InlineState connected={connected} loading={etatLoading} label={etat?.libelle} />
-                </div>
-                <p className="mt-1 truncate text-sm tabular-nums text-[var(--cx-text-muted)]">{accountNumber}</p>
-              </div>
-            </div>
-
-            <Link
-              href="/settings?tab=connectors"
-              className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border border-[var(--cx-border-default)] px-3.5 text-sm font-medium text-[var(--cx-text-secondary)] transition hover:bg-[var(--cx-hover)] hover:text-[var(--cx-text-primary)]"
-            >
-              Gérer le connecteur
-            </Link>
-          </div>
-
-          <div className="grid border-t border-[var(--cx-border-subtle)] sm:grid-cols-2 lg:grid-cols-4">
-            <OverviewStat
-              icon={<MessageSquareText size={16} />}
-              label="État du canal"
-              value={etatLoading ? "Vérification…" : connected ? "Opérationnel" : etat?.libelle ?? "Indisponible"}
-              tone={connected ? "good" : "neutral"}
-            />
-            <OverviewStat
-              icon={<ShieldCheck size={16} />}
-              label="Protection"
-              value={!etat?.protection ? "Standard" : protectionHealthy ? "Normale" : "Prudence"}
-              tone={protectionHealthy ? "good" : "warn"}
-            />
-            <OverviewStat
-              icon={<Clock3 size={16} />}
-              label="Dernière activité"
-              value={etat?.derniere_activite_ms ? formatRelative(etat.derniere_activite_ms) : "Aucune récente"}
-              tone="neutral"
-            />
-            <OverviewStat
-              icon={<Users size={16} />}
-              label="Contacts"
-              value={typeof etat?.contacts === "number" ? etat.contacts.toLocaleString("fr-FR") : "—"}
-              tone="neutral"
-            />
-          </div>
-        </section>
-
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--cx-border-subtle)] px-5 py-4 md:px-6">
-              <div>
-                <h2 className="text-sm font-semibold">Activité récente</h2>
-                <p className="mt-1 text-xs text-[var(--cx-text-faint)]">7 derniers jours · numéros masqués</p>
-              </div>
-              <Activity size={18} className="text-[var(--cx-text-faint)]" />
-            </div>
-
-            {activityLoading && (
-              <div className="space-y-1 p-3" aria-hidden="true">
-                {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-[var(--cx-input)]" />)}
-              </div>
-            )}
-
-            {!activityLoading && activityError && (
-              <div className="px-6 py-12 text-center">
-                <p className="text-sm font-medium text-[var(--cx-error-text)]">Impossible de charger l’activité</p>
-                <p className="mt-1 text-sm text-[var(--cx-text-faint)]">{activityError}</p>
-              </div>
-            )}
-
-            {!activityLoading && !activityError && items.length === 0 && (
-              <div className="px-6 py-14 text-center">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-faint)]">
-                  <Activity size={19} />
-                </div>
-                <p className="mt-4 text-sm font-medium">Aucune action récente</p>
-                <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-[var(--cx-text-faint)]">
-                  Les actions réellement exécutées par Toumaï AI apparaîtront ici avec leur résultat et leur horodatage.
-                </p>
-              </div>
-            )}
-
-            {!activityLoading && !activityError && items.map((item, index) => (
-              <ActivityRow key={`${item.created_at}-${index}`} item={item} />
-            ))}
-          </section>
-
-          <aside className="space-y-4">
-            <section className="overflow-hidden rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
-              <div className="border-b border-[var(--cx-border-subtle)] px-5 py-4">
-                <h2 className="text-sm font-semibold">Configuration</h2>
-                <p className="mt-1 text-xs text-[var(--cx-text-faint)]">Fonctions du canal WhatsApp</p>
-              </div>
-
-              <ActionLink
-                href="/whatsapp/ai"
-                icon={<Bot size={17} />}
-                title="Agent IA"
-                description="Réponses, persona et comportement"
-              />
-              <ActionButton
-                onClick={() => setPermissionsOpen(true)}
-                icon={<ShieldCheck size={17} />}
-                title="Permissions"
-                description="Contrôler les actions autorisées"
-              />
-              <ActionLink
-                href="/automations"
-                icon={<Workflow size={17} />}
-                title="Automatisations"
-                description="Scénarios et exécutions planifiées"
-              />
-              <ActionLink
-                href="/settings?tab=connectors"
-                icon={<Settings2 size={17} />}
-                title="Connecteur"
-                description="Connexion et configuration du compte"
-              />
-            </section>
-
-            <section className="rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] p-5">
-              <div className="flex items-center gap-2 text-[var(--cx-text-secondary)]">
-                <Smartphone size={17} />
-                <h2 className="text-sm font-semibold text-[var(--cx-text-primary)]">Compte</h2>
-              </div>
-              <dl className="mt-4 space-y-3 text-sm">
-                <DetailRow label="Plateforme" value={etat?.plateforme || "WhatsApp"} />
-                <DetailRow
-                  label="Connecté depuis"
-                  value={etat?.connecte_depuis_ms ? formatRelative(etat.connecte_depuis_ms) : "—"}
-                />
-                <DetailRow label="Lecture" value={etat?.lecture_possible ? "Disponible" : "Indisponible"} />
-              </dl>
-            </section>
+            <SidebarContent />
           </aside>
         </div>
-      </main>
+      )}
 
-      {permissionsOpen && <WhatsAppPermissionsPanel onClose={() => setPermissionsOpen(false)} />}
-    </div>
-  );
-}
+      <div className="lg:pl-[253px]">
+        <header
+          className="sticky top-0 z-40 flex h-[70px] items-center border-b px-4 md:px-7"
+          style={{ background: "rgba(6,17,26,.96)", borderColor: BORDER, backdropFilter: "blur(16px)" }}
+        >
+          <button
+            type="button"
+            aria-label="Ouvrir la navigation"
+            onClick={() => setMobileNavOpen(true)}
+            className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg text-[#9ba8b3] hover:bg-white/5 lg:hidden"
+          >
+            <Menu size={20} />
+          </button>
 
-function StatusPill({ connected, loading, label }: { connected: boolean; loading: boolean; label?: string }) {
-  const text = loading ? "Vérification…" : connected ? "Connecté" : label || "Non connecté";
-  return (
-    <span className="hidden items-center gap-2 rounded-full border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)] px-3 py-1.5 text-xs text-[var(--cx-text-secondary)] sm:inline-flex">
-      <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-[var(--cx-text-faint)]"}`} />
-      {text}
-    </span>
-  );
-}
+          <div className="hidden min-w-0 items-center gap-3 sm:flex">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0ac86d] shadow-[0_8px_25px_rgba(37,211,102,.18)]">
+              <WhatsAppIcon size={25} />
+            </div>
+            <span className="text-[17px] font-semibold">WhatsApp</span>
+            <ChevronRight size={18} color={FAINT} />
+            <span className="text-[14px]" style={{ color: MUTED }}>Overview</span>
+          </div>
 
-function InlineState({ connected, loading, label }: { connected: boolean; loading: boolean; label?: string }) {
-  const text = loading ? "Vérification…" : connected ? "Connecté" : label || "Non connecté";
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--cx-border-subtle)] bg-[var(--cx-input)] px-2.5 py-1 text-[11px] font-medium text-[var(--cx-text-secondary)]">
-      <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-[var(--cx-text-faint)]"}`} />
-      {text}
-    </span>
-  );
-}
+          <div className="ml-auto flex items-center gap-3 md:gap-5">
+            <button
+              type="button"
+              className="hidden h-11 w-[435px] max-w-[34vw] items-center gap-3 rounded-xl border px-4 text-left xl:flex"
+              style={{ background: SURFACE_RAISED, borderColor: BORDER, color: MUTED }}
+            >
+              <Search size={18} />
+              <span className="min-w-0 flex-1 truncate text-[13px]">Rechercher un contact, une conversation, une action...</span>
+              <kbd className="rounded-md border px-2 py-1 text-[11px]" style={{ borderColor: BORDER, color: FAINT }}>Ctrl K</kbd>
+            </button>
 
-function OverviewStat({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  tone: "good" | "warn" | "neutral";
-}) {
-  const toneClass = tone === "good" ? "text-emerald-500" : tone === "warn" ? "text-amber-500" : "text-[var(--cx-text-muted)]";
-  return (
-    <div className="border-b border-[var(--cx-border-subtle)] px-5 py-4 last:border-b-0 sm:[&:nth-child(odd)]:border-r lg:border-b-0 lg:border-r lg:last:border-r-0">
-      <div className={`flex items-center gap-2 ${toneClass}`}>
-        {icon}
-        <span className="text-xs font-medium text-[var(--cx-text-faint)]">{label}</span>
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/5"
+              style={{ color: MUTED }}
+            >
+              <Bell size={20} strokeWidth={1.8} />
+              <span className="absolute right-[7px] top-[6px] h-2.5 w-2.5 rounded-full border-2" style={{ background: ORANGE, borderColor: PAGE_BG }} />
+            </button>
+
+            <div className="hidden items-center gap-3 sm:flex">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1687f8] text-sm font-bold text-white">{initials}</div>
+              <div className="hidden min-w-0 xl:block">
+                <p className="max-w-[130px] truncate text-[13px] font-semibold">{profileName}</p>
+                <p className="mt-0.5 text-[11px]" style={{ color: MUTED }}>Mon espace</p>
+              </div>
+              <ChevronDown size={15} color={MUTED} className="hidden xl:block" />
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-[1500px] px-4 pb-8 pt-7 md:px-7 lg:px-[29px]">
+          <section className="mb-6 flex items-center gap-5">
+            <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-[18px] bg-[#08b963] shadow-[0_14px_40px_rgba(37,211,102,.15)]">
+              <WhatsAppIcon size={45} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-[30px] font-bold leading-tight tracking-[-0.02em] md:text-[36px]">WhatsApp Overview</h1>
+              <p className="mt-1 text-[15px] md:text-[16px]" style={{ color: MUTED }}>
+                Pilotez vos conversations et automatisez vos échanges avec Toumaï AI.
+              </p>
+            </div>
+          </section>
+
+          <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+            <MetricCard
+              label="Conversations"
+              value={formatInteger(conversationKpi)}
+              delta={analytics?.kpis.conversations.delta}
+              unit={analytics?.kpis.conversations.delta_unit}
+              loading={analyticsLoading}
+              icon={<MessageCircle size={27} />}
+              tone="green"
+            />
+            <MetricCard
+              label="Messages envoyés"
+              value={formatInteger(messageKpi)}
+              delta={analytics?.kpis.messages.delta}
+              unit={analytics?.kpis.messages.delta_unit}
+              loading={analyticsLoading}
+              icon={<Send size={27} />}
+              tone="orange"
+            />
+            <MetricCard
+              label="Taux de réponse"
+              value={`${formatDecimal(responseKpi)}%`}
+              delta={analytics?.kpis.success_rate.delta}
+              unit={analytics?.kpis.success_rate.delta_unit}
+              loading={analyticsLoading}
+              icon={<Clock3 size={28} />}
+              tone="purple"
+            />
+            <ConnectionCard
+              connection={connection}
+              number={etat?.numero || "Aucun numéro lié"}
+              connected={connected}
+              loading={etatLoading}
+            />
+          </section>
+
+          <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,.95fr)]">
+            <Card className="min-h-[286px] overflow-hidden p-0">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-1 pt-5 md:px-6">
+                <div>
+                  <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Activité des messages</h2>
+                  <div className="mt-4 flex flex-wrap items-center gap-5 text-[12px]" style={{ color: MUTED }}>
+                    <LegendDot color={GREEN} label="Messages envoyés" />
+                    <LegendDot color={BLUE} label="Messages reçus" />
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setPeriodOpen((value) => !value)}
+                    className="flex h-10 items-center gap-2 rounded-xl border px-3 text-[12px] font-medium"
+                    style={{ background: SURFACE_RAISED, borderColor: BORDER, color: TEXT }}
+                  >
+                    <CalendarDays size={15} color={MUTED} />
+                    {days === 7 ? "7 derniers jours" : days === 30 ? "30 derniers jours" : "90 derniers jours"}
+                    <ChevronDown size={14} color={MUTED} />
+                  </button>
+                  {periodOpen && (
+                    <div
+                      className="absolute right-0 top-11 z-20 w-44 overflow-hidden rounded-xl border p-1 shadow-2xl"
+                      style={{ background: SURFACE_RAISED, borderColor: BORDER }}
+                    >
+                      {PERIODS.map((period) => (
+                        <button
+                          key={period}
+                          type="button"
+                          onClick={() => {
+                            setDays(period);
+                            setPeriodOpen(false);
+                          }}
+                          className="block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-white/5"
+                          style={{ color: period === days ? GREEN : TEXT }}
+                        >
+                          {period} derniers jours
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-[215px] px-2 pb-3 pt-2 md:px-4">
+                {logsLoading ? (
+                  <div className="h-full animate-pulse rounded-xl bg-white/[0.025]" />
+                ) : chartData.some((point) => point.sent > 0 || point.received > 0) ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="sentFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={GREEN} stopOpacity={0.24} />
+                          <stop offset="100%" stopColor={GREEN} stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="receivedFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={BLUE} stopOpacity={0.19} />
+                          <stop offset="100%" stopColor={BLUE} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke={BORDER} strokeDasharray="2 3" vertical />
+                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: MUTED, fontSize: 11 }} minTickGap={34} />
+                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fill: MUTED, fontSize: 11 }} width={42} />
+                      <Tooltip
+                        contentStyle={{ background: SURFACE_RAISED, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 12 }}
+                        labelStyle={{ color: TEXT, fontWeight: 600, marginBottom: 4 }}
+                        itemStyle={{ fontSize: 12 }}
+                      />
+                      <Area type="monotone" dataKey="sent" name="Messages envoyés" stroke={GREEN} strokeWidth={2.5} fill="url(#sentFill)" isAnimationActive={false} />
+                      <Area type="monotone" dataKey="received" name="Messages reçus" stroke={BLUE} strokeWidth={2.5} fill="url(#receivedFill)" isAnimationActive={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-center">
+                    <div>
+                      <CircleGauge className="mx-auto" size={24} color={FAINT} />
+                      <p className="mt-3 text-sm font-medium">Aucune activité instrumentée</p>
+                      <p className="mt-1 text-xs" style={{ color: MUTED }}>Les événements Baileys réels apparaîtront ici.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card className="p-5 md:p-6">
+              <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Actions rapides</h2>
+              <div className="mt-4 space-y-2.5">
+                <QuickAction href="/whatsapp/ai" icon={<Send size={21} />} label="Nouveau message" primary />
+                <button
+                  type="button"
+                  disabled={contactSyncing}
+                  onClick={handleContactSync}
+                  className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:bg-white/[0.035] disabled:opacity-60"
+                  style={{ background: SURFACE_RAISED, borderColor: BORDER }}
+                >
+                  {contactSyncing ? <RefreshCw size={22} className="animate-spin" /> : <UserRoundPlus size={22} />}
+                  <span className="flex-1 text-[14px] font-medium">Importer des contacts</span>
+                  <ChevronRight size={18} color={MUTED} />
+                </button>
+                <QuickAction href="/automations" icon={<Settings size={22} />} label="Créer une automatisation" />
+              </div>
+              {contactSyncMessage && <p className="mt-3 text-xs" style={{ color: MUTED }}>{contactSyncMessage}</p>}
+            </Card>
+          </section>
+
+          <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
+            <Card className="overflow-hidden p-0">
+              <div className="flex items-center justify-between px-5 pb-3 pt-5 md:px-6">
+                <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Conversations récentes</h2>
+                <Link href="/whatsapp/ai" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>
+                  Voir tout <ChevronRight size={15} />
+                </Link>
+              </div>
+
+              <div className="overflow-x-auto px-4 pb-3 md:px-5">
+                <div className="min-w-[650px]">
+                  <div
+                    className="grid grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] gap-3 rounded-md px-2 py-2 text-[11px]"
+                    style={{ background: "rgba(255,255,255,.025)", color: MUTED }}
+                  >
+                    <span>Contact</span><span>Dernier message</span><span>Statut</span><span>Date</span><span />
+                  </div>
+
+                  {conversationsLoading && [0, 1, 2, 3].map((index) => (
+                    <div key={index} className="mt-1 h-[54px] animate-pulse rounded-lg bg-white/[0.025]" />
+                  ))}
+
+                  {!conversationsLoading && conversations.length === 0 && (
+                    <div className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune conversation récente.</div>
+                  )}
+
+                  {!conversationsLoading && conversations.map((conversation, index) => (
+                    <ConversationRow key={conversation.chat_id || `${conversation.last_at}-${index}`} conversation={conversation} index={index} />
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            <Card className="overflow-hidden p-0">
+              <div className="flex items-center justify-between border-b px-5 py-5 md:px-6" style={{ borderColor: BORDER }}>
+                <h2 className="text-[18px] font-semibold tracking-[-0.01em]">Automatisations actives ({activeAutomations.length})</h2>
+                <Link href="/automations" className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: BLUE }}>
+                  Voir tout <ChevronRight size={15} />
+                </Link>
+              </div>
+
+              <div className="px-5 md:px-6">
+                {automationsLoading && [0, 1, 2].map((index) => (
+                  <div key={index} className="my-2 h-[62px] animate-pulse rounded-lg bg-white/[0.025]" />
+                ))}
+
+                {!automationsLoading && activeAutomations.length === 0 && (
+                  <div className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune automatisation active.</div>
+                )}
+
+                {!automationsLoading && activeAutomations.map((task) => {
+                  const checked = automationOverride[task.id] ?? isAutomationEnabled(task);
+                  return (
+                    <div key={task.id} className="flex min-h-[66px] items-center gap-3 border-b py-3 last:border-0" style={{ borderColor: BORDER }}>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#083b2a]" style={{ color: GREEN }}>
+                        <Workflow size={19} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold">{task.title}</p>
+                        <p className="mt-1 truncate text-[11px]" style={{ color: MUTED }}>{automationSubtitle(task)}</p>
+                      </div>
+                      <Toggle
+                        checked={checked}
+                        disabled={!!automationBusy[task.id]}
+                        label={`${task.title} : ${checked ? "activée" : "désactivée"}`}
+                        onClick={() => void toggleAutomation(task)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </section>
+        </main>
       </div>
-      <p className="mt-2 truncate text-sm font-semibold text-[var(--cx-text-primary)]">{value}</p>
     </div>
   );
 }
 
-function ActivityRow({ item }: { item: WaActivityItem }) {
+function SidebarContent() {
   return (
-    <div className="flex items-start gap-4 border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 transition hover:bg-[var(--cx-hover-row)] md:px-6">
-      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.ok ? "bg-emerald-500" : "bg-red-500"}`} />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="text-sm font-medium">{CATEGORY_LABEL[item.category] ?? item.tool}</p>
-          {item.recipient_masked && <span className="text-xs tabular-nums text-[var(--cx-text-faint)]">{item.recipient_masked}</span>}
+    <div className="flex h-full flex-col px-3 pb-5 pt-4">
+      <Link href="/chat" className="flex h-12 items-center gap-3 px-3">
+        <div className="relative h-8 w-8">
+          <span className="absolute left-0 top-1 h-3 w-7 -rotate-2 rounded-full bg-[#ff9824]" />
+          <span className="absolute left-3 top-2 h-6 w-3 rotate-[32deg] rounded-full bg-[#ff9824]" />
         </div>
-        {item.preview && <p className="mt-1 truncate text-sm text-[var(--cx-text-muted)]">{item.preview}</p>}
-      </div>
-      <div className="shrink-0 text-right">
-        <p className="text-xs tabular-nums text-[var(--cx-text-faint)]">{formatTime(item.created_at)}</p>
-        <p className={`mt-1 text-[11px] font-medium ${item.ok ? "text-emerald-500" : "text-red-500"}`}>{item.ok ? "Réussi" : "Échec"}</p>
+        <span className="text-[23px] font-bold tracking-[-0.03em]">Toumaï AI</span>
+      </Link>
+
+      <nav className="mt-5 space-y-1">
+        {NAV_ITEMS.map((item) => <SidebarLink key={item.href} {...item} />)}
+        <Link
+          href="/whatsapp"
+          className="flex h-[54px] items-center gap-3 rounded-xl border px-4 text-[14px] font-semibold shadow-[0_0_28px_rgba(255,149,24,.12)]"
+          style={{ background: "linear-gradient(90deg, rgba(255,149,24,.23), rgba(255,149,24,.10))", borderColor: "rgba(255,149,24,.72)", color: TEXT }}
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0ac86d]"><WhatsAppIcon size={18} /></span>
+          WhatsApp
+        </Link>
+      </nav>
+
+      <div className="mt-2 space-y-1 border-t pt-2" style={{ borderColor: "rgba(255,255,255,.035)" }}>
+        {LOWER_NAV.map((item) => <SidebarLink key={item.href} {...item} />)}
       </div>
     </div>
   );
 }
 
-function ActionLink({
-  href,
-  icon,
-  title,
-  description,
-}: {
-  href: string;
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
+function SidebarLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof LayoutDashboard }) {
   return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 border-t border-[var(--cx-border-subtle)] px-5 py-4 first:border-t-0 transition hover:bg-[var(--cx-hover-row)]"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-secondary)]">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-[var(--cx-text-faint)]">{description}</span>
-      </span>
-      <ChevronRight size={16} className="shrink-0 text-[var(--cx-text-faint)]" />
+    <Link href={href} className="flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] transition hover:bg-white/[0.04]" style={{ color: "#bdc7cf" }}>
+      <Icon size={21} strokeWidth={1.75} />
+      <span>{label}</span>
     </Link>
   );
 }
 
-function ActionButton({
-  onClick,
-  icon,
-  title,
-  description,
-}: {
-  onClick: () => void;
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
+function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-3 border-t border-[var(--cx-border-subtle)] px-5 py-4 text-left transition hover:bg-[var(--cx-hover-row)]"
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--cx-input)] text-[var(--cx-text-secondary)]">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-[var(--cx-text-faint)]">{description}</span>
-      </span>
-      <ChevronRight size={16} className="shrink-0 text-[var(--cx-text-faint)]" />
-    </button>
+    <section className={`rounded-[14px] border ${className}`} style={{ background: SURFACE, borderColor: BORDER }}>
+      {children}
+    </section>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function MetricCard({
+  label,
+  value,
+  delta,
+  unit,
+  loading,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  delta?: number | null;
+  unit?: "pct" | "pts";
+  loading: boolean;
+  icon: ReactNode;
+  tone: "green" | "orange" | "purple";
+}) {
+  const palette = {
+    green: { bg: "#073d2c", fg: GREEN },
+    orange: { bg: "#4a2c13", fg: ORANGE },
+    purple: { bg: "#3c2058", fg: "#a85af0" },
+  }[tone];
+  const trend = delta ?? null;
+  const positive = trend !== null && trend >= 0;
+
   return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-[var(--cx-text-faint)]">{label}</dt>
-      <dd className="truncate text-right font-medium text-[var(--cx-text-secondary)]">{value}</dd>
+    <Card className="flex min-h-[137px] items-center gap-4 p-5">
+      <div className="flex h-[62px] w-[62px] shrink-0 items-center justify-center rounded-full" style={{ background: palette.bg, color: palette.fg }}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[13px] font-medium">{label}</p>
+        <div className="mt-1 flex items-end gap-3">
+          <strong className="text-[28px] font-semibold leading-none tracking-[-0.025em]">{loading ? "—" : value}</strong>
+          {trend !== null && (
+            <span className="mb-0.5 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: positive ? GREEN : "#ff6b6b" }}>
+              {positive ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+              {Math.abs(trend).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}{unit === "pts" ? " pts" : "%"}
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-[11px]" style={{ color: MUTED }}>vs période précédente</p>
+      </div>
+    </Card>
+  );
+}
+
+function ConnectionCard({
+  connection,
+  number,
+  connected,
+  loading,
+}: {
+  connection: { label: string; color: string };
+  number: string;
+  connected: boolean;
+  loading: boolean;
+}) {
+  return (
+    <Card className="min-h-[137px] p-5">
+      <div className="flex items-start gap-3">
+        <span className="mt-1 h-3 w-3 shrink-0 rounded-full shadow-[0_0_15px_currentColor]" style={{ background: connection.color, color: connection.color }} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-semibold">{loading ? "Vérification..." : connection.label}</p>
+          <p className="mt-1 truncate text-[12px] tabular-nums" style={{ color: MUTED }}>{number}</p>
+        </div>
+        <button type="button" aria-label="Options de connexion" className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{ borderColor: BORDER, background: SURFACE_RAISED, color: MUTED }}>
+          <MoreHorizontal size={18} />
+        </button>
+      </div>
+      <Link
+        href="/settings?tab=connectors"
+        className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg border text-[12px] font-medium transition hover:bg-white/[0.035]"
+        style={{ borderColor: BORDER, background: SURFACE_RAISED, color: TEXT }}
+      >
+        {connected ? <ExternalLink size={15} /> : <RefreshCw size={15} />}
+        Gérer la connexion
+      </Link>
+    </Card>
+  );
+}
+
+function QuickAction({ href, icon, label, primary = false }: { href: string; icon: ReactNode; label: string; primary?: boolean }) {
+  return (
+    <Link
+      href={href}
+      className="flex h-[58px] items-center gap-4 rounded-xl border px-4 transition hover:brightness-110"
+      style={{
+        background: primary ? "linear-gradient(90deg,#06aa62,#079a59)" : SURFACE_RAISED,
+        borderColor: primary ? "rgba(37,211,102,.55)" : BORDER,
+        color: TEXT,
+      }}
+    >
+      {icon}
+      <span className="flex-1 text-[14px] font-medium">{label}</span>
+      <ChevronRight size={18} color={primary ? "#d9fff0" : MUTED} />
+    </Link>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: color }} />{label}</span>;
+}
+
+function ConversationRow({ conversation, index }: { conversation: WaAutopilotConversation; index: number }) {
+  const name = conversation.name || conversation.number || conversation.chat_id || "Contact WhatsApp";
+  const secondary = conversation.number || conversation.chat_id;
+  const preview = conversation.last_incoming || conversation.last_reply || "Aucun message";
+  const status = conversation.pending > 0 ? "En attente" : conversation.last_reply ? "Répondu" : "Nouveau";
+  const statusColor = conversation.pending > 0 ? ORANGE : conversation.last_reply ? BLUE : GREEN;
+  const avatarColors = ["#16b868", "#ff8d1a", "#2f8cff", "#8b4fd4"];
+
+  return (
+    <div className="grid min-h-[54px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-2 last:border-0" style={{ borderColor: BORDER }}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColors[index % avatarColors.length] }}>
+          {makeInitials(name)}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-semibold">{name}</p>
+          <p className="mt-0.5 truncate text-[10px] tabular-nums" style={{ color: MUTED }}>{secondary}</p>
+        </div>
+      </div>
+      <p className="truncate text-[11px]" style={{ color: "#b7c2cb" }}>{preview}</p>
+      <div>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: `${statusColor}18`, color: statusColor }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />
+          {status}
+        </span>
+      </div>
+      <time className="text-[10px]" style={{ color: MUTED }} dateTime={conversation.last_at}>{formatRelativeDate(conversation.last_at)}</time>
+      <button type="button" aria-label={`Actions pour ${name}`} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/5" style={{ color: MUTED }}>
+        <MoreHorizontal size={16} />
+      </button>
     </div>
   );
 }
 
-function formatTime(value: string) {
-  try {
-    return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }).format(new Date(value));
-  } catch {
-    return "";
-  }
+function Toggle({ checked, disabled, label, onClick }: { checked: boolean; disabled: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50"
+      style={{ background: checked ? GREEN : "#33414c" }}
+    >
+      <span className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: checked ? 24 : 4 }} />
+    </button>
+  );
 }
 
-function formatRelative(timestampMs: number) {
-  const delta = Math.max(0, Date.now() - timestampMs);
-  const minutes = Math.floor(delta / 60_000);
-  if (minutes < 1) return "À l’instant";
-  if (minutes < 60) return `Il y a ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Il y a ${hours} h`;
-  const days = Math.floor(hours / 24);
-  return `Il y a ${days} j`;
+async function loadLogsForPeriod(days: PeriodDays): Promise<WaAutopilotLog[]> {
+  const all: WaAutopilotLog[] = [];
+  const pageSize = 100;
+  const maxPages = 10;
+  const threshold = Date.now() - days * 86_400_000;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const response = await getWaAutopilotLogs(page, pageSize);
+    all.push(...response.logs);
+    if (response.logs.length < pageSize || all.length >= response.pagination.total) break;
+    const oldest = response.logs[response.logs.length - 1]?.created_at;
+    if (oldest && new Date(oldest).getTime() < threshold) break;
+  }
+
+  return all.filter((log) => new Date(log.created_at).getTime() >= threshold);
+}
+
+function buildActivitySeries(logs: WaAutopilotLog[], days: PeriodDays) {
+  const formatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
+  const map = new Map<string, { date: string; label: string; sent: number; received: number }>();
+  const today = new Date();
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today);
+    date.setHours(12, 0, 0, 0);
+    date.setDate(today.getDate() - offset);
+    const key = localDayKey(date);
+    map.set(key, { date: key, label: formatter.format(date), sent: 0, received: 0 });
+  }
+
+  for (const log of logs) {
+    const date = new Date(log.created_at);
+    if (Number.isNaN(date.getTime())) continue;
+    const bucket = map.get(localDayKey(date));
+    if (!bucket) continue;
+    if (log.incoming?.trim()) bucket.received += 1;
+    if (log.reply?.trim() && log.delivered !== false) bucket.sent += 1;
+  }
+
+  return Array.from(map.values());
+}
+
+function localDayKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function connectionPresentation(etat: WaEtat | null, loading: boolean) {
+  if (loading) return { label: "Vérification...", color: FAINT };
+  if (!etat) return { label: "WhatsApp indisponible", color: "#ff6b6b" };
+  if (etat.code === "connecte" && etat.pret) return { label: "WhatsApp connecté", color: GREEN };
+  if (etat.code === "injoignable") return { label: "Passerelle injoignable", color: ORANGE };
+  if (["connexion", "jumelage", "qr"].includes(etat.code)) return { label: "Connexion en cours", color: ORANGE };
+  if (etat.code === "session_expiree") return { label: "Session expirée", color: "#ff6b6b" };
+  if (etat.code === "en_pause") return { label: "WhatsApp en pause", color: ORANGE };
+  return { label: etat.libelle || "WhatsApp non connecté", color: FAINT };
+}
+
+function formatInteger(value: number) {
+  return Math.max(0, value || 0).toLocaleString("fr-FR");
+}
+
+function formatDecimal(value: number) {
+  return Math.max(0, value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+}
+
+function formatRelativeDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  if (diff < 60_000) return "À l’instant";
+  if (diff < 86_400_000 && date.getDate() === now.getDate()) {
+    return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(date);
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Hier";
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
+}
+
+function makeInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "TA";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function isAutomationEnabled(task: WhatsAppAutomation) {
+  return task.status === "pending" || task.status === "processing";
+}
+
+function automationSubtitle(task: WhatsAppAutomation) {
+  if (task.status === "paused") return "En pause";
+  if (task.recurrence && task.recurrence !== "none") return `Récurrence : ${task.recurrence}`;
+  if (task.message_preview) return task.message_preview;
+  return "Automatisation WhatsApp";
 }
