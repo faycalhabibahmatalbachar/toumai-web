@@ -1,0 +1,84 @@
+name: WhatsApp Control Center Backend Production
+
+on:
+  pull_request:
+    paths:
+      - "app/whatsapp/**"
+      - "components/whatsapp/**"
+      - "lib/whatsapp-enterprise-api.ts"
+      - ".github/workflows/whatsapp-control-center-backend-production.yml"
+  workflow_dispatch:
+
+jobs:
+  backend-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EXPECTED_BACKEND_SHA: 2c8a0e8206a2c505cc24405281285c8c4e18a1d0
+      BUILD_URL: https://api.toumaiai.com/api/v1/app/build
+      API_BASE: https://api.toumaiai.com/api/v1
+    steps:
+      - name: Wait for exact backend production SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 36); do
+            response="$(curl -fsS --connect-timeout 10 --max-time 20 "$BUILD_URL" || true)"
+            if [ -n "$response" ] && EXPECTED_BACKEND_SHA="$EXPECTED_BACKEND_SHA" RESPONSE="$response" python - <<'PY'
+          import json
+          import os
+
+          expected = os.environ["EXPECTED_BACKEND_SHA"].lower()
+          try:
+              payload = json.loads(os.environ["RESPONSE"])
+          except Exception:
+              raise SystemExit(2)
+          data = payload.get("data") if isinstance(payload, dict) else {}
+          observed = str((data or {}).get("commit_sha") or "").lower()
+          attested = (data or {}).get("attested") is True
+          raise SystemExit(0 if observed == expected and attested else 1)
+          PY
+            then
+              echo "Exact backend production SHA attested: $EXPECTED_BACKEND_SHA"
+              exit 0
+            fi
+            echo "Backend not on expected SHA yet ($attempt/36)."
+            sleep 10
+          done
+          echo "::error::Backend production did not attest expected SHA $EXPECTED_BACKEND_SHA"
+          exit 1
+
+      - name: Verify protected control-center routes exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_protected_route() {
+            name="$1"
+            method="$2"
+            url="$3"
+            if [ "$method" = "POST" ]; then
+              status="$(curl -sS -o /tmp/wa-probe.json -w '%{http_code}' --connect-timeout 10 --max-time 20                 -X POST -H 'Content-Type: application/json' -d '{"to":"23566000000","message":"probe"}' "$url" || true)"
+            else
+              status="$(curl -sS -o /tmp/wa-probe.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" || true)"
+            fi
+            case "$status" in
+              401|403|428)
+                echo "$name: route exists and authentication gate answered HTTP $status"
+                ;;
+              404|405|000|"")
+                echo "::error::$name is not deployed correctly (HTTP $status)"
+                cat /tmp/wa-probe.json 2>/dev/null || true
+                exit 1
+                ;;
+              *)
+                echo "::error::$name returned unexpected HTTP $status before authentication"
+                cat /tmp/wa-probe.json 2>/dev/null || true
+                exit 1
+                ;;
+            esac
+          }
+
+          check_protected_route "conversations" GET "$API_BASE/whatsapp/conversations?limit=1"
+          check_protected_route "conversation messages" GET "$API_BASE/whatsapp/conversation/messages?chat_id=probe"
+          check_protected_route "message status" GET "$API_BASE/whatsapp/message/status?msg_id=probe"
+          check_protected_route "manual send" POST "$API_BASE/whatsapp/message/send"
