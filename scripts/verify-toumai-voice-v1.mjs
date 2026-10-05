@@ -68,6 +68,14 @@ expect(voiceSettings.includes("Zenaba"), "settings must display Zenaba");
 expect(voiceSettings.includes("Voix officielle de Toumaï · Français"), "settings must explain the official French voice");
 expect(!voiceSettings.includes("listVoices"), "settings must not expose a multi-voice catalog");
 expect(!voiceSettings.includes("Choisir"), "settings must not expose a voice selector");
+// Account isolation: resolve the authenticated profile when the user actually
+// presses Play. A name cached at component mount can belong to a previous
+// account after an in-app account switch.
+expect(voiceSettings.includes("const profile = await getProfile()"), "Zenaba preview must resolve the current profile at playback time");
+expect(voiceSettings.includes("prenomAffichable(profile.full_name)"), "Zenaba preview must derive a safe first name from the current profile");
+expect(voiceSettings.includes("previewRequestRef"), "Zenaba preview must invalidate stale profile resolutions");
+expect(voiceSettings.includes("previewRequestRef.current += 1"), "Zenaba preview stop/unmount must cancel stale name resolutions");
+expect(!voiceSettings.includes("previewFirstName"), "Zenaba preview must not keep a mount-time user name cache");
 
 expect(notifications.includes("Zenaba lit les rappels"), "notification settings must name the active voice");
 expect(!notifications.includes("speechSynthesis"), "notification settings must not depend on browser TTS");
