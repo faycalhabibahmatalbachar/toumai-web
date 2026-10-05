@@ -270,6 +270,10 @@ assert(chartCard.width > actionsCard.width * 1.8, "La proportion activité/actio
 assert(near(chartCard.y, actionsCard.y, 3), "Activité et actions rapides doivent démarrer sur la même ligne.");
 assert(conversationsCard.y > chartCard.y + 220, "La ligne Conversations/Automatisations doit suivre la zone activité.");
 assert(near(conversationsCard.y, automationsCard.y, 3), "Conversations récentes et automatisations doivent être alignées.");
+assert(conversationsCard.y + conversationsCard.height <= 936, `La carte Conversations sort du viewport de référence: bas=${conversationsCard.y + conversationsCard.height}`);
+assert(automationsCard.y + automationsCard.height <= 936, `La carte Automatisations sort du viewport de référence: bas=${automationsCard.y + automationsCard.height}`);
+const ibrahima = await box(page.getByText("Ibrahima Ba", { exact: true }), "quatrième conversation");
+assert(ibrahima.y + ibrahima.height <= 936, "La quatrième conversation doit être visible dans le viewport 1672x941.");
 assert((await page.getByText("3 842", { exact: true }).count()) === 1, "Le KPI Messages envoyés n'affiche pas les données attendues.");
 assert((await page.getByText("78%", { exact: true }).count()) === 1, "Le KPI Taux de réponse n'affiche pas les données attendues.");
 assert((await page.getByText("+235 68 66 37 37", { exact: true }).count()) === 1, "Le numéro Baileys réel/mocqué n'est pas rendu.");
