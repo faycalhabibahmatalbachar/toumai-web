@@ -43,11 +43,11 @@ import {
 } from "@/lib/connectors-api";
 import {
   getWaAutopilotAnalytics,
-  getWaAutopilotConversations,
   getWaAutopilotLogs,
+  getWaLiveConversations,
   type WaAutopilotAnalytics,
-  type WaAutopilotConversation,
   type WaAutopilotLog,
+  type WaLiveConversation,
 } from "@/lib/whatsapp-enterprise-api";
 import { useCached } from "@/lib/swr-cache";
 
@@ -104,13 +104,9 @@ export default function WhatsAppOverviewPage() {
     { enabled: !!session, ttlMs: 15_000 },
   );
 
-  const { data: conversationsData, loading: conversationsLoading } = useCached<{
-    conversations: WaAutopilotConversation[];
-    total: number;
-    period_days: number;
-  }>(
-    `wa:overview:conversations:${days}`,
-    () => getWaAutopilotConversations(days, 4),
+  const { data: conversationsData, loading: conversationsLoading } = useCached(
+    "wa:overview:live-conversations",
+    () => getWaLiveConversations({ limit: 4 }),
     { enabled: !!session, ttlMs: 10_000 },
   );
 
@@ -142,7 +138,7 @@ export default function WhatsAppOverviewPage() {
     [automationsData],
   );
 
-  const conversationKpi = analytics?.kpis.conversations.value ?? conversationsData?.total ?? 0;
+  const conversationKpi = conversationsData?.count ?? analytics?.kpis.conversations.value ?? 0;
   const messageKpi = analytics?.kpis.messages.value ?? 0;
   const responseKpi = analytics?.kpis.success_rate.value ?? 0;
   const profileName = etat?.nom_profil?.trim() || "Mon espace";
@@ -522,23 +518,23 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   return <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: color }} />{label}</span>;
 }
 
-function ConversationRow({ conversation, index }: { conversation: WaAutopilotConversation; index: number }) {
-  const name = conversation.name || conversation.number || conversation.chat_id || "Contact WhatsApp";
-  const secondary = conversation.number || conversation.chat_id;
-  const preview = conversation.last_incoming || conversation.last_reply || "Aucun message";
-  const status = conversation.pending > 0 ? "En attente" : conversation.last_reply ? "Répondu" : "Nouveau";
-  const statusColor = conversation.pending > 0 ? ORANGE : conversation.last_reply ? BLUE : GREEN;
+function ConversationRow({ conversation, index }: { conversation: WaLiveConversation; index: number }) {
+  const name = conversation.name || conversation.number || conversation.id || "Contact WhatsApp";
+  const secondary = conversation.number ? `+${conversation.number}` : conversation.id;
+  const preview = conversation.last_message.text || "Message WhatsApp";
+  const status = conversation.pending ? "En attente" : conversation.last_message.from_me ? "Répondu" : "Nouveau";
+  const statusColor = conversation.pending ? ORANGE : conversation.last_message.from_me ? BLUE : GREEN;
   const avatarColors = ["#16b868", "#ff8d1a", "#2f8cff", "#8b4fd4"];
   return (
     <Link
-      href={`/whatsapp/conversations?chat=${encodeURIComponent(conversation.chat_id)}`}
+      href={`/whatsapp/conversations?chat=${encodeURIComponent(conversation.id)}`}
       className="grid min-h-[47px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-1 transition hover:bg-white/[0.025] last:border-0"
       style={{ borderColor: BORDER }}
     >
       <div className="flex min-w-0 items-center gap-2.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColors[index % avatarColors.length] }}>{makeInitials(name)}</div><div className="min-w-0"><p className="truncate text-[12px] font-semibold">{name}</p><p className="mt-0.5 truncate text-[10px] tabular-nums" style={{ color: MUTED }}>{secondary}</p></div></div>
       <p className="truncate text-[11px]" style={{ color: "#b7c2cb" }}>{preview}</p>
       <div><span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: `${statusColor}18`, color: statusColor }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />{status}</span></div>
-      <time className="text-[10px]" style={{ color: MUTED }} dateTime={conversation.last_at}>{formatRelativeDate(conversation.last_at)}</time>
+      <time className="text-[10px]" style={{ color: MUTED }} dateTime={conversation.last_message.timestamp_ms ? new Date(conversation.last_message.timestamp_ms).toISOString() : undefined}>{formatRelativeTimestamp(conversation.last_message.timestamp_ms)}</time>
       <span className="flex h-7 w-7 items-center justify-center rounded-md" style={{ color: MUTED }}><ChevronRight size={16} /></span>
     </Link>
   );
@@ -648,6 +644,11 @@ function formatInteger(value: number) {
 
 function formatDecimal(value: number) {
   return Math.max(0, value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+}
+
+function formatRelativeTimestamp(value: number) {
+  if (!value) return "—";
+  return formatRelativeDate(new Date(value).toISOString());
 }
 
 function formatRelativeDate(value: string) {
