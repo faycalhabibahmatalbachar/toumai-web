@@ -310,8 +310,9 @@ async function certifyOverviewComposer() {
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("Mahamat");
-  await page.getByText("Mahamat Ali", { exact: true }).waitFor();
-  await page.getByText("Mahamat Ali", { exact: true }).click();
+  const composeDialog = page.getByRole("dialog");
+  await composeDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
+  await composeDialog.getByText("Mahamat Ali", { exact: true }).click();
   await page.getByPlaceholder("Écrivez votre message…").fill("Bonjour depuis le centre de pilotage.");
   await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
   await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
@@ -336,7 +337,7 @@ async function certifyConversations() {
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Répondre", exact: true }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
-  await page.getByText("Mahamat Ali", { exact: true }).last().waitFor();
+  await page.getByRole("dialog").getByText("Mahamat Ali", { exact: true }).waitFor();
   await noHorizontalOverflow(page, "conversations");
   await page.screenshot({ path: `${artifacts}/conversations.png`, fullPage: false });
   await page.close();
