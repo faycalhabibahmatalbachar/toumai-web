@@ -48,6 +48,106 @@ function destination(n: RealtimeNotification): string {
 }
 
 
+function storageList(key: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    const value = raw ? JSON.parse(raw) : [];
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string").slice(-MAX_SEEN)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStorageList(key: string, values: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(values.slice(-MAX_SEEN)));
+  } catch {
+    // sessionStorage peut être indisponible en navigation privée stricte.
+  }
+}
+
+function persistentKey(prefix: string, accountId: string): string {
+  return prefix + accountId;
+}
+
+function readCursor(accountId: string): string {
+  if (typeof window === "undefined" || !accountId) return "";
+  try {
+    return window.sessionStorage.getItem(
+      persistentKey(CURSOR_STORAGE_PREFIX, accountId),
+    ) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeCursor(accountId: string, eventId: string): void {
+  if (typeof window === "undefined" || !accountId || !eventId) return;
+  try {
+    window.sessionStorage.setItem(
+      persistentKey(CURSOR_STORAGE_PREFIX, accountId),
+      eventId,
+    );
+  } catch {
+    // La déduplication mémoire reste active.
+  }
+}
+
+function eligibleForVoice(n: RealtimeNotification): boolean {
+  if (
+    !isVoiceReminder(n) ||
+    n.voice_enabled !== true ||
+    typeof window === "undefined" ||
+    document.visibilityState !== "visible"
+  ) {
+    return false;
+  }
+  const body = String(n.body ?? "").trim();
+  if (!body) return false;
+  const locale = String(n.locale ?? "fr").trim().toLowerCase();
+  return !locale || locale.startsWith("fr");
+}
+
+function claimSpokenNotification(accountId: string, notificationId: string): boolean {
+  if (
+    typeof window === "undefined" ||
+    !accountId ||
+    !notificationId
+  ) {
+    return true;
+  }
+
+  const key = persistentKey(SPOKEN_STORAGE_PREFIX, accountId);
+  let ids: string[] = [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    ids = Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string").slice(-MAX_SEEN)
+      : [];
+    if (ids.includes(notificationId)) return false;
+    ids.push(notificationId);
+    window.localStorage.setItem(key, JSON.stringify(ids.slice(-MAX_SEEN)));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function waitForSharedVoiceIdle(timeoutMs = 30_000): Promise<boolean> {
+  const started = Date.now();
+  while (getToumaiVoiceSnapshot().phase !== "idle") {
+    if (Date.now() - started >= timeoutMs) return false;
+    await new Promise((resolve) => window.setTimeout(resolve, 200));
+  }
+  return true;
+}
+
+
 const REMINDER_EVENT_PREFIXES = [
   "personal.reminder",
   "alarm",
