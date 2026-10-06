@@ -168,37 +168,14 @@ function isVoiceReminder(n: RealtimeNotification): boolean {
 let reminderSpeechQueue: Promise<void> = Promise.resolve();
 
 async function speakReminderNow(n: RealtimeNotification) {
-  if (
-    !isVoiceReminder(n) ||
-    n.voice_enabled !== true ||
-    typeof window === "undefined" ||
-    document.visibilityState !== "visible"
-  ) {
-    return;
-  }
+  if (!eligibleForVoice(n)) return;
 
   const body = String(n.body ?? "").trim();
-  if (!body) return;
 
-  // V1 est française uniquement. Une notification explicitement marquée dans
-  // une autre langue reste visuelle : on ne lui prête jamais une autre voix.
-  const locale = String(n.locale ?? "fr").trim().toLowerCase();
-  if (locale && !locale.startsWith("fr")) {
-    window.dispatchEvent(
-      new CustomEvent("toumai:notification-voice-error", { detail: n }),
-    );
-    return;
-  }
-
-  // Une notification ne coupe jamais une conversation vocale. Elle reste déjà
-  // visible dans l'interface ; sa lecture attend la fermeture du mode vocal.
+  // Une notification ne coupe jamais une conversation vocale.
   if (isToumaiVoiceConversationActive()) {
-    const released = await waitForToumaiVoiceConversationIdle();
-    if (
-      !released ||
-      document.visibilityState !== "visible" ||
-      n.voice_enabled !== true
-    ) {
+    const released = await waitForToumaiVoiceConversationIdle(VOICE_TIMEOUT_MS);
+    if (!released || !eligibleForVoice(n)) {
       window.dispatchEvent(
         new CustomEvent("toumai:notification-voice-error", { detail: n }),
       );
@@ -206,35 +183,98 @@ async function speakReminderNow(n: RealtimeNotification) {
     }
   }
 
+  // Elle ne coupe pas non plus une lecture manuelle déjà lancée dans le chat
+  // ou les réglages. On attend une fenêtre libre, puis on abandonne proprement.
+  if (getToumaiVoiceSnapshot().phase !== "idle") {
+    const idle = await waitForSharedVoiceIdle(VOICE_TIMEOUT_MS);
+    if (!idle || !eligibleForVoice(n)) {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-error", { detail: n }),
+      );
+      return;
+    }
+  }
+
+  const owner = "notification:" + eventKey(n);
   window.dispatchEvent(
     new CustomEvent("toumai:notification-voice-start", { detail: n }),
   );
 
   const speed = cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1;
-  const outcome = await playToumaiVoice(
-    body,
-    "notification:" + eventKey(n),
-    speed,
-  );
+  let timeoutId: number | null = null;
+  try {
+    const timeout = new Promise<"error">((resolve) => {
+      timeoutId = window.setTimeout(() => {
+        stopToumaiVoice(owner);
+        resolve("error");
+      }, VOICE_TIMEOUT_MS);
+    });
 
-  if (outcome === "ended") {
-    window.dispatchEvent(
-      new CustomEvent("toumai:notification-voice-complete", { detail: n }),
-    );
-  } else {
-    window.dispatchEvent(
-      new CustomEvent("toumai:notification-voice-error", { detail: n }),
-    );
+    const outcome = await Promise.race([
+      playToumaiVoice(body, owner, speed),
+      timeout,
+    ]);
+
+    if (outcome === "ended") {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-complete", { detail: n }),
+      );
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-error", { detail: n }),
+      );
+    }
+  } finally {
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
   }
 }
 
-function speakReminder(n: RealtimeNotification): Promise<void> {
+async function speakReminderCrossTab(
+  n: RealtimeNotification,
+  accountId: string,
+): Promise<void> {
+  // Un onglet caché ne réserve jamais le rappel au détriment d'un onglet visible.
+  if (!eligibleForVoice(n)) return;
+
+  const notificationId = String(n.id ?? "").trim();
+  const run = async () => {
+    if (!eligibleForVoice(n)) return;
+    if (
+      notificationId &&
+      !claimSpokenNotification(accountId, notificationId)
+    ) {
+      return;
+    }
+    await speakReminderNow(n);
+  };
+
+  const locks = (
+    typeof navigator !== "undefined"
+      ? (navigator as Navigator & { locks?: NavigatorLocksLike }).locks
+      : undefined
+  );
+  if (locks && accountId) {
+    // Web Locks sérialise aussi plusieurs onglets du même compte : une seule
+    // fenêtre peut réclamer/parler un rappel à la fois.
+    await locks.request(
+      "toumai-notification-voice:" + accountId,
+      run,
+    );
+    return;
+  }
+
+  await run();
+}
+
+function speakReminder(
+  n: RealtimeNotification,
+  accountId: string,
+): Promise<void> {
   // Plusieurs rappels arrivant au même instant doivent parler l'un APRÈS
-  // l'autre. Le lecteur global empêcherait le chevauchement en arrêtant le
-  // premier ; ici on conserve au contraire les deux lectures.
+  // l'autre. La file locale complète la serrure inter-onglets ci-dessus.
   reminderSpeechQueue = reminderSpeechQueue
     .catch(() => {})
-    .then(() => speakReminderNow(n));
+    .then(() => speakReminderCrossTab(n, accountId));
   return reminderSpeechQueue;
 }
 
