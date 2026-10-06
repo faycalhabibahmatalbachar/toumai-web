@@ -277,6 +277,7 @@ const state = {
   pauses: [],
   resumes: [],
   cancels: [],
+  realtimeAuth: [],
 };
 
 let legacyMode = false;
@@ -287,6 +288,22 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const path = url.pathname.replace("/api/v1", "");
   const method = request.method();
   let data = {};
+
+  if (path === "/whatsapp/events") {
+    state.realtimeAuth.push(request.headers()["authorization"] || "");
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: [
+        "id: waevt-ready",
+        "event: stream.ready",
+        'data: {"id":"waevt-ready","type":"stream.ready","scopes":[],"occurredAt":"2026-10-06T16:00:00+00:00","version":1}',
+        "",
+        "",
+      ].join("\n"),
+    });
+    return;
+  }
 
   if (
     legacyMode &&
@@ -424,6 +441,14 @@ async function certifyOverviewComposer() {
   await page.goto(`${BASE}/whatsapp/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "WhatsApp Overview" }).waitFor();
   await page.getByText("Non instrumenté sur tous les messages", { exact: true }).waitFor();
+  for (let attempt = 0; attempt < 20 && state.realtimeAuth.length === 0; attempt++) {
+    await page.waitForTimeout(50);
+  }
+  assert(state.realtimeAuth.length >= 1, "L’Overview doit ouvrir le flux SSE temps réel.");
+  assert(
+    state.realtimeAuth[0] === "Bearer control-center-test",
+    "Le flux SSE doit utiliser le Bearer de la session courante.",
+  );
 
   await page.getByRole("button", { name: /Nouveau message/ }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
