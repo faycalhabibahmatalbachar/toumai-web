@@ -110,49 +110,6 @@ export default function WhatsAppConversationsPage() {
     [conversations],
   );
 
-  useEffect(() => {
-    if (!session) return;
-    const timer = window.setTimeout(() => {
-      void loadConversations(query, filter);
-    }, query ? 220 : 0);
-    return () => window.clearTimeout(timer);
-  }, [session, query, filter, loadConversations]);
-
-  useEffect(() => {
-    if (!session || typeof window === "undefined") return;
-    const requested = new URLSearchParams(window.location.search).get("chat") || "";
-    if (!requested) return;
-
-    const timer = window.setTimeout(() => {
-      setSelected((current) =>
-        current || {
-          id: requested,
-          name: "Contact WhatsApp",
-          number: waNumberFromId(requested),
-          kind: requested.endsWith("@g.us") ? "group" : "contact",
-          unread_count: 0,
-          pending: false,
-          last_message: {
-            id: "",
-            chat_id: requested,
-            text: "",
-            from_me: false,
-            sender: "",
-            type: "text",
-            timestamp_ms: 0,
-          },
-        },
-      );
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [session]);
-
-  useEffect(() => {
-    if (!selected || !session) return;
-    void loadThread(selected);
-  }, [selected, session, loadThread]);
-
   const loadConversations = useCallback(async (
     search: string,
     selectedFilter: Filter,
@@ -216,6 +173,49 @@ export default function WhatsAppConversationsPage() {
       setLoadingThread(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    const timer = window.setTimeout(() => {
+      void loadConversations(query, filter);
+    }, query ? 220 : 0);
+    return () => window.clearTimeout(timer);
+  }, [session, query, filter, loadConversations]);
+
+  useEffect(() => {
+    if (!session || typeof window === "undefined") return;
+    const requested = new URLSearchParams(window.location.search).get("chat") || "";
+    if (!requested) return;
+
+    const timer = window.setTimeout(() => {
+      setSelected((current) =>
+        current || {
+          id: requested,
+          name: "Contact WhatsApp",
+          number: waNumberFromId(requested),
+          kind: requested.endsWith("@g.us") ? "group" : "contact",
+          unread_count: 0,
+          pending: false,
+          last_message: {
+            id: "",
+            chat_id: requested,
+            text: "",
+            from_me: false,
+            sender: "",
+            type: "text",
+            timestamp_ms: 0,
+          },
+        },
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [session]);
+
+  useEffect(() => {
+    if (!selected || !session) return;
+    void loadThread(selected);
+  }, [selected, session, loadThread]);
 
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
