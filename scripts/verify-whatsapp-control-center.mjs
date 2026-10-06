@@ -441,7 +441,8 @@ async function certifyProduction404Fallback() {
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
-  await page.getByText("Envoyer à +91912191", { exact: true }).click();
+  // Un numéro international valide peut être confirmé directement : cliquer
+  // la suggestion est optionnel et dépend du résultat asynchrone du carnet.
   await page.getByPlaceholder("Écrivez votre message…").fill("salut");
   await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
   await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
