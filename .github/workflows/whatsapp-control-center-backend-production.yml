@@ -12,7 +12,7 @@ on:
 jobs:
   backend-production:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     env:
       REQUIRED_BACKEND_MERGE_SHA: 2c8a0e8206a2c505cc24405281285c8c4e18a1d0
       BUILD_URL: https://api.toumaiai.com/api/v1/app/build
