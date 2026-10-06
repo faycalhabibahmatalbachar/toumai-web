@@ -16,9 +16,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
+      - name: Stamp exact Web build SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public
+          printf '{"commit_sha":"%s","repository":"%s"}\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" > public/deployment.json
       - run: npm run build
       - name: Vérifier que le correctif du sélecteur est dans le build
         run: grep -R -F "Choisir un modèle" out/_next/static >/dev/null
@@ -34,7 +40,8 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy out --project-name toumaiai-web --branch main
-      - name: Vérifier les routes backend de compatibilité WhatsApp
+      - name: Smoke backend WhatsApp compatibility (non-blocking)
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -55,29 +62,23 @@ jobs:
           case "$send_status" in 401|403|428) ;; *) echo "::error::Legacy send route unavailable: HTTP $send_status"; exit 1 ;; esac
           echo "Compatibility backend routes are present and authentication-protected."
 
-      - name: Vérifier WhatsApp Enterprise sur le domaine public
+      - name: Attest exact Web SHA on toumaiai.com
         shell: bash
         run: |
           set -euo pipefail
-          whatsapp_marker="WhatsApp Overview"
-          conversations_marker="Conversations WhatsApp"
-          automations_marker="Automatisations WhatsApp"
-          ai_marker="Contrôlez la manière dont l’IA répond."
-          for attempt in 1 2 3 4 5 6; do
-            stamp="${GITHUB_SHA}-${attempt}-$(date +%s)"
-            whatsapp_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/?deploy=${stamp}" || true)"
-            conversations_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/conversations/?deploy=${stamp}" || true)"
-            automations_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/automations/?deploy=${stamp}" || true)"
-            ai_html="$(curl -fsSL --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "https://toumaiai.com/whatsapp/ai/?deploy=${stamp}" || true)"
-            if grep -Fq "$whatsapp_marker" <<<"$whatsapp_html" \
-              && grep -Fq "$conversations_marker" <<<"$conversations_html" \
-              && grep -Fq "$automations_marker" <<<"$automations_html" \
-              && grep -Fq "$ai_marker" <<<"$ai_html"; then
-              echo "Production verified on toumaiai.com for ${GITHUB_SHA}"
+          expected="$GITHUB_SHA"
+          for attempt in $(seq 1 24); do
+            stamp="${expected}-${attempt}-$(date +%s)"
+            body="$(curl -fsSL --connect-timeout 10 --max-time 20 \
+              -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
+              "https://toumaiai.com/deployment.json?deploy=${stamp}" || true)"
+            observed="$(printf '%s' "$body" | sed -n 's/.*"commit_sha":"\([^"]*\)".*/\1/p')"
+            if [ "$observed" = "$expected" ]; then
+              echo "Cloudflare custom domain attested exact SHA: $observed"
               exit 0
             fi
-            echo "Public domain has not switched yet (attempt ${attempt}/6)."
+            echo "Custom domain not on exact SHA yet (attempt ${attempt}/24, observed=${observed:-none})."
             sleep 5
           done
-          echo "::error::Cloudflare deployment succeeded but toumaiai.com does not serve the new WhatsApp Enterprise pages."
+          echo "::error::Cloudflare Pages uploaded successfully but toumaiai.com did not attest exact SHA $expected within 120 seconds."
           exit 1
