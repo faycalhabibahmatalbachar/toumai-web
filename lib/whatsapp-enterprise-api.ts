@@ -344,24 +344,19 @@ export async function sendWaManualMessage(input: {
   } catch (error) {
     if (!(error instanceof HttpError) || error.status !== 404) throw error;
 
-    // Le backend public précédent sait déjà envoyer et surveiller un message.
-    // On garde cette voie comme compatibilité temporaire jusqu'à la promotion
-    // de la nouvelle API Control Center.
-    const legacy = await http.post<{
-      ok?: boolean;
-      to?: string;
-      msgId?: string;
-      error?: string;
-    }>("/whatsapp/send-watched", {
-      to: input.to,
-      message: input.message,
+    // Compatibilité temporaire : cette route historique réutilise la
+    // protection de cadence du backend puis la session Baileys existante.
+    const legacy = await http.post<{ chat_id?: string }>("/whatsapp/suggestion/send", {
+      chat_id: input.to,
+      text: input.message,
+      chat_name: input.chat_name || "",
+      incoming: "",
     });
-    const msgId = legacy?.msgId || null;
     return {
-      chat_id: legacy?.to || input.to,
-      msg_id: msgId,
-      status: msgId ? "accepted" : "unknown",
-      accepted_by_gateway: Boolean(msgId),
+      chat_id: legacy?.chat_id || input.to,
+      msg_id: null,
+      status: "accepted",
+      accepted_by_gateway: true,
       delivery_confirmed: false,
       read_confirmed: false,
     };
