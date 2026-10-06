@@ -391,20 +391,18 @@ async function certifyConversations() {
     `Sidebar WhatsApp inattendue: ${desktopSidebar.width}px`,
   );
 
+  await noHorizontalOverflow(page, "conversations-workspace");
+  await page.screenshot({ path: `${artifacts}/conversations-enterprise.png`, fullPage: false });
+
   const replyBox = page.getByPlaceholder("Répondre à Mahamat Ali");
   await replyBox.waitFor();
   await replyBox.fill("Je vous rappelle dans quelques minutes.");
   await page.getByRole("button", { name: "Vérifier" }).click();
-  await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
-  await page.getByRole("dialog").getByText("Mahamat Ali", { exact: true }).waitFor();
-  const reviewedDraft = page.getByPlaceholder("Écrivez votre message…");
-  await reviewedDraft.waitFor();
-  assert(
-    (await reviewedDraft.inputValue()) === "Je vous rappelle dans quelques minutes.",
-    "Le brouillon de réponse doit être conservé dans le composeur de confirmation.",
-  );
+  await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
+  const reviewDialog = page.getByRole("dialog");
+  await reviewDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
+  await reviewDialog.getByText("Je vous rappelle dans quelques minutes.", { exact: true }).waitFor();
 
-  await noHorizontalOverflow(page, "conversations-workspace");
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
 }
