@@ -13,8 +13,6 @@ import {
   LayoutDashboard,
   Menu,
   MessageCircle,
-  MoreHorizontal,
-  Paperclip,
   Plug,
   RefreshCw,
   Search,
@@ -485,14 +483,6 @@ export default function WhatsAppConversationsPage() {
                   >
                     <RefreshCw size={15} className={loadingThread ? "animate-spin" : ""} />
                   </button>
-                  <button
-                    type="button"
-                    aria-label="Plus d’options"
-                    className="hidden h-9 w-9 items-center justify-center rounded-xl border hover:bg-white/5 sm:flex"
-                    style={{ borderColor: BORDER, color: MUTED }}
-                  >
-                    <MoreHorizontal size={17} />
-                  </button>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-7">
@@ -549,15 +539,6 @@ export default function WhatsAppConversationsPage() {
                       className="flex items-end gap-2 rounded-[16px] border p-2"
                       style={{ borderColor: BORDER, background: RAISED }}
                     >
-                      <button
-                        type="button"
-                        aria-label="Ajouter une pièce jointe"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-white/5"
-                        style={{ color: FAINT }}
-                      >
-                        <Paperclip size={17} />
-                      </button>
-
                       <textarea
                         value={replyDraft}
                         onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
