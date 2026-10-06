@@ -1,0 +1,154 @@
+name: WhatsApp Control Center Northflank Deploy
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/whatsapp-control-center-northflank-deploy.yml"
+      - "app/whatsapp/**"
+      - "components/whatsapp/**"
+      - "lib/whatsapp-enterprise-api.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whatsapp-control-center-northflank-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NORTHFLANK_TOKEN_A: ${{ secrets.NORTHFLANK_API_TOKEN }}
+      NORTHFLANK_TOKEN_B: ${{ secrets.NORTHFLANK_API_KEY }}
+      NORTHFLANK_TOKEN_C: ${{ secrets.NF_API_TOKEN }}
+      NORTHFLANK_TOKEN_D: ${{ secrets.NF_TOKEN }}
+      NF_PROJECT: chadgpt
+      NF_SERVICE: chadgpt-backend
+      BACKEND_SHA: b9f5b10cc5e6ed484fdb79ed99239be62dc77971
+      PUBLIC_BUILD_URL: https://api.toumaiai.com/api/v1/app/build
+      PUBLIC_ROUTE: https://api.toumaiai.com/api/v1/whatsapp/conversations?limit=1
+    steps:
+      - name: Resolve Northflank credential
+        id: auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="${NORTHFLANK_TOKEN_A:-}"
+          [ -n "$token" ] || token="${NORTHFLANK_TOKEN_B:-}"
+          [ -n "$token" ] || token="${NORTHFLANK_TOKEN_C:-}"
+          [ -n "$token" ] || token="${NORTHFLANK_TOKEN_D:-}"
+          if [ -z "$token" ]; then
+            echo "::error::No Northflank API secret is available to toumai-web Actions."
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          printf '%s' "$token" > /tmp/nf-token
+          echo "available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Read current Northflank service
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/nf-token)"
+          code="$(curl -sS -o /tmp/nf-service.json -w '%{http_code}' \
+            --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $token" \
+            "https://api.northflank.com/v1/projects/$NF_PROJECT/services/$NF_SERVICE" || true)"
+          if [ "$code" != "200" ]; then
+            echo "::error::Northflank service lookup failed with HTTP $code."
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/nf-service.json', encoding='utf-8'))
+          data=p.get('data') or {}
+          deployment=data.get('deployment') or {}
+          internal=deployment.get('internal') or {}
+          print('northflank_service_id=', data.get('id'))
+          print('deployment_build_service=', internal.get('id'))
+          print('deployment_branch=', internal.get('branch'))
+          print('deployment_build_sha=', internal.get('buildSHA'))
+          PY
+
+      - name: Deploy exact built backend SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          token="$(cat /tmp/nf-token)"
+          build_service="$(python - <<'PY'
+          import json
+          p=json.load(open('/tmp/nf-service.json', encoding='utf-8'))
+          d=p.get('data') or {}
+          internal=(d.get('deployment') or {}).get('internal') or {}
+          print(internal.get('id') or 'chadgpt-backend')
+          PY
+          )"
+
+          payload="$(BUILD_SERVICE="$build_service" BACKEND_SHA="$BACKEND_SHA" python - <<'PY'
+          import json, os
+          print(json.dumps({
+              "internal": {
+                  "id": os.environ["BUILD_SERVICE"],
+                  "branch": "main",
+                  "buildSHA": os.environ["BACKEND_SHA"],
+              }
+          }))
+          PY
+          )"
+
+          code="$(curl -sS -o /tmp/nf-deploy.json -w '%{http_code}' \
+            --connect-timeout 10 --max-time 30 \
+            -X POST \
+            -H "Authorization: Bearer $token" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "https://api.northflank.com/v1/projects/$NF_PROJECT/services/$NF_SERVICE/deployment" || true)"
+
+          if [ "$code" != "200" ] && [ "$code" != "201" ] && [ "$code" != "202" ]; then
+            echo "::error::Northflank deployment update failed with HTTP $code."
+            python - <<'PY'
+          import json
+          try:
+              p=json.load(open('/tmp/nf-deploy.json', encoding='utf-8'))
+              safe={k:v for k,v in p.items() if k not in {'credentials','runtimeEnvironment','runtimeFiles','secrets'}}
+              print(json.dumps(safe)[:2500])
+          except Exception:
+              pass
+          PY
+            exit 1
+          fi
+          echo "Northflank accepted deployment update for backend SHA $BACKEND_SHA (HTTP $code)."
+
+      - name: Wait for production SHA and protected route
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            build="$(curl -fsS --connect-timeout 10 --max-time 20 "$PUBLIC_BUILD_URL" || true)"
+            observed="$(BUILD="$build" python - <<'PY'
+          import json, os
+          try:
+              p=json.loads(os.environ.get('BUILD') or '{}')
+              print((p.get('data') or {}).get('commit_sha') or '')
+          except Exception:
+              print('')
+          PY
+            )"
+            route="$(curl -sS -o /tmp/wa-route.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$PUBLIC_ROUTE" || true)"
+            echo "attempt=$attempt observed_sha=${observed:-unknown} route_http=$route"
+
+            if [ "$observed" = "$BACKEND_SHA" ]; then
+              case "$route" in
+                401|403|428)
+                  echo "Backend production SHA and protected WhatsApp route are certified."
+                  exit 0
+                  ;;
+              esac
+            fi
+            sleep 10
+          done
+          echo "::error::Northflank deployment did not reach certified production state in time."
+          exit 1
