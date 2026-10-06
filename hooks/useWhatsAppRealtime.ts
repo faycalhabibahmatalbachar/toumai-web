@@ -88,7 +88,6 @@ export function useWhatsAppRealtimeInvalidation({
 
     const controller = new AbortController();
     const timers: Partial<Record<"overview" | "conversations" | "automations" | "connection", number>> = {};
-    let lastVersion = 0;
     const seenEventIds = new Set<string>();
 
     const rememberEvent = (id: string) => {
@@ -116,10 +115,12 @@ export function useWhatsAppRealtimeInvalidation({
     const handleEvent = (event: WhatsAppRealtimeEvent) => {
       if (event.type === "stream.ready") return;
       if (seenEventIds.has(event.id)) return;
-      if (event.version < lastVersion) return;
 
+      // This stream carries invalidations, not state patches. Event IDs are
+      // safe for deduplication; ordering by timestamp-derived version is not.
+      // Never discard a unique event solely because a concurrent request
+      // produced a numerically older version.
       rememberEvent(event.id);
-      lastVersion = Math.max(lastVersion, event.version);
 
       const scopes = new Set(event.scopes);
       const current = refreshersRef.current;
