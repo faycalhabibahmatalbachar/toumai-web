@@ -76,6 +76,13 @@ export interface WaOverviewActivityPoint {
   received: number;
 }
 
+export interface WaOverviewCapability {
+  authorized: boolean;
+  available_now: boolean;
+  reason_code: string | null;
+  reason: string | null;
+}
+
 export interface WhatsAppOverview {
   range: {
     days: number;
@@ -111,6 +118,17 @@ export interface WhatsAppOverview {
     label: string;
     contacts?: number;
     profile_name?: string;
+  };
+  /**
+   * Added by the Phase écriture backend. Optional during rollout so the
+   * already-certified production UI remains usable until that backend SHA is
+   * observed in production. Security never depends on this browser hint.
+   */
+  capabilities?: {
+    send_message: WaOverviewCapability;
+    import_contacts: WaOverviewCapability;
+    manage_automations: WaOverviewCapability;
+    create_automation: WaOverviewCapability;
   };
 }
 
