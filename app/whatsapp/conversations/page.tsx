@@ -214,7 +214,10 @@ export default function WhatsAppConversationsPage() {
 
   useEffect(() => {
     if (!selected || !session) return;
-    void loadThread(selected);
+    const timer = window.setTimeout(() => {
+      void loadThread(selected);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [selected, session, loadThread]);
 
   function chooseConversation(conversation: WaLiveConversation) {
