@@ -252,6 +252,19 @@ const assert = (condition, message) => {
 };
 const near = (a, b, tolerance) => Math.abs(a - b) <= tolerance;
 
+const brandLogo = page.locator('aside img[src="/logo.png"]').first();
+await brandLogo.waitFor({ state: "visible", timeout: 15_000 });
+const logoMetrics = await brandLogo.evaluate((node) => ({
+  naturalWidth: node.naturalWidth,
+  naturalHeight: node.naturalHeight,
+  complete: node.complete,
+}));
+assert(logoMetrics.complete, "Le logo Toumaï officiel n'a pas fini de charger.");
+assert(
+  logoMetrics.naturalWidth === 512 && logoMetrics.naturalHeight === 512,
+  `Logo Toumaï inattendu: ${logoMetrics.naturalWidth}×${logoMetrics.naturalHeight}`,
+);
+
 const sidebar = await box(page.locator("aside").first(), "sidebar");
 const header = await box(page.locator("header").first(), "header");
 const kpiLabels = ["Conversations", "Messages envoyés", "Taux de réponse", "WhatsApp connecté"];
@@ -315,6 +328,7 @@ const report = {
   conversationsCard,
   automationsCard,
   horizontalOverflowPx: overflow,
+  logoMetrics,
   consoleErrors,
 };
 await fs.writeFile(`${artifactDir}/layout-report.json`, JSON.stringify(report, null, 2));
