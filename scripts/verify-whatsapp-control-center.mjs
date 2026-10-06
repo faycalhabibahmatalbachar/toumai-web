@@ -274,13 +274,15 @@ const logs = {
 const state = {
   sends: [],
   legacySends: [],
+  legacyConversationReads: 0,
+  modern404s: [],
   pauses: [],
   resumes: [],
   cancels: [],
   realtimeAuth: [],
 };
 
-let legacyMode = false;
+let retiredFallbackMode = false;
 
 await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const request = route.request();
@@ -306,14 +308,13 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   }
 
   if (
-    legacyMode &&
+    retiredFallbackMode &&
     (
       path === "/whatsapp/conversations" ||
-      path === "/whatsapp/conversation/messages" ||
-      path === "/whatsapp/message/send" ||
-      path === "/whatsapp/message/status"
+      path === "/whatsapp/message/send"
     )
   ) {
+    state.modern404s.push({ path, method });
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -340,7 +341,10 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     };
   } else if (path === "/whatsapp/overview") data = overview;
   else if (path === "/whatsapp/autopilot/analytics") data = overviewAnalytics;
-  else if (path === "/whatsapp/autopilot/conversations") data = overviewConversations;
+  else if (path === "/whatsapp/autopilot/conversations") {
+    state.legacyConversationReads += 1;
+    data = overviewConversations;
+  }
   else if (path === "/whatsapp/autopilot/logs") data = logs;
   else if (path === "/whatsapp/contacts") {
     data = {
@@ -561,45 +565,71 @@ async function certifyMobile() {
   await automationsPage.close();
 }
 
-async function certifyProduction404Fallback() {
-  legacyMode = true;
+async function certifyRetired404Fallbacks() {
+  retiredFallbackMode = true;
+  const legacyReadsBefore = state.legacyConversationReads;
+  const legacySendsBefore = state.legacySends.length;
 
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/conversations/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
-  await page.getByText("Journal partiel", { exact: true }).first().waitFor();
-  await page.getByText(/Mode compatibilité/i).waitFor();
-  await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
-  assert((await page.getByText("Passerelle indisponible", { exact: true }).count()) === 0, "Le fallback ne doit pas afficher Passerelle indisponible.");
-  assert((await page.getByText("HTTP 404", { exact: true }).count()) === 0, "Le fallback ne doit jamais exposer HTTP 404.");
-  assert((await page.getByText(/We need to respond/i).count()) === 0, "Le fallback ne doit jamais exposer un raisonnement interne.");
+  await page.waitForTimeout(500);
 
-  await page.getByRole("button", { name: /Nouveau message/ }).click();
+  assert(
+    state.modern404s.some((request) => request.path === "/whatsapp/conversations" && request.method === "GET"),
+    "Le scénario doit réellement exercer le 404 de la route moderne conversations.",
+  );
+  assert(
+    state.legacyConversationReads === legacyReadsBefore,
+    "Un 404 moderne ne doit jamais relire /whatsapp/autopilot/conversations.",
+  );
+  assert(
+    (await page.getByText("Journal partiel", { exact: true }).count()) === 0,
+    "Le mode Journal partiel doit rester retiré après un 404 moderne.",
+  );
+  assert(
+    (await page.getByText(/Mode compatibilité/i).count()) === 0,
+    "Le mode compatibilité ne doit pas réapparaître après un 404 moderne.",
+  );
+
+  await page.getByRole("banner").getByRole("button", { name: "Nouveau message" }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
-  // Un numéro international valide peut être confirmé directement : cliquer
-  // la suggestion est optionnel et dépend du résultat asynchrone du carnet.
   await page.getByPlaceholder("Écrivez votre message…").fill("salut");
   await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
   await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
   await page.getByRole("button", { name: "Envoyer maintenant" }).click();
-  await page.getByRole("heading", { name: "Message accepté" }).waitFor({ timeout: 5000 });
+  await page.waitForTimeout(500);
 
-  assert(state.legacySends.length === 1, `Le fallback doit effectuer un seul envoi legacy, obtenu ${state.legacySends.length}`);
-  assert(state.legacySends[0].chat_id === "91912191", "Le numéro confirmé doit être transmis intact au fallback historique.");
-  assert(state.legacySends[0].text === "salut", "Le texte confirmé doit être transmis intact au fallback historique.");
+  assert(
+    state.modern404s.some((request) => request.path === "/whatsapp/message/send" && request.method === "POST"),
+    "Le scénario doit réellement exercer le 404 de la route moderne d’envoi.",
+  );
+  assert(
+    state.legacySends.length === legacySendsBefore,
+    "Un 404 sur /whatsapp/message/send ne doit jamais appeler /whatsapp/suggestion/send.",
+  );
+  assert(
+    (await page.getByRole("heading", { name: "Message accepté" }).count()) === 0,
+    "Un envoi moderne en 404 ne doit jamais être présenté comme accepté.",
+  );
+  assert(
+    (await page.getByText(/We need to respond/i).count()) === 0,
+    "Aucun raisonnement interne ne doit être exposé dans le scénario d’échec.",
+  );
 
-  await noHorizontalOverflow(page, "legacy-production-fallback");
-  await page.screenshot({ path: `${artifacts}/legacy-production-fallback.png`, fullPage: false });
+  await noHorizontalOverflow(page, "retired-fallbacks-404");
+  await page.screenshot({ path: `${artifacts}/retired-fallbacks-404.png`, fullPage: false });
   await page.close();
+  retiredFallbackMode = false;
 }
 
 await certifyOverviewComposer();
 await certifyConversations();
 await certifyAutomations();
 await certifyMobile();
-await certifyProduction404Fallback();
+await certifyRetired404Fallbacks();
 
 await fs.writeFile(
   `${artifacts}/control-center-report.json`,
@@ -607,7 +637,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "legacy-production-fallback"],
+    pages: ["overview-compose", "conversations", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "retired-fallbacks-404"],
   }, null, 2),
 );
 

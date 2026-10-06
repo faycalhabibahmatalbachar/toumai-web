@@ -40,10 +40,8 @@ exiger(
 const surfaces = [
   '"wa:etat"',
   "`wa:overview:v1:${days}`",
-  "`wa:overview:analytics:${days}`",
   '"wa:overview:live-conversations"',
   '"wa:overview:automations"',
-  "`wa:overview:logs:${days}`",
 ];
 
 for (const marker of surfaces) {

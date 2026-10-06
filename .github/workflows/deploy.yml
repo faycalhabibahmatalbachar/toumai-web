@@ -40,27 +40,41 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy out --project-name toumaiai-web --branch main
-      - name: Smoke backend WhatsApp compatibility (non-blocking)
-        continue-on-error: true
+      - name: Smoke backend WhatsApp authoritative routes
         shell: bash
         run: |
           set -euo pipefail
           probe() {
             method="$1"
             url="$2"
+            body="${3:-}"
             if [ "$method" = "POST" ]; then
-              curl -sS -o /tmp/wa-compat.json -w '%{http_code}' --connect-timeout 10 --max-time 20 \
+              curl -sS -o /tmp/wa-authoritative.json -w '%{http_code}' --connect-timeout 10 --max-time 20 \
                 -X POST -H 'Content-Type: application/json' \
-                -d '{"chat_id":"23566000000","text":"probe"}' "$url" || true
+                -d "$body" "$url" || true
             else
-              curl -sS -o /tmp/wa-compat.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" || true
+              curl -sS -o /tmp/wa-authoritative.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" || true
             fi
           }
-          conversations_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/autopilot/conversations?limit=1')"
-          send_status="$(probe POST 'https://api.toumaiai.com/api/v1/whatsapp/suggestion/send')"
-          case "$conversations_status" in 401|403|428) ;; *) echo "::error::Legacy conversations route unavailable: HTTP $conversations_status"; exit 1 ;; esac
-          case "$send_status" in 401|403|428) ;; *) echo "::error::Legacy send route unavailable: HTTP $send_status"; exit 1 ;; esac
-          echo "Compatibility backend routes are present and authentication-protected."
+          require_auth_guard() {
+            label="$1"
+            status="$2"
+            case "$status" in
+              401|403|428) ;;
+              *) echo "::error::Authoritative $label route unavailable or not auth-protected: HTTP $status"; exit 1 ;;
+            esac
+          }
+
+          conversations_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/conversations?limit=1')"
+          messages_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/conversation/messages?chat_id=23566000000%40s.whatsapp.net&limit=1')"
+          send_status="$(probe POST 'https://api.toumaiai.com/api/v1/whatsapp/message/send' '{"to":"23566000000","message":"probe"}')"
+          status_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/message/status?msg_id=probe')"
+
+          require_auth_guard conversations "$conversations_status"
+          require_auth_guard conversation_messages "$messages_status"
+          require_auth_guard message_send "$send_status"
+          require_auth_guard message_status "$status_status"
+          echo "Authoritative WhatsApp backend routes are present and authentication-protected."
 
       - name: Attest exact Web SHA on toumaiai.com
         shell: bash

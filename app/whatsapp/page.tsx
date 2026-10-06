@@ -44,12 +44,8 @@ import {
   type WhatsAppAutomation,
 } from "@/lib/connectors-api";
 import {
-  getWaAutopilotAnalytics,
-  getWaAutopilotLogs,
   getWaLiveConversations,
   getWhatsAppOverview,
-  type WaAutopilotAnalytics,
-  type WaAutopilotLog,
   type WaLiveConversation,
   type WaOverviewMetric,
   type WhatsAppOverview,
@@ -119,16 +115,7 @@ export default function WhatsAppOverviewPage() {
     { enabled: !!session, ttlMs: 15_000, refreshIntervalMs: 30_000 },
   );
 
-  // Compatibilité de rollout uniquement : les anciens agrégats ne sont lus
-  // que si le contrat Overview v1 n'est pas encore servi en production.
-  const useLegacyOverview = overviewError === "WA_OVERVIEW_V1_NOT_DEPLOYED";
-  const overviewUnavailable = Boolean(overviewError) && !useLegacyOverview;
-
-  const { data: analytics, loading: analyticsLoading } = useCached<WaAutopilotAnalytics>(
-    `wa:overview:analytics:${days}`,
-    () => getWaAutopilotAnalytics(days),
-    { enabled: !!session && useLegacyOverview, ttlMs: 15_000, refreshIntervalMs: 30_000 },
-  );
+  const overviewUnavailable = Boolean(overviewError);
 
   const {
     data: conversationsData,
@@ -150,12 +137,6 @@ export default function WhatsAppOverviewPage() {
     { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
 
-  const { data: logs, loading: logsLoading } = useCached<WaAutopilotLog[]>(
-    `wa:overview:logs:${days}`,
-    () => loadLogsForPeriod(days),
-    { enabled: !!session && useLegacyOverview, ttlMs: 30_000, refreshIntervalMs: 30_000 },
-  );
-
   useWhatsAppRealtimeInvalidation({
     enabled: Boolean(session),
     refreshOverview,
@@ -172,8 +153,8 @@ export default function WhatsAppOverviewPage() {
     : connectionPresentation(etat, etatLoading);
   const connectionNumber = overview?.connection.display_phone || etat?.numero || "Aucun numéro lié";
   const chartData = useMemo(
-    () => overview?.activity ? overviewActivitySeries(overview.activity) : buildActivitySeries(logs ?? [], days),
-    [overview, logs, days],
+    () => overviewActivitySeries(overview?.activity ?? []),
+    [overview],
   );
   const conversations = conversationsData?.conversations ?? [];
   const activeAutomations = useMemo(
@@ -189,13 +170,11 @@ export default function WhatsAppOverviewPage() {
   const responseMetric = overview?.metrics.response_rate;
   const conversationKpi = overviewUnavailable
     ? null
-    : conversationMetric?.value ?? analytics?.kpis.conversations.value ?? conversationsData?.count ?? 0;
-  const messageKpi = overviewUnavailable
-    ? null
-    : messageMetric?.value ?? analytics?.kpis.messages.value ?? 0;
-  const responseKpi = responseMetric?.value ?? (useLegacyOverview ? analytics?.kpis.success_rate.value ?? null : null);
-  const overviewDataLoading = overviewLoading || (useLegacyOverview && analyticsLoading);
-  const chartLoading = overviewLoading || (useLegacyOverview && logsLoading);
+    : conversationMetric?.value ?? conversationsData?.count ?? 0;
+  const messageKpi = overviewUnavailable ? null : messageMetric?.value ?? 0;
+  const responseKpi = responseMetric?.value ?? null;
+  const overviewDataLoading = overviewLoading;
+  const chartLoading = overviewLoading;
   const profileName = overview?.connection.profile_name?.trim() || etat?.nom_profil?.trim() || "Mon espace";
   const initials = makeInitials(profileName);
 
@@ -302,8 +281,8 @@ export default function WhatsAppOverviewPage() {
             <MetricCard
               label="Conversations"
               value={conversationKpi === null ? "—" : formatInteger(conversationKpi)}
-              delta={metricDelta(conversationMetric, analytics?.kpis.conversations.delta)}
-              unit={metricDeltaUnit(conversationMetric, analytics?.kpis.conversations.delta_unit)}
+              delta={metricDelta(conversationMetric)}
+              unit={metricDeltaUnit(conversationMetric)}
               loading={overviewDataLoading}
               icon={<MessageCircle size={27} />}
               tone="green"
@@ -311,8 +290,8 @@ export default function WhatsAppOverviewPage() {
             <MetricCard
               label="Messages envoyés"
               value={messageKpi === null ? "—" : formatInteger(messageKpi)}
-              delta={metricDelta(messageMetric, analytics?.kpis.messages.delta)}
-              unit={metricDeltaUnit(messageMetric, analytics?.kpis.messages.delta_unit)}
+              delta={metricDelta(messageMetric)}
+              unit={metricDeltaUnit(messageMetric)}
               loading={overviewDataLoading}
               icon={<Send size={27} />}
               tone="orange"
@@ -320,8 +299,8 @@ export default function WhatsAppOverviewPage() {
             <MetricCard
               label="Taux de réponse"
               value={responseKpi === null ? "—" : `${formatDecimal(responseKpi)}%`}
-              delta={metricDelta(responseMetric, useLegacyOverview ? analytics?.kpis.success_rate.delta : null)}
-              unit={metricDeltaUnit(responseMetric, useLegacyOverview ? analytics?.kpis.success_rate.delta_unit : undefined)}
+              delta={metricDelta(responseMetric)}
+              unit={metricDeltaUnit(responseMetric)}
               loading={overviewDataLoading}
               note={responseMetric?.instrumented === false ? "Non instrumenté sur tous les messages" : undefined}
               icon={<Clock3 size={28} />}
@@ -643,17 +622,16 @@ function overviewActivitySeries(
   });
 }
 
-function metricDelta(metric: WaOverviewMetric | undefined, legacy?: number | null) {
-  return metric?.comparison?.value ?? legacy ?? null;
+function metricDelta(metric: WaOverviewMetric | undefined) {
+  return metric?.comparison?.value ?? null;
 }
 
 function metricDeltaUnit(
   metric: WaOverviewMetric | undefined,
-  legacy?: "pct" | "pts",
 ): "pct" | "pts" | undefined {
   if (metric?.comparison?.unit === "percentage_points") return "pts";
   if (metric?.comparison) return "pct";
-  return legacy;
+  return undefined;
 }
 
 function overviewConnectionPresentation(
@@ -663,43 +641,6 @@ function overviewConnectionPresentation(
   if (connection.status === "connecting") return { label: connection.label || "Connexion en cours", color: ORANGE };
   if (connection.status === "degraded") return { label: connection.label || "Connexion dégradée", color: ORANGE };
   return { label: connection.label || "WhatsApp non connecté", color: FAINT };
-}
-
-async function loadLogsForPeriod(days: PeriodDays): Promise<WaAutopilotLog[]> {
-  const all: WaAutopilotLog[] = [];
-  const pageSize = 100;
-  const maxPages = 10;
-  const threshold = Date.now() - days * 86_400_000;
-  for (let page = 1; page <= maxPages; page += 1) {
-    const response = await getWaAutopilotLogs(page, pageSize);
-    all.push(...response.logs);
-    if (response.logs.length < pageSize || all.length >= response.pagination.total) break;
-    const oldest = response.logs[response.logs.length - 1]?.created_at;
-    if (oldest && new Date(oldest).getTime() < threshold) break;
-  }
-  return all.filter((log) => new Date(log.created_at).getTime() >= threshold);
-}
-
-function buildActivitySeries(logs: WaAutopilotLog[], days: PeriodDays): ActivityPoint[] {
-  const formatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
-  const map = new Map<string, ActivityPoint>();
-  const today = new Date();
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const date = new Date(today);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(today.getDate() - offset);
-    const key = localDayKey(date);
-    map.set(key, { date: key, label: formatter.format(date), sent: 0, received: 0 });
-  }
-  for (const log of logs) {
-    const date = new Date(log.created_at);
-    if (Number.isNaN(date.getTime())) continue;
-    const bucket = map.get(localDayKey(date));
-    if (!bucket) continue;
-    if (log.incoming?.trim()) bucket.received += 1;
-    if (log.reply?.trim() && log.delivered !== false) bucket.sent += 1;
-  }
-  return Array.from(map.values());
 }
 
 function linePath(points: readonly (readonly [number, number])[]) {
@@ -739,13 +680,6 @@ function niceCeil(value: number) {
   const normalized = value / magnitude;
   const nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
   return nice * magnitude;
-}
-
-function localDayKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function connectionPresentation(etat: WaEtat | null, loading: boolean) {
