@@ -18,6 +18,8 @@ interface UseWhatsAppRealtimeInvalidationOptions {
 }
 
 const BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 15_000] as const;
+const STABLE_STREAM_MS = 10_000;
+const SEEN_EVENT_LIMIT = 256;
 
 function waitForDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -87,6 +89,14 @@ export function useWhatsAppRealtimeInvalidation({
     const controller = new AbortController();
     const timers: Partial<Record<"overview" | "conversations" | "automations" | "connection", number>> = {};
     let lastVersion = 0;
+    const seenEventIds = new Set<string>();
+
+    const rememberEvent = (id: string) => {
+      seenEventIds.add(id);
+      if (seenEventIds.size <= SEEN_EVENT_LIMIT) return;
+      const oldest = seenEventIds.values().next().value;
+      if (typeof oldest === "string") seenEventIds.delete(oldest);
+    };
 
     const schedule = (
       scope: "overview" | "conversations" | "automations" | "connection",
@@ -105,8 +115,11 @@ export function useWhatsAppRealtimeInvalidation({
 
     const handleEvent = (event: WhatsAppRealtimeEvent) => {
       if (event.type === "stream.ready") return;
-      if (event.version <= lastVersion) return;
-      lastVersion = event.version;
+      if (seenEventIds.has(event.id)) return;
+      if (event.version < lastVersion) return;
+
+      rememberEvent(event.id);
+      lastVersion = Math.max(lastVersion, event.version);
 
       const scopes = new Set(event.scopes);
       const current = refreshersRef.current;
@@ -131,17 +144,18 @@ export function useWhatsAppRealtimeInvalidation({
         await waitUntilOnline(controller.signal);
         if (controller.signal.aborted) break;
 
-        let becameReady = false;
+        let readyAt = 0;
         try {
           await streamWhatsAppEvents((event) => {
-            if (event.type === "stream.ready") becameReady = true;
+            if (event.type === "stream.ready" && readyAt === 0) readyAt = Date.now();
             handleEvent(event);
           }, controller.signal);
         } catch {
           if (controller.signal.aborted) break;
         }
 
-        if (becameReady) failureCount = 0;
+        const stableConnection = readyAt > 0 && Date.now() - readyAt >= STABLE_STREAM_MS;
+        if (stableConnection) failureCount = 0;
         const delay = BACKOFF_MS[Math.min(failureCount, BACKOFF_MS.length - 1)];
         failureCount = Math.min(failureCount + 1, BACKOFF_MS.length - 1);
         await waitForDelay(delay, controller.signal);
