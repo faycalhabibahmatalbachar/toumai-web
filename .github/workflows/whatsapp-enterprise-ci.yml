@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Lint WhatsApp surface
-        run: npx eslint app/whatsapp/page.tsx hooks/useWhatsAppRealtime.ts lib/whatsapp-realtime.ts
+        run: npx eslint app/whatsapp/page.tsx app/whatsapp/conversations/page.tsx hooks/useWhatsAppRealtime.ts lib/whatsapp-realtime.ts
       - name: Verify Overview polling fallback
         run: node scripts/verify-whatsapp-overview-polling.mjs
       - name: Verify Overview realtime SSE
