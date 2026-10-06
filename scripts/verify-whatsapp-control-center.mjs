@@ -4,6 +4,8 @@ import { chromium } from "playwright";
 const BASE = process.env.WA_CONTROL_URL || "http://127.0.0.1:3101";
 const artifacts = process.env.WA_CONTROL_ARTIFACT_DIR || "artifacts/whatsapp-control-center";
 await fs.mkdir(artifacts, { recursive: true });
+const attachmentFixture = `${artifacts}/controle-centre.txt`;
+await fs.writeFile(attachmentFixture, "Toumai WhatsApp attachment");
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
@@ -298,6 +300,16 @@ const state = {
   resumes: [],
   cancels: [],
   realtimeAuth: [],
+  threadSearches: [],
+  contactReads: [],
+  conversationActions: [],
+  reactions: [],
+  quotedReplies: [],
+  mediaCalls: [],
+  presenceCalls: [],
+  assistantCalls: [],
+  automationCreates: [],
+  uploads: [],
 };
 
 let retiredFallbackMode = false;
@@ -392,6 +404,94 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     };
   } else if (path === "/whatsapp/conversation/messages") {
     data = { chat_id: url.searchParams.get("chat_id"), messages: threadMessages, count: threadMessages.length, source: "baileys" };
+  } else if (path === "/whatsapp/conversation/search" && method === "GET") {
+    state.threadSearches.push({
+      chat_id: url.searchParams.get("chat_id"),
+      q: url.searchParams.get("q"),
+    });
+    const q = (url.searchParams.get("q") || "").toLowerCase();
+    const results = threadMessages.filter((message) =>
+      (message.text || "").toLowerCase().includes(q),
+    );
+    data = {
+      chat_id: url.searchParams.get("chat_id"),
+      query: url.searchParams.get("q") || "",
+      results,
+      count: results.length,
+    };
+  } else if (path === "/whatsapp/contact-info" && method === "GET") {
+    state.contactReads.push(url.searchParams.get("jid"));
+    data = {
+      jid: url.searchParams.get("jid"),
+      number: "23566111111",
+      name: "Mahamat Ali",
+      push_name: "Mahamat",
+      about: "Disponible pour échanger",
+      picture_url: null,
+      business: { description: "Client Toumaï" },
+      on_whatsapp: true,
+    };
+  } else if (path === "/whatsapp/conversation/action" && method === "POST") {
+    const body = request.postDataJSON();
+    state.conversationActions.push(body);
+    data = { chat_id: body.chat_id, action: body.action, ok: true };
+  } else if (path === "/whatsapp/message/react" && method === "POST") {
+    const body = request.postDataJSON();
+    state.reactions.push(body);
+    data = { ...body, reacted: true };
+  } else if (path === "/whatsapp/message/reply" && method === "POST") {
+    const body = request.postDataJSON();
+    state.quotedReplies.push(body);
+    data = { chat_id: body.chat_id, msg_id: "REPLY-1", status: "accepted" };
+  } else if (path === "/whatsapp/media/send" && method === "POST") {
+    const body = request.postDataJSON();
+    state.mediaCalls.push(body);
+    data = body.confirmed
+      ? {
+          pending_confirmation: false,
+          sent: true,
+          chat_id: body.chat_id,
+          msg_id: "MEDIA-1",
+          type: body.type,
+        }
+      : {
+          pending_confirmation: true,
+          draft: body,
+          message: "Confirmation requise.",
+        };
+  } else if (path === "/whatsapp/presence" && method === "POST") {
+    const body = request.postDataJSON();
+    state.presenceCalls.push(body);
+    data = { chat_id: body.chat_id, status: body.status };
+  } else if (path === "/whatsapp/assistant" && method === "POST") {
+    const body = request.postDataJSON();
+    state.assistantCalls.push(body);
+    const results = {
+      suggest_reply: "Bien sûr, je vous rappelle dans quelques minutes.",
+      summarize: "Mahamat demande à être rappelé. Une réponse a déjà été envoyée.",
+      translate: "Peux-tu me rappeler ?",
+    };
+    data = {
+      action: body.action,
+      chat_id: body.chat_id,
+      result: results[body.action] || "Résultat assistant",
+    };
+  } else if (path === "/whatsapp/automation/create" && method === "POST") {
+    const body = request.postDataJSON();
+    state.automationCreates.push(body);
+    data = {
+      id: "task-control-center-1",
+      scheduled: true,
+      send_at: body.send_at,
+      message: "Tâche créée",
+    };
+  } else if (path === "/files/upload" && method === "POST") {
+    state.uploads.push({ content_type: request.headers()["content-type"] || "" });
+    data = {
+      url: "https://files.example/controle-centre.txt",
+      file_name: "controle-centre.txt",
+      size: 24,
+    };
   } else if (path === "/whatsapp/message/send" && method === "POST") {
     const body = request.postDataJSON();
     state.sends.push(body);
@@ -533,11 +633,109 @@ async function certifyConversations() {
     "Le fournisseur technique ne doit pas être exposé dans le workspace.",
   );
 
-  await noHorizontalOverflow(page, "conversations-workspace");
-  await page.screenshot({ path: `${artifacts}/conversations-enterprise.png`, fullPage: false });
+  // Tous les contrôles visibles de la maquette doivent être réellement activables.
+  await page.getByRole("button", { name: "Filtres avancés" }).click();
+  await page.getByRole("button", { name: "Contacts", exact: true }).click();
+  await page.getByRole("button", { name: "Filtres avancés" }).click();
 
+  await page.getByRole("button", { name: "Rechercher dans la conversation" }).click();
+  const threadSearch = page.getByPlaceholder("Rechercher dans cette conversation…");
+  await threadSearch.fill("Bonjour");
+  await page.getByRole("button", { name: "Rechercher", exact: true }).click();
+  await page.getByText("Bonjour Mahamat", { exact: true }).last().waitFor();
+  assert(state.threadSearches.length === 1, "La recherche du fil doit appeler le backend.");
+  assert(state.threadSearches[0].chat_id === "23566111111@s.whatsapp.net", "La recherche doit rester scoped au fil actif.");
+  await page.getByRole("button", { name: "Fermer la recherche" }).click();
+
+  await page.getByRole("button", { name: "Informations du contact" }).click();
+  await page.getByRole("dialog", { name: "Informations du contact" }).waitFor();
+  await page.getByText("Disponible pour échanger", { exact: true }).waitFor();
+  assert(state.contactReads.length === 1, "La fiche contact doit lire le backend.");
+  await page.getByRole("dialog", { name: "Informations du contact" }).getByRole("button", { name: "Fermer" }).click();
+
+  await page.getByRole("button", { name: "Plus d’options" }).click();
+  await page.getByRole("button", { name: "Marquer comme lu" }).click();
+  await page.waitForTimeout(100);
+  assert(
+    state.conversationActions.some((item) => item.action === "mark_read"),
+    "Le menu conversation doit exécuter mark_read.",
+  );
+
+  // Picker emoji réel : ouvrir le composant de la librairie et insérer 😀.
   const replyBox = page.getByPlaceholder("Écrire un message…");
-  await replyBox.waitFor();
+  await page.getByRole("button", { name: "Emoji" }).click();
+  await page.getByTestId("whatsapp-emoji-picker").waitFor();
+  await page.locator('[data-testid="whatsapp-emoji-picker"] [data-unified="1f600"]').first().click();
+  assert((await replyBox.inputValue()).includes("😀"), "Le picker emoji doit insérer l’emoji dans le brouillon.");
+  await replyBox.fill("");
+
+  // Assistant réel côté contrat : suggestion -> brouillon, résumé -> modal, traduction -> modal.
+  await page.getByRole("button", { name: "Réponse suggérée" }).click();
+  await page.waitForFunction(() => {
+    const input = document.querySelector('textarea[placeholder="Écrire un message…"]');
+    return input && input.value.includes("Bien sûr");
+  });
+  assert(
+    state.assistantCalls.some((item) => item.action === "suggest_reply"),
+    "Réponse suggérée doit appeler l’assistant backend.",
+  );
+  await replyBox.fill("");
+
+  await page.getByRole("button", { name: "Résumer" }).click();
+  await page.getByRole("dialog", { name: "Résumé de la conversation" }).waitFor();
+  await page.getByText("Mahamat demande à être rappelé.", { exact: false }).waitFor();
+  await page.getByRole("dialog", { name: "Résumé de la conversation" }).getByRole("button", { name: "Fermer" }).click();
+
+  await page.getByRole("button", { name: "Traduire" }).click();
+  await page.getByRole("dialog", { name: "Traduire le dernier message reçu" }).waitFor();
+  await page.getByRole("button", { name: "Français" }).click();
+  await page.getByRole("dialog", { name: "Traduction" }).waitFor();
+  await page.getByText("Peux-tu me rappeler ?", { exact: true }).waitFor();
+  await page.getByRole("dialog", { name: "Traduction" }).getByRole("button", { name: "Fermer" }).click();
+
+  // Créer une vraie tâche passe par le backend et une confirmation du formulaire.
+  await page.getByRole("button", { name: "Créer une tâche" }).click();
+  const taskDialog = page.getByRole("dialog", { name: "Créer une tâche WhatsApp" });
+  await taskDialog.waitFor();
+  await taskDialog.getByPlaceholder("Message à envoyer automatiquement…").fill("Relance de test");
+  await taskDialog.getByRole("button", { name: "Confirmer la programmation" }).click();
+  await page.waitForTimeout(100);
+  assert(state.automationCreates.length === 1, "Créer une tâche doit appeler le scheduler backend.");
+  assert(state.automationCreates[0].confirmed === true, "La tâche doit être explicitement confirmée.");
+
+  // Réaction et réponse citée sur le dernier message entrant.
+  const incoming = page.getByText("Tu peux me rappeler ?", { exact: true }).last();
+  await incoming.hover();
+  await page.getByRole("button", { name: "Réagir à ce message" }).click();
+  await page.getByTestId("whatsapp-emoji-picker").waitFor();
+  await page.locator('[data-testid="whatsapp-emoji-picker"] [data-unified="1f600"]').first().click();
+  await page.waitForTimeout(100);
+  assert(state.reactions.length === 1, "La réaction emoji doit atteindre le backend.");
+  assert(state.reactions[0].emoji === "😀", "La réaction sélectionnée doit être transmise.");
+
+  await incoming.hover();
+  await page.getByRole("button", { name: "Répondre à ce message" }).click();
+  await replyBox.fill("Je vous rappelle bientôt.");
+  await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
+  const quotedDialog = page.getByRole("dialog", { name: "Confirmer la réponse" });
+  await quotedDialog.waitFor();
+  await quotedDialog.getByRole("button", { name: "Envoyer la réponse" }).click();
+  await page.waitForTimeout(100);
+  assert(state.quotedReplies.length === 1, "La réponse citée doit appeler l’endpoint dédié.");
+  assert(state.quotedReplies[0].original_msg_id === "t3", "La réponse doit citer le bon message.");
+
+  // Upload + validation média + confirmation + envoi.
+  const fileInput = page.locator('input[type="file"]');
+  await fileInput.setInputFiles(attachmentFixture);
+  const mediaDialog = page.getByRole("dialog", { name: "Confirmer la pièce jointe" });
+  await mediaDialog.waitFor();
+  await mediaDialog.getByRole("button", { name: "Envoyer maintenant" }).click();
+  await page.waitForTimeout(100);
+  assert(state.uploads.length === 1, "La pièce jointe doit être réellement téléversée.");
+  assert(state.mediaCalls.length === 2, "Le média doit passer par preview puis confirmation.");
+  assert(state.mediaCalls[0].confirmed === false && state.mediaCalls[1].confirmed === true, "L’envoi média doit conserver la confirmation en deux temps.");
+
+  // Envoi texte classique : la confirmation historique reste intacte.
   await replyBox.fill("Je vous rappelle dans quelques minutes.");
   await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
   await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
@@ -545,6 +743,7 @@ async function certifyConversations() {
   await reviewDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
   await reviewDialog.getByText("Je vous rappelle dans quelques minutes.", { exact: true }).waitFor();
 
+  await noHorizontalOverflow(page, "conversations-workspace");
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
 }
