@@ -2,24 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  Archive,
   ArrowLeft,
+  BellOff,
   Bot,
   BookOpen,
   Check,
   CheckCheck,
   CircleAlert,
+  Eraser,
   Info,
   Languages,
   LayoutDashboard,
   ListTodo,
+  Loader2,
   Menu,
   MessageCircle,
   MoreVertical,
   Paperclip,
+  Pin,
   Plug,
   RefreshCw,
+  Reply,
   Search,
   Send,
   Settings,
@@ -27,6 +33,8 @@ import {
   SlidersHorizontal,
   Smile,
   Sparkles,
+  Star,
+  Trash2,
   Users,
   Workflow,
   X,
@@ -34,12 +42,25 @@ import {
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
+import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  createWaAutomation,
+  getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  reactToWaMessage,
+  replyToWaMessage,
+  runWaAssistant,
+  runWaConversationAction,
+  searchWaConversation,
+  sendWaMedia,
+  setWaPresence,
+  uploadWaAttachment,
+  type WaContactInfo,
+  type WaConversationAction,
   type WaLiveConversation,
   type WaLiveMessage,
 } from "@/lib/whatsapp-enterprise-api";
@@ -92,6 +113,38 @@ export default function WhatsAppConversationsPage() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [threadSearchOpen, setThreadSearchOpen] = useState(false);
+  const [threadSearchQuery, setThreadSearchQuery] = useState("");
+  const [threadSearchResults, setThreadSearchResults] = useState<WaLiveMessage[]>([]);
+  const [threadSearchBusy, setThreadSearchBusy] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactInfo, setContactInfo] = useState<WaContactInfo | null>(null);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
+  const [composerEmojiOpen, setComposerEmojiOpen] = useState(false);
+  const [reactionTarget, setReactionTarget] = useState<WaLiveMessage | null>(null);
+  const [replyTarget, setReplyTarget] = useState<WaLiveMessage | null>(null);
+  const [replyConfirmOpen, setReplyConfirmOpen] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState<string | null>(null);
+  const [assistantResult, setAssistantResult] = useState<{ title: string; text: string } | null>(null);
+  const [translateOpen, setTranslateOpen] = useState(false);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskMessage, setTaskMessage] = useState("");
+  const [taskWhen, setTaskWhen] = useState(defaultTaskDateTime());
+  const [taskRecurrence, setTaskRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
+  const [taskBusy, setTaskBusy] = useState(false);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [mediaDraft, setMediaDraft] = useState<{
+    url: string;
+    type: "image" | "video" | "audio" | "document";
+    filename: string;
+    mimetype: string;
+    caption: string;
+  } | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [chatFlags, setChatFlags] = useState({ archived: false, pinned: false, muted: false });
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const visibleMessages = useMemo(
     () =>
@@ -220,9 +273,20 @@ export default function WhatsAppConversationsPage() {
     return () => window.clearTimeout(timer);
   }, [selected, session, loadThread]);
 
+  function closeTransientPanels() {
+    setThreadSearchOpen(false);
+    setConversationMenuOpen(false);
+    setComposerEmojiOpen(false);
+    setReactionTarget(null);
+  }
+
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
+    setReplyTarget(null);
     setMessages([]);
+    closeTransientPanels();
+    setContactOpen(false);
+    setAssistantResult(null);
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -234,6 +298,8 @@ export default function WhatsAppConversationsPage() {
   function backToConversationList() {
     setSelected(null);
     setMessages([]);
+    setReplyTarget(null);
+    closeTransientPanels();
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.delete("chat");
@@ -249,9 +315,212 @@ export default function WhatsAppConversationsPage() {
 
   function openReplyReview() {
     if (!selected || !replyDraft.trim()) return;
+    if (replyTarget) {
+      setReplyConfirmOpen(true);
+      return;
+    }
     setComposeTarget(selected);
     setComposeSeed(replyDraft.trim());
     setComposeOpen(true);
+  }
+
+  async function runThreadSearch() {
+    if (!selected || !threadSearchQuery.trim()) {
+      setThreadSearchResults([]);
+      return;
+    }
+    setThreadSearchBusy(true);
+    try {
+      const data = await searchWaConversation(selected.id, threadSearchQuery.trim(), 50);
+      setThreadSearchResults(data.results);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setThreadSearchBusy(false);
+    }
+  }
+
+  async function openContactDetails() {
+    if (!selected) return;
+    setContactOpen(true);
+    setContactBusy(true);
+    setContactInfo(null);
+    try {
+      setContactInfo(await getWaContactInfo(selected.id));
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setContactBusy(false);
+    }
+  }
+
+  async function performConversationAction(action: WaConversationAction, options: {
+    duration_ms?: number;
+    msg_id?: string;
+    from_me?: boolean;
+    confirmed?: boolean;
+  } = {}) {
+    if (!selected) return;
+    setConversationMenuOpen(false);
+    if ((action === "clear" || action === "delete") && !options.confirmed) {
+      const label = action === "delete" ? "supprimer cette conversation" : "vider cette conversation";
+      if (!window.confirm(`Confirmer : ${label} ? Cette action peut être irréversible.`)) return;
+      options.confirmed = true;
+    }
+    try {
+      await runWaConversationAction({ chat_id: selected.id, action, ...options });
+      if (action === "archive") setChatFlags((current) => ({ ...current, archived: true }));
+      if (action === "unarchive") setChatFlags((current) => ({ ...current, archived: false }));
+      if (action === "pin") setChatFlags((current) => ({ ...current, pinned: true }));
+      if (action === "unpin") setChatFlags((current) => ({ ...current, pinned: false }));
+      if (action === "mute") setChatFlags((current) => ({ ...current, muted: true }));
+      if (action === "unmute") setChatFlags((current) => ({ ...current, muted: false }));
+      setNotice({ tone: "success", text: conversationActionLabel(action) });
+      if (action === "clear" || action === "delete") {
+        await loadThread(selected);
+        await loadConversations(query, filter);
+      }
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    }
+  }
+
+  async function runAssistantAction(
+    action: "suggest_reply" | "summarize" | "translate",
+    targetLanguage?: string,
+  ) {
+    if (!selected) return;
+    setAssistantBusy(action);
+    try {
+      const data = await runWaAssistant({
+        chat_id: selected.id,
+        action,
+        target_language: targetLanguage,
+      });
+      if (action === "suggest_reply") {
+        setReplyDraft(data.result.slice(0, 4096));
+        setNotice({ tone: "success", text: "Réponse suggérée ajoutée au brouillon." });
+      } else {
+        setAssistantResult({
+          title: action === "summarize" ? "Résumé de la conversation" : "Traduction",
+          text: data.result,
+        });
+      }
+      setTranslateOpen(false);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setAssistantBusy(null);
+    }
+  }
+
+  async function handleReaction(message: WaLiveMessage, emoji: string) {
+    if (!selected || !message.id) return;
+    try {
+      await reactToWaMessage({ chat_id: selected.id, msg_id: message.id, emoji });
+      setReactionTarget(null);
+      setNotice({ tone: "success", text: `Réaction ${emoji} envoyée.` });
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    }
+  }
+
+  async function confirmQuotedReply() {
+    if (!selected || !replyTarget || !replyDraft.trim()) return;
+    try {
+      await replyToWaMessage({
+        chat_id: selected.id,
+        text: replyDraft.trim(),
+        original_msg_id: replyTarget.id,
+        original_text: replyTarget.text,
+        original_sender: replyTarget.sender,
+      });
+      setReplyConfirmOpen(false);
+      setReplyTarget(null);
+      setReplyDraft("");
+      setNotice({ tone: "success", text: "Réponse envoyée." });
+      window.setTimeout(() => void loadThread(selected), 500);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    }
+  }
+
+  async function handleAttachment(file: File | null) {
+    if (!selected || !file) return;
+    if (file.size > 100 * 1024 * 1024) {
+      setNotice({ tone: "error", text: "Fichier trop volumineux : 100 Mo maximum pour le téléversement." });
+      return;
+    }
+    setAttachmentBusy(true);
+    try {
+      const uploaded = await uploadWaAttachment(file);
+      const type = mediaTypeFromFile(file);
+      const draft = {
+        url: uploaded.url,
+        type,
+        filename: file.name,
+        mimetype: file.type || "application/octet-stream",
+        caption: "",
+      };
+      await sendWaMedia({
+        chat_id: selected.id,
+        ...draft,
+        confirmed: false,
+      });
+      setMediaDraft(draft);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setAttachmentBusy(false);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+    }
+  }
+
+  async function confirmMediaSend() {
+    if (!selected || !mediaDraft) return;
+    setMediaBusy(true);
+    try {
+      await sendWaMedia({
+        chat_id: selected.id,
+        ...mediaDraft,
+        confirmed: true,
+      });
+      setMediaDraft(null);
+      setNotice({ tone: "success", text: "Pièce jointe envoyée." });
+      window.setTimeout(() => void loadThread(selected), 600);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function createTask() {
+    if (!selected || !taskMessage.trim() || !taskWhen) return;
+    setTaskBusy(true);
+    try {
+      const sendAt = new Date(taskWhen);
+      if (Number.isNaN(sendAt.getTime()) || sendAt.getTime() <= Date.now()) {
+        setNotice({ tone: "error", text: "Choisissez une date et une heure futures." });
+        return;
+      }
+      await createWaAutomation({
+        chat_id: selected.id,
+        message: taskMessage.trim(),
+        send_at: sendAt.toISOString(),
+        recurrence: taskRecurrence,
+        confirmed: true,
+      });
+      setTaskOpen(false);
+      setTaskMessage("");
+      setTaskWhen(defaultTaskDateTime());
+      setTaskRecurrence("none");
+      setNotice({ tone: "success", text: "Tâche WhatsApp programmée." });
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setTaskBusy(false);
+    }
   }
 
   return (
