@@ -24,6 +24,9 @@ expect(api.includes("AbortSignal"), "TTS API must support cancellation");
 expect(api.includes("/voice/synthesize/live"), "Pocket live API must use the authenticated raw WAV endpoint");
 expect(api.includes("audio/wav"), "Pocket live API must require WAV streaming");
 expect(api.includes("getReader()"), "Pocket live API must consume response.body incrementally");
+expect(api.includes("X-Toumai-Voice-Engine"), "chat playback must read certified Zenaba engine header");
+expect(api.includes("X-Toumai-Voice-TTFA-Ms"), "chat playback must read server TTFA header");
+expect(api.includes("X-Toumai-Voice-Certified"), "chat playback must read certification header");
 expect(api.includes('mime.includes("mp4")'), "STT upload must preserve Safari/MP4 recorder containers");
 expect(api.includes("audio.${ext}"), "STT upload filename must match the recorded container");
 
@@ -45,6 +48,11 @@ expect(player.includes("completion?.generation"), "playback completion must be g
 expect(player.includes("segmentCompletion?.generation"), "segment stop must be generation-scoped");
 expect(player.includes("playToumaiVoice"), "shared player entrypoint missing");
 expect(player.includes("streamSpeech"), "shared player must use streamed TTS");
+expect(player.includes("getLastToumaiVoicePlaybackDiagnostic"), "browser must retain the last safe voice diagnostic");
+expect(player.includes("element.onplaying"), "browser TTFA must be measured when audio actually starts");
+expect(player.includes("clientTtfaMs"), "browser must record click-to-audible TTFA");
+expect(player.includes("[Toumai Voice] playback certified"), "DevTools must expose safe voice certification");
+expect(!player.includes("rawText, value"), "voice diagnostic must not log spoken text");
 expect(player.includes("playToumaiVoiceLive"), "shared player must expose native Pocket live playback");
 expect(player.includes("parseStreamingWavHeader"), "Pocket live playback must validate WAV before PCM playback");
 expect(player.includes("AudioBufferSourceNode"), "Pocket live playback must schedule PCM through Web Audio");
