@@ -292,7 +292,7 @@ export function NotificationsSection() {
           label="Voix Toumaï"
           description={
             voiceSupported
-              ? "Zenaba lit les rappels à voix haute uniquement quand Toumaï est ouvert au premier plan."
+              ? "Zenaba lit les rappels à voix haute uniquement quand Toumaï est ouvert au premier plan. Ce canal utilise les notifications temps réel."
               : "La lecture audio n’est pas prise en charge par ce navigateur."
           }
         >
