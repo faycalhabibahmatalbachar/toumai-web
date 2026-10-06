@@ -20,6 +20,7 @@ import { safeInternalPath } from "@/lib/widgets/core";
 
 type ToastItem = {
   key: string;
+  accountId: string;
   notification: RealtimeNotification;
 };
 
@@ -369,7 +370,10 @@ export function RealtimeNotificationsBridge() {
       if (!remember(key, persistentId)) return;
 
       void speakReminder(notification, accountId);
-      setItems((current) => [...current.slice(-2), { key, notification }]);
+      setItems((current) => [
+        ...current.slice(-2),
+        { key, accountId, notification },
+      ]);
       window.setTimeout(() => {
         setItems((current) => current.filter((item) => item.key !== key));
       }, TOAST_MS);
@@ -384,7 +388,6 @@ export function RealtimeNotificationsBridge() {
       persistedSeen.current = [];
       lastEventId.current = "";
       hydratedAccount.current = "";
-      setItems([]);
       return;
     }
 
@@ -397,7 +400,6 @@ export function RealtimeNotificationsBridge() {
       persistedSeen.current = [...restored];
       lastEventId.current = readCursor(accountId);
       hydratedAccount.current = accountId;
-      setItems([]);
     }
 
     let stopped = false;
@@ -490,7 +492,8 @@ export function RealtimeNotificationsBridge() {
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [receive, session]);
 
-  if (!session || !items.length) return null;
+  const visibleItems = items.filter((item) => item.accountId === accountId);
+  if (!session || !visibleItems.length) return null;
 
   return (
     <div
@@ -498,7 +501,7 @@ export function RealtimeNotificationsBridge() {
       aria-live="polite"
       aria-label="Notifications Toumaï"
     >
-      {items.map(({ key, notification }) => (
+      {visibleItems.map(({ key, notification }) => (
         <article
           key={key}
           className="pointer-events-auto overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)]/96 shadow-2xl backdrop-blur-xl"
