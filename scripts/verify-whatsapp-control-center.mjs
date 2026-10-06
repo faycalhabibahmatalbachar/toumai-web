@@ -159,6 +159,79 @@ const overviewAnalytics = {
   not_instrumented: [],
 };
 
+const overview = {
+  range: {
+    days: 30,
+    from: new Date(now - 30 * 86_400_000).toISOString(),
+    to: new Date(now).toISOString(),
+    timezone: "Africa/Ndjamena",
+    granularity: "day",
+  },
+  metrics: {
+    conversations: {
+      value: 2,
+      format: "integer",
+      comparison: { value: 0, unit: "percent", direction: "flat", sentiment: "neutral" },
+      instrumented: true,
+    },
+    messages_sent: {
+      value: 42,
+      format: "integer",
+      comparison: { value: 5, unit: "percent", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+    response_rate: {
+      value: null,
+      format: "percentage",
+      comparison: null,
+      instrumented: false,
+      reason: "overall_response_rate_requires_manual_outbound_events",
+    },
+    automated_response_rate: {
+      value: 82,
+      format: "percentage",
+      comparison: { value: 2, unit: "percentage_points", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+    delivery_success_rate: {
+      value: 82,
+      format: "percentage",
+      comparison: { value: 2, unit: "percentage_points", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+  },
+  activity: [
+    {
+      date: new Date(now).toISOString().slice(0, 10),
+      timestamp: new Date(now).toISOString(),
+      sent: 8,
+      received: 10,
+    },
+  ],
+  instrumentation: {
+    coverage: "wa_autoreplies",
+    raw_message_content_used: false,
+    truncated: false,
+    limitations: [
+      "overall_response_rate_not_instrumented",
+      "manual_outbound_messages_not_in_wa_autoreplies",
+    ],
+  },
+  connection: {
+    status: "connected",
+    display_phone: "+235 68 66 37 37",
+    phone_e164: "+23568663737",
+    provider: "baileys",
+    last_healthy_at: new Date(now).toISOString(),
+    product_state: "connecte",
+    ready: true,
+    readable: true,
+    label: "Connecté",
+    contacts: 2,
+    profile_name: "Fayçal A.",
+  },
+};
+
 const overviewConversations = {
   conversations: [
     {
@@ -248,7 +321,8 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       capacites: { messages: true, contacts: true },
       capacites_source: "passerelle",
     };
-  } else if (path === "/whatsapp/autopilot/analytics") data = overviewAnalytics;
+  } else if (path === "/whatsapp/overview") data = overview;
+  else if (path === "/whatsapp/autopilot/analytics") data = overviewAnalytics;
   else if (path === "/whatsapp/autopilot/conversations") data = overviewConversations;
   else if (path === "/whatsapp/autopilot/logs") data = logs;
   else if (path === "/whatsapp/contacts") {
@@ -349,6 +423,7 @@ async function certifyOverviewComposer() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "WhatsApp Overview" }).waitFor();
+  await page.getByText("Non instrumenté sur tous les messages", { exact: true }).waitFor();
 
   await page.getByRole("button", { name: /Nouveau message/ }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
