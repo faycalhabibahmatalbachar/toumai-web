@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -971,7 +971,7 @@ function DeliveryMark({ status }: { status?: string | null }) {
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
 }
 
-function AiAction({ icon, label }: { icon: React.ReactNode; label: string }) {
+function AiAction({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <button
       type="button"
