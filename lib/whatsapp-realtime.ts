@@ -86,7 +86,6 @@ export async function streamWhatsAppEvents(
     signal,
     headers: {
       Accept: "text/event-stream",
-      "Cache-Control": "no-cache",
     },
   });
 
