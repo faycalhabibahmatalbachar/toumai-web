@@ -283,13 +283,11 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       read_confirmed: false,
       failed: false,
     };
-  } else if (path === "/whatsapp/send-watched" && method === "POST") {
+  } else if (path === "/whatsapp/suggestion/send" && method === "POST") {
     const body = request.postDataJSON();
     state.legacySends.push(body);
     data = {
-      ok: true,
-      to: body.to,
-      msgId: "MSG-LEGACY-1",
+      chat_id: body.chat_id,
     };
   } else if (path === "/whatsapp/automations" && method === "GET") {
     data = { tasks, count: tasks.length };
@@ -450,8 +448,8 @@ async function certifyProduction404Fallback() {
   await page.getByRole("heading", { name: "Message accepté" }).waitFor({ timeout: 5000 });
 
   assert(state.legacySends.length === 1, `Le fallback doit effectuer un seul envoi legacy, obtenu ${state.legacySends.length}`);
-  assert(state.legacySends[0].to === "91912191", "Le numéro confirmé doit être transmis intact au fallback send-watched.");
-  assert(state.legacySends[0].message === "salut", "Le texte confirmé doit être transmis intact au fallback send-watched.");
+  assert(state.legacySends[0].chat_id === "91912191", "Le numéro confirmé doit être transmis intact au fallback historique.");
+  assert(state.legacySends[0].text === "salut", "Le texte confirmé doit être transmis intact au fallback historique.");
 
   await noHorizontalOverflow(page, "legacy-production-fallback");
   await page.screenshot({ path: `${artifacts}/legacy-production-fallback.png`, fullPage: false });
