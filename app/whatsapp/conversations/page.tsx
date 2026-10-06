@@ -113,6 +113,8 @@ export default function WhatsAppConversationsPage() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [kindFilter, setKindFilter] = useState<"all" | "contact" | "group">("all");
   const [threadSearchOpen, setThreadSearchOpen] = useState(false);
   const [threadSearchQuery, setThreadSearchQuery] = useState("");
   const [threadSearchResults, setThreadSearchResults] = useState<WaLiveMessage[]>([]);
@@ -161,6 +163,14 @@ export default function WhatsAppConversationsPage() {
   const pendingCount = useMemo(
     () => conversations.filter((conversation) => conversation.pending).length,
     [conversations],
+  );
+
+  const displayedConversations = useMemo(
+    () =>
+      kindFilter === "all"
+        ? conversations
+        : conversations.filter((conversation) => conversation.kind === kindFilter),
+    [conversations, kindFilter],
   );
 
   const loadConversations = useCallback(async (
@@ -614,11 +624,15 @@ export default function WhatsAppConversationsPage() {
                 </div>
                 <button
                   type="button"
-                  disabled
-                  title="Filtres avancés bientôt disponibles"
                   aria-label="Filtres avancés"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border opacity-70"
-                  style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                  aria-expanded={advancedFiltersOpen}
+                  onClick={() => setAdvancedFiltersOpen((open) => !open)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                  style={{
+                    borderColor: advancedFiltersOpen ? "rgba(8,200,117,.55)" : BORDER,
+                    background: RAISED,
+                    color: advancedFiltersOpen ? GREEN : MUTED,
+                  }}
                 >
                   <SlidersHorizontal size={17} />
                 </button>
@@ -644,6 +658,26 @@ export default function WhatsAppConversationsPage() {
                   count={filter === "all" ? pendingCount : undefined}
                 />
               </div>
+
+              {advancedFiltersOpen && (
+                <div className="mt-2 flex items-center gap-2 rounded-xl border p-2" style={{ borderColor: BORDER, background: RAISED }}>
+                  <span className="mr-auto text-[9px] font-medium" style={{ color: MUTED }}>Type</span>
+                  {(["all", "contact", "group"] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setKindFilter(kind)}
+                      className="rounded-lg px-2.5 py-1.5 text-[9px] font-semibold"
+                      style={{
+                        background: kindFilter === kind ? "rgba(8,200,117,.14)" : "transparent",
+                        color: kindFilter === kind ? "#dfffee" : MUTED,
+                      }}
+                    >
+                      {kind === "all" ? "Tous" : kind === "contact" ? "Contacts" : "Groupes"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -680,7 +714,7 @@ export default function WhatsAppConversationsPage() {
                 </div>
               )}
 
-              {!loadingList && !listError && conversations.map((conversation) => (
+              {!loadingList && !listError && displayedConversations.map((conversation) => (
                 <ConversationListItem
                   key={conversation.id}
                   conversation={conversation}
