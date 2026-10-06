@@ -53,7 +53,10 @@ expect(player.includes("element.onplaying"), "browser TTFA must be measured when
 expect(player.includes("clientTtfaMs"), "browser must record click-to-audible TTFA");
 expect(player.includes("scheduleDecodedSegment"), "chat playback must schedule decoded Zenaba WAVs on one Web Audio timeline");
 expect(player.includes("decodeSegmentBuffer"), "chat playback must decode streamed Zenaba WAV segments");
-expect(player.includes("!owner.startsWith(\"notification:\")"), "automatic reminders must retain autoplay-safe fallback");
+expect(player.includes("notificationOwner"), "shared player must distinguish automatic reminder ownership");
+expect(player.includes("isToumaiVoiceAudioPrimed()"), "automatic reminders may use Web Audio only after a user gesture unlocked it");
+expect(player.includes("!notificationOwner || isToumaiVoiceAudioPrimed()"), "automatic reminders must retain an autoplay-safe fallback");
+expect(player.includes("wantsGaplessWebAudio && !notificationOwner"), "automatic reminders must never self-prime Web Audio without a gesture");
 expect(player.includes("on ne bloque PAS ici"), "chat stream must keep fetching the next segment while audio plays");
 expect(player.includes("[Toumai Voice] playback certified"), "DevTools must expose safe voice certification");
 expect(!player.includes("rawText, value"), "voice diagnostic must not log spoken text");
