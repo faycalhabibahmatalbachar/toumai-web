@@ -317,20 +317,44 @@ function parseSseChunk(
 
 export function RealtimeNotificationsBridge() {
   const { session } = useAuth();
+  const accountId = String(session?.user_id ?? "");
   const [items, setItems] = useState<ToastItem[]>([]);
   const seen = useRef<string[]>([]);
   const seenSet = useRef(new Set<string>());
+  const persistedSeen = useRef<string[]>([]);
+  const lastEventId = useRef("");
+  const hydratedAccount = useRef("");
 
-  const remember = useCallback((key: string) => {
-    if (seenSet.current.has(key)) return false;
-    seenSet.current.add(key);
-    seen.current.push(key);
-    if (seen.current.length > MAX_SEEN) {
-      const oldest = seen.current.shift();
-      if (oldest) seenSet.current.delete(oldest);
-    }
-    return true;
-  }, []);
+  const remember = useCallback(
+    (key: string, persistentId = "") => {
+      if (seenSet.current.has(key)) return false;
+      seenSet.current.add(key);
+      seen.current.push(key);
+      if (seen.current.length > MAX_SEEN) {
+        const oldest = seen.current.shift();
+        if (oldest) seenSet.current.delete(oldest);
+      }
+
+      // On ne persiste que les IDs opaques du serveur, jamais le fallback
+      // contenant titre/corps : aucun contenu de rappel en sessionStorage.
+      if (
+        accountId &&
+        persistentId &&
+        !persistedSeen.current.includes(persistentId)
+      ) {
+        persistedSeen.current.push(persistentId);
+        if (persistedSeen.current.length > MAX_SEEN) {
+          persistedSeen.current.shift();
+        }
+        saveStorageList(
+          persistentKey(SEEN_STORAGE_PREFIX, accountId),
+          persistedSeen.current,
+        );
+      }
+      return true;
+    },
+    [accountId],
+  );
 
   const receive = useCallback(
     (notification: RealtimeNotification, source: "sse" | "web_push") => {
@@ -341,22 +365,39 @@ export function RealtimeNotificationsBridge() {
       );
 
       const key = eventKey(notification);
-      if (!remember(key)) return;
+      const persistentId = String(notification.id ?? "").trim();
+      if (!remember(key, persistentId)) return;
 
-      void speakReminder(notification);
+      void speakReminder(notification, accountId);
       setItems((current) => [...current.slice(-2), { key, notification }]);
       window.setTimeout(() => {
         setItems((current) => current.filter((item) => item.key !== key));
       }, TOAST_MS);
     },
-    [remember],
+    [accountId, remember],
   );
 
   useEffect(() => {
-    if (!session) {
+    if (!session || !accountId) {
       seen.current = [];
       seenSet.current.clear();
+      persistedSeen.current = [];
+      lastEventId.current = "";
+      hydratedAccount.current = "";
+      setItems([]);
       return;
+    }
+
+    if (hydratedAccount.current !== accountId) {
+      const restored = storageList(
+        persistentKey(SEEN_STORAGE_PREFIX, accountId),
+      );
+      seen.current = [...restored];
+      seenSet.current = new Set(restored);
+      persistedSeen.current = [...restored];
+      lastEventId.current = readCursor(accountId);
+      hydratedAccount.current = accountId;
+      setItems([]);
     }
 
     let stopped = false;
@@ -367,15 +408,23 @@ export function RealtimeNotificationsBridge() {
       while (!stopped) {
         controller = new AbortController();
         try {
+          const headers: Record<string, string> = {
+            Accept: "text/event-stream",
+          };
+          if (lastEventId.current) {
+            headers["Last-Event-ID"] = lastEventId.current;
+          }
+
           const response = await authFetch("/notifications/stream", {
-            headers: { Accept: "text/event-stream" },
+            headers,
             cache: "no-store",
             signal: controller.signal,
           });
 
           if (response.status === 409) {
-            // Le temps réel est désactivé dans les préférences du compte.
-            await new Promise((resolve) => window.setTimeout(resolve, 60_000));
+            // Le temps réel est désactivé. Une réactivation depuis Réglages
+            // doit être observée rapidement sans polling agressif.
+            await new Promise((resolve) => window.setTimeout(resolve, 15_000));
             continue;
           }
           if (!response.ok || !response.body) {
@@ -391,12 +440,23 @@ export function RealtimeNotificationsBridge() {
             const { value, done } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
-            buffer = parseSseChunk(buffer, (notification) =>
-              receive(notification, "sse"),
+            buffer = parseSseChunk(
+              buffer,
+              (notification, eventId) => {
+                const cursor = eventId || String(notification.id ?? "").trim();
+                if (cursor) {
+                  lastEventId.current = cursor;
+                  writeCursor(accountId, cursor);
+                }
+                receive(notification, "sse");
+              },
             );
           }
         } catch (error) {
-          if (stopped || (error instanceof DOMException && error.name === "AbortError")) {
+          if (
+            stopped ||
+            (error instanceof DOMException && error.name === "AbortError")
+          ) {
             return;
           }
         }
@@ -412,7 +472,7 @@ export function RealtimeNotificationsBridge() {
       stopped = true;
       controller?.abort();
     };
-  }, [receive, session]);
+  }, [accountId, receive, session]);
 
   useEffect(() => {
     if (!session || typeof navigator === "undefined" || !navigator.serviceWorker) return;
