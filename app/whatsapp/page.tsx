@@ -46,9 +46,12 @@ import {
   getWaAutopilotAnalytics,
   getWaAutopilotLogs,
   getWaLiveConversations,
+  getWhatsAppOverview,
   type WaAutopilotAnalytics,
   type WaAutopilotLog,
   type WaLiveConversation,
+  type WaOverviewMetric,
+  type WhatsAppOverview,
 } from "@/lib/whatsapp-enterprise-api";
 import { useCached } from "@/lib/swr-cache";
 
@@ -99,10 +102,24 @@ export default function WhatsAppOverviewPage() {
     ttlMs: 5_000,
   });
 
+  const {
+    data: overview,
+    loading: overviewLoading,
+    error: overviewError,
+  } = useCached<WhatsAppOverview>(
+    `wa:overview:v1:${days}`,
+    () => getWhatsAppOverview(days),
+    { enabled: !!session, ttlMs: 15_000 },
+  );
+
+  // Compatibilité de rollout uniquement : les anciens agrégats ne sont lus
+  // que si le contrat Overview v1 n'est pas encore servi en production.
+  const useLegacyOverview = Boolean(overviewError);
+
   const { data: analytics, loading: analyticsLoading } = useCached<WaAutopilotAnalytics>(
     `wa:overview:analytics:${days}`,
     () => getWaAutopilotAnalytics(days),
-    { enabled: !!session, ttlMs: 15_000 },
+    { enabled: !!session && useLegacyOverview, ttlMs: 15_000 },
   );
 
   const { data: conversationsData, loading: conversationsLoading } = useCached(
@@ -124,12 +141,20 @@ export default function WhatsAppOverviewPage() {
   const { data: logs, loading: logsLoading } = useCached<WaAutopilotLog[]>(
     `wa:overview:logs:${days}`,
     () => loadLogsForPeriod(days),
-    { enabled: !!session, ttlMs: 30_000 },
+    { enabled: !!session && useLegacyOverview, ttlMs: 30_000 },
   );
 
-  const connected = etat?.code === "connecte" && etat.pret;
-  const connection = connectionPresentation(etat, etatLoading);
-  const chartData = useMemo(() => buildActivitySeries(logs ?? [], days), [logs, days]);
+  const connected = overview?.connection
+    ? overview.connection.status === "connected" && overview.connection.ready
+    : etat?.code === "connecte" && etat.pret;
+  const connection = overview?.connection
+    ? overviewConnectionPresentation(overview.connection)
+    : connectionPresentation(etat, etatLoading);
+  const connectionNumber = overview?.connection.display_phone || etat?.numero || "Aucun numéro lié";
+  const chartData = useMemo(
+    () => overview?.activity ? overviewActivitySeries(overview.activity) : buildActivitySeries(logs ?? [], days),
+    [overview, logs, days],
+  );
   const conversations = conversationsData?.conversations ?? [];
   const activeAutomations = useMemo(
     () =>
@@ -139,10 +164,15 @@ export default function WhatsAppOverviewPage() {
     [automationsData],
   );
 
-  const conversationKpi = conversationsData?.count ?? analytics?.kpis.conversations.value ?? 0;
-  const messageKpi = analytics?.kpis.messages.value ?? 0;
-  const responseKpi = analytics?.kpis.success_rate.value ?? 0;
-  const profileName = etat?.nom_profil?.trim() || "Mon espace";
+  const conversationMetric = overview?.metrics.conversations;
+  const messageMetric = overview?.metrics.messages_sent;
+  const responseMetric = overview?.metrics.response_rate;
+  const conversationKpi = conversationMetric?.value ?? analytics?.kpis.conversations.value ?? conversationsData?.count ?? 0;
+  const messageKpi = messageMetric?.value ?? analytics?.kpis.messages.value ?? 0;
+  const responseKpi = responseMetric?.value ?? (useLegacyOverview ? analytics?.kpis.success_rate.value ?? null : null);
+  const overviewDataLoading = overviewLoading || (useLegacyOverview && analyticsLoading);
+  const chartLoading = overviewLoading || (useLegacyOverview && logsLoading);
+  const profileName = overview?.connection.profile_name?.trim() || etat?.nom_profil?.trim() || "Mon espace";
   const initials = makeInitials(profileName);
 
   async function handleContactSync() {
@@ -245,10 +275,35 @@ export default function WhatsAppOverviewPage() {
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-            <MetricCard label="Conversations" value={formatInteger(conversationKpi)} delta={analytics?.kpis.conversations.delta} unit={analytics?.kpis.conversations.delta_unit} loading={analyticsLoading} icon={<MessageCircle size={27} />} tone="green" />
-            <MetricCard label="Messages envoyés" value={formatInteger(messageKpi)} delta={analytics?.kpis.messages.delta} unit={analytics?.kpis.messages.delta_unit} loading={analyticsLoading} icon={<Send size={27} />} tone="orange" />
-            <MetricCard label="Taux de réponse" value={`${formatDecimal(responseKpi)}%`} delta={analytics?.kpis.success_rate.delta} unit={analytics?.kpis.success_rate.delta_unit} loading={analyticsLoading} icon={<Clock3 size={28} />} tone="purple" />
-            <ConnectionCard connection={connection} number={etat?.numero || "Aucun numéro lié"} connected={connected} loading={etatLoading} />
+            <MetricCard
+              label="Conversations"
+              value={formatInteger(conversationKpi)}
+              delta={metricDelta(conversationMetric, analytics?.kpis.conversations.delta)}
+              unit={metricDeltaUnit(conversationMetric, analytics?.kpis.conversations.delta_unit)}
+              loading={overviewDataLoading}
+              icon={<MessageCircle size={27} />}
+              tone="green"
+            />
+            <MetricCard
+              label="Messages envoyés"
+              value={formatInteger(messageKpi)}
+              delta={metricDelta(messageMetric, analytics?.kpis.messages.delta)}
+              unit={metricDeltaUnit(messageMetric, analytics?.kpis.messages.delta_unit)}
+              loading={overviewDataLoading}
+              icon={<Send size={27} />}
+              tone="orange"
+            />
+            <MetricCard
+              label="Taux de réponse"
+              value={responseKpi === null ? "—" : `${formatDecimal(responseKpi)}%`}
+              delta={metricDelta(responseMetric, useLegacyOverview ? analytics?.kpis.success_rate.delta : null)}
+              unit={metricDeltaUnit(responseMetric, useLegacyOverview ? analytics?.kpis.success_rate.delta_unit : undefined)}
+              loading={overviewDataLoading}
+              note={responseMetric?.instrumented === false ? "Non instrumenté sur tous les messages" : undefined}
+              icon={<Clock3 size={28} />}
+              tone="purple"
+            />
+            <ConnectionCard connection={connection} number={connectionNumber} connected={connected} loading={!overview && etatLoading} />
           </section>
 
           <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(300px,.95fr)]">
@@ -280,7 +335,7 @@ export default function WhatsAppOverviewPage() {
               </div>
 
               <div className="h-[203px] px-4 pb-3 pt-2 md:px-5">
-                {logsLoading ? (
+                {chartLoading ? (
                   <div className="h-full animate-pulse rounded-xl bg-white/[0.025]" />
                 ) : chartData.some((point) => point.sent > 0 || point.received > 0) ? (
                   <ActivityChart data={chartData} />
@@ -481,7 +536,7 @@ function Card({ children, className = "" }: { children: ReactNode; className?: s
   return <section className={`rounded-[14px] border ${className}`} style={{ background: SURFACE, borderColor: BORDER }}>{children}</section>;
 }
 
-function MetricCard({ label, value, delta, unit, loading, icon, tone }: { label: string; value: string; delta?: number | null; unit?: "pct" | "pts"; loading: boolean; icon: ReactNode; tone: "green" | "orange" | "purple" }) {
+function MetricCard({ label, value, delta, unit, loading, note, icon, tone }: { label: string; value: string; delta?: number | null; unit?: "pct" | "pts"; loading: boolean; note?: string; icon: ReactNode; tone: "green" | "orange" | "purple" }) {
   const palette = { green: { bg: "#073d2c", fg: "#e9fff5" }, orange: { bg: "#4a2c13", fg: "#fff5e7" }, purple: { bg: "#3c2058", fg: "#f7edff" } }[tone];
   const trend = delta ?? null;
   const positive = trend !== null && trend >= 0;
@@ -494,7 +549,7 @@ function MetricCard({ label, value, delta, unit, loading, icon, tone }: { label:
           <strong className="text-[28px] font-semibold leading-none tracking-[-0.025em]">{loading ? "—" : value}</strong>
           {trend !== null && <span className="mb-0.5 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: positive ? GREEN : "#ff6b6b" }}>{positive ? <ArrowUp size={14} /> : <ArrowDown size={14} />}{Math.abs(trend).toLocaleString("fr-FR", { maximumFractionDigits: 1 })}{unit === "pts" ? " pts" : "%"}</span>}
         </div>
-        <p className="mt-2 text-[11px]" style={{ color: MUTED }}>vs période précédente</p>
+        <p className="mt-2 text-[11px]" style={{ color: MUTED }}>{note || "vs période précédente"}</p>
       </div>
     </Card>
   );
@@ -547,6 +602,43 @@ function ConversationRow({ conversation, index }: { conversation: WaLiveConversa
 
 function Toggle({ checked, disabled, label, onClick }: { checked: boolean; disabled: boolean; label: string; onClick: () => void }) {
   return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onClick} className="relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50" style={{ background: checked ? GREEN : "#33414c" }}><span className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: checked ? 24 : 4 }} /></button>;
+}
+
+function overviewActivitySeries(
+  activity: WhatsAppOverview["activity"],
+): ActivityPoint[] {
+  const formatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
+  return activity.map((point) => {
+    const date = new Date(point.timestamp || point.date);
+    return {
+      date: point.date,
+      label: Number.isNaN(date.getTime()) ? point.date : formatter.format(date),
+      sent: point.sent,
+      received: point.received,
+    };
+  });
+}
+
+function metricDelta(metric: WaOverviewMetric | undefined, legacy?: number | null) {
+  return metric?.comparison?.value ?? legacy ?? null;
+}
+
+function metricDeltaUnit(
+  metric: WaOverviewMetric | undefined,
+  legacy?: "pct" | "pts",
+): "pct" | "pts" | undefined {
+  if (metric?.comparison?.unit === "percentage_points") return "pts";
+  if (metric?.comparison) return "pct";
+  return legacy;
+}
+
+function overviewConnectionPresentation(
+  connection: WhatsAppOverview["connection"],
+) {
+  if (connection.status === "connected") return { label: connection.label || "WhatsApp connecté", color: GREEN };
+  if (connection.status === "connecting") return { label: connection.label || "Connexion en cours", color: ORANGE };
+  if (connection.status === "degraded") return { label: connection.label || "Connexion dégradée", color: ORANGE };
+  return { label: connection.label || "WhatsApp non connecté", color: FAINT };
 }
 
 async function loadLogsForPeriod(days: PeriodDays): Promise<WaAutopilotLog[]> {
