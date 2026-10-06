@@ -684,14 +684,14 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Résumer" }).click();
   await page.getByRole("dialog", { name: "Résumé de la conversation" }).waitFor();
   await page.getByText("Mahamat demande à être rappelé.", { exact: false }).waitFor();
-  await page.getByRole("dialog", { name: "Résumé de la conversation" }).getByRole("button", { name: "Fermer" }).click();
+  await page.getByRole("dialog", { name: "Résumé de la conversation" }).getByText("Fermer", { exact: true }).click();
 
   await page.getByRole("button", { name: "Traduire" }).click();
   await page.getByRole("dialog", { name: "Traduire le dernier message reçu" }).waitFor();
   await page.getByRole("button", { name: "Français" }).click();
   await page.getByRole("dialog", { name: "Traduction" }).waitFor();
   await page.getByText("Peux-tu me rappeler ?", { exact: true }).waitFor();
-  await page.getByRole("dialog", { name: "Traduction" }).getByRole("button", { name: "Fermer" }).click();
+  await page.getByRole("dialog", { name: "Traduction" }).getByText("Fermer", { exact: true }).click();
 
   // Créer une vraie tâche passe par le backend et une confirmation du formulaire.
   await page.getByRole("button", { name: "Créer une tâche" }).click();
