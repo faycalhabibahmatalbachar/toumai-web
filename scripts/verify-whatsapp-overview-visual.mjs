@@ -297,6 +297,20 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const url = new URL(route.request().url());
   const path = url.pathname.replace("/api/v1", "");
   let data = {};
+  if (path === "/whatsapp/events") {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: [
+        "id: waevt-ready",
+        "event: stream.ready",
+        'data: {"id":"waevt-ready","type":"stream.ready","scopes":[],"occurredAt":"2026-10-06T16:00:00+00:00","version":1}',
+        "",
+        "",
+      ].join("\n"),
+    });
+    return;
+  }
   if (path === "/whatsapp/etat") data = etat;
   else if (path === "/whatsapp/overview") data = overview;
   else if (path === "/whatsapp/autopilot/analytics") data = analytics;
