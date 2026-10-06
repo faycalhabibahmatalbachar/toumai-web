@@ -61,40 +61,58 @@ jobs:
           echo "::error::No attested backend production build became available."
           exit 1
 
-      - name: Verify protected control-center routes exist
+      - name: Wait for protected control-center routes
         shell: bash
         run: |
           set -euo pipefail
-          check_protected_route() {
-            name="$1"
-            method="$2"
-            url="$3"
+
+          route_status() {
+            method="$1"
+            url="$2"
             if [ "$method" = "POST" ]; then
-              status="$(curl -sS -o /tmp/wa-probe.json -w '%{http_code}' --connect-timeout 10 --max-time 20                 -X POST -H 'Content-Type: application/json' -d '{"to":"23566000000","message":"probe"}' "$url" || true)"
+              curl -sS -o /tmp/wa-probe.json -w '%{http_code}' --connect-timeout 10 --max-time 20 \
+                -X POST -H 'Content-Type: application/json' -d '{"to":"23566000000","message":"probe"}' "$url" || true
             else
-              status="$(curl -sS -o /tmp/wa-probe.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" || true)"
+              curl -sS -o /tmp/wa-probe.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" || true
             fi
-            case "$status" in
-              401|403|428)
-                echo "$name: route exists and authentication gate answered HTTP $status"
-                ;;
-              404|405|000|"")
-                echo "::error::$name is not deployed correctly (HTTP $status)"
-                cat /tmp/wa-probe.json 2>/dev/null || true
-                exit 1
-                ;;
-              *)
-                echo "::error::$name returned unexpected HTTP $status before authentication"
-                cat /tmp/wa-probe.json 2>/dev/null || true
-                exit 1
-                ;;
+          }
+
+          protected_ok() {
+            case "$1" in
+              401|403|428) return 0 ;;
+              *) return 1 ;;
             esac
           }
 
-          check_protected_route "conversations" GET "$API_BASE/whatsapp/conversations?limit=1"
-          check_protected_route "conversation messages" GET "$API_BASE/whatsapp/conversation/messages?chat_id=probe"
-          check_protected_route "message status" GET "$API_BASE/whatsapp/message/status?msg_id=probe"
-          check_protected_route "manual send" POST "$API_BASE/whatsapp/message/send"
+          for attempt in $(seq 1 72); do
+            conversations="$(route_status GET "$API_BASE/whatsapp/conversations?limit=1")"
+            history="$(route_status GET "$API_BASE/whatsapp/conversation/messages?chat_id=probe")"
+            status="$(route_status GET "$API_BASE/whatsapp/message/status?msg_id=probe")"
+            send="$(route_status POST "$API_BASE/whatsapp/message/send")"
+
+            build="$(curl -fsS --connect-timeout 10 --max-time 20 "$BUILD_URL" || true)"
+            observed="$(BUILD="$build" python - <<'PY'
+          import json, os
+          try:
+              payload=json.loads(os.environ.get("BUILD") or "{}")
+              print((payload.get("data") or {}).get("commit_sha") or "")
+          except Exception:
+              print("")
+          PY
+            )"
+
+            echo "attempt=$attempt observed_sha=${observed:-unknown} conversations=$conversations history=$history status=$status send=$send"
+
+            if protected_ok "$conversations" && protected_ok "$history" && protected_ok "$status" && protected_ok "$send"; then
+              echo "All WhatsApp Control Center backend routes are deployed and protected."
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "::error::WhatsApp Control Center routes were not deployed within the bounded window."
+          exit 1
 
       - name: Upload backend production evidence
         if: always()
