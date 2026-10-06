@@ -65,6 +65,24 @@ const conversations = [
       status: "delivered",
     },
   },
+  {
+    id: "255855597453404@lid",
+    name: "255855597453404@lid",
+    number: null,
+    kind: "contact",
+    unread_count: 1,
+    pending: false,
+    last_message: {
+      id: "m-lid",
+      chat_id: "255855597453404@lid",
+      text: "Bonjour",
+      from_me: false,
+      sender: "255855597453404@lid",
+      type: "text",
+      timestamp_ms: now - 7_200_000,
+      status: null,
+    },
+  },
 ];
 
 const threadMessages = [
@@ -495,13 +513,33 @@ async function certifyConversations() {
     `Sidebar WhatsApp inattendue: ${desktopSidebar.width}px`,
   );
 
+  const conversationColumn = await page.locator("main > aside").boundingBox();
+  assert(Boolean(conversationColumn), "Colonne Conversations absente.");
+  assert(
+    conversationColumn.width >= 470 && conversationColumn.width <= 490,
+    `Colonne Conversations attendue ~480px à 1440px, obtenue ${conversationColumn.width}px`,
+  );
+
+  await page.getByText("Assistant IA", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Réponse suggérée" }).waitFor();
+  await page.getByText("Aujourd’hui", { exact: true }).waitFor();
+  await page.getByText("Contact WhatsApp", { exact: true }).waitFor();
+  assert(
+    (await page.getByText(/@lid/i).count()) === 0,
+    "Un identifiant technique @lid ne doit jamais être visible dans l’interface.",
+  );
+  assert(
+    (await page.getByText("Baileys live", { exact: true }).count()) === 0,
+    "Le fournisseur technique ne doit pas être exposé dans le workspace.",
+  );
+
   await noHorizontalOverflow(page, "conversations-workspace");
   await page.screenshot({ path: `${artifacts}/conversations-enterprise.png`, fullPage: false });
 
-  const replyBox = page.getByPlaceholder("Répondre à Mahamat Ali");
+  const replyBox = page.getByPlaceholder("Écrire un message…");
   await replyBox.waitFor();
   await replyBox.fill("Je vous rappelle dans quelques minutes.");
-  await page.getByRole("button", { name: "Vérifier" }).click();
+  await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
   await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
   const reviewDialog = page.getByRole("dialog");
   await reviewDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
@@ -592,7 +630,7 @@ async function certifyRetired404Fallbacks() {
     "Le mode compatibilité ne doit pas réapparaître après un 404 moderne.",
   );
 
-  await page.getByRole("banner").getByRole("button", { name: "Nouveau message" }).click();
+  await page.getByRole("button", { name: "Nouveau message" }).first().click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
@@ -637,7 +675,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "retired-fallbacks-404"],
+    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "retired-fallbacks-404"],
   }, null, 2),
 );
 

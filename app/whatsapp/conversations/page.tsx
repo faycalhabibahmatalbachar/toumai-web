@@ -2,23 +2,31 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Bot,
   BookOpen,
+  Check,
   CheckCheck,
-  ChevronRight,
   CircleAlert,
+  Info,
+  Languages,
   LayoutDashboard,
+  ListTodo,
   Menu,
   MessageCircle,
+  MoreVertical,
+  Paperclip,
   Plug,
   RefreshCw,
   Search,
   Send,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
+  Smile,
+  Sparkles,
   Users,
   Workflow,
   X,
@@ -46,7 +54,6 @@ const TEXT = "#f4f7f9";
 const MUTED = "#9ba8b3";
 const FAINT = "#6f7f8d";
 const GREEN = "#08c875";
-const BLUE = "#2f8cff";
 const ORANGE = "#ff9518";
 
 const NAV_ITEMS = [
@@ -84,8 +91,6 @@ export default function WhatsAppConversationsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [conversationSource, setConversationSource] = useState<"baileys" | "autopilot-log">("baileys");
-  const [threadSource, setThreadSource] = useState<"baileys" | "autopilot-log">("baileys");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const visibleMessages = useMemo(
@@ -96,57 +101,20 @@ export default function WhatsAppConversationsPage() {
     [messages],
   );
 
-  useEffect(() => {
-    if (!session) return;
-    const timer = window.setTimeout(() => {
-      void loadConversations(query, filter);
-    }, query ? 220 : 0);
-    return () => window.clearTimeout(timer);
-  }, [session, query, filter]);
+  const unreadCount = useMemo(
+    () => conversations.filter((conversation) => conversation.unread_count > 0).length,
+    [conversations],
+  );
+  const pendingCount = useMemo(
+    () => conversations.filter((conversation) => conversation.pending).length,
+    [conversations],
+  );
 
-  useEffect(() => {
-    if (!session) return;
-    const requested =
-      typeof window === "undefined"
-        ? ""
-        : new URLSearchParams(window.location.search).get("chat") || "";
-    if (!requested) return;
-    setSelected((current) =>
-      current || {
-        id: requested,
-        name: requested.split("@", 1)[0],
-        number: requested.endsWith("@s.whatsapp.net") ? requested.split("@", 1)[0] : null,
-        kind: requested.endsWith("@g.us") ? "group" : "contact",
-        unread_count: 0,
-        pending: false,
-        last_message: {
-          id: "",
-          chat_id: requested,
-          text: "",
-          from_me: false,
-          sender: "",
-          type: "text",
-          timestamp_ms: 0,
-        },
-      },
-    );
-  }, [session]);
-
-  useEffect(() => {
-    if (!selected || !session) {
-      setMessages([]);
-      setReplyDraft("");
-      return;
-    }
-    setReplyDraft("");
-    void loadThread(selected);
-  }, [selected?.id, session]);
-
-  async function loadConversations(
+  const loadConversations = useCallback(async (
     search: string,
     selectedFilter: Filter,
     options: { append?: boolean; offset?: number } = {},
-  ) {
+  ) => {
     const append = Boolean(options.append);
     const offset = options.offset ?? 0;
     if (append) setLoadingMore(true);
@@ -168,7 +136,6 @@ export default function WhatsAppConversationsPage() {
       });
       setHasMore(data.has_more);
       setNextOffset(data.next_offset);
-      setConversationSource(data.source);
 
       const requested =
         typeof window === "undefined"
@@ -178,12 +145,11 @@ export default function WhatsAppConversationsPage() {
         const exact = data.conversations.find((item) => item.id === requested);
         if (exact) setSelected(exact);
       } else if (
-        !selected &&
         data.conversations.length &&
         typeof window !== "undefined" &&
         window.innerWidth >= 1024
       ) {
-        setSelected(data.conversations[0]);
+        setSelected((current) => current || data.conversations[0]);
       }
     } catch (error) {
       if (!append) setConversations([]);
@@ -192,24 +158,71 @@ export default function WhatsAppConversationsPage() {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
     }
-  }
+  }, []);
 
-  async function loadThread(conversation: WaLiveConversation) {
+  const loadThread = useCallback(async (conversation: WaLiveConversation) => {
     setLoadingThread(true);
     setThreadError(null);
     try {
       const data = await getWaConversationMessages(conversation.id, 120);
       setMessages(data.messages);
-      setThreadSource(data.source);
     } catch (error) {
       setMessages([]);
       setThreadError(errorMessage(error, "history"));
     } finally {
       setLoadingThread(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    const timer = window.setTimeout(() => {
+      void loadConversations(query, filter);
+    }, query ? 220 : 0);
+    return () => window.clearTimeout(timer);
+  }, [session, query, filter, loadConversations]);
+
+  useEffect(() => {
+    if (!session || typeof window === "undefined") return;
+    const requested = new URLSearchParams(window.location.search).get("chat") || "";
+    if (!requested) return;
+
+    const timer = window.setTimeout(() => {
+      setSelected((current) =>
+        current || {
+          id: requested,
+          name: "Contact WhatsApp",
+          number: waNumberFromId(requested),
+          kind: requested.endsWith("@g.us") ? "group" : "contact",
+          unread_count: 0,
+          pending: false,
+          last_message: {
+            id: "",
+            chat_id: requested,
+            text: "",
+            from_me: false,
+            sender: "",
+            type: "text",
+            timestamp_ms: 0,
+          },
+        },
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [session]);
+
+  useEffect(() => {
+    if (!selected || !session) return;
+    const timer = window.setTimeout(() => {
+      void loadThread(selected);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [selected, session, loadThread]);
 
   function chooseConversation(conversation: WaLiveConversation) {
+    setReplyDraft("");
+    setMessages([]);
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -277,100 +290,95 @@ export default function WhatsAppConversationsPage() {
       )}
 
       <div className="lg:pl-[253px]">
-        <header
-          className="sticky top-0 z-40 flex h-[70px] items-center border-b px-4 md:px-6"
-          style={{
-            background: "rgba(6,17,26,.96)",
-            borderColor: BORDER,
-            backdropFilter: "blur(16px)",
-          }}
-        >
-          <button
-            type="button"
-            aria-label="Ouvrir la navigation"
-            onClick={() => setMobileNavOpen(true)}
-            className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg hover:bg-white/5 lg:hidden"
-            style={{ color: MUTED }}
-          >
-            <Menu size={20} />
-          </button>
-
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0ac86d]">
-              <WhatsAppIcon size={24} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Link href="/whatsapp" className="text-[15px] font-semibold hover:opacity-90">
-                  WhatsApp
-                </Link>
-                <ChevronRight size={15} color={FAINT} />
-                <span className="truncate text-[13px]" style={{ color: MUTED }}>
-                  Conversations
-                </span>
-              </div>
-              <p className="mt-0.5 hidden text-[10px] sm:block" style={{ color: FAINT }}>
-                Centre de conversation Toumaï
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={openNewMessage}
-            className="ml-auto flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(8,200,117,.18)]"
-            style={{ background: GREEN }}
-          >
-            <Send size={16} />
-            <span className="hidden sm:inline">Nouveau message</span>
-          </button>
-        </header>
-
-        <main className="grid h-[calc(100dvh-70px)] min-h-0 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <main className="grid h-dvh min-h-0 lg:grid-cols-[420px_minmax(0,1fr)] xl:grid-cols-[480px_minmax(0,1fr)] 2xl:grid-cols-[500px_minmax(0,1fr)]">
           <aside
             className={`${selected ? "hidden lg:flex" : "flex"} min-h-0 flex-col border-r`}
             style={{ borderColor: BORDER, background: SURFACE }}
           >
-            <div className="border-b px-4 pb-3 pt-4" style={{ borderColor: BORDER }}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-[16px] font-semibold tracking-[-0.01em]">Conversations</h1>
-                  <p className="mt-1 text-[11px]" style={{ color: MUTED }}>
-                    {conversations.length ? `${conversations.length} chargée${conversations.length > 1 ? "s" : ""}` : "Historique WhatsApp"}
-                  </p>
-                </div>
-                <SourceBadge source={conversationSource} />
+            <div
+              className="flex min-h-[76px] items-center gap-3 border-b px-4"
+              style={{ borderColor: BORDER, background: PAGE_BG }}
+            >
+              <button
+                type="button"
+                aria-label="Ouvrir la navigation"
+                onClick={() => setMobileNavOpen(true)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-white/5 lg:hidden"
+                style={{ color: MUTED }}
+              >
+                <Menu size={20} />
+              </button>
+
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#0ac86d] shadow-[0_8px_28px_rgba(8,200,117,.16)]">
+                <WhatsAppIcon size={26} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-[18px] font-semibold tracking-[-0.02em]">WhatsApp</h1>
+                <p className="mt-0.5 truncate text-[10px]" style={{ color: MUTED }}>
+                  Centre de conversation Toumaï
+                </p>
               </div>
 
-              <div className="relative mt-4">
-                <Search className="absolute left-3 top-[11px]" size={17} color={MUTED} />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Rechercher"
-                  className="h-10 w-full rounded-xl border bg-transparent pl-10 pr-3 text-sm outline-none focus:border-[#2f8cff]"
-                  style={{ borderColor: BORDER, background: RAISED }}
+              <button
+                type="button"
+                onClick={openNewMessage}
+                className="ml-auto flex h-10 shrink-0 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold text-white shadow-[0_8px_28px_rgba(8,200,117,.16)]"
+                style={{ background: GREEN }}
+              >
+                <Send size={15} />
+                <span className="hidden xl:inline">Nouveau message</span>
+              </button>
+            </div>
+
+            <div className="border-b px-4 pb-3 pt-3" style={{ borderColor: BORDER }}>
+              <h2 className="sr-only">Conversations</h2>
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2" size={17} color={MUTED} />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Rechercher une conversation…"
+                    className="h-11 w-full rounded-xl border bg-transparent pl-10 pr-3 text-[12px] outline-none transition focus:border-[#2f8cff]"
+                    style={{ borderColor: BORDER, background: RAISED }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  title="Filtres avancés bientôt disponibles"
+                  aria-label="Filtres avancés"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border opacity-70"
+                  style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                >
+                  <SlidersHorizontal size={17} />
+                </button>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <FilterButton
+                  active={filter === "all"}
+                  onClick={() => setFilter("all")}
+                  label="Toutes"
+                  count={filter === "all" ? conversations.length : undefined}
+                />
+                <FilterButton
+                  active={filter === "unread"}
+                  onClick={() => setFilter("unread")}
+                  label="Non lues"
+                  count={filter === "all" ? unreadCount : undefined}
+                />
+                <FilterButton
+                  active={filter === "pending"}
+                  onClick={() => setFilter("pending")}
+                  label="En attente"
+                  count={filter === "all" ? pendingCount : undefined}
                 />
               </div>
-
-              <div className="mt-3 flex items-center gap-1 rounded-xl p-1" style={{ background: RAISED }}>
-                <FilterButton active={filter === "all"} onClick={() => setFilter("all")} label="Toutes" />
-                <FilterButton active={filter === "pending"} onClick={() => setFilter("pending")} label="En attente" />
-                <FilterButton active={filter === "unread"} onClick={() => setFilter("unread")} label="Non lues" />
-              </div>
-
-              {conversationSource === "autopilot-log" && !loadingList && !listError && (
-                <div className="mt-3 flex items-start gap-2 rounded-xl border px-3 py-2" style={{ borderColor: "rgba(255,149,24,.24)", background: "rgba(255,149,24,.045)" }}>
-                  <ShieldCheck size={14} className="mt-0.5 shrink-0" color={ORANGE} />
-                  <p className="text-[10px] leading-4" style={{ color: "#d8ad72" }}>
-                    Mode compatibilité : seuls les échanges réellement journalisés par Toumaï sont affichés.
-                  </p>
-                </div>
-              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {loadingList && [0, 1, 2, 3, 4, 5].map((index) => (
+              {loadingList && [0, 1, 2, 3, 4, 5, 6].map((index) => (
                 <div key={index} className="mx-3 my-2 h-[72px] animate-pulse rounded-xl bg-white/[0.025]" />
               ))}
 
@@ -434,69 +442,88 @@ export default function WhatsAppConversationsPage() {
             </div>
           </aside>
 
-          <section className={`${selected ? "flex" : "hidden lg:flex"} min-h-0 min-w-0 flex-col`}>
+          <section className={`${selected ? "flex" : "hidden lg:flex"} min-h-0 min-w-0 flex-col`} style={{ background: PAGE_BG }}>
             {!selected ? (
               <EmptyConversationState onNewMessage={openNewMessage} />
             ) : (
               <>
                 <div
-                  className="flex min-h-[68px] items-center gap-3 border-b px-4 md:px-5"
+                  className="flex min-h-[76px] items-center gap-3 border-b px-4 md:px-5"
                   style={{ borderColor: BORDER, background: SURFACE }}
                 >
                   <button
                     type="button"
                     aria-label="Retour aux conversations"
                     onClick={backToConversationList}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl hover:bg-white/5 lg:hidden"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-white/5 lg:hidden"
                     style={{ color: MUTED }}
                   >
                     <ArrowLeft size={18} />
                   </button>
 
-                  <Avatar name={selected.name} kind={selected.kind} size="lg" />
+                  <Avatar name={displayConversationName(selected)} kind={selected.kind} size="lg" />
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
-                      <h2 className="truncate text-[14px] font-semibold">{selected.name}</h2>
+                      <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+                        {displayConversationName(selected)}
+                      </h2>
                       {selected.pending && (
-                        <span className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold" style={{ background: "rgba(255,149,24,.12)", color: ORANGE }}>
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold"
+                          style={{ background: "rgba(255,149,24,.12)", color: ORANGE }}
+                        >
                           En attente
                         </span>
                       )}
                     </div>
                     <p className="mt-0.5 truncate text-[10px]" style={{ color: MUTED }}>
-                      {selected.number
-                        ? `+${selected.number}`
-                        : selected.kind === "group"
-                          ? "Groupe WhatsApp"
-                          : selected.id}
+                      {displayConversationSecondary(selected)}
                     </p>
                   </div>
 
-                  <SourceBadge source={threadSource} compact />
-
                   <button
                     type="button"
-                    onClick={() => void loadThread(selected)}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl border hover:bg-white/5"
-                    style={{ borderColor: BORDER, color: MUTED }}
-                    aria-label="Actualiser la conversation"
+                    disabled
+                    title="Recherche dans la conversation bientôt disponible"
+                    aria-label="Rechercher dans la conversation"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border opacity-75"
+                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
                   >
-                    <RefreshCw size={15} className={loadingThread ? "animate-spin" : ""} />
+                    <Search size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    title="Informations du contact bientôt disponibles"
+                    aria-label="Informations du contact"
+                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
+                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                  >
+                    <Info size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    title="Plus d’options bientôt disponibles"
+                    aria-label="Plus d’options"
+                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
+                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                  >
+                    <MoreVertical size={17} />
                   </button>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-7">
-                  {threadSource === "autopilot-log" && !loadingThread && !threadError && (
-                    <div className="mx-auto mb-4 flex max-w-[760px] items-center gap-2 rounded-xl border px-3 py-2" style={{ borderColor: "rgba(255,149,24,.22)", background: "rgba(255,149,24,.04)" }}>
-                      <ShieldCheck size={14} color={ORANGE} />
-                      <p className="text-[10px]" style={{ color: "#d4ae7b" }}>
-                        Historique partiel — seuls les échanges journalisés par Toumaï sont visibles.
-                      </p>
-                    </div>
-                  )}
-
+                <div
+                  className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-6 lg:px-8"
+                  style={{
+                    backgroundColor: "#06131c",
+                    backgroundImage:
+                      "radial-gradient(circle at 20% 20%, rgba(8,200,117,.025) 0 1px, transparent 1.5px), radial-gradient(circle at 80% 65%, rgba(255,255,255,.018) 0 1px, transparent 1.5px)",
+                    backgroundSize: "38px 38px, 52px 52px",
+                  }}
+                >
                   {loadingThread && (
-                    <div className="mx-auto max-w-[760px] space-y-3">
+                    <div className="mx-auto max-w-[920px] space-y-3">
                       {[0, 1, 2, 3].map((index) => (
                         <div key={index} className="h-16 animate-pulse rounded-2xl bg-white/[0.025]" />
                       ))}
@@ -504,7 +531,7 @@ export default function WhatsAppConversationsPage() {
                   )}
 
                   {!loadingThread && threadError && (
-                    <div className="mx-auto max-w-[760px] rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">
+                    <div className="mx-auto max-w-[920px] rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-200">
                       {threadError}
                     </div>
                   )}
@@ -522,45 +549,93 @@ export default function WhatsAppConversationsPage() {
                   )}
 
                   {!loadingThread && !threadError && visibleMessages.length > 0 && (
-                    <div className="mx-auto flex max-w-[760px] flex-col gap-2.5">
-                      {visibleMessages.map((message, index) => (
-                        <MessageBubble
-                          key={message.id || `${message.timestamp_ms}-${index}`}
-                          message={message}
-                        />
-                      ))}
+                    <div className="mx-auto w-full max-w-[980px]">
+                      <ThreadMessages messages={visibleMessages} />
                     </div>
                   )}
                 </div>
 
-                <div className="border-t px-3 py-3 md:px-5" style={{ borderColor: BORDER, background: SURFACE }}>
-                  <div className="mx-auto max-w-[820px]">
+                <div className="border-t px-3 pt-2.5 md:px-5" style={{ borderColor: BORDER, background: SURFACE }}>
+                  <div className="mx-auto max-w-[980px]">
+                    <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+                      <span
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[10px] font-semibold"
+                        style={{ background: "rgba(139,92,246,.10)", color: "#c4a8ff" }}
+                      >
+                        <Sparkles size={13} />
+                        Assistant IA
+                      </span>
+                      <AiAction icon={<Sparkles size={13} />} label="Réponse suggérée" />
+                      <AiAction icon={<MessageCircle size={13} />} label="Résumer" />
+                      <AiAction icon={<Languages size={13} />} label="Traduire" />
+                      <AiAction icon={<ListTodo size={13} />} label="Créer une tâche" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-3 pb-3 md:px-5" style={{ background: SURFACE }}>
+                  <div className="mx-auto max-w-[980px]">
                     <div
                       className="flex items-end gap-2 rounded-[16px] border p-2"
                       style={{ borderColor: BORDER, background: RAISED }}
                     >
+                      <button
+                        type="button"
+                        disabled
+                        aria-label="Emoji"
+                        title="Emoji bientôt disponible"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
+                        style={{ color: MUTED }}
+                      >
+                        <Smile size={19} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        aria-label="Joindre un fichier"
+                        title="Pièces jointes bientôt disponibles"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
+                        style={{ color: MUTED }}
+                      >
+                        <Paperclip size={19} />
+                      </button>
+
                       <textarea
                         value={replyDraft}
                         onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
-                        placeholder={`Répondre à ${selected.name}`}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey && replyDraft.trim()) {
+                            event.preventDefault();
+                            openReplyReview();
+                          }
+                        }}
+                        placeholder="Écrire un message…"
                         rows={1}
-                        className="min-h-10 max-h-32 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
+                        className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
                       />
+
+                      <span
+                        className="hidden shrink-0 items-center gap-1.5 px-2 text-[9px] lg:inline-flex"
+                        style={{ color: FAINT }}
+                      >
+                        <ShieldCheck size={14} color={GREEN} />
+                        Confirmation avant envoi
+                      </span>
 
                       <button
                         type="button"
                         disabled={!replyDraft.trim()}
                         onClick={openReplyReview}
-                        className="flex h-10 shrink-0 items-center gap-2 rounded-xl px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35"
+                        aria-label="Vérifier l’envoi"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
                         style={{ background: GREEN }}
                       >
-                        <Send size={15} />
-                        <span className="hidden sm:inline">Vérifier</span>
+                        <Send size={18} />
                       </button>
                     </div>
                     <div className="mt-1.5 flex items-center justify-between px-1 text-[9px]" style={{ color: FAINT }}>
-                      <span>Confirmation requise avant chaque envoi.</span>
-                      <span>{replyDraft.length}/4096</span>
+                      <span className="lg:hidden">Confirmation requise avant chaque envoi.</span>
+                      <span className="ml-auto">{replyDraft.length}/4096</span>
                     </div>
                   </div>
                 </div>
@@ -636,9 +711,13 @@ function SidebarContent() {
             Overview
           </Link>
           <div
-            className="flex h-9 items-center rounded-lg px-3 text-[11px] font-semibold"
-            style={{ color: TEXT, background: "rgba(255,255,255,.045)" }}
+            className="relative flex h-10 items-center overflow-hidden rounded-xl px-3 text-[11px] font-semibold"
+            style={{
+              color: "#e9fff5",
+              background: "linear-gradient(90deg, rgba(8,200,117,.22), rgba(8,200,117,.10))",
+            }}
           >
+            <span className="absolute inset-y-1 left-0 w-[3px] rounded-r-full" style={{ background: GREEN }} />
             Conversations
           </div>
           <Link
@@ -678,21 +757,24 @@ function ConversationListItem({
   onClick: () => void;
 }) {
   const preview = safeWhatsAppVisibleText(conversation.last_message.text) || "Message WhatsApp";
+  const name = displayConversationName(conversation);
   return (
     <button
       type="button"
       onClick={onClick}
-      className="relative flex w-full items-center gap-3 border-b px-4 py-3 text-left transition hover:bg-white/[0.025]"
+      className="relative flex w-full items-center gap-3 border-b px-4 py-3 text-left transition hover:bg-white/[0.03]"
       style={{
         borderColor: BORDER,
-        background: active ? "rgba(8,200,117,.055)" : "transparent",
+        background: active
+          ? "linear-gradient(90deg, rgba(8,200,117,.13), rgba(8,200,117,.055))"
+          : "transparent",
       }}
     >
       {active && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full" style={{ background: GREEN }} />}
-      <Avatar name={conversation.name} kind={conversation.kind} />
+      <Avatar name={name} kind={conversation.kind} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-[12px] font-semibold">{conversation.name}</p>
+          <p className="min-w-0 flex-1 truncate text-[12px] font-semibold">{name}</p>
           <time className="shrink-0 text-[9px]" style={{ color: FAINT }}>
             {formatTime(conversation.last_message.timestamp_ms)}
           </time>
@@ -704,7 +786,7 @@ function ConversationListItem({
           </p>
           {conversation.unread_count > 0 && (
             <span
-              className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+              className="flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
               style={{ background: GREEN }}
             >
               {Math.min(conversation.unread_count, 99)}
@@ -747,50 +829,37 @@ function EmptyConversationState({ onNewMessage }: { onNewMessage: () => void }) 
   );
 }
 
-function SourceBadge({
-  source,
-  compact = false,
-}: {
-  source: "baileys" | "autopilot-log";
-  compact?: boolean;
-}) {
-  const live = source === "baileys";
-  return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-semibold"
-      style={{
-        color: live ? "#9fe8c6" : "#e7b673",
-        borderColor: live ? "rgba(8,200,117,.24)" : "rgba(255,149,24,.25)",
-        background: live ? "rgba(8,200,117,.06)" : "rgba(255,149,24,.05)",
-      }}
-      title={live ? "Source Baileys directe" : "Historique journalisé par Toumaï"}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: live ? GREEN : ORANGE }} />
-      {compact ? (live ? "Baileys" : "Journal") : live ? "Baileys live" : "Journal partiel"}
-    </span>
-  );
-}
-
 function FilterButton({
   active,
   label,
+  count,
   onClick,
 }: {
   active: boolean;
   label: string;
+  count?: number;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 rounded-lg px-2 py-2 text-[10px] font-semibold transition"
+      className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-full border px-3 text-[10px] font-semibold transition"
       style={{
-        background: active ? SURFACE : "transparent",
-        color: active ? TEXT : MUTED,
+        background: active ? "rgba(8,200,117,.13)" : RAISED,
+        borderColor: active ? "rgba(8,200,117,.55)" : BORDER,
+        color: active ? "#e8fff4" : MUTED,
       }}
     >
-      {label}
+      <span className="truncate">{label}</span>
+      {typeof count === "number" && (
+        <span
+          className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[9px]"
+          style={{ background: active ? "rgba(8,200,117,.22)" : "rgba(255,255,255,.06)", color: active ? "#baffdc" : MUTED }}
+        >
+          {Math.min(count, 99)}
+        </span>
+      )}
     </button>
   );
 }
@@ -819,6 +888,29 @@ function Avatar({
   );
 }
 
+function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
+  const groups = groupMessagesByDay(messages);
+  return (
+    <div className="flex flex-col gap-5">
+      {groups.map((group) => (
+        <div key={group.key} className="flex flex-col gap-2.5">
+          <div className="sticky top-0 z-10 flex justify-center py-1">
+            <span
+              className="rounded-full border px-3 py-1 text-[9px] font-medium shadow-sm"
+              style={{ background: "rgba(14,30,41,.94)", borderColor: BORDER, color: MUTED }}
+            >
+              {group.label}
+            </span>
+          </div>
+          {group.messages.map((message, index) => (
+            <MessageBubble key={message.id || `${message.timestamp_ms}-${index}`} message={message} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: WaLiveMessage }) {
   const when = message.timestamp_ms
     ? new Intl.DateTimeFormat("fr-FR", {
@@ -830,35 +922,139 @@ function MessageBubble({ message }: { message: WaLiveMessage }) {
   return (
     <div className={`flex ${message.from_me ? "justify-end" : "justify-start"}`}>
       <div
-        className="max-w-[72%] rounded-[16px] px-3.5 py-2.5 shadow-sm md:max-w-[68%]"
+        className="max-w-[82%] rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)] sm:max-w-[70%] lg:max-w-[62%]"
         style={{
-          background: message.from_me ? "#0e503a" : RAISED,
-          border: `1px solid ${message.from_me ? "rgba(8,200,117,.17)" : BORDER}`,
+          background: message.from_me
+            ? "linear-gradient(145deg,#0b6447,#0a533d)"
+            : "linear-gradient(145deg,#182631,#14212b)",
+          border: `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
         }}
       >
-        {!message.from_me && message.sender && (
+        {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
           <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
             {message.sender}
           </p>
         )}
-        <p className="whitespace-pre-wrap break-words text-[12px] leading-5">
-          {message.text || `[${message.type}]`}
-        </p>
+
+        {message.type !== "text" && !message.text && (
+          <div className="flex items-center gap-2 text-[11px]" style={{ color: "#dbe4ea" }}>
+            <Paperclip size={15} color={GREEN} />
+            <span>{messageTypeLabel(message.type)}</span>
+          </div>
+        )}
+
+        {message.text && (
+          <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
+            {message.text}
+          </p>
+        )}
+
         <div className="mt-1 flex items-center justify-end gap-1.5">
-          <span className="text-[8px]" style={{ color: "#a7b5c0" }}>
+          <span className="text-[8px]" style={{ color: "#9eacb7" }}>
             {when}
           </span>
-          {message.from_me && (
-            message.status === "read" ? (
-              <CheckCheck size={12} color={BLUE} />
-            ) : (
-              <CheckCheck size={12} color="#aebac4" />
-            )
-          )}
+          {message.from_me && <DeliveryMark status={message.status} />}
         </div>
       </div>
     </div>
   );
+}
+
+function DeliveryMark({ status }: { status?: string | null }) {
+  if (status === "read" || status === "played") {
+    return <CheckCheck size={12} color="#53bdeb" aria-label="Lu" />;
+  }
+  if (status === "delivered") {
+    return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
+  }
+  return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
+}
+
+function AiAction({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <button
+      type="button"
+      disabled
+      title={`${label} — bientôt disponible`}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium opacity-75"
+      style={{ borderColor: BORDER, background: RAISED, color: "#bdc8d0" }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function displayConversationName(conversation: WaLiveConversation) {
+  const candidate = (conversation.name || "").trim();
+  if (candidate && !isTechnicalWhatsAppIdentity(candidate) && candidate !== conversation.id) {
+    return candidate;
+  }
+  const number = validWhatsAppNumber(conversation.number);
+  if (number) return `+${number}`;
+  return conversation.kind === "group" ? "Groupe WhatsApp" : "Contact WhatsApp";
+}
+
+function displayConversationSecondary(conversation: WaLiveConversation) {
+  const number = validWhatsAppNumber(conversation.number);
+  if (number) return `+${number}`;
+  return conversation.kind === "group" ? "Groupe WhatsApp" : "Contact WhatsApp";
+}
+
+function isTechnicalWhatsAppIdentity(value: string | null | undefined) {
+  const text = (value || "").trim();
+  if (!text) return false;
+  return /@(lid|s\.whatsapp\.net|g\.us)$/i.test(text) || /^\d{16,}$/.test(text);
+}
+
+function validWhatsAppNumber(value: string | null | undefined) {
+  const digits = (value || "").replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 ? digits : null;
+}
+
+function waNumberFromId(value: string) {
+  if (!value.endsWith("@s.whatsapp.net")) return null;
+  return validWhatsAppNumber(value.split("@", 1)[0]);
+}
+
+function groupMessagesByDay(messages: WaLiveMessage[]) {
+  const groups: Array<{ key: string; label: string; messages: WaLiveMessage[] }> = [];
+  for (const message of messages) {
+    const date = message.timestamp_ms ? new Date(message.timestamp_ms) : new Date();
+    const key = Number.isNaN(date.getTime()) ? "unknown" : date.toISOString().slice(0, 10);
+    const current = groups[groups.length - 1];
+    if (!current || current.key !== key) {
+      groups.push({ key, label: formatDayLabel(date), messages: [message] });
+    } else {
+      current.messages.push(message);
+    }
+  }
+  return groups;
+}
+
+function formatDayLabel(date: Date) {
+  if (Number.isNaN(date.getTime())) return "Conversation";
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return "Aujourd’hui";
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Hier";
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function messageTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    image: "Image",
+    video: "Vidéo",
+    audio: "Message vocal",
+    document: "Document",
+    sticker: "Sticker",
+  };
+  return labels[type] || "Pièce jointe";
 }
 
 function initials(value: string) {
