@@ -61,7 +61,8 @@ export function WhatsAppComposeModal({
 
   useEffect(() => {
     if (!open) return;
-    setStage("compose");
+    const preparedReply = Boolean(initialRecipient && initialMessage?.trim());
+    setStage(preparedReply ? "review" : "compose");
     setMessage(initialMessage || "");
     setError(null);
     setResult(null);
