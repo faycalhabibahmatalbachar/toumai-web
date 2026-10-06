@@ -44,6 +44,15 @@ requireContract(
   "reconnect attempts must not spin while the browser is offline",
 );
 requireContract(
+  !hook.includes("event.version < lastVersion") &&
+    !hook.includes("event.version <= lastVersion"),
+  "unique invalidations must never be discarded by timestamp-derived version",
+);
+requireContract(
+  hook.includes("seenEventIds.has(event.id)"),
+  "duplicate realtime frames must be deduplicated by stable event id",
+);
+requireContract(
   hook.includes("seenEventIds.has(event.id)") && hook.includes("event.version < lastVersion"),
   "realtime ordering must deduplicate ids without dropping distinct equal-version events",
 );
