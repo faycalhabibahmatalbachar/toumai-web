@@ -8,6 +8,7 @@ on:
       - "lib/whatsapp-enterprise-api.ts"
       - "lib/connectors-api.ts"
       - "scripts/verify-whatsapp-control-center.mjs"
+      - "scripts/verify-whatsapp-overview-sse-runtime.mjs"
       - ".github/workflows/whatsapp-control-center-e2e.yml"
   workflow_dispatch:
 
@@ -42,6 +43,8 @@ jobs:
           exit 1
       - name: Run control-center E2E
         run: node scripts/verify-whatsapp-control-center.mjs
+      - name: Run Overview SSE runtime proof
+        run: node scripts/verify-whatsapp-overview-sse-runtime.mjs
       - name: Upload control-center evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -9,7 +9,10 @@ on:
       - "components/settings/WhatsAppPermissionsPanel.tsx"
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
+      - "lib/whatsapp-realtime.ts"
+      - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
+      - "scripts/verify-whatsapp-overview-realtime.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
   pull_request:
     paths:
@@ -17,7 +20,10 @@ on:
       - "components/settings/WhatsAppPermissionsPanel.tsx"
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
+      - "lib/whatsapp-realtime.ts"
+      - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
+      - "scripts/verify-whatsapp-overview-realtime.mjs"
 
 concurrency:
   group: whatsapp-enterprise-${{ github.ref }}
@@ -35,9 +41,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Lint WhatsApp surface
-        run: npx eslint app/whatsapp/page.tsx
+        run: npx eslint app/whatsapp/page.tsx hooks/useWhatsAppRealtime.ts lib/whatsapp-realtime.ts
       - name: Verify Overview polling fallback
         run: node scripts/verify-whatsapp-overview-polling.mjs
+      - name: Verify Overview realtime SSE
+        run: node scripts/verify-whatsapp-overview-realtime.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
