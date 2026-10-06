@@ -280,21 +280,33 @@ function speakReminder(
 
 function parseSseChunk(
   buffer: string,
-  onNotification: (notification: RealtimeNotification) => void,
+  onNotification: (
+    notification: RealtimeNotification,
+    eventId: string,
+  ) => void,
 ): string {
   const frames = buffer.split("\n\n");
   const rest = frames.pop() ?? "";
   for (const frame of frames) {
-    const data = frame
-      .split("\n")
+    const lines = frame.split("\n");
+    const eventId =
+      lines
+        .find((line) => line.startsWith("id:"))
+        ?.slice(3)
+        .trim() ?? "";
+    const data = lines
       .filter((line) => line.startsWith("data:"))
       .map((line) => line.slice(5).trim())
       .join("\n");
     if (!data) continue;
     try {
       const value = JSON.parse(data) as RealtimeNotification;
-      if (value && typeof value.title === "string" && typeof value.body === "string") {
-        onNotification(value);
+      if (
+        value &&
+        typeof value.title === "string" &&
+        typeof value.body === "string"
+      ) {
+        onNotification(value, eventId);
       }
     } catch {
       // Une frame invalide ne doit pas tuer le flux suivant.
