@@ -280,10 +280,8 @@ function speakReminder(
 
 function parseSseChunk(
   buffer: string,
-  onNotification: (
-    notification: RealtimeNotification,
-    eventId: string,
-  ) => void,
+  onNotification: (notification: RealtimeNotification) => void,
+  onEventId: (eventId: string) => void,
 ): string {
   const frames = buffer.split("\n\n");
   const rest = frames.pop() ?? "";
@@ -294,6 +292,8 @@ function parseSseChunk(
         .find((line) => line.startsWith("id:"))
         ?.slice(3)
         .trim() ?? "";
+    if (eventId) onEventId(eventId);
+
     const data = lines
       .filter((line) => line.startsWith("data:"))
       .map((line) => line.slice(5).trim())
@@ -306,10 +306,10 @@ function parseSseChunk(
         typeof value.title === "string" &&
         typeof value.body === "string"
       ) {
-        onNotification(value, eventId);
+        onNotification(value);
       }
     } catch {
-      // Une frame invalide ne doit pas tuer le flux suivant.
+      // Une frame cursor ou invalide ne doit pas tuer le flux suivant.
     }
   }
   return rest;
@@ -422,8 +422,14 @@ export function RealtimeNotificationsBridge() {
           });
 
           if (response.status === 409) {
-            // Le temps réel est désactivé. Une réactivation depuis Réglages
-            // doit être observée rapidement sans polling agressif.
+            // Même temps réel désactivé, le serveur donne le dernier curseur :
+            // on ne rejouera donc pas ce backlog si la personne réactive le canal.
+            const cursor =
+              response.headers.get("X-Toumai-Notification-Cursor") ?? "";
+            if (cursor) {
+              lastEventId.current = cursor;
+              writeCursor(accountId, cursor);
+            }
             await new Promise((resolve) => window.setTimeout(resolve, 15_000));
             continue;
           }
@@ -442,13 +448,10 @@ export function RealtimeNotificationsBridge() {
             buffer += decoder.decode(value, { stream: true });
             buffer = parseSseChunk(
               buffer,
-              (notification, eventId) => {
-                const cursor = eventId || String(notification.id ?? "").trim();
-                if (cursor) {
-                  lastEventId.current = cursor;
-                  writeCursor(accountId, cursor);
-                }
-                receive(notification, "sse");
+              (notification) => receive(notification, "sse"),
+              (cursor) => {
+                lastEventId.current = cursor;
+                writeCursor(accountId, cursor);
               },
             );
           }
