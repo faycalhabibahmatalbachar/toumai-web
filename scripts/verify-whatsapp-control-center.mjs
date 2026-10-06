@@ -190,10 +190,13 @@ const logs = {
 
 const state = {
   sends: [],
+  legacySends: [],
   pauses: [],
   resumes: [],
   cancels: [],
 };
+
+let legacyMode = false;
 
 await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const request = route.request();
@@ -201,6 +204,23 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const path = url.pathname.replace("/api/v1", "");
   const method = request.method();
   let data = {};
+
+  if (
+    legacyMode &&
+    (
+      path === "/whatsapp/conversations" ||
+      path === "/whatsapp/conversation/messages" ||
+      path === "/whatsapp/message/send" ||
+      path === "/whatsapp/message/status"
+    )
+  ) {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ success: false, message: "Not Found" }),
+    });
+    return;
+  }
 
   if (path === "/whatsapp/etat") {
     data = {
@@ -262,6 +282,14 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       delivery_confirmed: true,
       read_confirmed: false,
       failed: false,
+    };
+  } else if (path === "/whatsapp/send-watched" && method === "POST") {
+    const body = request.postDataJSON();
+    state.legacySends.push(body);
+    data = {
+      ok: true,
+      to: body.to,
+      msgId: "MSG-LEGACY-1",
     };
   } else if (path === "/whatsapp/automations" && method === "GET") {
     data = { tasks, count: tasks.length };
@@ -398,10 +426,42 @@ async function certifyMobile() {
   await automationsPage.close();
 }
 
+async function certifyProduction404Fallback() {
+  legacyMode = true;
+
+  const page = await context.newPage();
+  await page.goto(`${BASE}/whatsapp/conversations/`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Conversations WhatsApp" }).waitFor();
+  await page.getByText("Journal Toumaï · compatibilité production", { exact: true }).waitFor();
+  await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
+  assert((await page.getByText("Passerelle indisponible", { exact: true }).count()) === 0, "Le fallback ne doit pas afficher Passerelle indisponible.");
+  assert((await page.getByText("HTTP 404", { exact: true }).count()) === 0, "Le fallback ne doit jamais exposer HTTP 404.");
+
+  await page.getByRole("button", { name: /Nouveau message/ }).click();
+  await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
+  const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
+  await recipient.fill("+91912191");
+  await page.getByText("Envoyer à +91912191", { exact: true }).click();
+  await page.getByPlaceholder("Écrivez votre message…").fill("salut");
+  await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
+  await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
+  await page.getByRole("button", { name: "Envoyer maintenant" }).click();
+  await page.getByRole("heading", { name: "Message accepté" }).waitFor({ timeout: 5000 });
+
+  assert(state.legacySends.length === 1, `Le fallback doit effectuer un seul envoi legacy, obtenu ${state.legacySends.length}`);
+  assert(state.legacySends[0].to === "91912191", "Le numéro confirmé doit être transmis intact au fallback send-watched.");
+  assert(state.legacySends[0].message === "salut", "Le texte confirmé doit être transmis intact au fallback send-watched.");
+
+  await noHorizontalOverflow(page, "legacy-production-fallback");
+  await page.screenshot({ path: `${artifacts}/legacy-production-fallback.png`, fullPage: false });
+  await page.close();
+}
+
 await certifyOverviewComposer();
 await certifyConversations();
 await certifyAutomations();
 await certifyMobile();
+await certifyProduction404Fallback();
 
 await fs.writeFile(
   `${artifacts}/control-center-report.json`,
@@ -409,7 +469,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations", "automations", "mobile-overview", "mobile-conversations", "mobile-automations"],
+    pages: ["overview-compose", "conversations", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "legacy-production-fallback"],
   }, null, 2),
 );
 
