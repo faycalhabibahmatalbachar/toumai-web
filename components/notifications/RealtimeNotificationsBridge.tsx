@@ -10,8 +10,10 @@ import type { RealtimeNotification } from "@/lib/notifications-api";
 import type { Preferences } from "@/lib/preferences-api";
 import { cacheSeed } from "@/lib/swr-cache";
 import {
+  getToumaiVoiceSnapshot,
   isToumaiVoiceConversationActive,
   playToumaiVoice,
+  stopToumaiVoice,
   waitForToumaiVoiceConversationIdle,
 } from "@/lib/toumai-voice-player";
 import { safeInternalPath } from "@/lib/widgets/core";
@@ -23,6 +25,17 @@ type ToastItem = {
 
 const MAX_SEEN = 120;
 const TOAST_MS = 8_000;
+const VOICE_TIMEOUT_MS = 30_000;
+const SEEN_STORAGE_PREFIX = "toumai_notification_seen_v1:";
+const CURSOR_STORAGE_PREFIX = "toumai_notification_cursor_v1:";
+const SPOKEN_STORAGE_PREFIX = "toumai_notification_spoken_v1:";
+
+type NavigatorLocksLike = {
+  request(
+    name: string,
+    callback: () => Promise<void>,
+  ): Promise<void>;
+};
 
 function eventKey(n: RealtimeNotification): string {
   const id = String(n.id ?? "").trim();
