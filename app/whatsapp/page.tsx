@@ -281,8 +281,8 @@ export default function WhatsAppOverviewPage() {
             <MetricCard
               label="Conversations"
               value={conversationKpi === null ? "—" : formatInteger(conversationKpi)}
-              delta={metricDelta(conversationMetric, analytics?.kpis.conversations.delta)}
-              unit={metricDeltaUnit(conversationMetric, analytics?.kpis.conversations.delta_unit)}
+              delta={metricDelta(conversationMetric)}
+              unit={metricDeltaUnit(conversationMetric)}
               loading={overviewDataLoading}
               icon={<MessageCircle size={27} />}
               tone="green"
@@ -290,8 +290,8 @@ export default function WhatsAppOverviewPage() {
             <MetricCard
               label="Messages envoyés"
               value={messageKpi === null ? "—" : formatInteger(messageKpi)}
-              delta={metricDelta(messageMetric, analytics?.kpis.messages.delta)}
-              unit={metricDeltaUnit(messageMetric, analytics?.kpis.messages.delta_unit)}
+              delta={metricDelta(messageMetric)}
+              unit={metricDeltaUnit(messageMetric)}
               loading={overviewDataLoading}
               icon={<Send size={27} />}
               tone="orange"
@@ -299,8 +299,8 @@ export default function WhatsAppOverviewPage() {
             <MetricCard
               label="Taux de réponse"
               value={responseKpi === null ? "—" : `${formatDecimal(responseKpi)}%`}
-              delta={metricDelta(responseMetric, useLegacyOverview ? analytics?.kpis.success_rate.delta : null)}
-              unit={metricDeltaUnit(responseMetric, useLegacyOverview ? analytics?.kpis.success_rate.delta_unit : undefined)}
+              delta={metricDelta(responseMetric)}
+              unit={metricDeltaUnit(responseMetric)}
               loading={overviewDataLoading}
               note={responseMetric?.instrumented === false ? "Non instrumenté sur tous les messages" : undefined}
               icon={<Clock3 size={28} />}
@@ -622,17 +622,16 @@ function overviewActivitySeries(
   });
 }
 
-function metricDelta(metric: WaOverviewMetric | undefined, legacy?: number | null) {
-  return metric?.comparison?.value ?? legacy ?? null;
+function metricDelta(metric: WaOverviewMetric | undefined) {
+  return metric?.comparison?.value ?? null;
 }
 
 function metricDeltaUnit(
   metric: WaOverviewMetric | undefined,
-  legacy?: "pct" | "pts",
 ): "pct" | "pts" | undefined {
   if (metric?.comparison?.unit === "percentage_points") return "pts";
   if (metric?.comparison) return "pct";
-  return legacy;
+  return undefined;
 }
 
 function overviewConnectionPresentation(
