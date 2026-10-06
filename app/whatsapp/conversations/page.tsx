@@ -533,6 +533,23 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
+  function focusMessage(messageId: string) {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-wa-message-id]"));
+    const node = nodes.find((item) => item.dataset.waMessageId === messageId);
+    if (!node) {
+      setNotice({ tone: "error", text: "Ce message n’est plus chargé dans le fil courant." });
+      return;
+    }
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    node.animate(
+      [
+        { outline: "2px solid rgba(8,200,117,.75)" },
+        { outline: "2px solid transparent" },
+      ],
+      { duration: 1800, easing: "ease-out" },
+    );
+  }
+
   return (
     <div className="min-h-dvh" style={{ background: PAGE_BG, color: TEXT }}>
       <aside
@@ -751,7 +768,7 @@ export default function WhatsAppConversationsPage() {
             ) : (
               <>
                 <div
-                  className="flex min-h-[76px] items-center gap-3 border-b px-4 md:px-5"
+                  className="relative flex min-h-[76px] items-center gap-3 border-b px-4 md:px-5"
                   style={{ borderColor: BORDER, background: SURFACE }}
                 >
                   <button
@@ -786,35 +803,164 @@ export default function WhatsAppConversationsPage() {
 
                   <button
                     type="button"
-                    disabled
-                    title="Recherche dans la conversation bientôt disponible"
                     aria-label="Rechercher dans la conversation"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl border opacity-75"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                    aria-expanded={threadSearchOpen}
+                    onClick={() => {
+                      setThreadSearchOpen((open) => !open);
+                      setConversationMenuOpen(false);
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                    style={{
+                      borderColor: threadSearchOpen ? "rgba(8,200,117,.5)" : BORDER,
+                      background: RAISED,
+                      color: threadSearchOpen ? GREEN : MUTED,
+                    }}
                   >
                     <Search size={17} />
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title="Informations du contact bientôt disponibles"
+                    onClick={() => void openContactDetails()}
                     aria-label="Informations du contact"
-                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
+                    className="hidden h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04] sm:flex"
                     style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
                   >
                     <Info size={17} />
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title="Plus d’options bientôt disponibles"
+                    onClick={() => {
+                      setConversationMenuOpen((open) => !open);
+                      setThreadSearchOpen(false);
+                    }}
                     aria-label="Plus d’options"
-                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                    aria-expanded={conversationMenuOpen}
+                    className="hidden h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04] sm:flex"
+                    style={{
+                      borderColor: conversationMenuOpen ? "rgba(8,200,117,.5)" : BORDER,
+                      background: RAISED,
+                      color: conversationMenuOpen ? GREEN : MUTED,
+                    }}
                   >
                     <MoreVertical size={17} />
                   </button>
+
+                  {conversationMenuOpen && (
+                    <div
+                      className="absolute right-4 top-[66px] z-40 w-[230px] rounded-xl border p-1.5 shadow-2xl"
+                      style={{ borderColor: BORDER, background: "#0b1720" }}
+                    >
+                      <ConversationMenuItem
+                        icon={<CheckCheck size={15} />}
+                        label="Marquer comme lu"
+                        onClick={() => void performConversationAction("mark_read")}
+                      />
+                      <ConversationMenuItem
+                        icon={<MessageCircle size={15} />}
+                        label="Marquer comme non lu"
+                        onClick={() => void performConversationAction("mark_unread")}
+                      />
+                      <ConversationMenuItem
+                        icon={<Archive size={15} />}
+                        label={chatFlags.archived ? "Désarchiver" : "Archiver"}
+                        onClick={() => void performConversationAction(chatFlags.archived ? "unarchive" : "archive")}
+                      />
+                      <ConversationMenuItem
+                        icon={<Pin size={15} />}
+                        label={chatFlags.pinned ? "Désépingler" : "Épingler"}
+                        onClick={() => void performConversationAction(chatFlags.pinned ? "unpin" : "pin")}
+                      />
+                      <ConversationMenuItem
+                        icon={<BellOff size={15} />}
+                        label={chatFlags.muted ? "Réactiver les notifications" : "Sourdine 8 heures"}
+                        onClick={() =>
+                          void performConversationAction(
+                            chatFlags.muted ? "unmute" : "mute",
+                            chatFlags.muted ? {} : { duration_ms: 8 * 60 * 60 * 1000 },
+                          )
+                        }
+                      />
+                      <div className="my-1 h-px" style={{ background: BORDER }} />
+                      <ConversationMenuItem
+                        icon={<Eraser size={15} />}
+                        label="Vider la conversation"
+                        danger
+                        onClick={() => void performConversationAction("clear")}
+                      />
+                      <ConversationMenuItem
+                        icon={<Trash2 size={15} />}
+                        label="Supprimer la conversation"
+                        danger
+                        onClick={() => void performConversationAction("delete")}
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {threadSearchOpen && (
+                  <div className="border-b px-4 py-3" style={{ borderColor: BORDER, background: SURFACE }}>
+                    <div className="mx-auto max-w-[980px]">
+                      <div className="flex items-center gap-2">
+                        <div className="relative min-w-0 flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={15} color={MUTED} />
+                          <input
+                            autoFocus
+                            value={threadSearchQuery}
+                            onChange={(event) => setThreadSearchQuery(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") void runThreadSearch();
+                            }}
+                            placeholder="Rechercher dans cette conversation…"
+                            className="h-9 w-full rounded-xl border bg-transparent pl-9 pr-3 text-[11px] outline-none"
+                            style={{ borderColor: BORDER, background: RAISED }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void runThreadSearch()}
+                          disabled={threadSearchBusy || !threadSearchQuery.trim()}
+                          className="flex h-9 items-center gap-2 rounded-xl px-3 text-[10px] font-semibold text-white disabled:opacity-45"
+                          style={{ background: GREEN }}
+                        >
+                          {threadSearchBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                          Rechercher
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Fermer la recherche"
+                          onClick={() => {
+                            setThreadSearchOpen(false);
+                            setThreadSearchResults([]);
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border"
+                          style={{ borderColor: BORDER, color: MUTED }}
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                      {threadSearchResults.length > 0 && (
+                        <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border p-1" style={{ borderColor: BORDER, background: RAISED }}>
+                          {threadSearchResults.map((message) => (
+                            <button
+                              key={message.id}
+                              type="button"
+                              onClick={() => focusMessage(message.id)}
+                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/[0.04]"
+                            >
+                              <span className="min-w-0 flex-1 truncate text-[10px]">{message.text || messageTypeLabel(message.type)}</span>
+                              <span className="shrink-0 text-[9px]" style={{ color: FAINT }}>
+                                {formatTime(message.timestamp_ms)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {!threadSearchBusy && threadSearchQuery.trim() && threadSearchResults.length === 0 && (
+                        <p className="mt-2 px-1 text-[9px]" style={{ color: FAINT }}>Lancez la recherche pour afficher les résultats du fil.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div
                   className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-6 lg:px-8"
