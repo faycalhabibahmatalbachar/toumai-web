@@ -213,11 +213,92 @@ const etat = {
   capacites_source: "passerelle",
 };
 
+const overviewActivity = Array.from({ length: 30 }, (_, index) => {
+  const offset = 29 - index;
+  const timestamp = isoDay(offset);
+  const date = timestamp.slice(0, 10);
+  const rows = logs.filter((row) => row.created_at.slice(0, 10) === date);
+  return {
+    date,
+    timestamp,
+    sent: rows.filter((row) => row.reply && row.delivered !== false).length,
+    received: rows.filter((row) => row.incoming).length,
+  };
+});
+
+const overview = {
+  range: {
+    days: 30,
+    from: isoDay(29),
+    to: isoDay(0),
+    timezone: "Africa/Ndjamena",
+    granularity: "day",
+  },
+  metrics: {
+    conversations: {
+      value: 1248,
+      format: "integer",
+      comparison: { value: 12, unit: "percent", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+    messages_sent: {
+      value: 3842,
+      format: "integer",
+      comparison: { value: 25, unit: "percent", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+    response_rate: {
+      value: null,
+      format: "percentage",
+      comparison: null,
+      instrumented: false,
+      reason: "overall_response_rate_requires_manual_outbound_events",
+    },
+    automated_response_rate: {
+      value: 78,
+      format: "percentage",
+      comparison: { value: 6, unit: "percentage_points", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+    delivery_success_rate: {
+      value: 78,
+      format: "percentage",
+      comparison: { value: 6, unit: "percentage_points", direction: "up", sentiment: "neutral" },
+      instrumented: true,
+    },
+  },
+  activity: overviewActivity,
+  instrumentation: {
+    coverage: "wa_autoreplies",
+    raw_message_content_used: false,
+    truncated: false,
+    limitations: [
+      "overall_response_rate_not_instrumented",
+      "manual_outbound_messages_not_in_wa_autoreplies",
+    ],
+  },
+  generated_at: new Date().toISOString(),
+  connection: {
+    status: "connected",
+    display_phone: "+235 68 66 37 37",
+    phone_e164: "+23568663737",
+    provider: "baileys",
+    last_healthy_at: new Date(Date.now() - 90_000).toISOString(),
+    product_state: "connecte",
+    ready: true,
+    readable: true,
+    label: "Connecté",
+    contacts: 2481,
+    profile_name: "Fayçal A.",
+  },
+};
+
 await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const url = new URL(route.request().url());
   const path = url.pathname.replace("/api/v1", "");
   let data = {};
   if (path === "/whatsapp/etat") data = etat;
+  else if (path === "/whatsapp/overview") data = overview;
   else if (path === "/whatsapp/autopilot/analytics") data = analytics;
   else if (path === "/whatsapp/conversations") data = conversations;
   else if (path === "/whatsapp/autopilot/logs") {
@@ -304,7 +385,7 @@ assert(automationsCard.y + automationsCard.height <= 936, `La carte Automatisati
 const ibrahima = await box(page.getByText("Ibrahima Ba", { exact: true }), "quatrième conversation");
 assert(ibrahima.y + ibrahima.height <= 936, "La quatrième conversation doit être visible dans le viewport 1672x941.");
 assert((await page.getByText("3 842", { exact: true }).count()) === 1, "Le KPI Messages envoyés n'affiche pas les données attendues.");
-assert((await page.getByText("78%", { exact: true }).count()) === 1, "Le KPI Taux de réponse n'affiche pas les données attendues.");
+assert((await page.getByText("Non instrumenté sur tous les messages", { exact: true }).count()) === 1, "Le KPI Taux de réponse doit rester explicitement non instrumenté.");
 assert((await page.getByText("+235 68 66 37 37", { exact: true }).count()) === 1, "Le numéro Baileys réel/mocqué n'est pas rendu.");
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 assert(overflow <= 1, `Débordement horizontal détecté: ${overflow}px`);
