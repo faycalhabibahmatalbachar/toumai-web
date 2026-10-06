@@ -97,6 +97,7 @@ export default function WhatsAppOverviewPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [automationBusy, setAutomationBusy] = useState<Record<string, boolean>>({});
   const [automationOverride, setAutomationOverride] = useState<Record<string, boolean>>({});
+  const [automationError, setAutomationError] = useState<string | null>(null);
 
   const {
     data: etat,
@@ -199,8 +200,23 @@ export default function WhatsAppOverviewPage() {
   const profileName = overview?.connection.profile_name?.trim() || etat?.nom_profil?.trim() || "Mon espace";
   const initials = makeInitials(profileName);
 
+  // Capabilities are rollout hints only. If an older backend does not expose
+  // them yet, preserve the already-certified UI behaviour. Every mutation is
+  // independently re-authorized server-side.
+  const sendCapability = overview?.capabilities?.send_message;
+  const importCapability = overview?.capabilities?.import_contacts;
+  const automationCapability = overview?.capabilities?.manage_automations;
+  const canSendMessage = sendCapability?.available_now ?? true;
+  const canImportContacts = importCapability?.available_now ?? true;
+  const canManageAutomations = automationCapability?.available_now ?? true;
+  const unavailableWriteReason =
+    (!canSendMessage ? sendCapability?.reason : null)
+    || (!canImportContacts ? importCapability?.reason : null)
+    || (!canManageAutomations ? automationCapability?.reason : null)
+    || null;
+
   async function handleContactSync() {
-    if (contactSyncing) return;
+    if (contactSyncing || !canImportContacts) return;
     setContactSyncing(true);
     setContactSyncMessage(null);
     try {
@@ -214,9 +230,10 @@ export default function WhatsAppOverviewPage() {
   }
 
   async function toggleAutomation(task: WhatsAppAutomation) {
-    if (automationBusy[task.id]) return;
+    if (automationBusy[task.id] || !canManageAutomations) return;
     const current = automationOverride[task.id] ?? isAutomationEnabled(task);
     const next = !current;
+    setAutomationError(null);
     setAutomationOverride((value) => ({ ...value, [task.id]: next }));
     setAutomationBusy((value) => ({ ...value, [task.id]: true }));
     try {
@@ -228,8 +245,13 @@ export default function WhatsAppOverviewPage() {
         delete clone[task.id];
         return clone;
       });
-    } catch {
+    } catch (error) {
       setAutomationOverride((value) => ({ ...value, [task.id]: current }));
+      setAutomationError(
+        error instanceof Error
+          ? error.message
+          : `Impossible de modifier « ${task.title} ».`,
+      );
     } finally {
       setAutomationBusy((value) => ({ ...value, [task.id]: false }));
     }
@@ -380,15 +402,24 @@ export default function WhatsAppOverviewPage() {
               <div className="mt-4 space-y-2.5">
                 <button
                   type="button"
-                  onClick={() => setComposeOpen(true)}
-                  className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:brightness-110"
+                  disabled={!canSendMessage}
+                  title={!canSendMessage ? sendCapability?.reason || "Action indisponible." : undefined}
+                  onClick={() => { if (canSendMessage) setComposeOpen(true); }}
+                  className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
                   style={{ background: "linear-gradient(90deg,#06aa62,#079a59)", borderColor: "rgba(37,211,102,.55)", color: TEXT }}
                 >
                   <Send size={21} />
                   <span className="flex-1 text-[14px] font-medium">Nouveau message</span>
                   <ChevronRight size={18} color="#d9fff0" />
                 </button>
-                <button type="button" disabled={contactSyncing} onClick={handleContactSync} className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:bg-white/[0.035] disabled:opacity-60" style={{ background: SURFACE_RAISED, borderColor: BORDER }}>
+                <button
+                  type="button"
+                  disabled={contactSyncing || !canImportContacts}
+                  title={!canImportContacts ? importCapability?.reason || "Action indisponible." : undefined}
+                  onClick={handleContactSync}
+                  className="flex h-[58px] w-full items-center gap-4 rounded-xl border px-4 text-left transition hover:bg-white/[0.035] disabled:cursor-not-allowed disabled:opacity-45"
+                  style={{ background: SURFACE_RAISED, borderColor: BORDER }}
+                >
                   {contactSyncing ? <RefreshCw size={22} className="animate-spin" /> : <UserRoundPlus size={22} />}
                   <span className="flex-1 text-[14px] font-medium">Importer des contacts</span>
                   <ChevronRight size={18} color={MUTED} />
@@ -396,6 +427,11 @@ export default function WhatsAppOverviewPage() {
                 <QuickAction href="/whatsapp/automations" icon={<Settings size={22} />} label="Gérer les automatisations" />
               </div>
               {contactSyncMessage && <p className="mt-3 text-xs" style={{ color: MUTED }}>{contactSyncMessage}</p>}
+              {overview?.capabilities && unavailableWriteReason && (
+                <p className="mt-3 text-xs" style={{ color: ORANGE }}>
+                  Certaines actions sont limitées par vos permissions WhatsApp.
+                </p>
+              )}
             </Card>
           </section>
 
@@ -434,11 +470,22 @@ export default function WhatsAppOverviewPage() {
                         <p className="truncate text-[13px] font-semibold">{task.title}</p>
                         <p className="mt-1 truncate text-[11px]" style={{ color: MUTED }}>{automationSubtitle(task)}</p>
                       </div>
-                      <Toggle checked={checked} disabled={!!automationBusy[task.id]} label={`${task.title} : ${checked ? "activée" : "désactivée"}`} onClick={() => void toggleAutomation(task)} />
+                      <Toggle
+                        checked={checked}
+                        disabled={!!automationBusy[task.id] || !canManageAutomations}
+                        label={`${task.title} : ${checked ? "activée" : "désactivée"}`}
+                        title={!canManageAutomations ? automationCapability?.reason || "Modification non autorisée." : undefined}
+                        onClick={() => void toggleAutomation(task)}
+                      />
                     </div>
                   );
                 })}
               </div>
+              {automationError && (
+                <p role="alert" className="border-t px-5 py-3 text-xs md:px-6" style={{ borderColor: BORDER, color: "#ff7b7b" }}>
+                  {automationError}
+                </p>
+              )}
             </Card>
           </section>
         </main>
@@ -624,8 +671,8 @@ function ConversationRow({ conversation, index }: { conversation: WaLiveConversa
   );
 }
 
-function Toggle({ checked, disabled, label, onClick }: { checked: boolean; disabled: boolean; label: string; onClick: () => void }) {
-  return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onClick} className="relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-50" style={{ background: checked ? GREEN : "#33414c" }}><span className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: checked ? 24 : 4 }} /></button>;
+function Toggle({ checked, disabled, label, title, onClick }: { checked: boolean; disabled: boolean; label: string; title?: string; onClick: () => void }) {
+  return <button type="button" role="switch" aria-checked={checked} aria-label={label} title={title} disabled={disabled} onClick={onClick} className="relative h-7 w-12 shrink-0 rounded-full transition disabled:cursor-not-allowed disabled:opacity-50" style={{ background: checked ? GREEN : "#33414c" }}><span className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" style={{ left: checked ? 24 : 4 }} /></button>;
 }
 
 function overviewActivitySeries(
