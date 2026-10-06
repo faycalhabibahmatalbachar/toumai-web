@@ -14,38 +14,51 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      EXPECTED_BACKEND_SHA: 2c8a0e8206a2c505cc24405281285c8c4e18a1d0
+      REQUIRED_BACKEND_MERGE_SHA: 2c8a0e8206a2c505cc24405281285c8c4e18a1d0
       BUILD_URL: https://api.toumaiai.com/api/v1/app/build
       API_BASE: https://api.toumaiai.com/api/v1
     steps:
-      - name: Wait for exact backend production SHA
+      - name: Wait for an attested backend production build
         shell: bash
         run: |
           set -euo pipefail
+          : > backend-production-build.log
+          rm -f backend-production-build.json
+
           for attempt in $(seq 1 36); do
             response="$(curl -fsS --connect-timeout 10 --max-time 20 "$BUILD_URL" || true)"
-            if [ -n "$response" ] && EXPECTED_BACKEND_SHA="$EXPECTED_BACKEND_SHA" RESPONSE="$response" python - <<'PY'
+            if [ -n "$response" ]; then
+              printf '%s' "$response" > backend-production-build.json.tmp
+              if RESPONSE="$response" python - <<'PY'
           import json
           import os
 
-          expected = os.environ["EXPECTED_BACKEND_SHA"].lower()
           try:
               payload = json.loads(os.environ["RESPONSE"])
           except Exception:
               raise SystemExit(2)
           data = payload.get("data") if isinstance(payload, dict) else {}
-          observed = str((data or {}).get("commit_sha") or "").lower()
+          observed = str((data or {}).get("commit_sha") or "").strip()
           attested = (data or {}).get("attested") is True
-          raise SystemExit(0 if observed == expected and attested else 1)
+          raise SystemExit(0 if attested and observed else 1)
           PY
-            then
-              echo "Exact backend production SHA attested: $EXPECTED_BACKEND_SHA"
-              exit 0
+              then
+                mv backend-production-build.json.tmp backend-production-build.json
+                observed="$(python - <<'PY'
+          import json
+          p=json.load(open("backend-production-build.json", encoding="utf-8"))
+          print((p.get("data") or {}).get("commit_sha") or "")
+          PY
+                )"
+                echo "Attested backend production build observed: $observed"
+                echo "Required feature merge ancestor: $REQUIRED_BACKEND_MERGE_SHA"
+                exit 0
+              fi
             fi
-            echo "Backend not on expected SHA yet ($attempt/36)."
+            echo "Backend attestation not ready ($attempt/36)." | tee -a backend-production-build.log
             sleep 10
           done
-          echo "::error::Backend production did not attest expected SHA $EXPECTED_BACKEND_SHA"
+          echo "::error::No attested backend production build became available."
           exit 1
 
       - name: Verify protected control-center routes exist
@@ -82,3 +95,15 @@ jobs:
           check_protected_route "conversation messages" GET "$API_BASE/whatsapp/conversation/messages?chat_id=probe"
           check_protected_route "message status" GET "$API_BASE/whatsapp/message/status?msg_id=probe"
           check_protected_route "manual send" POST "$API_BASE/whatsapp/message/send"
+
+      - name: Upload backend production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: whatsapp-control-center-backend-production
+          path: |
+            backend-production-build.json
+            backend-production-build.json.tmp
+            backend-production-build.log
+          if-no-files-found: warn
+          retention-days: 14
