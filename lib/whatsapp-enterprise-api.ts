@@ -52,6 +52,68 @@ export interface WaAutopilotAnalytics {
   not_instrumented: string[];
 }
 
+export type WaOverviewComparisonUnit = "percent" | "percentage_points" | "absolute";
+
+export interface WaOverviewComparison {
+  value: number;
+  unit: WaOverviewComparisonUnit;
+  direction: "up" | "down" | "flat";
+  sentiment: "positive" | "negative" | "neutral";
+}
+
+export interface WaOverviewMetric {
+  value: number | null;
+  format: "integer" | "percentage";
+  comparison: WaOverviewComparison | null;
+  instrumented: boolean;
+  reason?: string;
+}
+
+export interface WaOverviewActivityPoint {
+  date: string;
+  timestamp: string;
+  sent: number;
+  received: number;
+}
+
+export interface WhatsAppOverview {
+  range: {
+    days: number;
+    from: string;
+    to: string;
+    timezone: string;
+    granularity: "day";
+  };
+  metrics: {
+    conversations: WaOverviewMetric;
+    messages_sent: WaOverviewMetric;
+    response_rate: WaOverviewMetric;
+    automated_response_rate: WaOverviewMetric;
+    delivery_success_rate: WaOverviewMetric;
+  };
+  activity: WaOverviewActivityPoint[];
+  instrumentation: {
+    coverage: string;
+    raw_message_content_used: boolean;
+    truncated: boolean;
+    limitations: string[];
+  };
+  generated_at?: string;
+  connection: {
+    status: "connected" | "connecting" | "disconnected" | "degraded";
+    display_phone: string | null;
+    phone_e164: string | null;
+    provider: string;
+    last_healthy_at: string | null;
+    product_state: string;
+    ready: boolean;
+    readable: boolean;
+    label: string;
+    contacts?: number;
+    profile_name?: string;
+  };
+}
+
 export interface WaAutopilotLog {
   id: string;
   chat_id: string;
@@ -109,6 +171,17 @@ export function updateWaAutopilot(
 
 export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics> {
   return http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`);
+}
+
+export function getWhatsAppOverview(
+  days = 30,
+  timezone = "Africa/Ndjamena",
+): Promise<WhatsAppOverview> {
+  const query = new URLSearchParams({
+    days: String(days),
+    timezone,
+  });
+  return http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`);
 }
 
 export function getWaAutopilotLogs(
