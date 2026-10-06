@@ -267,15 +267,19 @@ function base64Bytes(base64: string): Uint8Array {
   return bytes;
 }
 
+function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const owned = new Uint8Array(bytes.byteLength);
+  owned.set(bytes);
+  return owned.buffer;
+}
+
 function base64Blob(base64: string, mime: string): Blob {
-  return new Blob([base64Bytes(base64)], { type: mime });
+  return new Blob([ownedArrayBuffer(base64Bytes(base64))], { type: mime });
 }
 
 async function decodeSegmentBuffer(base64: string): Promise<AudioBuffer> {
   if (!liveContext) throw new Error("Audio Web indisponible sur cet appareil.");
-  const bytes = base64Bytes(base64);
-  const copy = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  return liveContext.decodeAudioData(copy);
+  return liveContext.decodeAudioData(ownedArrayBuffer(base64Bytes(base64)));
 }
 
 function scheduleDecodedSegment(
