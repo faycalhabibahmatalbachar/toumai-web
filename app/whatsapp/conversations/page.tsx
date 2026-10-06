@@ -53,6 +53,7 @@ export default function WhatsAppConversationsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [composeTarget, setComposeTarget] = useState<WaLiveConversation | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -206,7 +207,10 @@ export default function WhatsAppConversationsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setComposeOpen(true)}
+            onClick={() => {
+              setComposeTarget(null);
+              setComposeOpen(true);
+            }}
             className="ml-auto flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white"
             style={{ background: GREEN }}
           >
@@ -355,7 +359,10 @@ export default function WhatsAppConversationsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setComposeOpen(true)}
+                  onClick={() => {
+                    setComposeTarget(selected);
+                    setComposeOpen(true);
+                  }}
                   className="flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold text-white"
                   style={{ background: GREEN }}
                 >
@@ -399,7 +406,10 @@ export default function WhatsAppConversationsPage() {
               <div className="border-t px-4 py-3 md:px-6" style={{ borderColor: BORDER, background: SURFACE }}>
                 <button
                   type="button"
-                  onClick={() => setComposeOpen(true)}
+                  onClick={() => {
+                    setComposeTarget(selected);
+                    setComposeOpen(true);
+                  }}
                   className="mx-auto flex h-12 w-full max-w-3xl items-center gap-3 rounded-xl border px-4 text-left text-sm"
                   style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
                 >
@@ -416,8 +426,8 @@ export default function WhatsAppConversationsPage() {
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
-        initialRecipient={selected?.id}
-        initialName={selected?.name}
+        initialRecipient={composeTarget?.id}
+        initialName={composeTarget?.name}
         onSent={() => {
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
           void loadConversations(query, filter);
