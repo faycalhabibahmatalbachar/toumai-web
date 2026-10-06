@@ -32,6 +32,7 @@ import {
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
+import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import {
   getWaEtat,
@@ -97,7 +98,11 @@ export default function WhatsAppOverviewPage() {
   const [automationBusy, setAutomationBusy] = useState<Record<string, boolean>>({});
   const [automationOverride, setAutomationOverride] = useState<Record<string, boolean>>({});
 
-  const { data: etat, loading: etatLoading } = useCached<WaEtat>("wa:etat", getWaEtat, {
+  const {
+    data: etat,
+    loading: etatLoading,
+    refresh: refreshEtat,
+  } = useCached<WaEtat>("wa:etat", getWaEtat, {
     enabled: !!session,
     ttlMs: 5_000,
     refreshIntervalMs: 30_000,
@@ -107,6 +112,7 @@ export default function WhatsAppOverviewPage() {
     data: overview,
     loading: overviewLoading,
     error: overviewError,
+    refresh: refreshOverview,
   } = useCached<WhatsAppOverview>(
     `wa:overview:v1:${days}`,
     () => getWhatsAppOverview(days),
@@ -124,7 +130,11 @@ export default function WhatsAppOverviewPage() {
     { enabled: !!session && useLegacyOverview, ttlMs: 15_000, refreshIntervalMs: 30_000 },
   );
 
-  const { data: conversationsData, loading: conversationsLoading } = useCached(
+  const {
+    data: conversationsData,
+    loading: conversationsLoading,
+    refresh: refreshConversations,
+  } = useCached(
     "wa:overview:live-conversations",
     () => getWaLiveConversations({ limit: 4 }),
     { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
@@ -145,6 +155,14 @@ export default function WhatsAppOverviewPage() {
     () => loadLogsForPeriod(days),
     { enabled: !!session && useLegacyOverview, ttlMs: 30_000, refreshIntervalMs: 30_000 },
   );
+
+  useWhatsAppRealtimeInvalidation({
+    enabled: Boolean(session),
+    refreshOverview,
+    refreshConversations,
+    refreshAutomations,
+    refreshConnection: refreshEtat,
+  });
 
   const connected = overview?.connection
     ? overview.connection.status === "connected" && overview.connection.ready
