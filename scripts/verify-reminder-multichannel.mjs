@@ -22,6 +22,8 @@ expect(bridge.includes("playToumaiVoice"), "reminder voice must use the shared T
 expect(!bridge.includes("speechSynthesis"), "browser speechSynthesis must not be the primary reminder voice");
 expect(bridge.includes("seenSet"), "realtime/web-push notifications must be deduplicated");
 expect(bridge.includes('"Last-Event-ID"'), "SSE reconnect must resume from the last server event id");
+expect(bridge.includes("X-Toumai-Notification-Cursor"), "disabled realtime must advance the resume cursor");
+expect(bridge.includes("onEventId"), "cursor-only SSE frames must advance without showing a toast");
 expect(bridge.includes("CURSOR_STORAGE_PREFIX"), "SSE cursor must survive refresh per account");
 expect(bridge.includes("SEEN_STORAGE_PREFIX"), "seen notification ids must survive refresh per account");
 expect(bridge.includes("SPOKEN_STORAGE_PREFIX"), "spoken reminder ids must be deduplicated across tabs");
