@@ -173,7 +173,7 @@ export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics>
   return http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`);
 }
 
-export function getWhatsAppOverview(
+export async function getWhatsAppOverview(
   days = 30,
   timezone = "Africa/Ndjamena",
 ): Promise<WhatsAppOverview> {
@@ -181,7 +181,14 @@ export function getWhatsAppOverview(
     days: String(days),
     timezone,
   });
-  return http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`);
+  try {
+    return await http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 404) {
+      throw new Error("WA_OVERVIEW_V1_NOT_DEPLOYED");
+    }
+    throw error;
+  }
 }
 
 export function getWaAutopilotLogs(
