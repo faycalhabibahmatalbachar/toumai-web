@@ -98,6 +98,16 @@ const threadMessages = [
     timestamp_ms: now - 60_000,
     status: null,
   },
+  {
+    id: "t4",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "The user asks a question. We need to respond in the same language. We can respond briefly.",
+    from_me: true,
+    sender: "",
+    type: "text",
+    timestamp_ms: now - 30_000,
+    status: "sent",
+  },
 ];
 
 const tasks = [
@@ -177,7 +187,7 @@ const logs = {
       chat_id: "23566111111@s.whatsapp.net",
       chat_name: "Mahamat Ali",
       incoming: "Salut",
-      reply: "Bonjour",
+      reply: "The user says hello. We need to respond politely. We can respond briefly.",
       mode: "auto",
       msg_type: "text",
       lang: "fr",
@@ -258,7 +268,15 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     let rows = conversations;
     if (pending) rows = rows.filter((item) => item.pending);
     if (q) rows = rows.filter((item) => item.name.toLowerCase().includes(q));
-    data = { conversations: rows, count: rows.length, source: "baileys" };
+    data = {
+      conversations: rows,
+      count: rows.length,
+      offset: 0,
+      limit: 80,
+      has_more: false,
+      next_offset: null,
+      source: "baileys",
+    };
   } else if (path === "/whatsapp/conversation/messages") {
     data = { chat_id: url.searchParams.get("chat_id"), messages: threadMessages, count: threadMessages.length, source: "baileys" };
   } else if (path === "/whatsapp/message/send" && method === "POST") {
@@ -356,17 +374,33 @@ async function certifyOverviewComposer() {
 async function certifyConversations() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Conversations WhatsApp" }).waitFor();
+  await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
   await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
-  await noHorizontalOverflow(page, "conversations-workspace");
-  await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
-  await page.getByRole("button", { name: "Répondre", exact: true }).click();
+
+  assert(
+    (await page.getByText(/We need to respond/i).count()) === 0,
+    "Le workspace ne doit jamais exposer un raisonnement interne du modèle.",
+  );
+
+  const desktopSidebar = await page.locator("body > div aside").first().boundingBox();
+  assert(Boolean(desktopSidebar), "Sidebar desktop WhatsApp absente.");
+  assert(
+    Math.abs(desktopSidebar.width - 253) <= 3,
+    `Sidebar WhatsApp inattendue: ${desktopSidebar.width}px`,
+  );
+
+  const replyBox = page.getByPlaceholder("Répondre à Mahamat Ali");
+  await replyBox.waitFor();
+  await replyBox.fill("Je vous rappelle dans quelques minutes.");
+  await page.getByRole("button", { name: "Vérifier" }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   await page.getByRole("dialog").getByText("Mahamat Ali", { exact: true }).waitFor();
-  await noHorizontalOverflow(page, "conversations");
-  await page.screenshot({ path: `${artifacts}/conversations.png`, fullPage: false });
+  await page.getByDisplayValue("Je vous rappelle dans quelques minutes.").waitFor();
+
+  await noHorizontalOverflow(page, "conversations-workspace");
+  await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
 }
 
@@ -404,7 +438,7 @@ async function certifyMobile() {
   const conversationsPage = await context.newPage();
   await conversationsPage.setViewportSize({ width: 390, height: 844 });
   await conversationsPage.goto(`${BASE}/whatsapp/conversations/`, { waitUntil: "domcontentloaded" });
-  await conversationsPage.getByRole("heading", { name: "Conversations WhatsApp" }).waitFor();
+  await conversationsPage.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
   await conversationsPage.getByText("Mahamat Ali", { exact: true }).first().waitFor();
   await noHorizontalOverflow(conversationsPage, "mobile-conversation-list");
   await conversationsPage.getByText("Mahamat Ali", { exact: true }).first().click();
@@ -429,11 +463,13 @@ async function certifyProduction404Fallback() {
 
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/conversations/`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Conversations WhatsApp" }).waitFor();
-  await page.getByText("Journal Toumaï · compatibilité production", { exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
+  await page.getByText("Journal partiel", { exact: true }).first().waitFor();
+  await page.getByText(/Mode compatibilité/i).waitFor();
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
   assert((await page.getByText("Passerelle indisponible", { exact: true }).count()) === 0, "Le fallback ne doit pas afficher Passerelle indisponible.");
   assert((await page.getByText("HTTP 404", { exact: true }).count()) === 0, "Le fallback ne doit jamais exposer HTTP 404.");
+  assert((await page.getByText(/We need to respond/i).count()) === 0, "Le fallback ne doit jamais exposer un raisonnement interne.");
 
   await page.getByRole("button", { name: /Nouveau message/ }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
