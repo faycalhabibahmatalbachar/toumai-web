@@ -1132,10 +1132,7 @@ export default function WhatsAppConversationsPage() {
 
                       <textarea
                         value={replyDraft}
-                        onChange={(event) => {
-                          setReplyDraft(event.target.value.slice(0, 4096));
-                          if (selected) void setWaPresence(selected.id, "composing").catch(() => undefined);
-                        }}
+                        onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
                         onFocus={() => {
                           if (selected) void setWaPresence(selected.id, "composing").catch(() => undefined);
                         }}
@@ -1739,7 +1736,21 @@ function Avatar({
   );
 }
 
-function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
+function ThreadMessages({
+  messages,
+  reactionTargetId,
+  onReply,
+  onReact,
+  onReactionPick,
+  onStar,
+}: {
+  messages: WaLiveMessage[];
+  reactionTargetId: string | null;
+  onReply: (message: WaLiveMessage) => void;
+  onReact: (message: WaLiveMessage) => void;
+  onReactionPick: (message: WaLiveMessage, emoji: string) => void;
+  onStar: (message: WaLiveMessage) => void;
+}) {
   const groups = groupMessagesByDay(messages);
   return (
     <div className="flex flex-col gap-5">
@@ -1754,7 +1765,15 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
             </span>
           </div>
           {group.messages.map((message, index) => (
-            <MessageBubble key={message.id || `${message.timestamp_ms}-${index}`} message={message} />
+            <MessageBubble
+              key={message.id || `${message.timestamp_ms}-${index}`}
+              message={message}
+              reactionOpen={Boolean(message.id && reactionTargetId === message.id)}
+              onReply={() => onReply(message)}
+              onReact={() => onReact(message)}
+              onReactionPick={(emoji) => onReactionPick(message, emoji)}
+              onStar={() => onStar(message)}
+            />
           ))}
         </div>
       ))}
@@ -1762,16 +1781,34 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
   );
 }
 
-function MessageBubble({ message }: { message: WaLiveMessage }) {
+function MessageBubble({
+  message,
+  reactionOpen,
+  onReply,
+  onReact,
+  onReactionPick,
+  onStar,
+}: {
+  message: WaLiveMessage;
+  reactionOpen: boolean;
+  onReply: () => void;
+  onReact: () => void;
+  onReactionPick: (emoji: string) => void;
+  onStar: () => void;
+}) {
   const when = message.timestamp_ms
     ? new Intl.DateTimeFormat("fr-FR", {
         hour: "2-digit",
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
+  const actionable = Boolean(message.id);
 
   return (
-    <div className={`flex ${message.from_me ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`group relative flex ${message.from_me ? "justify-end" : "justify-start"}`}
+      data-wa-message-id={message.id || undefined}
+    >
       <div
         className="max-w-[82%] rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)] sm:max-w-[70%] lg:max-w-[62%]"
         style={{
@@ -1807,6 +1844,52 @@ function MessageBubble({ message }: { message: WaLiveMessage }) {
           {message.from_me && <DeliveryMark status={message.status} />}
         </div>
       </div>
+
+      {actionable && (
+        <div
+          className={`absolute top-1/2 z-20 hidden -translate-y-1/2 items-center gap-1 rounded-xl border p-1 shadow-xl group-hover:flex ${message.from_me ? "right-[calc(min(62%,620px)+10px)]" : "left-[calc(min(62%,620px)+10px)]"}`}
+          style={{ borderColor: BORDER, background: "#0c1821" }}
+        >
+          <button
+            type="button"
+            aria-label="Répondre à ce message"
+            title="Répondre"
+            onClick={onReply}
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]"
+            style={{ color: MUTED }}
+          >
+            <Reply size={13} />
+          </button>
+          <button
+            type="button"
+            aria-label="Réagir à ce message"
+            title="Réagir"
+            onClick={onReact}
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]"
+            style={{ color: reactionOpen ? GREEN : MUTED }}
+          >
+            <Smile size={13} />
+          </button>
+          <button
+            type="button"
+            aria-label="Étoiler ce message"
+            title="Étoiler"
+            onClick={onStar}
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]"
+            style={{ color: MUTED }}
+          >
+            <Star size={13} />
+          </button>
+        </div>
+      )}
+
+      {reactionOpen && (
+        <div
+          className={`absolute top-[calc(50%+28px)] z-40 ${message.from_me ? "right-0" : "left-0"}`}
+        >
+          <WhatsAppEmojiPicker compact onPick={onReactionPick} />
+        </div>
+      )}
     </div>
   );
 }
@@ -1821,19 +1904,154 @@ function DeliveryMark({ status }: { status?: string | null }) {
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
 }
 
-function AiAction({ icon, label }: { icon: ReactNode; label: string }) {
+function AiAction({
+  icon,
+  label,
+  onClick,
+  busy = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+}) {
   return (
     <button
       type="button"
-      disabled
-      title={`${label} — bientôt disponible`}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium opacity-75"
+      disabled={busy}
+      onClick={onClick}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium transition hover:bg-white/[0.04] disabled:cursor-wait disabled:opacity-55"
       style={{ borderColor: BORDER, background: RAISED, color: "#bdc8d0" }}
     >
-      {icon}
+      {busy ? <Loader2 size={13} className="animate-spin" /> : icon}
       {label}
     </button>
   );
+}
+
+function ConversationMenuItem({
+  icon,
+  label,
+  onClick,
+  danger = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[10px] font-medium transition hover:bg-white/[0.05]"
+      style={{ color: danger ? "#ff9b9b" : "#d2dbe1" }}
+    >
+      <span style={{ color: danger ? "#ff7d7d" : MUTED }}>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function FunctionalDialog({
+  title,
+  children,
+  onClose,
+  width = "max-w-lg",
+}: {
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+  width?: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label={`Fermer ${title}`}
+        className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`relative z-10 max-h-[88dvh] w-full ${width} overflow-y-auto rounded-2xl border shadow-2xl`}
+        style={{ borderColor: BORDER, background: SURFACE }}
+      >
+        <div className="sticky top-0 z-10 flex items-center border-b px-5 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+          <h3 className="min-w-0 flex-1 truncate text-[14px] font-semibold">{title}</h3>
+          <button
+            type="button"
+            aria-label="Fermer"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/[0.05]"
+            style={{ color: MUTED }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </section>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: BORDER, background: RAISED }}>
+      <p className="text-[9px] font-medium uppercase tracking-[.08em]" style={{ color: FAINT }}>
+        {label}
+      </p>
+      <p className="mt-1 break-words text-[11px]" style={{ color: "#d5dee5" }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function defaultTaskDateTime() {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function mediaTypeFromFile(file: File): "image" | "video" | "audio" | "document" {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+function conversationActionLabel(action: WaConversationAction) {
+  const labels: Record<WaConversationAction, string> = {
+    archive: "Conversation archivée.",
+    unarchive: "Conversation désarchivée.",
+    pin: "Conversation épinglée.",
+    unpin: "Conversation désépinglée.",
+    mute: "Conversation mise en sourdine.",
+    unmute: "Notifications réactivées.",
+    mark_read: "Conversation marquée comme lue.",
+    mark_unread: "Conversation marquée comme non lue.",
+    clear: "Conversation vidée.",
+    delete: "Conversation supprimée.",
+    star: "Message étoilé.",
+    unstar: "Étoile retirée.",
+  };
+  return labels[action];
+}
+
+function businessSummary(business: Record<string, unknown>) {
+  const candidates = [
+    business.description,
+    business.email,
+    business.website,
+    business.category,
+    business.address,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim());
+  return candidates.length ? candidates.slice(0, 3).join(" · ") : "Profil Business disponible";
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
@@ -1901,7 +2119,9 @@ function messageTypeLabel(type: string) {
   const labels: Record<string, string> = {
     image: "Image",
     video: "Vidéo",
-    audio: "Message vocal",
+    audio: "Audio",
+    voice: "Message vocal",
+    gif: "GIF",
     document: "Document",
     sticker: "Sticker",
   };
