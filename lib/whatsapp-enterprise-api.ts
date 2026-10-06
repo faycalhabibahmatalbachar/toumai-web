@@ -1,5 +1,6 @@
 import { HttpError } from "./errors";
 import { http } from "./http";
+import { safeWhatsAppVisibleText } from "./whatsapp-display";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -219,8 +220,10 @@ export async function getWaLiveConversations(params?: {
 
     let mapped: WaLiveConversation[] = legacy.conversations.map((item, index) => {
       const timestamp = Date.parse(item.last_at || "");
-      const lastFromMe = Boolean(item.last_reply);
-      const text = item.last_reply || item.last_incoming || "";
+      const safeReply = safeWhatsAppVisibleText(item.last_reply);
+      const safeIncoming = safeWhatsAppVisibleText(item.last_incoming);
+      const lastFromMe = Boolean(safeReply);
+      const text = safeReply || safeIncoming || "";
       return {
         id: item.chat_id,
         name: item.name || item.number || item.chat_id || "Contact WhatsApp",
@@ -296,11 +299,12 @@ export async function getWaConversationMessages(
     for (const row of rows) {
       const ts = Date.parse(row.created_at || "");
       const baseTs = Number.isNaN(ts) ? 0 : ts;
-      if (row.incoming) {
+      const safeIncoming = safeWhatsAppVisibleText(row.incoming);
+      if (safeIncoming) {
         messages.push({
           id: `${row.id}-in`,
           chat_id: chatId,
-          text: row.incoming,
+          text: safeIncoming,
           from_me: false,
           sender: row.chat_name || "",
           type: row.msg_type || "text",
@@ -308,11 +312,12 @@ export async function getWaConversationMessages(
           status: null,
         });
       }
-      if (row.reply) {
+      const safeReply = safeWhatsAppVisibleText(row.reply);
+      if (safeReply) {
         messages.push({
           id: `${row.id}-out`,
           chat_id: chatId,
-          text: row.reply,
+          text: safeReply,
           from_me: true,
           sender: "",
           type: "text",
