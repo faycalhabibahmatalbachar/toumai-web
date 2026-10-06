@@ -1,4 +1,4 @@
-import { http } from "./http";
+import { http, postForm } from "./http";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -461,5 +461,5 @@ export function createWaAutomation(input: {
 export function uploadWaAttachment(file: File): Promise<UploadedFile> {
   const form = new FormData();
   form.append("file", file, file.name);
-  return http.postForm<UploadedFile>("/files/upload", form);
+  return postForm<UploadedFile>("/files/upload", form);
 }
