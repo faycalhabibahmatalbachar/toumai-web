@@ -258,13 +258,61 @@ function schedulePcm16(
   return true;
 }
 
-function base64Blob(base64: string, mime: string): Blob {
+function base64Bytes(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return new Blob([bytes], { type: mime });
+  return bytes;
+}
+
+function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const owned = new Uint8Array(bytes.byteLength);
+  owned.set(bytes);
+  return owned.buffer;
+}
+
+function base64Blob(base64: string, mime: string): Blob {
+  return new Blob([ownedArrayBuffer(base64Bytes(base64))], { type: mime });
+}
+
+async function decodeSegmentBuffer(base64: string): Promise<AudioBuffer> {
+  if (!liveContext) throw new Error("Audio Web indisponible sur cet appareil.");
+  return liveContext.decodeAudioData(ownedArrayBuffer(base64Bytes(base64)));
+}
+
+function scheduleDecodedSegment(
+  buffer: AudioBuffer,
+  speed: number,
+  myGeneration: number,
+  onDrained: () => void,
+): number | null {
+  if (!liveContext || myGeneration !== generation) return null;
+
+  const source = liveContext.createBufferSource();
+  source.buffer = buffer;
+  const rate = Number.isFinite(speed) ? Math.min(1.5, Math.max(0.75, speed)) : 1;
+  source.playbackRate.value = rate;
+  source.connect(liveContext.destination);
+
+  // Tous les WAV d'une même réponse sont programmés sur UNE timeline Web Audio.
+  // Quand le segment suivant est déjà prêt, il commence exactement à la fin du
+  // précédent au lieu de recréer un <audio> et de réamorcer le navigateur.
+  const startAt = Math.max(liveContext.currentTime + 0.012, liveNextStartTime);
+  liveNextStartTime = startAt + buffer.duration / rate;
+  liveSources.add(source);
+  source.onended = () => {
+    liveSources.delete(source);
+    try {
+      source.disconnect();
+    } catch {
+      // déjà déconnecté
+    }
+    onDrained();
+  };
+  source.start(startAt);
+  return startAt;
 }
 
 /**
@@ -583,6 +631,14 @@ export async function playToumaiVoice(
   }
 
   stopToumaiVoice();
+
+  // Un clic humain peut amorcer Web Audio avant le premier aller-retour réseau.
+  // Les notifications automatiques gardent le chemin <audio> historique pour
+  // respecter les politiques d'autoplay des navigateurs.
+  const wantsGaplessWebAudio =
+    !owner.startsWith("notification:") && Boolean(audioContextCtor());
+  if (wantsGaplessWebAudio) primeToumaiVoiceAudio();
+
   const myGeneration = ++generation;
   const controller = new AbortController();
   aborter = controller;
@@ -599,6 +655,103 @@ export async function playToumaiVoice(
 
   void (async () => {
     try {
+      let useGaplessWebAudio = false;
+      if (wantsGaplessWebAudio && liveContext) {
+        try {
+          await liveContext.resume();
+          useGaplessWebAudio = liveContext.state === "running";
+        } catch {
+          useGaplessWebAudio = false;
+        }
+      }
+
+      if (useGaplessWebAudio && liveContext) {
+        let networkEnded = false;
+        const playbackDone = new Promise<ToumaiVoiceOutcome>((resolve) => {
+          segmentCompletion = { generation: myGeneration, resolve };
+        });
+
+        const maybeFinish = () => {
+          if (
+            networkEnded &&
+            liveSources.size === 0 &&
+            segmentCompletion?.generation === myGeneration
+          ) {
+            settleSegment(myGeneration, produced ? "ended" : "error");
+          }
+        };
+
+        for await (const segment of streamSpeech(text, controller.signal)) {
+          if (myGeneration !== generation || controller.signal.aborted) {
+            settleSegment(myGeneration, "stopped");
+            settleCompletion(myGeneration, "stopped");
+            return;
+          }
+
+          const decoded = await decodeSegmentBuffer(segment.audio_base64);
+          const scheduledAt = scheduleDecodedSegment(
+            decoded,
+            speed,
+            myGeneration,
+            maybeFinish,
+          );
+          if (scheduledAt === null) {
+            settleSegment(myGeneration, "stopped");
+            settleCompletion(myGeneration, "stopped");
+            return;
+          }
+
+          produced = true;
+          publish({ owner, phase: "playing", error: null });
+
+          if (!firstAudibleReported) {
+            firstAudibleReported = true;
+            const now =
+              typeof performance !== "undefined" ? performance.now() : Date.now();
+            const schedulingDelayMs = Math.max(
+              0,
+              (scheduledAt - liveContext.currentTime) * 1000,
+            );
+            certifyBrowserPlayback(
+              segment.diagnostics,
+              now - playbackStartedAt + schedulingDelayMs,
+            );
+          }
+
+          // IMPORTANT : on ne bloque PAS ici jusqu'à la fin du segment.
+          // Le générateur NDJSON continue donc à recevoir/décoder le suivant
+          // pendant que Zenaba parle, puis le programme à la suite.
+        }
+
+        networkEnded = true;
+        maybeFinish();
+        const outcome = await playbackDone;
+
+        if (outcome !== "ended") {
+          if (outcome === "error" && myGeneration === generation) {
+            publish({
+              owner,
+              phase: "idle",
+              error: "Zenaba n’a produit aucun audio lisible.",
+            });
+          }
+          settleCompletion(myGeneration, outcome);
+          return;
+        }
+
+        if (myGeneration !== generation || controller.signal.aborted) {
+          settleCompletion(myGeneration, "stopped");
+          return;
+        }
+
+        aborter = null;
+        publish({ owner: null, phase: "idle", error: null });
+        settleCompletion(myGeneration, "ended");
+        return;
+      }
+
+      // Compatibilité : navigateur sans Web Audio actif / notification auto.
+      // Ce chemin joue un WAV après l'autre avec <audio>.
       for await (const segment of streamSpeech(text, controller.signal)) {
         if (myGeneration !== generation || controller.signal.aborted) {
           settleCompletion(myGeneration, "stopped");
@@ -654,15 +807,18 @@ export async function playToumaiVoice(
       settleCompletion(myGeneration, "ended");
     } catch (err) {
       if (controller.signal.aborted || myGeneration !== generation) {
+        settleSegment(myGeneration, "stopped");
         settleCompletion(myGeneration, "stopped");
         return;
       }
+      stopLiveSources();
       aborter = null;
       publish({
         owner,
         phase: "idle",
         error: errorMessage(err, "voice"),
       });
+      settleSegment(myGeneration, "error");
       settleCompletion(myGeneration, "error");
     }
   })();
