@@ -2,24 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  Archive,
   ArrowLeft,
+  BellOff,
   Bot,
   BookOpen,
   Check,
   CheckCheck,
   CircleAlert,
+  Eraser,
   Info,
   Languages,
   LayoutDashboard,
   ListTodo,
+  Loader2,
   Menu,
   MessageCircle,
   MoreVertical,
   Paperclip,
+  Pin,
   Plug,
   RefreshCw,
+  Reply,
   Search,
   Send,
   Settings,
@@ -27,6 +33,8 @@ import {
   SlidersHorizontal,
   Smile,
   Sparkles,
+  Star,
+  Trash2,
   Users,
   Workflow,
   X,
@@ -34,12 +42,25 @@ import {
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
+import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  createWaAutomation,
+  getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  reactToWaMessage,
+  replyToWaMessage,
+  runWaAssistant,
+  runWaConversationAction,
+  searchWaConversation,
+  sendWaMedia,
+  setWaPresence,
+  uploadWaAttachment,
+  type WaContactInfo,
+  type WaConversationAction,
   type WaLiveConversation,
   type WaLiveMessage,
 } from "@/lib/whatsapp-enterprise-api";
@@ -92,6 +113,40 @@ export default function WhatsAppConversationsPage() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [kindFilter, setKindFilter] = useState<"all" | "contact" | "group">("all");
+  const [threadSearchOpen, setThreadSearchOpen] = useState(false);
+  const [threadSearchQuery, setThreadSearchQuery] = useState("");
+  const [threadSearchResults, setThreadSearchResults] = useState<WaLiveMessage[]>([]);
+  const [threadSearchBusy, setThreadSearchBusy] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactInfo, setContactInfo] = useState<WaContactInfo | null>(null);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
+  const [composerEmojiOpen, setComposerEmojiOpen] = useState(false);
+  const [reactionTarget, setReactionTarget] = useState<WaLiveMessage | null>(null);
+  const [replyTarget, setReplyTarget] = useState<WaLiveMessage | null>(null);
+  const [replyConfirmOpen, setReplyConfirmOpen] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState<string | null>(null);
+  const [assistantResult, setAssistantResult] = useState<{ title: string; text: string } | null>(null);
+  const [translateOpen, setTranslateOpen] = useState(false);
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskMessage, setTaskMessage] = useState("");
+  const [taskWhen, setTaskWhen] = useState(defaultTaskDateTime());
+  const [taskRecurrence, setTaskRecurrence] = useState<"none" | "daily" | "weekly" | "monthly">("none");
+  const [taskBusy, setTaskBusy] = useState(false);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [mediaDraft, setMediaDraft] = useState<{
+    url: string;
+    type: "image" | "video" | "audio" | "document";
+    filename: string;
+    mimetype: string;
+    caption: string;
+  } | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [chatFlags, setChatFlags] = useState({ archived: false, pinned: false, muted: false });
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const visibleMessages = useMemo(
     () =>
@@ -108,6 +163,14 @@ export default function WhatsAppConversationsPage() {
   const pendingCount = useMemo(
     () => conversations.filter((conversation) => conversation.pending).length,
     [conversations],
+  );
+
+  const displayedConversations = useMemo(
+    () =>
+      kindFilter === "all"
+        ? conversations
+        : conversations.filter((conversation) => conversation.kind === kindFilter),
+    [conversations, kindFilter],
   );
 
   const loadConversations = useCallback(async (
@@ -220,9 +283,20 @@ export default function WhatsAppConversationsPage() {
     return () => window.clearTimeout(timer);
   }, [selected, session, loadThread]);
 
+  function closeTransientPanels() {
+    setThreadSearchOpen(false);
+    setConversationMenuOpen(false);
+    setComposerEmojiOpen(false);
+    setReactionTarget(null);
+  }
+
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
+    setReplyTarget(null);
     setMessages([]);
+    closeTransientPanels();
+    setContactOpen(false);
+    setAssistantResult(null);
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -234,6 +308,8 @@ export default function WhatsAppConversationsPage() {
   function backToConversationList() {
     setSelected(null);
     setMessages([]);
+    setReplyTarget(null);
+    closeTransientPanels();
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.delete("chat");
@@ -249,9 +325,229 @@ export default function WhatsAppConversationsPage() {
 
   function openReplyReview() {
     if (!selected || !replyDraft.trim()) return;
+    if (replyTarget) {
+      setReplyConfirmOpen(true);
+      return;
+    }
     setComposeTarget(selected);
     setComposeSeed(replyDraft.trim());
     setComposeOpen(true);
+  }
+
+  async function runThreadSearch() {
+    if (!selected || !threadSearchQuery.trim()) {
+      setThreadSearchResults([]);
+      return;
+    }
+    setThreadSearchBusy(true);
+    try {
+      const data = await searchWaConversation(selected.id, threadSearchQuery.trim(), 50);
+      setThreadSearchResults(data.results);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setThreadSearchBusy(false);
+    }
+  }
+
+  async function openContactDetails() {
+    if (!selected) return;
+    setContactOpen(true);
+    setContactBusy(true);
+    setContactInfo(null);
+    try {
+      setContactInfo(await getWaContactInfo(selected.id));
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setContactBusy(false);
+    }
+  }
+
+  async function performConversationAction(action: WaConversationAction, options: {
+    duration_ms?: number;
+    msg_id?: string;
+    from_me?: boolean;
+    confirmed?: boolean;
+  } = {}) {
+    if (!selected) return;
+    setConversationMenuOpen(false);
+    if ((action === "clear" || action === "delete") && !options.confirmed) {
+      const label = action === "delete" ? "supprimer cette conversation" : "vider cette conversation";
+      if (!window.confirm(`Confirmer : ${label} ? Cette action peut être irréversible.`)) return;
+      options.confirmed = true;
+    }
+    try {
+      await runWaConversationAction({ chat_id: selected.id, action, ...options });
+      if (action === "archive") setChatFlags((current) => ({ ...current, archived: true }));
+      if (action === "unarchive") setChatFlags((current) => ({ ...current, archived: false }));
+      if (action === "pin") setChatFlags((current) => ({ ...current, pinned: true }));
+      if (action === "unpin") setChatFlags((current) => ({ ...current, pinned: false }));
+      if (action === "mute") setChatFlags((current) => ({ ...current, muted: true }));
+      if (action === "unmute") setChatFlags((current) => ({ ...current, muted: false }));
+      setNotice({ tone: "success", text: conversationActionLabel(action) });
+      if (action === "clear" || action === "delete") {
+        await loadThread(selected);
+        await loadConversations(query, filter);
+      }
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    }
+  }
+
+  async function runAssistantAction(
+    action: "suggest_reply" | "summarize" | "translate",
+    targetLanguage?: string,
+  ) {
+    if (!selected) return;
+    setAssistantBusy(action);
+    try {
+      const data = await runWaAssistant({
+        chat_id: selected.id,
+        action,
+        target_language: targetLanguage,
+      });
+      if (action === "suggest_reply") {
+        setReplyDraft(data.result.slice(0, 4096));
+        setNotice({ tone: "success", text: "Réponse suggérée ajoutée au brouillon." });
+      } else {
+        setAssistantResult({
+          title: action === "summarize" ? "Résumé de la conversation" : "Traduction",
+          text: data.result,
+        });
+      }
+      setTranslateOpen(false);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setAssistantBusy(null);
+    }
+  }
+
+  async function handleReaction(message: WaLiveMessage, emoji: string) {
+    if (!selected || !message.id) return;
+    try {
+      await reactToWaMessage({ chat_id: selected.id, msg_id: message.id, emoji });
+      setReactionTarget(null);
+      setNotice({ tone: "success", text: `Réaction ${emoji} envoyée.` });
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    }
+  }
+
+  async function confirmQuotedReply() {
+    if (!selected || !replyTarget || !replyDraft.trim()) return;
+    try {
+      await replyToWaMessage({
+        chat_id: selected.id,
+        text: replyDraft.trim(),
+        original_msg_id: replyTarget.id,
+        original_text: replyTarget.text,
+        original_sender: replyTarget.sender,
+      });
+      setReplyConfirmOpen(false);
+      setReplyTarget(null);
+      setReplyDraft("");
+      setNotice({ tone: "success", text: "Réponse envoyée." });
+      window.setTimeout(() => void loadThread(selected), 500);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    }
+  }
+
+  async function handleAttachment(file: File | null) {
+    if (!selected || !file) return;
+    if (file.size > 100 * 1024 * 1024) {
+      setNotice({ tone: "error", text: "Fichier trop volumineux : 100 Mo maximum pour le téléversement." });
+      return;
+    }
+    setAttachmentBusy(true);
+    try {
+      const uploaded = await uploadWaAttachment(file);
+      const type = mediaTypeFromFile(file);
+      const draft = {
+        url: uploaded.url,
+        type,
+        filename: file.name,
+        mimetype: file.type || "application/octet-stream",
+        caption: "",
+      };
+      await sendWaMedia({
+        chat_id: selected.id,
+        ...draft,
+        confirmed: false,
+      });
+      setMediaDraft(draft);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setAttachmentBusy(false);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+    }
+  }
+
+  async function confirmMediaSend() {
+    if (!selected || !mediaDraft) return;
+    setMediaBusy(true);
+    try {
+      await sendWaMedia({
+        chat_id: selected.id,
+        ...mediaDraft,
+        confirmed: true,
+      });
+      setMediaDraft(null);
+      setNotice({ tone: "success", text: "Pièce jointe envoyée." });
+      window.setTimeout(() => void loadThread(selected), 600);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function createTask() {
+    if (!selected || !taskMessage.trim() || !taskWhen) return;
+    setTaskBusy(true);
+    try {
+      const sendAt = new Date(taskWhen);
+      if (Number.isNaN(sendAt.getTime()) || sendAt.getTime() <= Date.now()) {
+        setNotice({ tone: "error", text: "Choisissez une date et une heure futures." });
+        return;
+      }
+      await createWaAutomation({
+        chat_id: selected.id,
+        message: taskMessage.trim(),
+        send_at: sendAt.toISOString(),
+        recurrence: taskRecurrence,
+        confirmed: true,
+      });
+      setTaskOpen(false);
+      setTaskMessage("");
+      setTaskWhen(defaultTaskDateTime());
+      setTaskRecurrence("none");
+      setNotice({ tone: "success", text: "Tâche WhatsApp programmée." });
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error, "history") });
+    } finally {
+      setTaskBusy(false);
+    }
+  }
+
+  function focusMessage(messageId: string) {
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-wa-message-id]"));
+    const node = nodes.find((item) => item.dataset.waMessageId === messageId);
+    if (!node) {
+      setNotice({ tone: "error", text: "Ce message n’est plus chargé dans le fil courant." });
+      return;
+    }
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    node.animate(
+      [
+        { outline: "2px solid rgba(8,200,117,.75)" },
+        { outline: "2px solid transparent" },
+      ],
+      { duration: 1800, easing: "ease-out" },
+    );
   }
 
   return (
@@ -345,11 +641,15 @@ export default function WhatsAppConversationsPage() {
                 </div>
                 <button
                   type="button"
-                  disabled
-                  title="Filtres avancés bientôt disponibles"
                   aria-label="Filtres avancés"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border opacity-70"
-                  style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                  aria-expanded={advancedFiltersOpen}
+                  onClick={() => setAdvancedFiltersOpen((open) => !open)}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                  style={{
+                    borderColor: advancedFiltersOpen ? "rgba(8,200,117,.55)" : BORDER,
+                    background: RAISED,
+                    color: advancedFiltersOpen ? GREEN : MUTED,
+                  }}
                 >
                   <SlidersHorizontal size={17} />
                 </button>
@@ -375,6 +675,26 @@ export default function WhatsAppConversationsPage() {
                   count={filter === "all" ? pendingCount : undefined}
                 />
               </div>
+
+              {advancedFiltersOpen && (
+                <div className="mt-2 flex items-center gap-2 rounded-xl border p-2" style={{ borderColor: BORDER, background: RAISED }}>
+                  <span className="mr-auto text-[9px] font-medium" style={{ color: MUTED }}>Type</span>
+                  {(["all", "contact", "group"] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setKindFilter(kind)}
+                      className="rounded-lg px-2.5 py-1.5 text-[9px] font-semibold"
+                      style={{
+                        background: kindFilter === kind ? "rgba(8,200,117,.14)" : "transparent",
+                        color: kindFilter === kind ? "#dfffee" : MUTED,
+                      }}
+                    >
+                      {kind === "all" ? "Tous" : kind === "contact" ? "Contacts" : "Groupes"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -411,7 +731,7 @@ export default function WhatsAppConversationsPage() {
                 </div>
               )}
 
-              {!loadingList && !listError && conversations.map((conversation) => (
+              {!loadingList && !listError && displayedConversations.map((conversation) => (
                 <ConversationListItem
                   key={conversation.id}
                   conversation={conversation}
@@ -448,7 +768,7 @@ export default function WhatsAppConversationsPage() {
             ) : (
               <>
                 <div
-                  className="flex min-h-[76px] items-center gap-3 border-b px-4 md:px-5"
+                  className="relative flex min-h-[76px] items-center gap-3 border-b px-4 md:px-5"
                   style={{ borderColor: BORDER, background: SURFACE }}
                 >
                   <button
@@ -483,35 +803,164 @@ export default function WhatsAppConversationsPage() {
 
                   <button
                     type="button"
-                    disabled
-                    title="Recherche dans la conversation bientôt disponible"
                     aria-label="Rechercher dans la conversation"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl border opacity-75"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                    aria-expanded={threadSearchOpen}
+                    onClick={() => {
+                      setThreadSearchOpen((open) => !open);
+                      setConversationMenuOpen(false);
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                    style={{
+                      borderColor: threadSearchOpen ? "rgba(8,200,117,.5)" : BORDER,
+                      background: RAISED,
+                      color: threadSearchOpen ? GREEN : MUTED,
+                    }}
                   >
                     <Search size={17} />
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title="Informations du contact bientôt disponibles"
+                    onClick={() => void openContactDetails()}
                     aria-label="Informations du contact"
-                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
+                    className="hidden h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04] sm:flex"
                     style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
                   >
                     <Info size={17} />
                   </button>
                   <button
                     type="button"
-                    disabled
-                    title="Plus d’options bientôt disponibles"
+                    onClick={() => {
+                      setConversationMenuOpen((open) => !open);
+                      setThreadSearchOpen(false);
+                    }}
                     aria-label="Plus d’options"
-                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                    aria-expanded={conversationMenuOpen}
+                    className="hidden h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04] sm:flex"
+                    style={{
+                      borderColor: conversationMenuOpen ? "rgba(8,200,117,.5)" : BORDER,
+                      background: RAISED,
+                      color: conversationMenuOpen ? GREEN : MUTED,
+                    }}
                   >
                     <MoreVertical size={17} />
                   </button>
+
+                  {conversationMenuOpen && (
+                    <div
+                      className="absolute right-4 top-[66px] z-40 w-[230px] rounded-xl border p-1.5 shadow-2xl"
+                      style={{ borderColor: BORDER, background: "#0b1720" }}
+                    >
+                      <ConversationMenuItem
+                        icon={<CheckCheck size={15} />}
+                        label="Marquer comme lu"
+                        onClick={() => void performConversationAction("mark_read")}
+                      />
+                      <ConversationMenuItem
+                        icon={<MessageCircle size={15} />}
+                        label="Marquer comme non lu"
+                        onClick={() => void performConversationAction("mark_unread")}
+                      />
+                      <ConversationMenuItem
+                        icon={<Archive size={15} />}
+                        label={chatFlags.archived ? "Désarchiver" : "Archiver"}
+                        onClick={() => void performConversationAction(chatFlags.archived ? "unarchive" : "archive")}
+                      />
+                      <ConversationMenuItem
+                        icon={<Pin size={15} />}
+                        label={chatFlags.pinned ? "Désépingler" : "Épingler"}
+                        onClick={() => void performConversationAction(chatFlags.pinned ? "unpin" : "pin")}
+                      />
+                      <ConversationMenuItem
+                        icon={<BellOff size={15} />}
+                        label={chatFlags.muted ? "Réactiver les notifications" : "Sourdine 8 heures"}
+                        onClick={() =>
+                          void performConversationAction(
+                            chatFlags.muted ? "unmute" : "mute",
+                            chatFlags.muted ? {} : { duration_ms: 8 * 60 * 60 * 1000 },
+                          )
+                        }
+                      />
+                      <div className="my-1 h-px" style={{ background: BORDER }} />
+                      <ConversationMenuItem
+                        icon={<Eraser size={15} />}
+                        label="Vider la conversation"
+                        danger
+                        onClick={() => void performConversationAction("clear")}
+                      />
+                      <ConversationMenuItem
+                        icon={<Trash2 size={15} />}
+                        label="Supprimer la conversation"
+                        danger
+                        onClick={() => void performConversationAction("delete")}
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {threadSearchOpen && (
+                  <div className="border-b px-4 py-3" style={{ borderColor: BORDER, background: SURFACE }}>
+                    <div className="mx-auto max-w-[980px]">
+                      <div className="flex items-center gap-2">
+                        <div className="relative min-w-0 flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={15} color={MUTED} />
+                          <input
+                            autoFocus
+                            value={threadSearchQuery}
+                            onChange={(event) => setThreadSearchQuery(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") void runThreadSearch();
+                            }}
+                            placeholder="Rechercher dans cette conversation…"
+                            className="h-9 w-full rounded-xl border bg-transparent pl-9 pr-3 text-[11px] outline-none"
+                            style={{ borderColor: BORDER, background: RAISED }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void runThreadSearch()}
+                          disabled={threadSearchBusy || !threadSearchQuery.trim()}
+                          className="flex h-9 items-center gap-2 rounded-xl px-3 text-[10px] font-semibold text-white disabled:opacity-45"
+                          style={{ background: GREEN }}
+                        >
+                          {threadSearchBusy ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                          Rechercher
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Fermer la recherche"
+                          onClick={() => {
+                            setThreadSearchOpen(false);
+                            setThreadSearchResults([]);
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border"
+                          style={{ borderColor: BORDER, color: MUTED }}
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                      {threadSearchResults.length > 0 && (
+                        <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border p-1" style={{ borderColor: BORDER, background: RAISED }}>
+                          {threadSearchResults.map((message) => (
+                            <button
+                              key={message.id}
+                              type="button"
+                              onClick={() => focusMessage(message.id)}
+                              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/[0.04]"
+                            >
+                              <span className="min-w-0 flex-1 truncate text-[10px]">{message.text || messageTypeLabel(message.type)}</span>
+                              <span className="shrink-0 text-[9px]" style={{ color: FAINT }}>
+                                {formatTime(message.timestamp_ms)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {!threadSearchBusy && threadSearchQuery.trim() && threadSearchResults.length === 0 && (
+                        <p className="mt-2 px-1 text-[9px]" style={{ color: FAINT }}>Lancez la recherche pour afficher les résultats du fil.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div
                   className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-6 lg:px-8"
@@ -550,7 +999,23 @@ export default function WhatsAppConversationsPage() {
 
                   {!loadingThread && !threadError && visibleMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
-                      <ThreadMessages messages={visibleMessages} />
+                      <ThreadMessages
+                        messages={visibleMessages}
+                        reactionTargetId={reactionTarget?.id || null}
+                        onReply={(message) => {
+                          setReplyTarget(message);
+                          setReplyDraft("");
+                          setComposerEmojiOpen(false);
+                        }}
+                        onReact={(message) => setReactionTarget((current) => current?.id === message.id ? null : message)}
+                        onReactionPick={(message, emoji) => void handleReaction(message, emoji)}
+                        onStar={(message) =>
+                          void performConversationAction("star", {
+                            msg_id: message.id,
+                            from_me: message.from_me,
+                          })
+                        }
+                      />
                     </div>
                   )}
                 </div>
@@ -565,44 +1030,115 @@ export default function WhatsAppConversationsPage() {
                         <Sparkles size={13} />
                         Assistant IA
                       </span>
-                      <AiAction icon={<Sparkles size={13} />} label="Réponse suggérée" />
-                      <AiAction icon={<MessageCircle size={13} />} label="Résumer" />
-                      <AiAction icon={<Languages size={13} />} label="Traduire" />
-                      <AiAction icon={<ListTodo size={13} />} label="Créer une tâche" />
+                      <AiAction
+                        icon={<Sparkles size={13} />}
+                        label="Réponse suggérée"
+                        busy={assistantBusy === "suggest_reply"}
+                        onClick={() => void runAssistantAction("suggest_reply")}
+                      />
+                      <AiAction
+                        icon={<MessageCircle size={13} />}
+                        label="Résumer"
+                        busy={assistantBusy === "summarize"}
+                        onClick={() => void runAssistantAction("summarize")}
+                      />
+                      <AiAction
+                        icon={<Languages size={13} />}
+                        label="Traduire"
+                        busy={assistantBusy === "translate"}
+                        onClick={() => setTranslateOpen(true)}
+                      />
+                      <AiAction
+                        icon={<ListTodo size={13} />}
+                        label="Créer une tâche"
+                        onClick={() => {
+                          setTaskMessage(replyDraft.trim());
+                          setTaskWhen(defaultTaskDateTime());
+                          setTaskOpen(true);
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
 
                 <div className="px-3 pb-3 md:px-5" style={{ background: SURFACE }}>
                   <div className="mx-auto max-w-[980px]">
+                    {replyTarget && (
+                      <div
+                        className="mb-2 flex items-center gap-3 rounded-xl border px-3 py-2"
+                        style={{ borderColor: "rgba(8,200,117,.28)", background: "rgba(8,200,117,.055)" }}
+                      >
+                        <Reply size={15} color={GREEN} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-semibold" style={{ color: GREEN }}>
+                            Réponse à {replyTarget.from_me ? "votre message" : replyTarget.sender || displayConversationName(selected)}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px]" style={{ color: MUTED }}>
+                            {replyTarget.text || messageTypeLabel(replyTarget.type)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Annuler la réponse"
+                          onClick={() => setReplyTarget(null)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
+                          style={{ color: MUTED }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
                     <div
-                      className="flex items-end gap-2 rounded-[16px] border p-2"
+                      className="relative flex items-end gap-2 rounded-[16px] border p-2"
                       style={{ borderColor: BORDER, background: RAISED }}
                     >
                       <button
                         type="button"
-                        disabled
                         aria-label="Emoji"
-                        title="Emoji bientôt disponible"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
-                        style={{ color: MUTED }}
+                        aria-expanded={composerEmojiOpen}
+                        onClick={() => setComposerEmojiOpen((open) => !open)}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.05]"
+                        style={{ color: composerEmojiOpen ? GREEN : MUTED }}
                       >
                         <Smile size={19} />
                       </button>
+                      {composerEmojiOpen && (
+                        <div className="absolute bottom-[54px] left-0 z-40">
+                          <WhatsAppEmojiPicker
+                            onPick={(emoji) => {
+                              setReplyDraft((draft) => (draft + emoji).slice(0, 4096));
+                              setComposerEmojiOpen(false);
+                            }}
+                          />
+                        </div>
+                      )}
+                      <input
+                        ref={attachmentInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                        onChange={(event) => void handleAttachment(event.target.files?.[0] || null)}
+                      />
                       <button
                         type="button"
-                        disabled
                         aria-label="Joindre un fichier"
-                        title="Pièces jointes bientôt disponibles"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
+                        disabled={attachmentBusy}
+                        onClick={() => attachmentInputRef.current?.click()}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.05] disabled:opacity-45"
                         style={{ color: MUTED }}
                       >
-                        <Paperclip size={19} />
+                        {attachmentBusy ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
                       </button>
 
                       <textarea
                         value={replyDraft}
                         onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
+                        onFocus={() => {
+                          if (selected) void setWaPresence(selected.id, "composing").catch(() => undefined);
+                        }}
+                        onBlur={() => {
+                          if (selected) void setWaPresence(selected.id, "paused").catch(() => undefined);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey && replyDraft.trim()) {
                             event.preventDefault();
@@ -644,6 +1180,318 @@ export default function WhatsAppConversationsPage() {
           </section>
         </main>
       </div>
+
+      {contactOpen && selected && (
+        <FunctionalDialog
+          title="Informations du contact"
+          onClose={() => setContactOpen(false)}
+          width="max-w-md"
+        >
+          {contactBusy ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={24} className="animate-spin" color={GREEN} />
+            </div>
+          ) : contactInfo ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                {contactInfo.picture_url ? (
+                  <img
+                    src={contactInfo.picture_url}
+                    alt=""
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
+                ) : (
+                  <Avatar name={contactInfo.name || displayConversationName(selected)} kind={selected.kind} size="lg" />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold">
+                    {contactInfo.name || contactInfo.push_name || displayConversationName(selected)}
+                  </p>
+                  <p className="mt-1 text-[11px]" style={{ color: MUTED }}>
+                    {contactInfo.number ? `+${contactInfo.number}` : displayConversationSecondary(selected)}
+                  </p>
+                </div>
+              </div>
+              <InfoRow label="À propos" value={contactInfo.about || "Non renseigné"} />
+              <InfoRow
+                label="WhatsApp"
+                value={contactInfo.on_whatsapp === false ? "Non détecté" : "Compte actif"}
+              />
+              {contactInfo.business && (
+                <InfoRow
+                  label="Profil Business"
+                  value={businessSummary(contactInfo.business)}
+                />
+              )}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm" style={{ color: MUTED }}>
+              Informations indisponibles.
+            </p>
+          )}
+        </FunctionalDialog>
+      )}
+
+      {assistantResult && (
+        <FunctionalDialog
+          title={assistantResult.title}
+          onClose={() => setAssistantResult(null)}
+          width="max-w-xl"
+        >
+          <p className="whitespace-pre-wrap text-[13px] leading-6" style={{ color: "#dbe4ea" }}>
+            {assistantResult.text}
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setReplyDraft(assistantResult.text.slice(0, 4096));
+                setAssistantResult(null);
+              }}
+              className="rounded-xl border px-4 py-2 text-[11px] font-semibold"
+              style={{ borderColor: BORDER, color: TEXT }}
+            >
+              Utiliser dans le message
+            </button>
+            <button
+              type="button"
+              onClick={() => setAssistantResult(null)}
+              className="rounded-xl px-4 py-2 text-[11px] font-semibold text-white"
+              style={{ background: GREEN }}
+            >
+              Fermer
+            </button>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {translateOpen && (
+        <FunctionalDialog
+          title="Traduire le dernier message reçu"
+          onClose={() => setTranslateOpen(false)}
+          width="max-w-sm"
+        >
+          <p className="mb-4 text-[11px]" style={{ color: MUTED }}>
+            Choisissez la langue cible. Toumaï traduira le dernier message entrant réel du fil.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["fr", "Français"],
+              ["ar", "العربية"],
+              ["en", "English"],
+            ].map(([code, label]) => (
+              <button
+                key={code}
+                type="button"
+                disabled={assistantBusy === "translate"}
+                onClick={() => void runAssistantAction("translate", code)}
+                className="flex h-11 items-center justify-center rounded-xl border text-[11px] font-semibold disabled:opacity-50"
+                style={{ borderColor: BORDER, background: RAISED, color: TEXT }}
+              >
+                {assistantBusy === "translate" ? <Loader2 size={15} className="animate-spin" /> : label}
+              </button>
+            ))}
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {taskOpen && selected && (
+        <FunctionalDialog
+          title="Créer une tâche WhatsApp"
+          onClose={() => !taskBusy && setTaskOpen(false)}
+          width="max-w-lg"
+        >
+          <div className="space-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                Message
+              </span>
+              <textarea
+                value={taskMessage}
+                onChange={(event) => setTaskMessage(event.target.value.slice(0, 4096))}
+                rows={4}
+                placeholder="Message à envoyer automatiquement…"
+                className="w-full resize-none rounded-xl border bg-transparent px-3 py-2.5 text-[12px] outline-none"
+                style={{ borderColor: BORDER, background: RAISED }}
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                  Date et heure
+                </span>
+                <input
+                  type="datetime-local"
+                  value={taskWhen}
+                  onChange={(event) => setTaskWhen(event.target.value)}
+                  className="h-10 w-full rounded-xl border bg-transparent px-3 text-[11px] outline-none"
+                  style={{ borderColor: BORDER, background: RAISED }}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                  Récurrence
+                </span>
+                <select
+                  value={taskRecurrence}
+                  onChange={(event) =>
+                    setTaskRecurrence(event.target.value as "none" | "daily" | "weekly" | "monthly")
+                  }
+                  className="h-10 w-full rounded-xl border px-3 text-[11px] outline-none"
+                  style={{ borderColor: BORDER, background: RAISED, color: TEXT }}
+                >
+                  <option value="none">Une fois</option>
+                  <option value="daily">Chaque jour</option>
+                  <option value="weekly">Chaque semaine</option>
+                  <option value="monthly">Chaque mois</option>
+                </select>
+              </label>
+            </div>
+            <div
+              className="rounded-xl border px-3 py-2 text-[10px]"
+              style={{ borderColor: "rgba(8,200,117,.2)", background: "rgba(8,200,117,.05)", color: MUTED }}
+            >
+              Destinataire : {displayConversationName(selected)}. La création est exécutée seulement après ce clic de confirmation.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={taskBusy}
+                onClick={() => setTaskOpen(false)}
+                className="rounded-xl border px-4 py-2.5 text-[11px] font-semibold disabled:opacity-50"
+                style={{ borderColor: BORDER }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={taskBusy || !taskMessage.trim() || !taskWhen}
+                onClick={() => void createTask()}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-semibold text-white disabled:opacity-45"
+                style={{ background: GREEN }}
+              >
+                {taskBusy && <Loader2 size={14} className="animate-spin" />}
+                Confirmer la programmation
+              </button>
+            </div>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {mediaDraft && selected && (
+        <FunctionalDialog
+          title="Confirmer la pièce jointe"
+          onClose={() => !mediaBusy && setMediaDraft(null)}
+          width="max-w-lg"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border p-3" style={{ borderColor: BORDER, background: RAISED }}>
+              <Paperclip size={20} color={GREEN} />
+              <div className="min-w-0">
+                <p className="truncate text-[12px] font-semibold">{mediaDraft.filename}</p>
+                <p className="mt-1 text-[9px]" style={{ color: MUTED }}>
+                  {messageTypeLabel(mediaDraft.type)} · {mediaDraft.mimetype || "fichier"}
+                </p>
+              </div>
+            </div>
+            {(mediaDraft.type === "image" || mediaDraft.type === "video" || mediaDraft.type === "document") && (
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                  Légende facultative
+                </span>
+                <textarea
+                  value={mediaDraft.caption}
+                  onChange={(event) =>
+                    setMediaDraft((current) => current ? { ...current, caption: event.target.value.slice(0, 2048) } : current)
+                  }
+                  rows={2}
+                  className="w-full resize-none rounded-xl border bg-transparent px-3 py-2.5 text-[12px] outline-none"
+                  style={{ borderColor: BORDER, background: RAISED }}
+                />
+              </label>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={mediaBusy}
+                onClick={() => setMediaDraft(null)}
+                className="rounded-xl border px-4 py-2.5 text-[11px] font-semibold"
+                style={{ borderColor: BORDER }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={mediaBusy}
+                onClick={() => void confirmMediaSend()}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                style={{ background: GREEN }}
+              >
+                {mediaBusy && <Loader2 size={14} className="animate-spin" />}
+                Envoyer maintenant
+              </button>
+            </div>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {replyConfirmOpen && selected && replyTarget && (
+        <FunctionalDialog
+          title="Confirmer la réponse"
+          onClose={() => setReplyConfirmOpen(false)}
+          width="max-w-lg"
+        >
+          <div
+            className="rounded-xl border-l-2 px-3 py-2"
+            style={{ borderColor: GREEN, background: RAISED }}
+          >
+            <p className="text-[9px] font-semibold" style={{ color: GREEN }}>
+              Message cité
+            </p>
+            <p className="mt-1 line-clamp-3 text-[11px]" style={{ color: MUTED }}>
+              {replyTarget.text || messageTypeLabel(replyTarget.type)}
+            </p>
+          </div>
+          <p className="mt-4 whitespace-pre-wrap text-[12px] leading-5">{replyDraft}</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setReplyConfirmOpen(false)}
+              className="rounded-xl border px-4 py-2.5 text-[11px] font-semibold"
+              style={{ borderColor: BORDER }}
+            >
+              Modifier
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmQuotedReply()}
+              className="rounded-xl px-4 py-2.5 text-[11px] font-semibold text-white"
+              style={{ background: GREEN }}
+            >
+              Envoyer la réponse
+            </button>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {notice && (
+        <div
+          className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl border px-4 py-3 text-[11px] font-medium shadow-2xl"
+          style={{
+            borderColor: notice.tone === "success" ? "rgba(8,200,117,.35)" : "rgba(255,107,107,.35)",
+            background: notice.tone === "success" ? "#0a2d23" : "#2b1418",
+            color: notice.tone === "success" ? "#c9ffe5" : "#ffd3d6",
+          }}
+          role="status"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex-1">{notice.text}</span>
+            <button type="button" aria-label="Fermer la notification" onClick={() => setNotice(null)}>
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <WhatsAppComposeModal
         open={composeOpen}
@@ -888,7 +1736,21 @@ function Avatar({
   );
 }
 
-function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
+function ThreadMessages({
+  messages,
+  reactionTargetId,
+  onReply,
+  onReact,
+  onReactionPick,
+  onStar,
+}: {
+  messages: WaLiveMessage[];
+  reactionTargetId: string | null;
+  onReply: (message: WaLiveMessage) => void;
+  onReact: (message: WaLiveMessage) => void;
+  onReactionPick: (message: WaLiveMessage, emoji: string) => void;
+  onStar: (message: WaLiveMessage) => void;
+}) {
   const groups = groupMessagesByDay(messages);
   return (
     <div className="flex flex-col gap-5">
@@ -903,7 +1765,15 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
             </span>
           </div>
           {group.messages.map((message, index) => (
-            <MessageBubble key={message.id || `${message.timestamp_ms}-${index}`} message={message} />
+            <MessageBubble
+              key={message.id || `${message.timestamp_ms}-${index}`}
+              message={message}
+              reactionOpen={Boolean(message.id && reactionTargetId === message.id)}
+              onReply={() => onReply(message)}
+              onReact={() => onReact(message)}
+              onReactionPick={(emoji) => onReactionPick(message, emoji)}
+              onStar={() => onStar(message)}
+            />
           ))}
         </div>
       ))}
@@ -911,16 +1781,34 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
   );
 }
 
-function MessageBubble({ message }: { message: WaLiveMessage }) {
+function MessageBubble({
+  message,
+  reactionOpen,
+  onReply,
+  onReact,
+  onReactionPick,
+  onStar,
+}: {
+  message: WaLiveMessage;
+  reactionOpen: boolean;
+  onReply: () => void;
+  onReact: () => void;
+  onReactionPick: (emoji: string) => void;
+  onStar: () => void;
+}) {
   const when = message.timestamp_ms
     ? new Intl.DateTimeFormat("fr-FR", {
         hour: "2-digit",
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
+  const actionable = Boolean(message.id);
 
   return (
-    <div className={`flex ${message.from_me ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`group relative flex ${message.from_me ? "justify-end" : "justify-start"}`}
+      data-wa-message-id={message.id || undefined}
+    >
       <div
         className="max-w-[82%] rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)] sm:max-w-[70%] lg:max-w-[62%]"
         style={{
@@ -956,6 +1844,52 @@ function MessageBubble({ message }: { message: WaLiveMessage }) {
           {message.from_me && <DeliveryMark status={message.status} />}
         </div>
       </div>
+
+      {actionable && (
+        <div
+          className={`absolute top-1/2 z-20 hidden -translate-y-1/2 items-center gap-1 rounded-xl border p-1 shadow-xl group-hover:flex ${message.from_me ? "right-[calc(min(62%,620px)+10px)]" : "left-[calc(min(62%,620px)+10px)]"}`}
+          style={{ borderColor: BORDER, background: "#0c1821" }}
+        >
+          <button
+            type="button"
+            aria-label="Répondre à ce message"
+            title="Répondre"
+            onClick={onReply}
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]"
+            style={{ color: MUTED }}
+          >
+            <Reply size={13} />
+          </button>
+          <button
+            type="button"
+            aria-label="Réagir à ce message"
+            title="Réagir"
+            onClick={onReact}
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]"
+            style={{ color: reactionOpen ? GREEN : MUTED }}
+          >
+            <Smile size={13} />
+          </button>
+          <button
+            type="button"
+            aria-label="Étoiler ce message"
+            title="Étoiler"
+            onClick={onStar}
+            className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]"
+            style={{ color: MUTED }}
+          >
+            <Star size={13} />
+          </button>
+        </div>
+      )}
+
+      {reactionOpen && (
+        <div
+          className={`absolute top-[calc(50%+28px)] z-40 ${message.from_me ? "right-0" : "left-0"}`}
+        >
+          <WhatsAppEmojiPicker compact onPick={onReactionPick} />
+        </div>
+      )}
     </div>
   );
 }
@@ -970,19 +1904,154 @@ function DeliveryMark({ status }: { status?: string | null }) {
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
 }
 
-function AiAction({ icon, label }: { icon: ReactNode; label: string }) {
+function AiAction({
+  icon,
+  label,
+  onClick,
+  busy = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+}) {
   return (
     <button
       type="button"
-      disabled
-      title={`${label} — bientôt disponible`}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium opacity-75"
+      disabled={busy}
+      onClick={onClick}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium transition hover:bg-white/[0.04] disabled:cursor-wait disabled:opacity-55"
       style={{ borderColor: BORDER, background: RAISED, color: "#bdc8d0" }}
     >
-      {icon}
+      {busy ? <Loader2 size={13} className="animate-spin" /> : icon}
       {label}
     </button>
   );
+}
+
+function ConversationMenuItem({
+  icon,
+  label,
+  onClick,
+  danger = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[10px] font-medium transition hover:bg-white/[0.05]"
+      style={{ color: danger ? "#ff9b9b" : "#d2dbe1" }}
+    >
+      <span style={{ color: danger ? "#ff7d7d" : MUTED }}>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function FunctionalDialog({
+  title,
+  children,
+  onClose,
+  width = "max-w-lg",
+}: {
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+  width?: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label={`Fermer ${title}`}
+        className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`relative z-10 max-h-[88dvh] w-full ${width} overflow-y-auto rounded-2xl border shadow-2xl`}
+        style={{ borderColor: BORDER, background: SURFACE }}
+      >
+        <div className="sticky top-0 z-10 flex items-center border-b px-5 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+          <h3 className="min-w-0 flex-1 truncate text-[14px] font-semibold">{title}</h3>
+          <button
+            type="button"
+            aria-label="Fermer"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/[0.05]"
+            style={{ color: MUTED }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </section>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: BORDER, background: RAISED }}>
+      <p className="text-[9px] font-medium uppercase tracking-[.08em]" style={{ color: FAINT }}>
+        {label}
+      </p>
+      <p className="mt-1 break-words text-[11px]" style={{ color: "#d5dee5" }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function defaultTaskDateTime() {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function mediaTypeFromFile(file: File): "image" | "video" | "audio" | "document" {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+function conversationActionLabel(action: WaConversationAction) {
+  const labels: Record<WaConversationAction, string> = {
+    archive: "Conversation archivée.",
+    unarchive: "Conversation désarchivée.",
+    pin: "Conversation épinglée.",
+    unpin: "Conversation désépinglée.",
+    mute: "Conversation mise en sourdine.",
+    unmute: "Notifications réactivées.",
+    mark_read: "Conversation marquée comme lue.",
+    mark_unread: "Conversation marquée comme non lue.",
+    clear: "Conversation vidée.",
+    delete: "Conversation supprimée.",
+    star: "Message étoilé.",
+    unstar: "Étoile retirée.",
+  };
+  return labels[action];
+}
+
+function businessSummary(business: Record<string, unknown>) {
+  const candidates = [
+    business.description,
+    business.email,
+    business.website,
+    business.category,
+    business.address,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim());
+  return candidates.length ? candidates.slice(0, 3).join(" · ") : "Profil Business disponible";
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
@@ -1050,7 +2119,9 @@ function messageTypeLabel(type: string) {
   const labels: Record<string, string> = {
     image: "Image",
     video: "Vidéo",
-    audio: "Message vocal",
+    audio: "Audio",
+    voice: "Message vocal",
+    gif: "GIF",
     document: "Document",
     sticker: "Sticker",
   };

@@ -1,4 +1,4 @@
-import { http } from "./http";
+import { http, postForm } from "./http";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -304,4 +304,162 @@ export function getWaMessageStatus(
   const query = new URLSearchParams({ msg_id: msgId });
   if (chatId) query.set("chat_id", chatId);
   return http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`);
+}
+
+
+export interface WaConversationSearchResult {
+  chat_id: string;
+  query: string;
+  results: WaLiveMessage[];
+  count: number;
+}
+
+export interface WaContactInfo {
+  jid: string;
+  number: string | null;
+  name: string;
+  push_name: string;
+  about: string | null;
+  picture_url: string | null;
+  business: Record<string, unknown> | null;
+  on_whatsapp: boolean | null;
+}
+
+export type WaConversationAction =
+  | "archive"
+  | "unarchive"
+  | "pin"
+  | "unpin"
+  | "mute"
+  | "unmute"
+  | "mark_read"
+  | "mark_unread"
+  | "clear"
+  | "delete"
+  | "star"
+  | "unstar";
+
+export interface WaMediaDraft {
+  pending_confirmation: boolean;
+  draft?: Record<string, unknown>;
+  message?: string;
+  sent?: boolean;
+  chat_id?: string;
+  msg_id?: string | null;
+  type?: string;
+}
+
+export interface WaAssistantResult {
+  action: "suggest_reply" | "summarize" | "translate";
+  chat_id: string;
+  result: string;
+}
+
+export interface WaAutomationCreateResult {
+  id: string | null;
+  scheduled: boolean;
+  send_at: string | null;
+  message: string | null;
+}
+
+export interface UploadedFile {
+  url: string;
+  file_name: string;
+  size: number;
+}
+
+export function searchWaConversation(
+  chatId: string,
+  q: string,
+  limit = 40,
+): Promise<WaConversationSearchResult> {
+  const query = new URLSearchParams({
+    chat_id: chatId,
+    q,
+    limit: String(limit),
+  });
+  return http.get<WaConversationSearchResult>(
+    `/whatsapp/conversation/search?${query.toString()}`,
+  );
+}
+
+export function getWaContactInfo(jid: string): Promise<WaContactInfo> {
+  return http.get<WaContactInfo>(
+    `/whatsapp/contact-info?jid=${encodeURIComponent(jid)}`,
+  );
+}
+
+export function runWaConversationAction(input: {
+  chat_id: string;
+  action: WaConversationAction;
+  duration_ms?: number;
+  msg_id?: string;
+  from_me?: boolean;
+  confirmed?: boolean;
+}): Promise<{ chat_id: string; action: WaConversationAction; ok: boolean }> {
+  return http.post("/whatsapp/conversation/action", input);
+}
+
+export function reactToWaMessage(input: {
+  chat_id: string;
+  msg_id: string;
+  emoji: string;
+}): Promise<{ chat_id: string; msg_id: string; emoji: string; reacted: boolean }> {
+  return http.post("/whatsapp/message/react", input);
+}
+
+export function replyToWaMessage(input: {
+  chat_id: string;
+  text: string;
+  original_msg_id: string;
+  original_text?: string;
+  original_sender?: string;
+}): Promise<{ chat_id: string; msg_id: string | null; status: string }> {
+  return http.post("/whatsapp/message/reply", input);
+}
+
+export function sendWaMedia(input: {
+  chat_id: string;
+  type: "image" | "video" | "gif" | "audio" | "voice" | "sticker" | "document";
+  url: string;
+  caption?: string;
+  filename?: string;
+  mimetype?: string;
+  confirmed: boolean;
+  viewOnce?: boolean;
+}): Promise<WaMediaDraft> {
+  return http.post<WaMediaDraft>("/whatsapp/media/send", input);
+}
+
+export function setWaPresence(
+  chatId: string,
+  status: "composing" | "recording" | "paused",
+): Promise<{ chat_id: string; status: string }> {
+  return http.post("/whatsapp/presence", { chat_id: chatId, status });
+}
+
+export function runWaAssistant(input: {
+  chat_id: string;
+  action: "suggest_reply" | "summarize" | "translate";
+  target_language?: string;
+  text?: string;
+}): Promise<WaAssistantResult> {
+  return http.post<WaAssistantResult>("/whatsapp/assistant", input);
+}
+
+export function createWaAutomation(input: {
+  chat_id: string;
+  message: string;
+  send_at: string;
+  recurrence?: "none" | "daily" | "weekly" | "monthly" | "cron";
+  cron_expr?: string;
+  confirmed: boolean;
+}): Promise<WaAutomationCreateResult> {
+  return http.post<WaAutomationCreateResult>("/whatsapp/automation/create", input);
+}
+
+export function uploadWaAttachment(file: File): Promise<UploadedFile> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return postForm<UploadedFile>("/files/upload", form);
 }
