@@ -219,6 +219,9 @@ interface UseCachedOptions {
   ttlMs?: number;
   /** Revalider au retour sur l'onglet et au retour du réseau (défaut : oui). */
   revalidateOnFocus?: boolean;
+  /** Polling de secours. 0/undefined = désactivé. Le tick est suspendu quand
+   * l'onglet est caché ou que le navigateur est hors ligne. */
+  refreshIntervalMs?: number;
 }
 
 interface UseCachedResult<T> {
@@ -242,6 +245,7 @@ export function useCached<T>(
   const enabled = opts?.enabled ?? true;
   const ttlMs = opts?.ttlMs ?? 0;
   const revalidateOnFocus = opts?.revalidateOnFocus ?? true;
+  const refreshIntervalMs = Math.max(0, opts?.refreshIntervalMs ?? 0);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
@@ -318,6 +322,23 @@ export function useCached<T>(
       window.removeEventListener("online", onVisible);
     };
   }, [enabled, revalidateOnFocus, revalidate]);
+
+  // FILET DE SÉCURITÉ DU TEMPS RÉEL.
+  //
+  // Le flux SSE (quand disponible) donnera l'instantanéité. Ce polling reste
+  // volontairement lent et silencieux : il garantit qu'un événement perdu,
+  // une reconnexion SSE ou un proxy intermédiaire ne laisse jamais le
+  // dashboard figé. Aucun trafic inutile en arrière-plan ou hors ligne.
+  useEffect(() => {
+    if (!enabled || refreshIntervalMs <= 0) return;
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      void revalidate();
+    };
+    const timer = window.setInterval(tick, refreshIntervalMs);
+    return () => window.clearInterval(timer);
+  }, [enabled, refreshIntervalMs, revalidate]);
 
   return {
     data: state.data,

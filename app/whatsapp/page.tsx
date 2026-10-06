@@ -100,6 +100,7 @@ export default function WhatsAppOverviewPage() {
   const { data: etat, loading: etatLoading } = useCached<WaEtat>("wa:etat", getWaEtat, {
     enabled: !!session,
     ttlMs: 5_000,
+    refreshIntervalMs: 30_000,
   });
 
   const {
@@ -109,7 +110,7 @@ export default function WhatsAppOverviewPage() {
   } = useCached<WhatsAppOverview>(
     `wa:overview:v1:${days}`,
     () => getWhatsAppOverview(days),
-    { enabled: !!session, ttlMs: 15_000 },
+    { enabled: !!session, ttlMs: 15_000, refreshIntervalMs: 30_000 },
   );
 
   // Compatibilité de rollout uniquement : les anciens agrégats ne sont lus
@@ -120,13 +121,13 @@ export default function WhatsAppOverviewPage() {
   const { data: analytics, loading: analyticsLoading } = useCached<WaAutopilotAnalytics>(
     `wa:overview:analytics:${days}`,
     () => getWaAutopilotAnalytics(days),
-    { enabled: !!session && useLegacyOverview, ttlMs: 15_000 },
+    { enabled: !!session && useLegacyOverview, ttlMs: 15_000, refreshIntervalMs: 30_000 },
   );
 
   const { data: conversationsData, loading: conversationsLoading } = useCached(
     "wa:overview:live-conversations",
     () => getWaLiveConversations({ limit: 4 }),
-    { enabled: !!session, ttlMs: 10_000 },
+    { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
 
   const {
@@ -136,13 +137,13 @@ export default function WhatsAppOverviewPage() {
   } = useCached<{ tasks: WhatsAppAutomation[]; count: number }>(
     "wa:overview:automations",
     () => getWhatsAppAutomations({ limit: 20 }),
-    { enabled: !!session, ttlMs: 10_000 },
+    { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
 
   const { data: logs, loading: logsLoading } = useCached<WaAutopilotLog[]>(
     `wa:overview:logs:${days}`,
     () => loadLogsForPeriod(days),
-    { enabled: !!session && useLegacyOverview, ttlMs: 30_000 },
+    { enabled: !!session && useLegacyOverview, ttlMs: 30_000, refreshIntervalMs: 30_000 },
   );
 
   const connected = overview?.connection
