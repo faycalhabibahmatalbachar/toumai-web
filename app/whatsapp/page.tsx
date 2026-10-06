@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -447,11 +448,15 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
 function SidebarContent() {
   return (
     <div className="flex h-full flex-col px-3 pb-5 pt-4">
-      <Link href="/chat" className="flex h-12 items-center gap-3 px-3">
-        <div className="relative h-8 w-8">
-          <span className="absolute left-0 top-1 h-3 w-7 -rotate-2 rounded-full bg-[#ff9824]" />
-          <span className="absolute left-3 top-2 h-6 w-3 rotate-[32deg] rounded-full bg-[#ff9824]" />
-        </div>
+      <Link href="/chat" className="flex h-12 items-center gap-3 px-3" aria-label="Toumaï AI">
+        <Image
+          src="/logo.png"
+          alt=""
+          width={38}
+          height={38}
+          priority
+          className="h-[38px] w-[38px] shrink-0 object-contain"
+        />
         <span className="text-[23px] font-bold tracking-[-0.03em]">Toumaï AI</span>
       </Link>
       <nav className="mt-5 space-y-1">
