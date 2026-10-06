@@ -37,12 +37,14 @@ export function WhatsAppComposeModal({
   onClose,
   initialRecipient,
   initialName,
+  initialMessage,
   onSent,
 }: {
   open: boolean;
   onClose: () => void;
   initialRecipient?: string;
   initialName?: string;
+  initialMessage?: string;
   onSent?: (chatId: string) => void;
 }) {
   const [stage, setStage] = useState<Stage>("compose");
@@ -60,7 +62,7 @@ export function WhatsAppComposeModal({
   useEffect(() => {
     if (!open) return;
     setStage("compose");
-    setMessage("");
+    setMessage(initialMessage || "");
     setError(null);
     setResult(null);
     setAccepted(null);
@@ -74,7 +76,7 @@ export function WhatsAppComposeModal({
           }
         : null,
     );
-  }, [open, initialRecipient, initialName]);
+  }, [open, initialRecipient, initialName, initialMessage]);
 
   useEffect(() => {
     if (!open || selected) return;
