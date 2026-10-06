@@ -19,6 +19,7 @@ import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
+import { errorMessage } from "@/lib/errors";
 import {
   getWaConversationMessages,
   getWaLiveConversations,
@@ -144,7 +145,7 @@ export default function WhatsAppConversationsPage() {
       }
     } catch (error) {
       if (!append) setConversations([]);
-      setListError(error instanceof Error ? error.message : "Impossible de lire les conversations WhatsApp.");
+      setListError(errorMessage(error, "history"));
     } finally {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
@@ -160,7 +161,7 @@ export default function WhatsAppConversationsPage() {
       setThreadSource(data.source);
     } catch (error) {
       setMessages([]);
-      setThreadError(error instanceof Error ? error.message : "Impossible de lire cette conversation.");
+      setThreadError(errorMessage(error, "history"));
     } finally {
       setLoadingThread(false);
     }
