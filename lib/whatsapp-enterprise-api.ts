@@ -1,6 +1,4 @@
-import { HttpError } from "./errors";
 import { http } from "./http";
-import { safeWhatsAppVisibleText } from "./whatsapp-display";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -278,7 +276,7 @@ export function getWaLiveConversations(params?: {
   return http.get<WaLiveConversations>(`/whatsapp/conversations${suffix}`);
 }
 
-export async function getWaConversationMessages(
+export function getWaConversationMessages(
   chatId: string,
   limit = 80,
   sinceMs = 0,
@@ -288,64 +286,7 @@ export async function getWaConversationMessages(
     limit: String(limit),
     since_ms: String(sinceMs),
   });
-
-  try {
-    return await http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`);
-  } catch (error) {
-    if (!(error instanceof HttpError) || error.status !== 404) throw error;
-
-    // L'ancien backend ne propose pas encore l'historique brut Baileys.
-    // On reconstruit donc uniquement les échanges réellement journalisés par
-    // Toumaï, sans prétendre qu'il s'agit de l'intégralité du fil WhatsApp.
-    const rows: WaAutopilotLog[] = [];
-    for (let page = 1; page <= 6 && rows.length < 600; page += 1) {
-      const batch = await getWaAutopilotLogs(page, 100);
-      rows.push(...batch.logs.filter((item) => item.chat_id === chatId));
-      if (page * batch.pagination.page_size >= batch.pagination.total) break;
-    }
-
-    const messages: WaLiveMessage[] = [];
-    for (const row of rows) {
-      const ts = Date.parse(row.created_at || "");
-      const baseTs = Number.isNaN(ts) ? 0 : ts;
-      const safeIncoming = safeWhatsAppVisibleText(row.incoming);
-      if (safeIncoming) {
-        messages.push({
-          id: `${row.id}-in`,
-          chat_id: chatId,
-          text: safeIncoming,
-          from_me: false,
-          sender: row.chat_name || "",
-          type: row.msg_type || "text",
-          timestamp_ms: baseTs,
-          status: null,
-        });
-      }
-      const safeReply = safeWhatsAppVisibleText(row.reply);
-      if (safeReply) {
-        messages.push({
-          id: `${row.id}-out`,
-          chat_id: chatId,
-          text: safeReply,
-          from_me: true,
-          sender: "",
-          type: "text",
-          timestamp_ms: baseTs ? baseTs + 1 : 0,
-          status: row.delivered ? "delivered" : "sent",
-        });
-      }
-    }
-
-    messages.sort((a, b) => a.timestamp_ms - b.timestamp_ms);
-    const filtered = sinceMs ? messages.filter((item) => item.timestamp_ms >= sinceMs) : messages;
-    const sliced = filtered.slice(-Math.max(1, limit));
-    return {
-      chat_id: chatId,
-      messages: sliced,
-      count: sliced.length,
-      source: "autopilot-log",
-    };
-  }
+  return http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`);
 }
 
 export function sendWaManualMessage(input: {
@@ -356,27 +297,11 @@ export function sendWaManualMessage(input: {
   return http.post<WaManualSendResult>("/whatsapp/message/send", input);
 }
 
-export async function getWaMessageStatus(
+export function getWaMessageStatus(
   msgId: string,
   chatId = "",
 ): Promise<WaMessageStatus> {
   const query = new URLSearchParams({ msg_id: msgId });
   if (chatId) query.set("chat_id", chatId);
-  try {
-    return await http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`);
-  } catch (error) {
-    if (!(error instanceof HttpError) || error.status !== 404) throw error;
-    // L'ancien backend n'expose pas encore cette lecture. Conserver l'état
-    // "accepted" est plus exact que d'inventer "livré" ou "lu".
-    return {
-      msg_id: msgId,
-      chat_id: chatId || null,
-      known: Boolean(msgId),
-      status: "accepted",
-      server_ack_confirmed: false,
-      delivery_confirmed: false,
-      read_confirmed: false,
-      failed: false,
-    };
-  }
+  return http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`);
 }
