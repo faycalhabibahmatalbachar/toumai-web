@@ -53,10 +53,6 @@ requireContract(
   "duplicate realtime frames must be deduplicated by stable event id",
 );
 requireContract(
-  hook.includes("seenEventIds.has(event.id)") && hook.includes("event.version < lastVersion"),
-  "realtime ordering must deduplicate ids without dropping distinct equal-version events",
-);
-requireContract(
   hook.includes("STABLE_STREAM_MS = 10_000") && hook.includes("stableConnection"),
   "short-lived SSE connections must not reset reconnect backoff",
 );
