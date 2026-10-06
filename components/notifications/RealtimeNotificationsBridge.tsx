@@ -34,13 +34,29 @@ function destination(n: RealtimeNotification): string {
   return safeInternalPath(n.deep_link ?? "") || "/notifications";
 }
 
+
+const REMINDER_EVENT_PREFIXES = [
+  "personal.reminder",
+  "alarm",
+  "ai.proactive",
+  "notes.reminder",
+  "calendar.event.reminder",
+  "traffic",
+  "calendar_conflict",
+];
+
+function isVoiceReminder(n: RealtimeNotification): boolean {
+  const event = String(n.event ?? "").trim();
+  if (event === "notification.test") return true;
+  if (String(n.category ?? "").trim() === "reminders") return true;
+  return REMINDER_EVENT_PREFIXES.some((prefix) => event.startsWith(prefix));
+}
+
 let reminderSpeechQueue: Promise<void> = Promise.resolve();
 
 async function speakReminderNow(n: RealtimeNotification) {
-  const speakable =
-    n.event === "personal.reminder" || n.event === "notification.test";
   if (
-    !speakable ||
+    !isVoiceReminder(n) ||
     n.voice_enabled !== true ||
     typeof window === "undefined" ||
     document.visibilityState !== "visible"
@@ -264,9 +280,7 @@ export function RealtimeNotificationsBridge() {
               className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)]"
               aria-hidden="true"
             >
-              {notification.voice_enabled &&
-              (notification.event === "personal.reminder" ||
-                notification.event === "notification.test") ? (
+              {notification.voice_enabled && isVoiceReminder(notification) ? (
                 <Volume2 className="h-4 w-4" />
               ) : (
                 <BellRing className="h-4 w-4" />

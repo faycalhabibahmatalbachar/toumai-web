@@ -13,7 +13,9 @@ function expect(ok, message) {
 
 expect(layout.includes("<RealtimeNotificationsBridge />"), "realtime bridge must be mounted globally");
 expect(bridge.includes('authFetch("/notifications/stream"'), "realtime must use authenticated SSE");
-expect(bridge.includes('"personal.reminder"') && bridge.includes('"notification.test"'), "voice must cover reminders and explicit diagnostics only");
+expect(bridge.includes("isVoiceReminder"), "voice must use one reminder classifier");
+expect(bridge.includes('"personal.reminder"') && bridge.includes('"alarm"') && bridge.includes('"calendar.event.reminder"') && bridge.includes('"notes.reminder"'), "voice must cover real reminder event families");
+expect(bridge.includes('"notification.test"'), "voice must cover explicit diagnostics");
 expect(bridge.includes('n.voice_enabled !== true'), "voice must require server opt-in");
 expect(bridge.includes('document.visibilityState !== "visible"'), "voice must never speak in background");
 expect(bridge.includes("playToumaiVoice"), "reminder voice must use the shared Toumai voice player");
@@ -40,6 +42,7 @@ expect(settings.includes("voice_enabled"), "voice preference must be server-back
 expect(settings.includes("realtime_enabled"), "realtime preference must be server-backed");
 
 expect(api.includes("voice_enabled: boolean"), "notification preference must type voice channel");
+expect(api.includes("category?: string | null"), "realtime notifications must expose server category");
 expect(api.includes("realtime_enabled: boolean"), "notification preference must type realtime channel");
 expect(webPush.includes("/notifications/web-push/subscribe"), "Web Push must use authenticated server registration");
 expect(webPush.includes("Notification.requestPermission()"), "Web Push permission must remain user initiated");
