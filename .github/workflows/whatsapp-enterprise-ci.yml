@@ -10,9 +10,11 @@ on:
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
       - "lib/whatsapp-realtime.ts"
+      - "lib/whatsapp-enterprise-api.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
+      - "scripts/verify-whatsapp-authoritative-client.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
   pull_request:
     paths:
@@ -21,9 +23,12 @@ on:
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
       - "lib/whatsapp-realtime.ts"
+      - "lib/whatsapp-enterprise-api.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
+      - "scripts/verify-whatsapp-authoritative-client.mjs"
+      - ".github/workflows/whatsapp-enterprise-ci.yml"
 
 concurrency:
   group: whatsapp-enterprise-${{ github.ref }}
@@ -46,6 +51,8 @@ jobs:
         run: node scripts/verify-whatsapp-overview-polling.mjs
       - name: Verify Overview realtime SSE
         run: node scripts/verify-whatsapp-overview-realtime.mjs
+      - name: Verify authoritative WhatsApp client
+        run: node scripts/verify-whatsapp-authoritative-client.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
