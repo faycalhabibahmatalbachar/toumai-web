@@ -640,7 +640,7 @@ function metricDeltaUnit(
 function overviewConnectionPresentation(
   connection: WhatsAppOverview["connection"],
 ) {
-  if (connection.status === "connected") return { label: connection.label || "WhatsApp connecté", color: GREEN };
+  if (connection.status === "connected") return { label: "WhatsApp connecté", color: GREEN };
   if (connection.status === "connecting") return { label: connection.label || "Connexion en cours", color: ORANGE };
   if (connection.status === "degraded") return { label: connection.label || "Connexion dégradée", color: ORANGE };
   return { label: connection.label || "WhatsApp non connecté", color: FAINT };
