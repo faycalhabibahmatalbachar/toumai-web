@@ -592,7 +592,7 @@ async function certifyRetired404Fallbacks() {
     "Le mode compatibilité ne doit pas réapparaître après un 404 moderne.",
   );
 
-  await page.getByRole("button", { name: /Nouveau message/ }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Nouveau message" }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
