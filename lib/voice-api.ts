@@ -27,9 +27,39 @@ export interface SynthesizeResult {
   mime_type: string;
 }
 
+export interface ZenabaPlaybackDiagnostics {
+  voice: string;
+  engine: string;
+  reference: string;
+  transport: string;
+  serverTtfaMs: number | null;
+  providerMs: number | null;
+  certified: boolean;
+}
+
 export interface SpeechSegment extends SynthesizeResult {
   index: number;
   text: string;
+  diagnostics?: ZenabaPlaybackDiagnostics;
+}
+
+function integerHeader(headers: Headers, name: string): number | null {
+  const raw = headers.get(name);
+  if (!raw) return null;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function zenabaDiagnostics(res: Response): ZenabaPlaybackDiagnostics {
+  return {
+    voice: res.headers.get("X-Toumai-Voice") || "Zenaba",
+    engine: res.headers.get("X-Toumai-Voice-Engine") || "unknown",
+    reference: res.headers.get("X-Toumai-Voice-Reference") || "unknown",
+    transport: res.headers.get("X-Toumai-Voice-Transport") || "unknown",
+    serverTtfaMs: integerHeader(res.headers, "X-Toumai-Voice-TTFA-Ms"),
+    providerMs: integerHeader(res.headers, "X-Toumai-Voice-Provider-Ms"),
+    certified: res.headers.get("X-Toumai-Voice-Certified") === "1",
+  };
 }
 
 async function ttsHttpError(res: Response): Promise<HttpError> {
@@ -136,6 +166,7 @@ export async function* streamSpeech(
   });
   if (!res.ok || !res.body) throw await ttsHttpError(res);
 
+  const diagnostics = zenabaDiagnostics(res);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -156,7 +187,7 @@ export async function* streamSpeech(
         if (!segment.audio_base64 || !segment.mime_type) {
           throw new Error("Zenaba n’a pas produit l’un des segments audio.");
         }
-        yield segment;
+        yield { ...segment, diagnostics };
       }
     }
 
@@ -167,7 +198,7 @@ export async function* streamSpeech(
       if (!segment.audio_base64 || !segment.mime_type) {
         throw new Error("Zenaba n’a pas produit le dernier segment audio.");
       }
-      yield segment;
+      yield { ...segment, diagnostics };
     }
   } finally {
     reader.releaseLock();

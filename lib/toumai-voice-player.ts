@@ -1,6 +1,10 @@
 "use client";
 
-import { openLiveSpeechStream, streamSpeech } from "@/lib/voice-api";
+import {
+  openLiveSpeechStream,
+  streamSpeech,
+  type ZenabaPlaybackDiagnostics,
+} from "@/lib/voice-api";
 import { errorMessage } from "@/lib/errors";
 
 export type ToumaiVoicePhase = "idle" | "loading" | "playing";
@@ -12,11 +16,46 @@ export type ToumaiVoiceSnapshot = {
   error: string | null;
 };
 
+export type ToumaiVoicePlaybackDiagnostic = ZenabaPlaybackDiagnostics & {
+  clientTtfaMs: number;
+  measuredAt: string;
+};
+
 let snapshot: ToumaiVoiceSnapshot = {
   owner: null,
   phase: "idle",
   error: null,
 };
+
+let lastPlaybackDiagnostic: ToumaiVoicePlaybackDiagnostic | null = null;
+
+export function getLastToumaiVoicePlaybackDiagnostic():
+  | ToumaiVoicePlaybackDiagnostic
+  | null {
+  return lastPlaybackDiagnostic ? { ...lastPlaybackDiagnostic } : null;
+}
+
+function certifyBrowserPlayback(
+  diagnostics: ZenabaPlaybackDiagnostics | undefined,
+  clientTtfaMs: number,
+): void {
+  const value: ToumaiVoicePlaybackDiagnostic = {
+    voice: diagnostics?.voice || "Zenaba",
+    engine: diagnostics?.engine || "unknown",
+    reference: diagnostics?.reference || "unknown",
+    transport: diagnostics?.transport || "unknown",
+    serverTtfaMs: diagnostics?.serverTtfaMs ?? null,
+    providerMs: diagnostics?.providerMs ?? null,
+    certified: diagnostics?.certified === true,
+    clientTtfaMs: Math.max(0, Math.round(clientTtfaMs)),
+    measuredAt: new Date().toISOString(),
+  };
+  lastPlaybackDiagnostic = value;
+
+  // Aucun texte ni identifiant de compte. Ce log n'est visible qu'aux personnes
+  // qui ouvrent les DevTools et sert à certifier la lecture réelle du navigateur.
+  console.debug("[Toumai Voice] playback certified", value);
+}
 
 const listeners = new Set<() => void>();
 let audio: HTMLAudioElement | null = null;
@@ -305,6 +344,7 @@ async function playSegment(
   mimeType: string,
   speed: number,
   myGeneration: number,
+  onPlaying?: () => void,
 ): Promise<ToumaiVoiceOutcome> {
   if (myGeneration !== generation) return "stopped";
 
@@ -325,6 +365,7 @@ async function playSegment(
       if (audio === element) audio = null;
       element.onended = null;
       element.onerror = null;
+      element.onplaying = null;
       cleanupUrl();
       resolve(outcome);
     };
@@ -334,6 +375,12 @@ async function playSegment(
       resolve: (outcome) => finish(outcome),
     };
 
+    let started = false;
+    element.onplaying = () => {
+      if (started) return;
+      started = true;
+      onPlaying?.();
+    };
     element.onended = () => finish("ended");
     element.onerror = () => finish("error");
 
@@ -542,6 +589,9 @@ export async function playToumaiVoice(
   publish({ owner, phase: "loading", error: null });
 
   let produced = false;
+  let firstAudibleReported = false;
+  const playbackStartedAt =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
 
   const completionPromise = new Promise<ToumaiVoiceOutcome>((resolve) => {
     completion = { generation: myGeneration, resolve };
@@ -562,6 +612,13 @@ export async function playToumaiVoice(
           segment.mime_type,
           speed,
           myGeneration,
+          () => {
+            if (firstAudibleReported) return;
+            firstAudibleReported = true;
+            const now =
+              typeof performance !== "undefined" ? performance.now() : Date.now();
+            certifyBrowserPlayback(segment.diagnostics, now - playbackStartedAt);
+          },
         );
 
         if (outcome !== "ended") {
