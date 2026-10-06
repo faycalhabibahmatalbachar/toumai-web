@@ -1184,6 +1184,318 @@ export default function WhatsAppConversationsPage() {
         </main>
       </div>
 
+      {contactOpen && selected && (
+        <FunctionalDialog
+          title="Informations du contact"
+          onClose={() => setContactOpen(false)}
+          width="max-w-md"
+        >
+          {contactBusy ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={24} className="animate-spin" color={GREEN} />
+            </div>
+          ) : contactInfo ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                {contactInfo.picture_url ? (
+                  <img
+                    src={contactInfo.picture_url}
+                    alt=""
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
+                ) : (
+                  <Avatar name={contactInfo.name || displayConversationName(selected)} kind={selected.kind} size="lg" />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold">
+                    {contactInfo.name || contactInfo.push_name || displayConversationName(selected)}
+                  </p>
+                  <p className="mt-1 text-[11px]" style={{ color: MUTED }}>
+                    {contactInfo.number ? `+${contactInfo.number}` : displayConversationSecondary(selected)}
+                  </p>
+                </div>
+              </div>
+              <InfoRow label="À propos" value={contactInfo.about || "Non renseigné"} />
+              <InfoRow
+                label="WhatsApp"
+                value={contactInfo.on_whatsapp === false ? "Non détecté" : "Compte actif"}
+              />
+              {contactInfo.business && (
+                <InfoRow
+                  label="Profil Business"
+                  value={businessSummary(contactInfo.business)}
+                />
+              )}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm" style={{ color: MUTED }}>
+              Informations indisponibles.
+            </p>
+          )}
+        </FunctionalDialog>
+      )}
+
+      {assistantResult && (
+        <FunctionalDialog
+          title={assistantResult.title}
+          onClose={() => setAssistantResult(null)}
+          width="max-w-xl"
+        >
+          <p className="whitespace-pre-wrap text-[13px] leading-6" style={{ color: "#dbe4ea" }}>
+            {assistantResult.text}
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setReplyDraft(assistantResult.text.slice(0, 4096));
+                setAssistantResult(null);
+              }}
+              className="rounded-xl border px-4 py-2 text-[11px] font-semibold"
+              style={{ borderColor: BORDER, color: TEXT }}
+            >
+              Utiliser dans le message
+            </button>
+            <button
+              type="button"
+              onClick={() => setAssistantResult(null)}
+              className="rounded-xl px-4 py-2 text-[11px] font-semibold text-white"
+              style={{ background: GREEN }}
+            >
+              Fermer
+            </button>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {translateOpen && (
+        <FunctionalDialog
+          title="Traduire le dernier message reçu"
+          onClose={() => setTranslateOpen(false)}
+          width="max-w-sm"
+        >
+          <p className="mb-4 text-[11px]" style={{ color: MUTED }}>
+            Choisissez la langue cible. Toumaï traduira le dernier message entrant réel du fil.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ["fr", "Français"],
+              ["ar", "العربية"],
+              ["en", "English"],
+            ].map(([code, label]) => (
+              <button
+                key={code}
+                type="button"
+                disabled={assistantBusy === "translate"}
+                onClick={() => void runAssistantAction("translate", code)}
+                className="flex h-11 items-center justify-center rounded-xl border text-[11px] font-semibold disabled:opacity-50"
+                style={{ borderColor: BORDER, background: RAISED, color: TEXT }}
+              >
+                {assistantBusy === "translate" ? <Loader2 size={15} className="animate-spin" /> : label}
+              </button>
+            ))}
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {taskOpen && selected && (
+        <FunctionalDialog
+          title="Créer une tâche WhatsApp"
+          onClose={() => !taskBusy && setTaskOpen(false)}
+          width="max-w-lg"
+        >
+          <div className="space-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                Message
+              </span>
+              <textarea
+                value={taskMessage}
+                onChange={(event) => setTaskMessage(event.target.value.slice(0, 4096))}
+                rows={4}
+                placeholder="Message à envoyer automatiquement…"
+                className="w-full resize-none rounded-xl border bg-transparent px-3 py-2.5 text-[12px] outline-none"
+                style={{ borderColor: BORDER, background: RAISED }}
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                  Date et heure
+                </span>
+                <input
+                  type="datetime-local"
+                  value={taskWhen}
+                  onChange={(event) => setTaskWhen(event.target.value)}
+                  className="h-10 w-full rounded-xl border bg-transparent px-3 text-[11px] outline-none"
+                  style={{ borderColor: BORDER, background: RAISED }}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                  Récurrence
+                </span>
+                <select
+                  value={taskRecurrence}
+                  onChange={(event) =>
+                    setTaskRecurrence(event.target.value as "none" | "daily" | "weekly" | "monthly")
+                  }
+                  className="h-10 w-full rounded-xl border px-3 text-[11px] outline-none"
+                  style={{ borderColor: BORDER, background: RAISED, color: TEXT }}
+                >
+                  <option value="none">Une fois</option>
+                  <option value="daily">Chaque jour</option>
+                  <option value="weekly">Chaque semaine</option>
+                  <option value="monthly">Chaque mois</option>
+                </select>
+              </label>
+            </div>
+            <div
+              className="rounded-xl border px-3 py-2 text-[10px]"
+              style={{ borderColor: "rgba(8,200,117,.2)", background: "rgba(8,200,117,.05)", color: MUTED }}
+            >
+              Destinataire : {displayConversationName(selected)}. La création est exécutée seulement après ce clic de confirmation.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={taskBusy}
+                onClick={() => setTaskOpen(false)}
+                className="rounded-xl border px-4 py-2.5 text-[11px] font-semibold disabled:opacity-50"
+                style={{ borderColor: BORDER }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={taskBusy || !taskMessage.trim() || !taskWhen}
+                onClick={() => void createTask()}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-semibold text-white disabled:opacity-45"
+                style={{ background: GREEN }}
+              >
+                {taskBusy && <Loader2 size={14} className="animate-spin" />}
+                Confirmer la programmation
+              </button>
+            </div>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {mediaDraft && selected && (
+        <FunctionalDialog
+          title="Confirmer la pièce jointe"
+          onClose={() => !mediaBusy && setMediaDraft(null)}
+          width="max-w-lg"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border p-3" style={{ borderColor: BORDER, background: RAISED }}>
+              <Paperclip size={20} color={GREEN} />
+              <div className="min-w-0">
+                <p className="truncate text-[12px] font-semibold">{mediaDraft.filename}</p>
+                <p className="mt-1 text-[9px]" style={{ color: MUTED }}>
+                  {messageTypeLabel(mediaDraft.type)} · {mediaDraft.mimetype || "fichier"}
+                </p>
+              </div>
+            </div>
+            {(mediaDraft.type === "image" || mediaDraft.type === "video" || mediaDraft.type === "document") && (
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-medium" style={{ color: MUTED }}>
+                  Légende facultative
+                </span>
+                <textarea
+                  value={mediaDraft.caption}
+                  onChange={(event) =>
+                    setMediaDraft((current) => current ? { ...current, caption: event.target.value.slice(0, 2048) } : current)
+                  }
+                  rows={2}
+                  className="w-full resize-none rounded-xl border bg-transparent px-3 py-2.5 text-[12px] outline-none"
+                  style={{ borderColor: BORDER, background: RAISED }}
+                />
+              </label>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={mediaBusy}
+                onClick={() => setMediaDraft(null)}
+                className="rounded-xl border px-4 py-2.5 text-[11px] font-semibold"
+                style={{ borderColor: BORDER }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={mediaBusy}
+                onClick={() => void confirmMediaSend()}
+                className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                style={{ background: GREEN }}
+              >
+                {mediaBusy && <Loader2 size={14} className="animate-spin" />}
+                Envoyer maintenant
+              </button>
+            </div>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {replyConfirmOpen && selected && replyTarget && (
+        <FunctionalDialog
+          title="Confirmer la réponse"
+          onClose={() => setReplyConfirmOpen(false)}
+          width="max-w-lg"
+        >
+          <div
+            className="rounded-xl border-l-2 px-3 py-2"
+            style={{ borderColor: GREEN, background: RAISED }}
+          >
+            <p className="text-[9px] font-semibold" style={{ color: GREEN }}>
+              Message cité
+            </p>
+            <p className="mt-1 line-clamp-3 text-[11px]" style={{ color: MUTED }}>
+              {replyTarget.text || messageTypeLabel(replyTarget.type)}
+            </p>
+          </div>
+          <p className="mt-4 whitespace-pre-wrap text-[12px] leading-5">{replyDraft}</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setReplyConfirmOpen(false)}
+              className="rounded-xl border px-4 py-2.5 text-[11px] font-semibold"
+              style={{ borderColor: BORDER }}
+            >
+              Modifier
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmQuotedReply()}
+              className="rounded-xl px-4 py-2.5 text-[11px] font-semibold text-white"
+              style={{ background: GREEN }}
+            >
+              Envoyer la réponse
+            </button>
+          </div>
+        </FunctionalDialog>
+      )}
+
+      {notice && (
+        <div
+          className="fixed bottom-5 right-5 z-[80] max-w-sm rounded-xl border px-4 py-3 text-[11px] font-medium shadow-2xl"
+          style={{
+            borderColor: notice.tone === "success" ? "rgba(8,200,117,.35)" : "rgba(255,107,107,.35)",
+            background: notice.tone === "success" ? "#0a2d23" : "#2b1418",
+            color: notice.tone === "success" ? "#c9ffe5" : "#ffd3d6",
+          }}
+          role="status"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex-1">{notice.text}</span>
+            <button type="button" aria-label="Fermer la notification" onClick={() => setNotice(null)}>
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
