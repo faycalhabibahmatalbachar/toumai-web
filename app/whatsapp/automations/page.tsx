@@ -22,6 +22,7 @@ import {
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
+import { errorMessage } from "@/lib/errors";
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
@@ -94,7 +95,7 @@ export default function WhatsAppAutomationsPage() {
       const data = await getWhatsAppAutomations({ limit: 100 });
       setTasks(data.tasks);
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Impossible de charger les automatisations.");
+      setError(errorMessage(exc, "generic"));
     } finally {
       setLoading(false);
     }
@@ -111,7 +112,7 @@ export default function WhatsAppAutomationsPage() {
       else await cancelWhatsAppAutomation(task.id);
       await load();
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Action impossible.");
+      setError(errorMessage(exc, "generic"));
     } finally {
       setBusy((current) => ({ ...current, [task.id]: false }));
     }
@@ -342,7 +343,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
       });
       await onSaved();
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Modification impossible.");
+      setError(errorMessage(exc, "generic"));
     } finally {
       setSaving(false);
     }

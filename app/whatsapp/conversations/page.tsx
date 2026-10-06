@@ -19,6 +19,7 @@ import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
+import { errorMessage } from "@/lib/errors";
 import {
   getWaConversationMessages,
   getWaLiveConversations,
@@ -52,9 +53,12 @@ export default function WhatsAppConversationsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [composeTarget, setComposeTarget] = useState<WaLiveConversation | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [conversationSource, setConversationSource] = useState<"baileys" | "autopilot-log">("baileys");
+  const [threadSource, setThreadSource] = useState<"baileys" | "autopilot-log">("baileys");
 
   useEffect(() => {
     if (!session) return;
@@ -123,6 +127,7 @@ export default function WhatsAppConversationsPage() {
       });
       setHasMore(data.has_more);
       setNextOffset(data.next_offset);
+      setConversationSource(data.source);
 
       const requested =
         typeof window === "undefined"
@@ -141,7 +146,7 @@ export default function WhatsAppConversationsPage() {
       }
     } catch (error) {
       if (!append) setConversations([]);
-      setListError(error instanceof Error ? error.message : "Impossible de lire les conversations WhatsApp.");
+      setListError(errorMessage(error, "history"));
     } finally {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
@@ -154,9 +159,10 @@ export default function WhatsAppConversationsPage() {
     try {
       const data = await getWaConversationMessages(conversation.id, 120);
       setMessages(data.messages);
+      setThreadSource(data.source);
     } catch (error) {
       setMessages([]);
-      setThreadError(error instanceof Error ? error.message : "Impossible de lire cette conversation.");
+      setThreadError(errorMessage(error, "history"));
     } finally {
       setLoadingThread(false);
     }
@@ -193,11 +199,18 @@ export default function WhatsAppConversationsPage() {
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-[16px] font-semibold">Conversations WhatsApp</h1>
-            <p className="text-[11px]" style={{ color: MUTED }}>Source directe : session Baileys Toumaï</p>
+            <p className="text-[11px]" style={{ color: MUTED }}>
+              {conversationSource === "baileys"
+                ? "Source directe : session Baileys Toumaï"
+                : "Journal Toumaï · compatibilité production"}
+            </p>
           </div>
           <button
             type="button"
-            onClick={() => setComposeOpen(true)}
+            onClick={() => {
+              setComposeTarget(null);
+              setComposeOpen(true);
+            }}
             className="ml-auto flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white"
             style={{ background: GREEN }}
           >
@@ -224,6 +237,12 @@ export default function WhatsAppConversationsPage() {
               <FilterButton active={filter === "pending"} onClick={() => setFilter("pending")} label="En attente" />
               <FilterButton active={filter === "unread"} onClick={() => setFilter("unread")} label="Non lues" />
             </div>
+
+            {conversationSource === "autopilot-log" && !loadingList && !listError && (
+              <div className="mt-3 rounded-xl border px-3 py-2.5 text-[11px] leading-5" style={{ borderColor: "rgba(255,149,24,.28)", background: "rgba(255,149,24,.06)", color: "#e9b878" }}>
+                Mode compatibilité actif : Toumaï affiche les conversations déjà journalisées pendant que la nouvelle route Baileys est propagée en production.
+              </div>
+            )}
           </div>
 
           <div className="h-[calc(100dvh-196px)] overflow-y-auto">
@@ -340,7 +359,10 @@ export default function WhatsAppConversationsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setComposeOpen(true)}
+                  onClick={() => {
+                    setComposeTarget(selected);
+                    setComposeOpen(true);
+                  }}
                   className="flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold text-white"
                   style={{ background: GREEN }}
                 >
@@ -349,6 +371,11 @@ export default function WhatsAppConversationsPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-5 md:px-8">
+                {threadSource === "autopilot-log" && !loadingThread && !threadError && (
+                  <div className="mx-auto mb-4 max-w-3xl rounded-xl border px-3 py-2.5 text-[11px] leading-5" style={{ borderColor: "rgba(255,149,24,.28)", background: "rgba(255,149,24,.06)", color: "#e9b878" }}>
+                    Historique partiel : seuls les échanges réellement journalisés par Toumaï sont affichés jusqu’à la promotion complète de l’historique Baileys.
+                  </div>
+                )}
                 {loadingThread && <div className="mx-auto max-w-3xl space-y-3">{[0, 1, 2, 3].map((index) => <div key={index} className="h-16 animate-pulse rounded-2xl bg-white/[0.025]" />)}</div>}
 
                 {!loadingThread && threadError && (
@@ -379,7 +406,10 @@ export default function WhatsAppConversationsPage() {
               <div className="border-t px-4 py-3 md:px-6" style={{ borderColor: BORDER, background: SURFACE }}>
                 <button
                   type="button"
-                  onClick={() => setComposeOpen(true)}
+                  onClick={() => {
+                    setComposeTarget(selected);
+                    setComposeOpen(true);
+                  }}
                   className="mx-auto flex h-12 w-full max-w-3xl items-center gap-3 rounded-xl border px-4 text-left text-sm"
                   style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
                 >
@@ -396,8 +426,8 @@ export default function WhatsAppConversationsPage() {
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
-        initialRecipient={selected?.id}
-        initialName={selected?.name}
+        initialRecipient={composeTarget?.id}
+        initialName={composeTarget?.name}
         onSent={() => {
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
           void loadConversations(query, filter);

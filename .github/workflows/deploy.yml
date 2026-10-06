@@ -34,6 +34,27 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy out --project-name toumaiai-web --branch main
+      - name: Vérifier les routes backend de compatibilité WhatsApp
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe() {
+            method="$1"
+            url="$2"
+            if [ "$method" = "POST" ]; then
+              curl -sS -o /tmp/wa-compat.json -w '%{http_code}' --connect-timeout 10 --max-time 20 \
+                -X POST -H 'Content-Type: application/json' \
+                -d '{"chat_id":"23566000000","text":"probe"}' "$url" || true
+            else
+              curl -sS -o /tmp/wa-compat.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$url" || true
+            fi
+          }
+          conversations_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/autopilot/conversations?limit=1')"
+          send_status="$(probe POST 'https://api.toumaiai.com/api/v1/whatsapp/suggestion/send')"
+          case "$conversations_status" in 401|403|428) ;; *) echo "::error::Legacy conversations route unavailable: HTTP $conversations_status"; exit 1 ;; esac
+          case "$send_status" in 401|403|428) ;; *) echo "::error::Legacy send route unavailable: HTTP $send_status"; exit 1 ;; esac
+          echo "Compatibility backend routes are present and authentication-protected."
+
       - name: Vérifier WhatsApp Enterprise sur le domaine public
         shell: bash
         run: |

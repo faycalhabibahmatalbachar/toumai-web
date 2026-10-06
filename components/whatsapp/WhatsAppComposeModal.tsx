@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
+import { errorMessage } from "@/lib/errors";
 import {
   getWaMessageStatus,
   sendWaManualMessage,
@@ -158,7 +159,7 @@ export function WhatsAppComposeModal({
       setStage("result");
       onSent?.(response.chat_id);
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Échec de l’envoi WhatsApp.");
+      setError(errorMessage(exc, "generic"));
     } finally {
       setSending(false);
     }
