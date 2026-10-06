@@ -999,7 +999,23 @@ export default function WhatsAppConversationsPage() {
 
                   {!loadingThread && !threadError && visibleMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
-                      <ThreadMessages messages={visibleMessages} />
+                      <ThreadMessages
+                        messages={visibleMessages}
+                        reactionTargetId={reactionTarget?.id || null}
+                        onReply={(message) => {
+                          setReplyTarget(message);
+                          setReplyDraft("");
+                          setComposerEmojiOpen(false);
+                        }}
+                        onReact={(message) => setReactionTarget((current) => current?.id === message.id ? null : message)}
+                        onReactionPick={(message, emoji) => void handleReaction(message, emoji)}
+                        onStar={(message) =>
+                          void performConversationAction("star", {
+                            msg_id: message.id,
+                            from_me: message.from_me,
+                          })
+                        }
+                      />
                     </div>
                   )}
                 </div>
@@ -1014,44 +1030,118 @@ export default function WhatsAppConversationsPage() {
                         <Sparkles size={13} />
                         Assistant IA
                       </span>
-                      <AiAction icon={<Sparkles size={13} />} label="Réponse suggérée" />
-                      <AiAction icon={<MessageCircle size={13} />} label="Résumer" />
-                      <AiAction icon={<Languages size={13} />} label="Traduire" />
-                      <AiAction icon={<ListTodo size={13} />} label="Créer une tâche" />
+                      <AiAction
+                        icon={<Sparkles size={13} />}
+                        label="Réponse suggérée"
+                        busy={assistantBusy === "suggest_reply"}
+                        onClick={() => void runAssistantAction("suggest_reply")}
+                      />
+                      <AiAction
+                        icon={<MessageCircle size={13} />}
+                        label="Résumer"
+                        busy={assistantBusy === "summarize"}
+                        onClick={() => void runAssistantAction("summarize")}
+                      />
+                      <AiAction
+                        icon={<Languages size={13} />}
+                        label="Traduire"
+                        busy={assistantBusy === "translate"}
+                        onClick={() => setTranslateOpen(true)}
+                      />
+                      <AiAction
+                        icon={<ListTodo size={13} />}
+                        label="Créer une tâche"
+                        onClick={() => {
+                          setTaskMessage(replyDraft.trim());
+                          setTaskWhen(defaultTaskDateTime());
+                          setTaskOpen(true);
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
 
                 <div className="px-3 pb-3 md:px-5" style={{ background: SURFACE }}>
                   <div className="mx-auto max-w-[980px]">
+                    {replyTarget && (
+                      <div
+                        className="mb-2 flex items-center gap-3 rounded-xl border px-3 py-2"
+                        style={{ borderColor: "rgba(8,200,117,.28)", background: "rgba(8,200,117,.055)" }}
+                      >
+                        <Reply size={15} color={GREEN} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-semibold" style={{ color: GREEN }}>
+                            Réponse à {replyTarget.from_me ? "votre message" : replyTarget.sender || displayConversationName(selected)}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px]" style={{ color: MUTED }}>
+                            {replyTarget.text || messageTypeLabel(replyTarget.type)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Annuler la réponse"
+                          onClick={() => setReplyTarget(null)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
+                          style={{ color: MUTED }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
                     <div
-                      className="flex items-end gap-2 rounded-[16px] border p-2"
+                      className="relative flex items-end gap-2 rounded-[16px] border p-2"
                       style={{ borderColor: BORDER, background: RAISED }}
                     >
                       <button
                         type="button"
-                        disabled
                         aria-label="Emoji"
-                        title="Emoji bientôt disponible"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
-                        style={{ color: MUTED }}
+                        aria-expanded={composerEmojiOpen}
+                        onClick={() => setComposerEmojiOpen((open) => !open)}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.05]"
+                        style={{ color: composerEmojiOpen ? GREEN : MUTED }}
                       >
                         <Smile size={19} />
                       </button>
+                      {composerEmojiOpen && (
+                        <div className="absolute bottom-[54px] left-0 z-40">
+                          <WhatsAppEmojiPicker
+                            onPick={(emoji) => {
+                              setReplyDraft((draft) => (draft + emoji).slice(0, 4096));
+                              setComposerEmojiOpen(false);
+                            }}
+                          />
+                        </div>
+                      )}
+                      <input
+                        ref={attachmentInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                        onChange={(event) => void handleAttachment(event.target.files?.[0] || null)}
+                      />
                       <button
                         type="button"
-                        disabled
                         aria-label="Joindre un fichier"
-                        title="Pièces jointes bientôt disponibles"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
+                        disabled={attachmentBusy}
+                        onClick={() => attachmentInputRef.current?.click()}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.05] disabled:opacity-45"
                         style={{ color: MUTED }}
                       >
-                        <Paperclip size={19} />
+                        {attachmentBusy ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
                       </button>
 
                       <textarea
                         value={replyDraft}
-                        onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
+                        onChange={(event) => {
+                          setReplyDraft(event.target.value.slice(0, 4096));
+                          if (selected) void setWaPresence(selected.id, "composing").catch(() => undefined);
+                        }}
+                        onFocus={() => {
+                          if (selected) void setWaPresence(selected.id, "composing").catch(() => undefined);
+                        }}
+                        onBlur={() => {
+                          if (selected) void setWaPresence(selected.id, "paused").catch(() => undefined);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey && replyDraft.trim()) {
                             event.preventDefault();
