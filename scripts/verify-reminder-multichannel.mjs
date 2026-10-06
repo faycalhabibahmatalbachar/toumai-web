@@ -21,6 +21,13 @@ expect(bridge.includes('document.visibilityState !== "visible"'), "voice must ne
 expect(bridge.includes("playToumaiVoice"), "reminder voice must use the shared Toumai voice player");
 expect(!bridge.includes("speechSynthesis"), "browser speechSynthesis must not be the primary reminder voice");
 expect(bridge.includes("seenSet"), "realtime/web-push notifications must be deduplicated");
+expect(bridge.includes('"Last-Event-ID"'), "SSE reconnect must resume from the last server event id");
+expect(bridge.includes("CURSOR_STORAGE_PREFIX"), "SSE cursor must survive refresh per account");
+expect(bridge.includes("SEEN_STORAGE_PREFIX"), "seen notification ids must survive refresh per account");
+expect(bridge.includes("SPOKEN_STORAGE_PREFIX"), "spoken reminder ids must be deduplicated across tabs");
+expect(bridge.includes("toumai-notification-voice:"), "voice reminders must serialize across tabs");
+expect(bridge.includes("getToumaiVoiceSnapshot"), "reminders must not interrupt another Toumai playback");
+expect(bridge.includes("VOICE_TIMEOUT_MS"), "provider failure must not block the reminder queue indefinitely");
 expect(bridge.includes('"TOUMAI_NOTIFICATION"'), "service worker messages must feed the same realtime bridge");
 
 expect(sw.includes('visibilityState === "visible"'), "service worker must detect visible Toumai clients");
@@ -39,6 +46,7 @@ for (const label of [
 }
 expect(settings.includes("checked") && settings.includes("disabled"), "Inbox must be visibly durable/locked");
 expect(settings.includes("voice_enabled"), "voice preference must be server-backed");
+expect(settings.includes("primeToumaiVoiceAudio"), "enabling voice must prime audio during a user gesture");
 expect(settings.includes("realtime_enabled"), "realtime preference must be server-backed");
 
 expect(api.includes("voice_enabled: boolean"), "notification preference must type voice channel");
