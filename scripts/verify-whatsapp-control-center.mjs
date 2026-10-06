@@ -369,7 +369,7 @@ async function certifyMobile() {
   await noHorizontalOverflow(overview, "mobile-overview");
   await overview.getByRole("button", { name: /Nouveau message/ }).click();
   await overview.getByRole("heading", { name: "Nouveau message" }).waitFor();
-  const modalBox = await overview.getByRole("dialog").boundingBox();
+  const modalBox = await overview.getByRole("dialog", { name: "Nouveau message" }).boundingBox();
   assert(Boolean(modalBox), "mobile-overview: composeur absent");
   assert(modalBox.width <= 382, `mobile-overview: composeur trop large (${modalBox.width}px)`);
   await overview.screenshot({ path: `${artifacts}/mobile-overview-compose.png`, fullPage: false });
