@@ -173,7 +173,7 @@ export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics>
   return http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`);
 }
 
-export async function getWhatsAppOverview(
+export function getWhatsAppOverview(
   days = 30,
   timezone = "Africa/Ndjamena",
 ): Promise<WhatsAppOverview> {
@@ -181,14 +181,7 @@ export async function getWhatsAppOverview(
     days: String(days),
     timezone,
   });
-  try {
-    return await http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`);
-  } catch (error) {
-    if (error instanceof HttpError && error.status === 404) {
-      throw new Error("WA_OVERVIEW_V1_NOT_DEPLOYED");
-    }
-    throw error;
-  }
+  return http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`);
 }
 
 export function getWaAutopilotLogs(
@@ -268,7 +261,7 @@ export interface WaMessageStatus {
   failed: boolean;
 }
 
-export async function getWaLiveConversations(params?: {
+export function getWaLiveConversations(params?: {
   search?: string;
   pending?: boolean;
   unread?: boolean;
@@ -282,71 +275,7 @@ export async function getWaLiveConversations(params?: {
   if (typeof params?.offset === "number") query.set("offset", String(params.offset));
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.size ? `?${query.toString()}` : "";
-
-  try {
-    return await http.get<WaLiveConversations>(`/whatsapp/conversations${suffix}`);
-  } catch (error) {
-    if (!(error instanceof HttpError) || error.status !== 404) throw error;
-
-    // Compatibilité avec le backend actuellement servi en production.
-    // Cette route existait déjà avant le Control Center et expose les
-    // conversations réellement vues par l'auto-pilote. On l'utilise
-    // uniquement quand la nouvelle route n'est pas encore déployée.
-    const offset = Math.max(0, params?.offset ?? 0);
-    const limit = Math.max(1, Math.min(80, params?.limit ?? 80));
-    const requested = Math.min(100, offset + limit);
-    const legacy = await getWaAutopilotConversations(30, requested);
-    const term = (params?.search || "").trim().toLowerCase();
-
-    let mapped: WaLiveConversation[] = legacy.conversations.map((item, index) => {
-      const timestamp = Date.parse(item.last_at || "");
-      const safeReply = safeWhatsAppVisibleText(item.last_reply);
-      const safeIncoming = safeWhatsAppVisibleText(item.last_incoming);
-      const lastFromMe = Boolean(safeReply);
-      const text = safeReply || safeIncoming || "";
-      return {
-        id: item.chat_id,
-        name: item.name || item.number || item.chat_id || "Contact WhatsApp",
-        number: item.number,
-        kind: item.kind === "group" ? "group" : "contact",
-        unread_count: 0,
-        pending: item.pending > 0,
-        last_message: {
-          id: `legacy-${item.chat_id}-${index}`,
-          chat_id: item.chat_id,
-          text,
-          from_me: lastFromMe,
-          sender: lastFromMe ? "" : item.name || "",
-          type: item.last_type || "text",
-          timestamp_ms: Number.isNaN(timestamp) ? 0 : timestamp,
-          status: lastFromMe ? "sent" : null,
-        },
-      };
-    });
-
-    if (term) {
-      mapped = mapped.filter((item) =>
-        item.name.toLowerCase().includes(term) ||
-        (item.number || "").includes(term) ||
-        item.last_message.text.toLowerCase().includes(term),
-      );
-    }
-    if (params?.pending) mapped = mapped.filter((item) => item.pending);
-    if (params?.unread) mapped = [];
-
-    const total = Math.min(legacy.total, 100);
-    const page = mapped.slice(offset, offset + limit);
-    const nextOffset = offset + page.length;
-    return {
-      conversations: page,
-      count: total,
-      offset,
-      limit,
-      has_more: nextOffset < total && nextOffset < 100,
-      next_offset: nextOffset < total && nextOffset < 100 ? nextOffset : null,
-      source: "autopilot-log",
-    };
-  }
+  return http.get<WaLiveConversations>(`/whatsapp/conversations${suffix}`);
 }
 
 export async function getWaConversationMessages(
@@ -419,33 +348,12 @@ export async function getWaConversationMessages(
   }
 }
 
-export async function sendWaManualMessage(input: {
+export function sendWaManualMessage(input: {
   to: string;
   message: string;
   chat_name?: string;
 }): Promise<WaManualSendResult> {
-  try {
-    return await http.post<WaManualSendResult>("/whatsapp/message/send", input);
-  } catch (error) {
-    if (!(error instanceof HttpError) || error.status !== 404) throw error;
-
-    // Compatibilité temporaire : cette route historique réutilise la
-    // protection de cadence du backend puis la session Baileys existante.
-    const legacy = await http.post<{ chat_id?: string }>("/whatsapp/suggestion/send", {
-      chat_id: input.to,
-      text: input.message,
-      chat_name: input.chat_name || "",
-      incoming: "",
-    });
-    return {
-      chat_id: legacy?.chat_id || input.to,
-      msg_id: null,
-      status: "accepted",
-      accepted_by_gateway: true,
-      delivery_confirmed: false,
-      read_confirmed: false,
-    };
-  }
+  return http.post<WaManualSendResult>("/whatsapp/message/send", input);
 }
 
 export async function getWaMessageStatus(
