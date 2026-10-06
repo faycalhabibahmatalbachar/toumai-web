@@ -66,12 +66,20 @@ export function useWhatsAppRealtimeInvalidation({
     refreshAutomations,
     refreshConnection,
   });
-  refreshersRef.current = {
+
+  useEffect(() => {
+    refreshersRef.current = {
+      refreshOverview,
+      refreshConversations,
+      refreshAutomations,
+      refreshConnection,
+    };
+  }, [
     refreshOverview,
     refreshConversations,
     refreshAutomations,
     refreshConnection,
-  };
+  ]);
 
   useEffect(() => {
     if (!enabled) return;
