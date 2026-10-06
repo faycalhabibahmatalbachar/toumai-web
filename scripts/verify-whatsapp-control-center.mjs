@@ -397,7 +397,12 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Vérifier" }).click();
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   await page.getByRole("dialog").getByText("Mahamat Ali", { exact: true }).waitFor();
-  await page.getByDisplayValue("Je vous rappelle dans quelques minutes.").waitFor();
+  const reviewedDraft = page.getByPlaceholder("Écrivez votre message…");
+  await reviewedDraft.waitFor();
+  assert(
+    (await reviewedDraft.inputValue()) === "Je vous rappelle dans quelques minutes.",
+    "Le brouillon de réponse doit être conservé dans le composeur de confirmation.",
+  );
 
   await noHorizontalOverflow(page, "conversations-workspace");
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
