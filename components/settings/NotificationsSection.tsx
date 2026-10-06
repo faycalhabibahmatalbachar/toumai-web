@@ -16,6 +16,7 @@ import {
   webPushState,
   type WebPushState,
 } from "@/lib/web-push";
+import { primeToumaiVoiceAudio } from "@/lib/toumai-voice-player";
 import { CxSwitch, Panel, Row } from "./Rows";
 
 const LABELS: Record<string, { label: string; description: string }> = {
@@ -210,6 +211,18 @@ export function NotificationsSection() {
     }
   }
 
+  async function toggleVoice(enabled: boolean) {
+    if (!v3Available) return;
+    // Ce geste utilisateur déverrouille Web Audio une fois. Les rappels futurs
+    // peuvent alors parler au premier plan sans tenter de contourner autoplay.
+    if (enabled) primeToumaiVoiceAudio();
+    await saveGlobal(
+      enabled
+        ? { voice_enabled: true, realtime_enabled: true }
+        : { voice_enabled: false },
+    );
+  }
+
   async function toggleWebPush(enabled: boolean) {
     if (!v3Available) return;
     setBusy("web_push");
@@ -300,7 +313,7 @@ export function NotificationsSection() {
             checked={global.voice_enabled}
             label="Voix Toumaï"
             disabled={!v3Available || !voiceSupported}
-            onChange={(value) => void saveGlobal({ voice_enabled: value })}
+            onChange={(value) => void toggleVoice(value)}
           />
         </Row>
 

@@ -10,19 +10,33 @@ import type { RealtimeNotification } from "@/lib/notifications-api";
 import type { Preferences } from "@/lib/preferences-api";
 import { cacheSeed } from "@/lib/swr-cache";
 import {
+  getToumaiVoiceSnapshot,
   isToumaiVoiceConversationActive,
   playToumaiVoice,
+  stopToumaiVoice,
   waitForToumaiVoiceConversationIdle,
 } from "@/lib/toumai-voice-player";
 import { safeInternalPath } from "@/lib/widgets/core";
 
 type ToastItem = {
   key: string;
+  accountId: string;
   notification: RealtimeNotification;
 };
 
 const MAX_SEEN = 120;
 const TOAST_MS = 8_000;
+const VOICE_TIMEOUT_MS = 30_000;
+const SEEN_STORAGE_PREFIX = "toumai_notification_seen_v1:";
+const CURSOR_STORAGE_PREFIX = "toumai_notification_cursor_v1:";
+const SPOKEN_STORAGE_PREFIX = "toumai_notification_spoken_v1:";
+
+type NavigatorLocksLike = {
+  request(
+    name: string,
+    callback: () => Promise<void>,
+  ): Promise<void>;
+};
 
 function eventKey(n: RealtimeNotification): string {
   const id = String(n.id ?? "").trim();
@@ -32,6 +46,106 @@ function eventKey(n: RealtimeNotification): string {
 
 function destination(n: RealtimeNotification): string {
   return safeInternalPath(n.deep_link ?? "") || "/notifications";
+}
+
+
+function storageList(key: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    const value = raw ? JSON.parse(raw) : [];
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string").slice(-MAX_SEEN)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStorageList(key: string, values: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(values.slice(-MAX_SEEN)));
+  } catch {
+    // sessionStorage peut être indisponible en navigation privée stricte.
+  }
+}
+
+function persistentKey(prefix: string, accountId: string): string {
+  return prefix + accountId;
+}
+
+function readCursor(accountId: string): string {
+  if (typeof window === "undefined" || !accountId) return "";
+  try {
+    return window.sessionStorage.getItem(
+      persistentKey(CURSOR_STORAGE_PREFIX, accountId),
+    ) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeCursor(accountId: string, eventId: string): void {
+  if (typeof window === "undefined" || !accountId || !eventId) return;
+  try {
+    window.sessionStorage.setItem(
+      persistentKey(CURSOR_STORAGE_PREFIX, accountId),
+      eventId,
+    );
+  } catch {
+    // La déduplication mémoire reste active.
+  }
+}
+
+function eligibleForVoice(n: RealtimeNotification): boolean {
+  if (
+    !isVoiceReminder(n) ||
+    n.voice_enabled !== true ||
+    typeof window === "undefined" ||
+    document.visibilityState !== "visible"
+  ) {
+    return false;
+  }
+  const body = String(n.body ?? "").trim();
+  if (!body) return false;
+  const locale = String(n.locale ?? "fr").trim().toLowerCase();
+  return !locale || locale.startsWith("fr");
+}
+
+function claimSpokenNotification(accountId: string, notificationId: string): boolean {
+  if (
+    typeof window === "undefined" ||
+    !accountId ||
+    !notificationId
+  ) {
+    return true;
+  }
+
+  const key = persistentKey(SPOKEN_STORAGE_PREFIX, accountId);
+  let ids: string[] = [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    ids = Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string").slice(-MAX_SEEN)
+      : [];
+    if (ids.includes(notificationId)) return false;
+    ids.push(notificationId);
+    window.localStorage.setItem(key, JSON.stringify(ids.slice(-MAX_SEEN)));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+async function waitForSharedVoiceIdle(timeoutMs = 30_000): Promise<boolean> {
+  const started = Date.now();
+  while (getToumaiVoiceSnapshot().phase !== "idle") {
+    if (Date.now() - started >= timeoutMs) return false;
+    await new Promise((resolve) => window.setTimeout(resolve, 200));
+  }
+  return true;
 }
 
 
@@ -55,37 +169,14 @@ function isVoiceReminder(n: RealtimeNotification): boolean {
 let reminderSpeechQueue: Promise<void> = Promise.resolve();
 
 async function speakReminderNow(n: RealtimeNotification) {
-  if (
-    !isVoiceReminder(n) ||
-    n.voice_enabled !== true ||
-    typeof window === "undefined" ||
-    document.visibilityState !== "visible"
-  ) {
-    return;
-  }
+  if (!eligibleForVoice(n)) return;
 
   const body = String(n.body ?? "").trim();
-  if (!body) return;
 
-  // V1 est française uniquement. Une notification explicitement marquée dans
-  // une autre langue reste visuelle : on ne lui prête jamais une autre voix.
-  const locale = String(n.locale ?? "fr").trim().toLowerCase();
-  if (locale && !locale.startsWith("fr")) {
-    window.dispatchEvent(
-      new CustomEvent("toumai:notification-voice-error", { detail: n }),
-    );
-    return;
-  }
-
-  // Une notification ne coupe jamais une conversation vocale. Elle reste déjà
-  // visible dans l'interface ; sa lecture attend la fermeture du mode vocal.
+  // Une notification ne coupe jamais une conversation vocale.
   if (isToumaiVoiceConversationActive()) {
-    const released = await waitForToumaiVoiceConversationIdle();
-    if (
-      !released ||
-      document.visibilityState !== "visible" ||
-      n.voice_enabled !== true
-    ) {
+    const released = await waitForToumaiVoiceConversationIdle(VOICE_TIMEOUT_MS);
+    if (!released || !eligibleForVoice(n)) {
       window.dispatchEvent(
         new CustomEvent("toumai:notification-voice-error", { detail: n }),
       );
@@ -93,58 +184,133 @@ async function speakReminderNow(n: RealtimeNotification) {
     }
   }
 
+  // Elle ne coupe pas non plus une lecture manuelle déjà lancée dans le chat
+  // ou les réglages. On attend une fenêtre libre, puis on abandonne proprement.
+  if (getToumaiVoiceSnapshot().phase !== "idle") {
+    const idle = await waitForSharedVoiceIdle(VOICE_TIMEOUT_MS);
+    if (!idle || !eligibleForVoice(n)) {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-error", { detail: n }),
+      );
+      return;
+    }
+  }
+
+  const owner = "notification:" + eventKey(n);
   window.dispatchEvent(
     new CustomEvent("toumai:notification-voice-start", { detail: n }),
   );
 
   const speed = cacheSeed<Preferences>("user:prefs")?.tts_speed ?? 1;
-  const outcome = await playToumaiVoice(
-    body,
-    "notification:" + eventKey(n),
-    speed,
-  );
+  let timeoutId: number | null = null;
+  try {
+    const timeout = new Promise<"error">((resolve) => {
+      timeoutId = window.setTimeout(() => {
+        stopToumaiVoice(owner);
+        resolve("error");
+      }, VOICE_TIMEOUT_MS);
+    });
 
-  if (outcome === "ended") {
-    window.dispatchEvent(
-      new CustomEvent("toumai:notification-voice-complete", { detail: n }),
-    );
-  } else {
-    window.dispatchEvent(
-      new CustomEvent("toumai:notification-voice-error", { detail: n }),
-    );
+    const outcome = await Promise.race([
+      playToumaiVoice(body, owner, speed),
+      timeout,
+    ]);
+
+    if (outcome === "ended") {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-complete", { detail: n }),
+      );
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("toumai:notification-voice-error", { detail: n }),
+      );
+    }
+  } finally {
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
   }
 }
 
-function speakReminder(n: RealtimeNotification): Promise<void> {
+async function speakReminderCrossTab(
+  n: RealtimeNotification,
+  accountId: string,
+): Promise<void> {
+  // Un onglet caché ne réserve jamais le rappel au détriment d'un onglet visible.
+  if (!eligibleForVoice(n)) return;
+
+  const notificationId = String(n.id ?? "").trim();
+  const run = async () => {
+    if (!eligibleForVoice(n)) return;
+    if (
+      notificationId &&
+      !claimSpokenNotification(accountId, notificationId)
+    ) {
+      return;
+    }
+    await speakReminderNow(n);
+  };
+
+  const locks = (
+    typeof navigator !== "undefined"
+      ? (navigator as Navigator & { locks?: NavigatorLocksLike }).locks
+      : undefined
+  );
+  if (locks && accountId) {
+    // Web Locks sérialise aussi plusieurs onglets du même compte : une seule
+    // fenêtre peut réclamer/parler un rappel à la fois.
+    await locks.request(
+      "toumai-notification-voice:" + accountId,
+      run,
+    );
+    return;
+  }
+
+  await run();
+}
+
+function speakReminder(
+  n: RealtimeNotification,
+  accountId: string,
+): Promise<void> {
   // Plusieurs rappels arrivant au même instant doivent parler l'un APRÈS
-  // l'autre. Le lecteur global empêcherait le chevauchement en arrêtant le
-  // premier ; ici on conserve au contraire les deux lectures.
+  // l'autre. La file locale complète la serrure inter-onglets ci-dessus.
   reminderSpeechQueue = reminderSpeechQueue
     .catch(() => {})
-    .then(() => speakReminderNow(n));
+    .then(() => speakReminderCrossTab(n, accountId));
   return reminderSpeechQueue;
 }
 
 function parseSseChunk(
   buffer: string,
   onNotification: (notification: RealtimeNotification) => void,
+  onEventId: (eventId: string) => void,
 ): string {
   const frames = buffer.split("\n\n");
   const rest = frames.pop() ?? "";
   for (const frame of frames) {
-    const data = frame
-      .split("\n")
+    const lines = frame.split("\n");
+    const eventId =
+      lines
+        .find((line) => line.startsWith("id:"))
+        ?.slice(3)
+        .trim() ?? "";
+    if (eventId) onEventId(eventId);
+
+    const data = lines
       .filter((line) => line.startsWith("data:"))
       .map((line) => line.slice(5).trim())
       .join("\n");
     if (!data) continue;
     try {
       const value = JSON.parse(data) as RealtimeNotification;
-      if (value && typeof value.title === "string" && typeof value.body === "string") {
+      if (
+        value &&
+        typeof value.title === "string" &&
+        typeof value.body === "string"
+      ) {
         onNotification(value);
       }
     } catch {
-      // Une frame invalide ne doit pas tuer le flux suivant.
+      // Une frame cursor ou invalide ne doit pas tuer le flux suivant.
     }
   }
   return rest;
@@ -152,20 +318,44 @@ function parseSseChunk(
 
 export function RealtimeNotificationsBridge() {
   const { session } = useAuth();
+  const accountId = String(session?.user_id ?? "");
   const [items, setItems] = useState<ToastItem[]>([]);
   const seen = useRef<string[]>([]);
   const seenSet = useRef(new Set<string>());
+  const persistedSeen = useRef<string[]>([]);
+  const lastEventId = useRef("");
+  const hydratedAccount = useRef("");
 
-  const remember = useCallback((key: string) => {
-    if (seenSet.current.has(key)) return false;
-    seenSet.current.add(key);
-    seen.current.push(key);
-    if (seen.current.length > MAX_SEEN) {
-      const oldest = seen.current.shift();
-      if (oldest) seenSet.current.delete(oldest);
-    }
-    return true;
-  }, []);
+  const remember = useCallback(
+    (key: string, persistentId = "") => {
+      if (seenSet.current.has(key)) return false;
+      seenSet.current.add(key);
+      seen.current.push(key);
+      if (seen.current.length > MAX_SEEN) {
+        const oldest = seen.current.shift();
+        if (oldest) seenSet.current.delete(oldest);
+      }
+
+      // On ne persiste que les IDs opaques du serveur, jamais le fallback
+      // contenant titre/corps : aucun contenu de rappel en sessionStorage.
+      if (
+        accountId &&
+        persistentId &&
+        !persistedSeen.current.includes(persistentId)
+      ) {
+        persistedSeen.current.push(persistentId);
+        if (persistedSeen.current.length > MAX_SEEN) {
+          persistedSeen.current.shift();
+        }
+        saveStorageList(
+          persistentKey(SEEN_STORAGE_PREFIX, accountId),
+          persistedSeen.current,
+        );
+      }
+      return true;
+    },
+    [accountId],
+  );
 
   const receive = useCallback(
     (notification: RealtimeNotification, source: "sse" | "web_push") => {
@@ -176,22 +366,40 @@ export function RealtimeNotificationsBridge() {
       );
 
       const key = eventKey(notification);
-      if (!remember(key)) return;
+      const persistentId = String(notification.id ?? "").trim();
+      if (!remember(key, persistentId)) return;
 
-      void speakReminder(notification);
-      setItems((current) => [...current.slice(-2), { key, notification }]);
+      void speakReminder(notification, accountId);
+      setItems((current) => [
+        ...current.slice(-2),
+        { key, accountId, notification },
+      ]);
       window.setTimeout(() => {
         setItems((current) => current.filter((item) => item.key !== key));
       }, TOAST_MS);
     },
-    [remember],
+    [accountId, remember],
   );
 
   useEffect(() => {
-    if (!session) {
+    if (!session || !accountId) {
       seen.current = [];
       seenSet.current.clear();
+      persistedSeen.current = [];
+      lastEventId.current = "";
+      hydratedAccount.current = "";
       return;
+    }
+
+    if (hydratedAccount.current !== accountId) {
+      const restored = storageList(
+        persistentKey(SEEN_STORAGE_PREFIX, accountId),
+      );
+      seen.current = [...restored];
+      seenSet.current = new Set(restored);
+      persistedSeen.current = [...restored];
+      lastEventId.current = readCursor(accountId);
+      hydratedAccount.current = accountId;
     }
 
     let stopped = false;
@@ -202,15 +410,29 @@ export function RealtimeNotificationsBridge() {
       while (!stopped) {
         controller = new AbortController();
         try {
+          const headers: Record<string, string> = {
+            Accept: "text/event-stream",
+          };
+          if (lastEventId.current) {
+            headers["Last-Event-ID"] = lastEventId.current;
+          }
+
           const response = await authFetch("/notifications/stream", {
-            headers: { Accept: "text/event-stream" },
+            headers,
             cache: "no-store",
             signal: controller.signal,
           });
 
           if (response.status === 409) {
-            // Le temps réel est désactivé dans les préférences du compte.
-            await new Promise((resolve) => window.setTimeout(resolve, 60_000));
+            // Même temps réel désactivé, le serveur donne le dernier curseur :
+            // on ne rejouera donc pas ce backlog si la personne réactive le canal.
+            const cursor =
+              response.headers.get("X-Toumai-Notification-Cursor") ?? "";
+            if (cursor) {
+              lastEventId.current = cursor;
+              writeCursor(accountId, cursor);
+            }
+            await new Promise((resolve) => window.setTimeout(resolve, 15_000));
             continue;
           }
           if (!response.ok || !response.body) {
@@ -226,12 +448,20 @@ export function RealtimeNotificationsBridge() {
             const { value, done } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
-            buffer = parseSseChunk(buffer, (notification) =>
-              receive(notification, "sse"),
+            buffer = parseSseChunk(
+              buffer,
+              (notification) => receive(notification, "sse"),
+              (cursor) => {
+                lastEventId.current = cursor;
+                writeCursor(accountId, cursor);
+              },
             );
           }
         } catch (error) {
-          if (stopped || (error instanceof DOMException && error.name === "AbortError")) {
+          if (
+            stopped ||
+            (error instanceof DOMException && error.name === "AbortError")
+          ) {
             return;
           }
         }
@@ -247,7 +477,7 @@ export function RealtimeNotificationsBridge() {
       stopped = true;
       controller?.abort();
     };
-  }, [receive, session]);
+  }, [accountId, receive, session]);
 
   useEffect(() => {
     if (!session || typeof navigator === "undefined" || !navigator.serviceWorker) return;
@@ -262,7 +492,8 @@ export function RealtimeNotificationsBridge() {
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, [receive, session]);
 
-  if (!session || !items.length) return null;
+  const visibleItems = items.filter((item) => item.accountId === accountId);
+  if (!session || !visibleItems.length) return null;
 
   return (
     <div
@@ -270,7 +501,7 @@ export function RealtimeNotificationsBridge() {
       aria-live="polite"
       aria-label="Notifications Toumaï"
     >
-      {items.map(({ key, notification }) => (
+      {visibleItems.map(({ key, notification }) => (
         <article
           key={key}
           className="pointer-events-auto overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)]/96 shadow-2xl backdrop-blur-xl"

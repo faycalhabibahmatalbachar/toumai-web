@@ -62,6 +62,7 @@ let audio: HTMLAudioElement | null = null;
 let aborter: AbortController | null = null;
 let objectUrl: string | null = null;
 let liveContext: AudioContext | null = null;
+let audioPrimedByUser = false;
 const liveSources = new Set<AudioBufferSourceNode>();
 let liveNextStartTime = 0;
 let generation = 0;
@@ -156,10 +157,30 @@ export function primeToumaiVoiceAudio(): void {
     if (!liveContext || liveContext.state === "closed") {
       liveContext = new Ctor({ latencyHint: "interactive" });
     }
-    void liveContext.resume().catch(() => {});
+    const context = liveContext;
+    if (context.state === "running") {
+      audioPrimedByUser = true;
+      return;
+    }
+    void context
+      .resume()
+      .then(() => {
+        if (liveContext === context && context.state === "running") {
+          audioPrimedByUser = true;
+        }
+      })
+      .catch(() => {});
   } catch {
     // Le chemin HTMLAudio historique reste disponible pour les lectures non-live.
   }
+}
+
+export function isToumaiVoiceAudioPrimed(): boolean {
+  return Boolean(
+    audioPrimedByUser &&
+      liveContext &&
+      liveContext.state !== "closed",
+  );
 }
 
 function stopLiveSources() {
@@ -632,12 +653,16 @@ export async function playToumaiVoice(
 
   stopToumaiVoice();
 
-  // Un clic humain peut amorcer Web Audio avant le premier aller-retour réseau.
-  // Les notifications automatiques gardent le chemin <audio> historique pour
-  // respecter les politiques d'autoplay des navigateurs.
+  // Un clic humain amorce Web Audio. Une notification automatique ne tente
+  // jamais de contourner la politique autoplay : elle n'utilise Web Audio que
+  // si l'utilisateur l'a déjà déverrouillé auparavant (par exemple en activant
+  // "Voix Toumaï" dans les réglages). Sinon le chemin <audio> historique reste
+  // disponible et échoue proprement si le navigateur interdit l'autoplay.
+  const notificationOwner = owner.startsWith("notification:");
   const wantsGaplessWebAudio =
-    !owner.startsWith("notification:") && Boolean(audioContextCtor());
-  if (wantsGaplessWebAudio) primeToumaiVoiceAudio();
+    Boolean(audioContextCtor()) &&
+    (!notificationOwner || isToumaiVoiceAudioPrimed());
+  if (wantsGaplessWebAudio && !notificationOwner) primeToumaiVoiceAudio();
 
   const myGeneration = ++generation;
   const controller = new AbortController();
