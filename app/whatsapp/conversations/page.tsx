@@ -2,14 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   Bot,
   BookOpen,
   Check,
   CheckCheck,
-  ChevronRight,
   CircleAlert,
   Info,
   Languages,
@@ -55,7 +54,6 @@ const TEXT = "#f4f7f9";
 const MUTED = "#9ba8b3";
 const FAINT = "#6f7f8d";
 const GREEN = "#08c875";
-const BLUE = "#2f8cff";
 const ORANGE = "#ff9518";
 
 const NAV_ITEMS = [
@@ -118,51 +116,48 @@ export default function WhatsAppConversationsPage() {
       void loadConversations(query, filter);
     }, query ? 220 : 0);
     return () => window.clearTimeout(timer);
-  }, [session, query, filter]);
+  }, [session, query, filter, loadConversations]);
 
   useEffect(() => {
-    if (!session) return;
-    const requested =
-      typeof window === "undefined"
-        ? ""
-        : new URLSearchParams(window.location.search).get("chat") || "";
+    if (!session || typeof window === "undefined") return;
+    const requested = new URLSearchParams(window.location.search).get("chat") || "";
     if (!requested) return;
-    setSelected((current) =>
-      current || {
-        id: requested,
-        name: "Contact WhatsApp",
-        number: waNumberFromId(requested),
-        kind: requested.endsWith("@g.us") ? "group" : "contact",
-        unread_count: 0,
-        pending: false,
-        last_message: {
-          id: "",
-          chat_id: requested,
-          text: "",
-          from_me: false,
-          sender: "",
-          type: "text",
-          timestamp_ms: 0,
+
+    const timer = window.setTimeout(() => {
+      setSelected((current) =>
+        current || {
+          id: requested,
+          name: "Contact WhatsApp",
+          number: waNumberFromId(requested),
+          kind: requested.endsWith("@g.us") ? "group" : "contact",
+          unread_count: 0,
+          pending: false,
+          last_message: {
+            id: "",
+            chat_id: requested,
+            text: "",
+            from_me: false,
+            sender: "",
+            type: "text",
+            timestamp_ms: 0,
+          },
         },
-      },
-    );
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [session]);
 
   useEffect(() => {
-    if (!selected || !session) {
-      setMessages([]);
-      setReplyDraft("");
-      return;
-    }
-    setReplyDraft("");
+    if (!selected || !session) return;
     void loadThread(selected);
-  }, [selected?.id, session]);
+  }, [selected, session, loadThread]);
 
-  async function loadConversations(
+  const loadConversations = useCallback(async (
     search: string,
     selectedFilter: Filter,
     options: { append?: boolean; offset?: number } = {},
-  ) {
+  ) => {
     const append = Boolean(options.append);
     const offset = options.offset ?? 0;
     if (append) setLoadingMore(true);
@@ -193,12 +188,11 @@ export default function WhatsAppConversationsPage() {
         const exact = data.conversations.find((item) => item.id === requested);
         if (exact) setSelected(exact);
       } else if (
-        !selected &&
         data.conversations.length &&
         typeof window !== "undefined" &&
         window.innerWidth >= 1024
       ) {
-        setSelected(data.conversations[0]);
+        setSelected((current) => current || data.conversations[0]);
       }
     } catch (error) {
       if (!append) setConversations([]);
@@ -207,9 +201,9 @@ export default function WhatsAppConversationsPage() {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
     }
-  }
+  }, []);
 
-  async function loadThread(conversation: WaLiveConversation) {
+  const loadThread = useCallback(async (conversation: WaLiveConversation) => {
     setLoadingThread(true);
     setThreadError(null);
     try {
@@ -221,9 +215,11 @@ export default function WhatsAppConversationsPage() {
     } finally {
       setLoadingThread(false);
     }
-  }
+  }, []);
 
   function chooseConversation(conversation: WaLiveConversation) {
+    setReplyDraft("");
+    setMessages([]);
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
