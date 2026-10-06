@@ -114,7 +114,8 @@ export default function WhatsAppOverviewPage() {
 
   // Compatibilité de rollout uniquement : les anciens agrégats ne sont lus
   // que si le contrat Overview v1 n'est pas encore servi en production.
-  const useLegacyOverview = Boolean(overviewError);
+  const useLegacyOverview = overviewError === "WA_OVERVIEW_V1_NOT_DEPLOYED";
+  const overviewUnavailable = Boolean(overviewError) && !useLegacyOverview;
 
   const { data: analytics, loading: analyticsLoading } = useCached<WaAutopilotAnalytics>(
     `wa:overview:analytics:${days}`,
@@ -167,8 +168,12 @@ export default function WhatsAppOverviewPage() {
   const conversationMetric = overview?.metrics.conversations;
   const messageMetric = overview?.metrics.messages_sent;
   const responseMetric = overview?.metrics.response_rate;
-  const conversationKpi = conversationMetric?.value ?? analytics?.kpis.conversations.value ?? conversationsData?.count ?? 0;
-  const messageKpi = messageMetric?.value ?? analytics?.kpis.messages.value ?? 0;
+  const conversationKpi = overviewUnavailable
+    ? null
+    : conversationMetric?.value ?? analytics?.kpis.conversations.value ?? conversationsData?.count ?? 0;
+  const messageKpi = overviewUnavailable
+    ? null
+    : messageMetric?.value ?? analytics?.kpis.messages.value ?? 0;
   const responseKpi = responseMetric?.value ?? (useLegacyOverview ? analytics?.kpis.success_rate.value ?? null : null);
   const overviewDataLoading = overviewLoading || (useLegacyOverview && analyticsLoading);
   const chartLoading = overviewLoading || (useLegacyOverview && logsLoading);
@@ -277,7 +282,7 @@ export default function WhatsAppOverviewPage() {
           <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             <MetricCard
               label="Conversations"
-              value={formatInteger(conversationKpi)}
+              value={conversationKpi === null ? "—" : formatInteger(conversationKpi)}
               delta={metricDelta(conversationMetric, analytics?.kpis.conversations.delta)}
               unit={metricDeltaUnit(conversationMetric, analytics?.kpis.conversations.delta_unit)}
               loading={overviewDataLoading}
@@ -286,7 +291,7 @@ export default function WhatsAppOverviewPage() {
             />
             <MetricCard
               label="Messages envoyés"
-              value={formatInteger(messageKpi)}
+              value={messageKpi === null ? "—" : formatInteger(messageKpi)}
               delta={metricDelta(messageMetric, analytics?.kpis.messages.delta)}
               unit={metricDeltaUnit(messageMetric, analytics?.kpis.messages.delta_unit)}
               loading={overviewDataLoading}
