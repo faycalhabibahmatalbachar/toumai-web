@@ -55,6 +55,8 @@ export default function WhatsAppConversationsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [conversationSource, setConversationSource] = useState<"baileys" | "autopilot-log">("baileys");
+  const [threadSource, setThreadSource] = useState<"baileys" | "autopilot-log">("baileys");
 
   useEffect(() => {
     if (!session) return;
@@ -123,6 +125,7 @@ export default function WhatsAppConversationsPage() {
       });
       setHasMore(data.has_more);
       setNextOffset(data.next_offset);
+      setConversationSource(data.source);
 
       const requested =
         typeof window === "undefined"
@@ -154,6 +157,7 @@ export default function WhatsAppConversationsPage() {
     try {
       const data = await getWaConversationMessages(conversation.id, 120);
       setMessages(data.messages);
+      setThreadSource(data.source);
     } catch (error) {
       setMessages([]);
       setThreadError(error instanceof Error ? error.message : "Impossible de lire cette conversation.");
@@ -193,7 +197,11 @@ export default function WhatsAppConversationsPage() {
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-[16px] font-semibold">Conversations WhatsApp</h1>
-            <p className="text-[11px]" style={{ color: MUTED }}>Source directe : session Baileys Toumaï</p>
+            <p className="text-[11px]" style={{ color: MUTED }}>
+              {conversationSource === "baileys"
+                ? "Source directe : session Baileys Toumaï"
+                : "Journal Toumaï · compatibilité production"}
+            </p>
           </div>
           <button
             type="button"
@@ -224,6 +232,12 @@ export default function WhatsAppConversationsPage() {
               <FilterButton active={filter === "pending"} onClick={() => setFilter("pending")} label="En attente" />
               <FilterButton active={filter === "unread"} onClick={() => setFilter("unread")} label="Non lues" />
             </div>
+
+            {conversationSource === "autopilot-log" && !loadingList && !listError && (
+              <div className="mt-3 rounded-xl border px-3 py-2.5 text-[11px] leading-5" style={{ borderColor: "rgba(255,149,24,.28)", background: "rgba(255,149,24,.06)", color: "#e9b878" }}>
+                Mode compatibilité actif : Toumaï affiche les conversations déjà journalisées pendant que la nouvelle route Baileys est propagée en production.
+              </div>
+            )}
           </div>
 
           <div className="h-[calc(100dvh-196px)] overflow-y-auto">
@@ -349,6 +363,11 @@ export default function WhatsAppConversationsPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-5 md:px-8">
+                {threadSource === "autopilot-log" && !loadingThread && !threadError && (
+                  <div className="mx-auto mb-4 max-w-3xl rounded-xl border px-3 py-2.5 text-[11px] leading-5" style={{ borderColor: "rgba(255,149,24,.28)", background: "rgba(255,149,24,.06)", color: "#e9b878" }}>
+                    Historique partiel : seuls les échanges réellement journalisés par Toumaï sont affichés jusqu’à la promotion complète de l’historique Baileys.
+                  </div>
+                )}
                 {loadingThread && <div className="mx-auto max-w-3xl space-y-3">{[0, 1, 2, 3].map((index) => <div key={index} className="h-16 animate-pulse rounded-2xl bg-white/[0.025]" />)}</div>}
 
                 {!loadingThread && threadError && (
