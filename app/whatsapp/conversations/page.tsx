@@ -47,6 +47,8 @@ import { WhatsAppAudioRecorder } from "@/components/whatsapp/WhatsAppAudioRecord
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
+import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
@@ -56,6 +58,7 @@ import {
   getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  getWaMessageStatus,
   inferWaMediaType,
   reactWaMessage,
   searchWaConversation,
@@ -66,6 +69,7 @@ import {
   type WaLiveConversation,
   type WaLiveMessage,
   type WaMediaType,
+  type WaMessageStatus,
   type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
 import { safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
@@ -118,6 +122,11 @@ export default function WhatsAppConversationsPage() {
   const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
   const [correctionTarget, setCorrectionTarget] = useState<WaLiveMessage | null>(null);
+  const [mediaCorrectionTarget, setMediaCorrectionTarget] = useState<WaLiveMessage | null>(null);
+  const [messageInfoTarget, setMessageInfoTarget] = useState<WaLiveMessage | null>(null);
+  const [messageInfo, setMessageInfo] = useState<WaMessageStatus | null>(null);
+  const [messageInfoLoading, setMessageInfoLoading] = useState(false);
+  const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -409,6 +418,7 @@ export default function WhatsAppConversationsPage() {
     setReplyingTo(null);
     setEditingMessage(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     setSelected(conversation);
@@ -436,6 +446,7 @@ export default function WhatsAppConversationsPage() {
     setReplyingTo(null);
     setEditingMessage(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     if (typeof window !== "undefined") {
@@ -474,6 +485,7 @@ export default function WhatsAppConversationsPage() {
         setReplyDraft("");
         setEditingMessage(null);
         setCorrectionTarget(null);
+        setMediaCorrectionTarget(null);
         window.setTimeout(() => void loadThread(selected, { silent: true }), 350);
       } catch (error) {
         if (isWaNativeEditExpired(editTarget)) {
@@ -543,6 +555,7 @@ export default function WhatsAppConversationsPage() {
         ),
       );
       setCorrectionTarget(null);
+      setMediaCorrectionTarget(null);
       void loadConversations(query, filter);
       window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
@@ -562,6 +575,7 @@ export default function WhatsAppConversationsPage() {
   function startReply(message: WaLiveMessage) {
     setEditingMessage(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setReplyingTo(message);
     setReplyDraft("");
     setSendError(null);
@@ -569,12 +583,26 @@ export default function WhatsAppConversationsPage() {
   }
 
   function startEdit(message: WaLiveMessage) {
-    if (!message.from_me || !message.text) return;
+    if (!message.from_me) return;
+
+    if (!isTextMessageType(message.type)) {
+      setEditingMessage(null);
+      setReplyingTo(message);
+      setCorrectionTarget(message);
+      setMediaCorrectionTarget(message);
+      setReplyDraft("");
+      setSendError(null);
+      window.setTimeout(() => composerRef.current?.focus(), 0);
+      return;
+    }
+
+    if (!message.text) return;
 
     if (isWaNativeEditExpired(message)) {
       setEditingMessage(null);
       setReplyingTo(message);
       setCorrectionTarget(message);
+      setMediaCorrectionTarget(null);
       setReplyDraft(message.text);
       setSendError(null);
       window.setTimeout(() => composerRef.current?.focus(), 0);
@@ -583,6 +611,7 @@ export default function WhatsAppConversationsPage() {
 
     setReplyingTo(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setEditingMessage(message);
     setReplyDraft(message.text);
     setSendError(null);
@@ -616,6 +645,29 @@ export default function WhatsAppConversationsPage() {
     } catch {
       setSendError("Impossible de copier ce message.");
     }
+  }
+
+  async function openMessageInfo(message: WaLiveMessage) {
+    if (!message.from_me || !message.id || message.id.startsWith("local-")) return;
+    setMessageInfoTarget(message);
+    setMessageInfo(null);
+    setMessageInfoError(null);
+    setMessageInfoLoading(true);
+    try {
+      const status = await getWaMessageStatus(message.id, message.chat_id);
+      setMessageInfo(status);
+    } catch (error) {
+      setMessageInfoError(errorMessage(error, "history"));
+    } finally {
+      setMessageInfoLoading(false);
+    }
+  }
+
+  function closeMessageInfo() {
+    setMessageInfoTarget(null);
+    setMessageInfo(null);
+    setMessageInfoError(null);
+    setMessageInfoLoading(false);
   }
 
   async function prepareAttachment(file: File) {
@@ -1114,6 +1166,7 @@ export default function WhatsAppConversationsPage() {
                         onEdit={startEdit}
                         onReact={(message, emoji) => void reactToMessage(message, emoji)}
                         onCopy={(message) => void copyMessage(message)}
+                        onInfo={(message) => void openMessageInfo(message)}
                       />
                     </div>
                   )}
@@ -1212,16 +1265,20 @@ export default function WhatsAppConversationsPage() {
                           <p className="text-[10px] font-semibold" style={{ color: GREEN }}>
                             {editingMessage
                               ? "Modifier votre message"
-                              : correctionTarget
-                                ? "Corriger un ancien message"
-                                : "Répondre à ce message"}
+                              : mediaCorrectionTarget
+                                ? "Corriger le média"
+                                : correctionTarget
+                                  ? "Corriger un ancien message"
+                                  : "Répondre à ce message"}
                           </p>
                           <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
                             {(editingMessage || replyingTo)?.text || messageTypeLabel((editingMessage || replyingTo)?.type || "text")}
                           </p>
                           {correctionTarget && (
                             <p className="mt-1 text-[10px] leading-4" style={{ color: FAINT }}>
-                              WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message.
+                              {mediaCorrectionTarget
+                                ? "WhatsApp ne permet pas de modifier un média déjà envoyé. Écrivez un texte ou joignez un nouveau fichier : Toumaï l’enverra comme correction liée au média original."
+                                : "WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message."}
                             </p>
                           )}
                         </div>
@@ -1232,6 +1289,7 @@ export default function WhatsAppConversationsPage() {
                             setReplyingTo(null);
                             setEditingMessage(null);
                             setCorrectionTarget(null);
+                            setMediaCorrectionTarget(null);
                             setReplyDraft("");
                           }}
                           className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
@@ -1351,7 +1409,15 @@ export default function WhatsAppConversationsPage() {
                             void sendCurrentMessage();
                           }
                         }}
-                        placeholder={editingMessage ? "Modifier le message…" : replyingTo ? "Écrire votre réponse…" : "Écrire un message…"}
+                        placeholder={
+                          editingMessage
+                            ? "Modifier le message…"
+                            : mediaCorrectionTarget
+                              ? "Écrire une correction ou joindre un fichier…"
+                              : replyingTo
+                                ? "Écrire votre réponse…"
+                                : "Écrire un message…"
+                        }
                         rows={1}
                         className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
                       />
@@ -1383,6 +1449,14 @@ export default function WhatsAppConversationsPage() {
         </main>
       </div>
 
+      <WhatsAppMessageInfoModal
+        message={messageInfoTarget}
+        status={messageInfo}
+        loading={messageInfoLoading}
+        error={messageInfoError}
+        onClose={closeMessageInfo}
+      />
+
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
@@ -1399,9 +1473,13 @@ export default function WhatsAppConversationsPage() {
         file={attachmentFile}
         uploaded={attachmentUploaded}
         mediaType={attachmentType}
+        correctionTarget={mediaCorrectionTarget}
         onClose={closeAttachmentReview}
         onSent={() => {
           setAttachmentError(null);
+          setReplyingTo(null);
+          setCorrectionTarget(null);
+          setMediaCorrectionTarget(null);
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
           void loadConversations(query, filter);
         }}
@@ -1683,6 +1761,7 @@ function ThreadMessages({
   onEdit,
   onReact,
   onCopy,
+  onInfo,
 }: {
   messages: WaLiveMessage[];
   reactions: Record<string, string>;
@@ -1690,6 +1769,7 @@ function ThreadMessages({
   onEdit: (message: WaLiveMessage) => void;
   onReact: (message: WaLiveMessage, emoji: string) => void;
   onCopy: (message: WaLiveMessage) => void;
+  onInfo: (message: WaLiveMessage) => void;
 }) {
   const groups = groupMessagesByDay(messages);
   return (
@@ -1713,6 +1793,7 @@ function ThreadMessages({
               onEdit={() => onEdit(message)}
               onReact={(emoji) => onReact(message, emoji)}
               onCopy={() => onCopy(message)}
+              onInfo={() => onInfo(message)}
             />
           ))}
         </div>
@@ -1728,6 +1809,7 @@ function MessageBubble({
   onEdit,
   onReact,
   onCopy,
+  onInfo,
 }: {
   message: WaLiveMessage;
   reaction?: string;
@@ -1735,6 +1817,7 @@ function MessageBubble({
   onEdit: () => void;
   onReact: (emoji: string) => void;
   onCopy: () => void;
+  onInfo: () => void;
 }) {
   const [reactionOpen, setReactionOpen] = useState(false);
   const when = message.timestamp_ms
@@ -1743,8 +1826,7 @@ function MessageBubble({
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
-  const hasMedia = message.type !== "text";
-  const mediaTitle = message.file_name || messageTypeLabel(message.type);
+  const hasMedia = isMediaMessageType(message.type);
 
   return (
     <div
@@ -1784,22 +1866,7 @@ function MessageBubble({
             </div>
           )}
 
-          {hasMedia && (
-            <div
-              className="mb-2 flex min-w-[190px] items-center gap-3 rounded-xl border px-3 py-2.5"
-              style={{ borderColor: "rgba(255,255,255,.07)", background: "rgba(0,0,0,.12)" }}
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05]" style={{ color: GREEN }}>
-                <Paperclip size={16} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-semibold">{mediaTitle}</p>
-                <p className="mt-0.5 text-[9px]" style={{ color: "#9eacb7" }}>
-                  {[message.mime_type, formatDuration(message.duration_seconds)].filter(Boolean).join(" · ") || messageTypeLabel(message.type)}
-                </p>
-              </div>
-            </div>
-          )}
+          {hasMedia && <WhatsAppMessageMedia message={message} />}
 
           {message.text && (
             <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
@@ -1859,9 +1926,19 @@ function MessageBubble({
           {message.text && (
             <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
           )}
-          {message.from_me && message.type === "text" && message.text && !message.id.startsWith("local-") && (
+          {message.from_me && !message.id.startsWith("local-") && (
+            <MessageActionButton label="Infos" icon={<Info size={13} />} onClick={onInfo} />
+          )}
+          {message.from_me && isTextMessageType(message.type) && message.text && !message.id.startsWith("local-") && (
             <MessageActionButton
               label={isWaNativeEditExpired(message) ? "Corriger" : "Modifier"}
+              icon={<Pencil size={13} />}
+              onClick={onEdit}
+            />
+          )}
+          {message.from_me && isMediaMessageType(message.type) && !message.id.startsWith("local-") && (
+            <MessageActionButton
+              label="Corriger"
               icon={<Pencil size={13} />}
               onClick={onEdit}
             />
@@ -1910,14 +1987,6 @@ function DeliveryMark({ status }: { status?: string | null }) {
     return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
   }
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
-}
-
-function formatDuration(seconds?: number | null) {
-  if (!seconds || seconds <= 0) return "";
-  const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
@@ -1981,6 +2050,14 @@ function formatDayLabel(date: Date) {
   }).format(date);
 }
 
+function isTextMessageType(type: string) {
+  return type === "text" || type === "texte";
+}
+
+function isMediaMessageType(type: string) {
+  return ["image", "video", "gif", "audio", "voice", "voix", "sticker", "document"].includes(type);
+}
+
 function isWaNativeEditExpired(message: WaLiveMessage) {
   if (!message.timestamp_ms) return false;
   return Date.now() - message.timestamp_ms >= WHATSAPP_NATIVE_EDIT_WINDOW_MS;
@@ -1990,7 +2067,9 @@ function messageTypeLabel(type: string) {
   const labels: Record<string, string> = {
     image: "Image",
     video: "Vidéo",
-    audio: "Message vocal",
+    audio: "Audio",
+    voice: "Message vocal",
+    voix: "Message vocal",
     document: "Document",
     sticker: "Sticker",
   };

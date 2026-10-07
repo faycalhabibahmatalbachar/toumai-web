@@ -1,4 +1,4 @@
-import { http, postForm } from "./http";
+import { authFetch, http, postForm } from "./http";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -306,6 +306,7 @@ export interface WaMediaSendResult {
   type: WaMediaType;
   status: "accepted" | "unknown";
   accepted_by_gateway: boolean;
+  reply_to?: string | null;
 }
 
 export interface WaManualSendResult {
@@ -321,11 +322,14 @@ export interface WaMessageStatus {
   msg_id: string;
   chat_id?: string | null;
   known: boolean;
-  status: "unknown" | "sent" | "delivered" | "read" | "played" | "failed" | string;
+  status: "unknown" | "queued" | "sent" | "delivered" | "read" | "played" | "failed" | string;
   server_ack_confirmed: boolean;
   delivery_confirmed: boolean;
   read_confirmed: boolean;
   failed: boolean;
+  sent_at?: number | null;
+  edited_at?: number | null;
+  timeline?: Partial<Record<"queued" | "sent" | "delivered" | "read" | "played" | "failed", number>>;
 }
 
 export function getWaLiveConversations(params?: {
@@ -404,6 +408,10 @@ export function sendWaMedia(input: {
   caption?: string;
   filename?: string;
   mimetype?: string;
+  reply_to_msg_id?: string;
+  reply_to_text?: string;
+  reply_to_type?: string;
+  reply_to_sender?: string;
   confirmed: true;
 }): Promise<WaMediaSendResult> {
   return http.post<WaMediaSendResult>("/whatsapp/media/send", input);
@@ -459,4 +467,13 @@ export function getWaMessageStatus(
   const query = new URLSearchParams({ msg_id: msgId });
   if (chatId) query.set("chat_id", chatId);
   return http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`);
+}
+
+
+export async function getWaMessageMediaBlob(msgId: string): Promise<Blob> {
+  const response = await authFetch(`/whatsapp/media/${encodeURIComponent(msgId)}`);
+  if (!response.ok) {
+    throw new Error(response.status === 404 ? "Pièce jointe indisponible." : "Impossible de charger la pièce jointe.");
+  }
+  return await response.blob();
 }
