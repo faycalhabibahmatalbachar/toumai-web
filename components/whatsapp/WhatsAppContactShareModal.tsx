@@ -60,7 +60,7 @@ export function WhatsAppContactShareModal({
 
   const selectedTarget = useMemo(() => {
     if (!selected) return "";
-    return selected.number || selected.name || selected.jid;
+    return selected.number || selected.jid || selected.name;
   }, [selected]);
 
   if (!open || !conversation) return null;
