@@ -1,0 +1,191 @@
+"use client";
+
+import { Download, FileText, Image as ImageIcon, Loader2, Music2, Play, RotateCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+import { getWaMessageMediaBlob, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
+
+const BORDER = "#24323c";
+const MUTED = "#9eacb7";
+const FAINT = "#71808d";
+const GREEN = "#08c875";
+
+export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [mime, setMime] = useState(message.mime_type || "");
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const mediaType = normalizeType(message.type);
+  const fileName = message.file_name || defaultFileName(mediaType, mime);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+
+    async function load() {
+      if (!message.id || message.id.startsWith("local-")) {
+        setLoading(false);
+        setFailed(true);
+        return;
+      }
+      setLoading(true);
+      setFailed(false);
+      try {
+        const blob = await getWaMessageMediaBlob(message.id);
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+        setMime(blob.type || message.mime_type || "");
+      } catch {
+        if (active) setFailed(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [message.id, message.mime_type]);
+
+  const typeLabel = useMemo(() => labelFor(mediaType), [mediaType]);
+
+  if (loading) {
+    return (
+      <div className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <Loader2 size={17} className="animate-spin" color={GREEN} />
+        <div>
+          <p className="text-[11px] font-semibold">{fileName || typeLabel}</p>
+          <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Chargement de la pièce jointe…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (failed || !url) {
+    return (
+      <div className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <FileIcon type={mediaType} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-semibold">{fileName || typeLabel}</p>
+          <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Pièce jointe temporairement indisponible</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (mediaType === "image" || mediaType === "sticker") {
+    return (
+      <div className="mb-2 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <a href={url} target="_blank" rel="noreferrer" className="block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={message.text || fileName || typeLabel}
+            className={mediaType === "sticker" ? "max-h-[220px] max-w-[220px] object-contain p-2" : "max-h-[420px] w-full min-w-[220px] object-cover"}
+          />
+        </a>
+        {mediaType !== "sticker" && (
+          <div className="flex items-center justify-between gap-3 px-3 py-2">
+            <span className="min-w-0 truncate text-[9px]" style={{ color: MUTED }}>{fileName || "Image"}</span>
+            <a href={url} download={fileName || "image"} aria-label="Télécharger la pièce jointe" className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]" style={{ color: GREEN }}>
+              <Download size={14} />
+            </a>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (mediaType === "video" || mediaType === "gif") {
+    return (
+      <div className="mb-2 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <video
+          src={url}
+          controls
+          playsInline
+          loop={mediaType === "gif"}
+          className="max-h-[420px] w-full min-w-[240px] bg-black object-contain"
+        />
+        <MediaFooter url={url} fileName={fileName || "video"} label={fileName || typeLabel} />
+      </div>
+    );
+  }
+
+  if (mediaType === "audio" || mediaType === "voice") {
+    return (
+      <div className="mb-2 min-w-[260px] rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <div className="mb-2 flex items-center gap-2">
+          <Music2 size={16} color={GREEN} />
+          <span className="truncate text-[10px] font-semibold">{fileName || typeLabel}</span>
+        </div>
+        <audio src={url} controls preload="metadata" className="h-9 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      download={fileName || "fichier"}
+      className="mb-2 flex min-w-[240px] items-center gap-3 rounded-xl border px-3 py-3 transition hover:bg-white/[0.03]"
+      style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.05]" style={{ color: GREEN }}>
+        <FileText size={18} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11px] font-semibold">{fileName || typeLabel}</p>
+        <p className="mt-0.5 text-[9px]" style={{ color: MUTED }}>{mime || typeLabel}</p>
+      </div>
+      <Download size={15} color={GREEN} />
+    </a>
+  );
+}
+
+function MediaFooter({ url, fileName, label }: { url: string; fileName: string; label: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <span className="min-w-0 truncate text-[9px]" style={{ color: MUTED }}>{label}</span>
+      <a href={url} download={fileName} aria-label="Télécharger la pièce jointe" className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]" style={{ color: GREEN }}>
+        <Download size={14} />
+      </a>
+    </div>
+  );
+}
+
+function FileIcon({ type }: { type: string }) {
+  if (type === "image" || type === "sticker") return <ImageIcon size={17} color={GREEN} />;
+  if (type === "video" || type === "gif") return <Play size={17} color={GREEN} />;
+  if (type === "audio" || type === "voice") return <Music2 size={17} color={GREEN} />;
+  return <FileText size={17} color={GREEN} />;
+}
+
+function normalizeType(type: string) {
+  if (type === "voix") return "voice";
+  return type;
+}
+
+function labelFor(type: string) {
+  const labels: Record<string, string> = {
+    image: "Image",
+    video: "Vidéo",
+    gif: "GIF",
+    audio: "Audio",
+    voice: "Message vocal",
+    sticker: "Sticker",
+    document: "Document",
+  };
+  return labels[type] || "Pièce jointe";
+}
+
+function defaultFileName(type: string, mime: string) {
+  if (type === "image") return mime.includes("png") ? "image.png" : "image.jpg";
+  if (type === "video") return "video.mp4";
+  if (type === "gif") return "animation.mp4";
+  if (type === "audio" || type === "voice") return "audio.ogg";
+  if (type === "sticker") return "sticker.webp";
+  return "fichier";
+}
