@@ -395,10 +395,10 @@ export function inferWaMediaType(file: File): WaMediaType {
   const mime = (file.type || "").toLowerCase();
   const name = file.name.toLowerCase();
   if (mime === "image/gif" || name.endsWith(".gif")) return "gif";
+  if (mime === "image/webp" || name.endsWith(".webp")) return "sticker";
   if (mime.startsWith("image/")) return "image";
   if (mime.startsWith("video/")) return "video";
   if (mime.startsWith("audio/")) return "audio";
-  if (name.endsWith(".webp")) return "sticker";
   return "document";
 }
 
