@@ -80,6 +80,7 @@ const MUTED = "#9ba8b3";
 const FAINT = "#6f7f8d";
 const GREEN = "#08c875";
 const ORANGE = "#ff9518";
+const WHATSAPP_NATIVE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const NAV_ITEMS = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -116,6 +117,7 @@ export default function WhatsAppConversationsPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
+  const [correctionTarget, setCorrectionTarget] = useState<WaLiveMessage | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -387,6 +389,7 @@ export default function WhatsAppConversationsPage() {
     setSendError(null);
     setReplyingTo(null);
     setEditingMessage(null);
+    setCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     setSelected(conversation);
@@ -413,6 +416,7 @@ export default function WhatsAppConversationsPage() {
     setSendError(null);
     setReplyingTo(null);
     setEditingMessage(null);
+    setCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     if (typeof window !== "undefined") {
@@ -450,9 +454,20 @@ export default function WhatsAppConversationsPage() {
         );
         setReplyDraft("");
         setEditingMessage(null);
+        setCorrectionTarget(null);
         window.setTimeout(() => void loadThread(selected), 350);
       } catch (error) {
-        setSendError(errorMessage(error, "generic"));
+        if (isWaNativeEditExpired(editTarget)) {
+          setEditingMessage(null);
+          setReplyingTo(editTarget);
+          setCorrectionTarget(editTarget);
+          setReplyDraft(text);
+          setSendError(
+            "La fenêtre d’édition native WhatsApp est terminée. Votre texte est prêt à partir comme correction liée au message original.",
+          );
+        } else {
+          setSendError(errorMessage(error, "generic"));
+        }
       } finally {
         setSendingMessage(false);
       }
@@ -508,6 +523,7 @@ export default function WhatsAppConversationsPage() {
             : message,
         ),
       );
+      setCorrectionTarget(null);
       void loadConversations(query, filter);
       window.setTimeout(() => void loadThread(selected), 450);
     } catch (error) {
@@ -526,6 +542,7 @@ export default function WhatsAppConversationsPage() {
 
   function startReply(message: WaLiveMessage) {
     setEditingMessage(null);
+    setCorrectionTarget(null);
     setReplyingTo(message);
     setReplyDraft("");
     setSendError(null);
@@ -534,7 +551,19 @@ export default function WhatsAppConversationsPage() {
 
   function startEdit(message: WaLiveMessage) {
     if (!message.from_me || !message.text) return;
+
+    if (isWaNativeEditExpired(message)) {
+      setEditingMessage(null);
+      setReplyingTo(message);
+      setCorrectionTarget(message);
+      setReplyDraft(message.text);
+      setSendError(null);
+      window.setTimeout(() => composerRef.current?.focus(), 0);
+      return;
+    }
+
     setReplyingTo(null);
+    setCorrectionTarget(null);
     setEditingMessage(message);
     setReplyDraft(message.text);
     setSendError(null);
@@ -1162,11 +1191,20 @@ export default function WhatsAppConversationsPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-semibold" style={{ color: GREEN }}>
-                            {editingMessage ? "Modifier votre message" : "Répondre à ce message"}
+                            {editingMessage
+                              ? "Modifier votre message"
+                              : correctionTarget
+                                ? "Corriger un ancien message"
+                                : "Répondre à ce message"}
                           </p>
                           <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
                             {(editingMessage || replyingTo)?.text || messageTypeLabel((editingMessage || replyingTo)?.type || "text")}
                           </p>
+                          {correctionTarget && (
+                            <p className="mt-1 text-[10px] leading-4" style={{ color: FAINT }}>
+                              WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message.
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1174,6 +1212,7 @@ export default function WhatsAppConversationsPage() {
                           onClick={() => {
                             setReplyingTo(null);
                             setEditingMessage(null);
+                            setCorrectionTarget(null);
                             setReplyDraft("");
                           }}
                           className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
@@ -1802,7 +1841,11 @@ function MessageBubble({
             <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
           )}
           {message.from_me && message.type === "text" && message.text && !message.id.startsWith("local-") && (
-            <MessageActionButton label="Modifier" icon={<Pencil size={13} />} onClick={onEdit} />
+            <MessageActionButton
+              label={isWaNativeEditExpired(message) ? "Corriger" : "Modifier"}
+              icon={<Pencil size={13} />}
+              onClick={onEdit}
+            />
           )}
         </div>
       </div>
@@ -1917,6 +1960,11 @@ function formatDayLabel(date: Date) {
     day: "numeric",
     month: "short",
   }).format(date);
+}
+
+function isWaNativeEditExpired(message: WaLiveMessage) {
+  if (!message.timestamp_ms) return false;
+  return Date.now() - message.timestamp_ms >= WHATSAPP_NATIVE_EDIT_WINDOW_MS;
 }
 
 function messageTypeLabel(type: string) {
