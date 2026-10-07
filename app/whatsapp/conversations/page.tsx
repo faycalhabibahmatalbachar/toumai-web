@@ -2194,6 +2194,8 @@ function isWaNativeEditExpired(message: WaLiveMessage) {
 
 function messageTypeLabel(type: string) {
   const labels: Record<string, string> = {
+    poll: "Sondage",
+    contact: "Contact",
     image: "Image",
     video: "Vidéo",
     audio: "Audio",
