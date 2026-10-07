@@ -148,7 +148,14 @@ export default function WhatsAppConversationsPage() {
   const [contactInfoLoading, setContactInfoLoading] = useState(false);
   const [contactInfoError, setContactInfoError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [contactShareOpen, setContactShareOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const stickerInputRef = useRef<HTMLInputElement>(null);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
