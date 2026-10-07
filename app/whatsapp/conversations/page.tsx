@@ -1433,9 +1433,13 @@ export default function WhatsAppConversationsPage() {
         file={attachmentFile}
         uploaded={attachmentUploaded}
         mediaType={attachmentType}
+        correctionTarget={mediaCorrectionTarget}
         onClose={closeAttachmentReview}
         onSent={() => {
           setAttachmentError(null);
+          setReplyingTo(null);
+          setCorrectionTarget(null);
+          setMediaCorrectionTarget(null);
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
           void loadConversations(query, filter);
         }}
@@ -1777,7 +1781,7 @@ function MessageBubble({
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
-  const hasMedia = message.type !== "text";
+  const hasMedia = !isTextMessageType(message.type);
   const mediaTitle = message.file_name || messageTypeLabel(message.type);
 
   return (
@@ -1893,9 +1897,16 @@ function MessageBubble({
           {message.text && (
             <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
           )}
-          {message.from_me && message.type === "text" && message.text && !message.id.startsWith("local-") && (
+          {message.from_me && isTextMessageType(message.type) && message.text && !message.id.startsWith("local-") && (
             <MessageActionButton
               label={isWaNativeEditExpired(message) ? "Corriger" : "Modifier"}
+              icon={<Pencil size={13} />}
+              onClick={onEdit}
+            />
+          )}
+          {message.from_me && isMediaMessageType(message.type) && !message.id.startsWith("local-") && (
+            <MessageActionButton
+              label="Corriger"
               icon={<Pencil size={13} />}
               onClick={onEdit}
             />
@@ -2015,6 +2026,14 @@ function formatDayLabel(date: Date) {
   }).format(date);
 }
 
+function isTextMessageType(type: string) {
+  return type === "text" || type === "texte";
+}
+
+function isMediaMessageType(type: string) {
+  return ["image", "video", "gif", "audio", "voice", "voix", "sticker", "document"].includes(type);
+}
+
 function isWaNativeEditExpired(message: WaLiveMessage) {
   if (!message.timestamp_ms) return false;
   return Date.now() - message.timestamp_ms >= WHATSAPP_NATIVE_EDIT_WINDOW_MS;
@@ -2024,7 +2043,9 @@ function messageTypeLabel(type: string) {
   const labels: Record<string, string> = {
     image: "Image",
     video: "Vidéo",
-    audio: "Message vocal",
+    audio: "Audio",
+    voice: "Message vocal",
+    voix: "Message vocal",
     document: "Document",
     sticker: "Sticker",
   };
