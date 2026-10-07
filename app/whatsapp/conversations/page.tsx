@@ -47,6 +47,7 @@ import { WhatsAppAudioRecorder } from "@/components/whatsapp/WhatsAppAudioRecord
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
+import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
@@ -1446,6 +1447,14 @@ export default function WhatsAppConversationsPage() {
           </section>
         </main>
       </div>
+
+      <WhatsAppMessageInfoModal
+        message={messageInfoTarget}
+        status={messageInfo}
+        loading={messageInfoLoading}
+        error={messageInfoError}
+        onClose={closeMessageInfo}
+      />
 
       <WhatsAppComposeModal
         open={composeOpen}
