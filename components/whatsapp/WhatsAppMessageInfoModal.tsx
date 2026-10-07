@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, CheckCheck, Info, Loader2, Pencil, X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { WaLiveMessage, WaMessageStatus } from "@/lib/whatsapp-enterprise-api";
 
@@ -154,7 +155,7 @@ function InfoRow({
   active,
   last = false,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   active: boolean;
