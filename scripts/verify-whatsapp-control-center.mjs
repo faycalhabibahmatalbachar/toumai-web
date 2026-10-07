@@ -130,6 +130,28 @@ const threadMessages = [
     status: "delivered",
   },
   {
+    id: "t-poll",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: true,
+    sender: "",
+    type: "poll",
+    media_label: "Quelle heure vous convient ?",
+    timestamp_ms: now - 75_000,
+    status: "delivered",
+  },
+  {
+    id: "t-contact-card",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: true,
+    sender: "",
+    type: "contact",
+    media_label: "Amina Saleh",
+    timestamp_ms: now - 70_000,
+    status: "delivered",
+  },
+  {
     id: "t3",
     chat_id: "23566111111@s.whatsapp.net",
     text: "Tu peux me rappeler ?",
@@ -809,6 +831,15 @@ async function certifyConversations() {
   assert(state.replies.length === 2, "La correction hors fenêtre doit partir comme réponse réelle.");
   assert(state.replies.at(-1).msg_id === "t-old", "La correction doit rester liée au message original.");
   assert(state.replies.at(-1).message === "Ancien message corrigé", "La correction doit envoyer le texte exact.");
+
+  const pollBubble = page.locator('[data-message-id="t-poll"]');
+  await pollBubble.getByText("Quelle heure vous convient ?", { exact: true }).waitFor();
+  const contactCardBubble = page.locator('[data-message-id="t-contact-card"]');
+  await contactCardBubble.getByText("Amina Saleh", { exact: true }).waitFor();
+  assert(
+    !state.mediaLoads.some((path) => path.endsWith("/whatsapp/media/t-poll") || path.endsWith("/whatsapp/media/t-contact-card")),
+    "Sondages et contacts ne doivent pas déclencher de faux téléchargement binaire.",
+  );
 
   const mediaOutbound = page.locator('[data-message-id="t-media"]');
   await mediaOutbound.locator("img").waitFor();
