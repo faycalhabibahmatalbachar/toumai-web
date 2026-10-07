@@ -680,7 +680,7 @@ export default function WhatsAppConversationsPage() {
     setMessageInfoLoading(false);
   }
 
-  async function prepareAttachment(file: File) {
+  async function prepareAttachment(file: File, forcedType?: WaMediaType) {
     if (!selected || attachmentUploading) return;
     if (file.size > 100 * 1024 * 1024) {
       setAttachmentError("Fichier trop volumineux (100 Mo maximum).");
@@ -690,11 +690,12 @@ export default function WhatsAppConversationsPage() {
     setAttachmentUploading(true);
     setAttachmentError(null);
     setEmojiOpen(false);
+    setAttachmentMenuOpen(false);
     try {
       const uploaded = await uploadWaAttachment(file);
       setAttachmentFile(file);
       setAttachmentUploaded(uploaded);
-      setAttachmentType(inferWaMediaType(file));
+      setAttachmentType(forcedType || inferWaMediaType(file));
       setAttachmentOpen(true);
     } catch (error) {
       setAttachmentError(errorMessage(error, "generic"));
@@ -703,10 +704,25 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
-  async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
+  async function handleAttachmentSelected(
+    event: ChangeEvent<HTMLInputElement>,
+    forcedType?: WaMediaType,
+  ) {
     const file = event.target.files?.[0] || null;
     event.currentTarget.value = "";
-    if (file) await prepareAttachment(file);
+    if (file) await prepareAttachment(file, forcedType);
+  }
+
+  function chooseAttachment(choice: WhatsAppAttachmentChoice) {
+    setAttachmentMenuOpen(false);
+    setEmojiOpen(false);
+    if (choice === "document") documentInputRef.current?.click();
+    else if (choice === "media") fileInputRef.current?.click();
+    else if (choice === "camera") cameraInputRef.current?.click();
+    else if (choice === "audio") audioFileInputRef.current?.click();
+    else if (choice === "sticker") stickerInputRef.current?.click();
+    else if (choice === "contact") setContactShareOpen(true);
+    else if (choice === "poll") setPollOpen(true);
   }
 
   function prepareConversationAction(request: ConversationActionRequest) {
