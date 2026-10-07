@@ -69,12 +69,16 @@ jobs:
           messages_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/conversation/messages?chat_id=23566000000%40s.whatsapp.net&limit=1')"
           send_status="$(probe POST 'https://api.toumaiai.com/api/v1/whatsapp/message/send' '{"to":"23566000000","message":"probe"}')"
           status_status="$(probe GET 'https://api.toumaiai.com/api/v1/whatsapp/message/status?msg_id=probe')"
+          media_send_status="$(probe POST 'https://api.toumaiai.com/api/v1/whatsapp/media/send' '{"to":"23566000000@s.whatsapp.net","type":"document","url":"https://example.invalid/probe.txt","confirmed":true}')"
+          conversation_action_status="$(probe POST 'https://api.toumaiai.com/api/v1/whatsapp/conversation/action' '{"chat_id":"23566000000@s.whatsapp.net","action":"mark_read","confirmed":true}')"
 
           require_auth_guard conversations "$conversations_status"
           require_auth_guard conversation_messages "$messages_status"
           require_auth_guard message_send "$send_status"
           require_auth_guard message_status "$status_status"
-          echo "Authoritative WhatsApp backend routes are present and authentication-protected."
+          require_auth_guard media_send "$media_send_status"
+          require_auth_guard conversation_action "$conversation_action_status"
+          echo "Authoritative WhatsApp backend routes, including C2 mutations, are present and authentication-protected."
 
       - name: Attest exact Web SHA on toumaiai.com
         shell: bash
