@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Loader2, Music2, Play, RotateCw } from "lucide-react";
+import { Download, FileText, Image as ImageIcon, Loader2, Music2, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getWaMessageMediaBlob, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
