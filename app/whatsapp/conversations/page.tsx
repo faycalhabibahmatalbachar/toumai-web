@@ -1599,7 +1599,11 @@ function MessageBubble({
   const mediaTitle = message.file_name || messageTypeLabel(message.type);
 
   return (
-    <div className={`group flex ${message.from_me ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`group flex ${message.from_me ? "justify-end" : "justify-start"}`}
+      data-message-id={message.id || undefined}
+      data-message-direction={message.from_me ? "outbound" : "inbound"}
+    >
       <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
         <div
           className="rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)]"
