@@ -291,6 +291,9 @@ const logs = {
 
 const state = {
   sends: [],
+  replies: [],
+  reactions: [],
+  edits: [],
   uploads: [],
   mediaSends: [],
   chatActions: [],
@@ -442,6 +445,33 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       action: body.action,
       applied: true,
     };
+  } else if (path === "/whatsapp/message/reply" && method === "POST") {
+    const body = request.postDataJSON();
+    state.replies.push(body);
+    data = {
+      chat_id: body.chat_id,
+      msg_id: "REPLY-UI-1",
+      reply_to: body.msg_id,
+      status: "accepted",
+    };
+  } else if (path === "/whatsapp/message/react" && method === "POST") {
+    const body = request.postDataJSON();
+    state.reactions.push(body);
+    data = {
+      chat_id: body.chat_id,
+      msg_id: body.msg_id,
+      emoji: body.emoji,
+      reacted: true,
+    };
+  } else if (path === "/whatsapp/message/edit" && method === "POST") {
+    const body = request.postDataJSON();
+    state.edits.push(body);
+    data = {
+      chat_id: body.chat_id,
+      msg_id: body.msg_id,
+      edited: true,
+      new_msg_id: "EDIT-UI-1",
+    };
   } else if (path === "/whatsapp/message/send" && method === "POST") {
     const body = request.postDataJSON();
     state.sends.push(body);
@@ -530,9 +560,11 @@ async function certifyOverviewComposer() {
   await composeDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
   await composeDialog.getByText("Mahamat Ali", { exact: true }).click();
   await page.getByPlaceholder("Écrivez votre message…").fill("Bonjour depuis le centre de pilotage.");
-  await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
-  await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
-  await page.getByRole("button", { name: "Envoyer maintenant" }).click();
+  assert(
+    (await page.getByRole("button", { name: "Vérifier l’envoi" }).count()) === 0,
+    "Le second écran de vérification ne doit plus exister pour un message texte.",
+  );
+  await page.getByRole("button", { name: "Envoyer", exact: true }).click();
   await page.getByRole("heading", { name: "Message livré" }).waitFor({ timeout: 5000 });
 
   assert(state.sends.length === 1, `Un clic doit produire exactement un envoi, obtenu ${state.sends.length}`);
@@ -640,14 +672,55 @@ async function certifyConversations() {
   await noHorizontalOverflow(page, "conversations-workspace");
   await page.screenshot({ path: `${artifacts}/conversations-enterprise.png`, fullPage: false });
 
+  const sendsBeforeDirect = state.sends.length;
   const replyBox = page.getByPlaceholder("Écrire un message…");
   await replyBox.waitFor();
   await replyBox.fill("Je vous rappelle dans quelques minutes.");
-  await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
-  await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
-  const reviewDialog = page.getByRole("dialog");
-  await reviewDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
-  await reviewDialog.getByText("Je vous rappelle dans quelques minutes.", { exact: true }).waitFor();
+  await replyBox.press("Enter");
+  await page.waitForTimeout(200);
+  assert(
+    state.sends.length === sendsBeforeDirect + 1,
+    "Entrée dans le composeur doit envoyer exactement un message.",
+  );
+  assert(
+    state.sends.at(-1).to === "23566111111@s.whatsapp.net",
+    "L'envoi direct doit conserver le JID exact de la conversation.",
+  );
+  assert(
+    state.sends.at(-1).message === "Je vous rappelle dans quelques minutes.",
+    "L'envoi direct doit transmettre le brouillon exact.",
+  );
+  assert(
+    (await page.getByText(/Confirmation avant envoi|Confirmation requise avant chaque envoi/i).count()) === 0,
+    "Aucun texte de double confirmation ne doit rester dans le chat.",
+  );
+
+  const inboundT3 = page.locator('[data-message-id="t3"]');
+  await inboundT3.getByRole("button", { name: "Répondre" }).click();
+  const nativeReply = page.getByPlaceholder("Écrire votre réponse…");
+  await nativeReply.fill("Oui, je te rappelle.");
+  await nativeReply.press("Enter");
+  await page.waitForTimeout(150);
+  assert(state.replies.length === 1, "Une réponse native doit appeler une fois /message/reply.");
+  assert(state.replies[0].msg_id === "t3", "La réponse doit citer le vrai msg_id sélectionné.");
+  assert(state.replies[0].chat_id === "23566111111@s.whatsapp.net", "La réponse doit conserver le JID exact.");
+
+  await inboundT3.getByRole("button", { name: "Réagir" }).click();
+  await inboundT3.getByRole("button", { name: "Réagir avec ❤️" }).click();
+  await page.waitForTimeout(120);
+  assert(state.reactions.length === 1, "Une réaction doit appeler une fois /message/react.");
+  assert(state.reactions[0].msg_id === "t3", "La réaction doit viser le vrai message sélectionné.");
+  assert(state.reactions[0].emoji === "❤️", "La réaction doit transmettre l'emoji choisi.");
+
+  const outboundT2 = page.locator('[data-message-id="t2"]');
+  await outboundT2.getByRole("button", { name: "Modifier" }).click();
+  const editBox = page.getByPlaceholder("Modifier le message…");
+  await editBox.fill("Bonjour Mahamat !");
+  await editBox.press("Enter");
+  await page.waitForTimeout(120);
+  assert(state.edits.length === 1, "Modifier doit appeler une fois /message/edit.");
+  assert(state.edits[0].msg_id === "t2", "La modification doit viser le message envoyé sélectionné.");
+  assert(state.edits[0].new_text === "Bonjour Mahamat !", "La modification doit transmettre le nouveau texte.");
 
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
@@ -739,9 +812,7 @@ async function certifyRetired404Fallbacks() {
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
   await page.getByPlaceholder("Écrivez votre message…").fill("salut");
-  await page.getByRole("button", { name: "Vérifier l’envoi" }).click();
-  await page.getByRole("heading", { name: "Confirmer l’envoi" }).waitFor();
-  await page.getByRole("button", { name: "Envoyer maintenant" }).click();
+  await page.getByRole("button", { name: "Envoyer", exact: true }).click();
   await page.waitForTimeout(500);
 
   assert(

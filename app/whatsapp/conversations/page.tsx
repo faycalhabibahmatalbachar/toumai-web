@@ -18,6 +18,10 @@ import {
   BookOpen,
   Check,
   CheckCheck,
+  SmilePlus,
+  Reply,
+  Pencil,
+  Copy,
   CircleAlert,
   Info,
   LayoutDashboard,
@@ -29,7 +33,6 @@ import {
   Search,
   Send,
   Settings,
-  ShieldCheck,
   SlidersHorizontal,
   Smile,
   Sparkles,
@@ -47,11 +50,15 @@ import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  editWaMessage,
   getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
   inferWaMediaType,
+  reactWaMessage,
   searchWaConversation,
+  sendWaManualMessage,
+  sendWaReply,
   uploadWaAttachment,
   type WaContactInfo,
   type WaLiveConversation,
@@ -102,9 +109,13 @@ export default function WhatsAppConversationsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeTarget, setComposeTarget] = useState<WaLiveConversation | null>(null);
-  const [composeSeed, setComposeSeed] = useState("");
   const [replyDraft, setReplyDraft] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
+  const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -333,6 +344,10 @@ export default function WhatsAppConversationsPage() {
     setMuteMenuOpen(false);
     setActionRequest(null);
     setAttachmentError(null);
+    setSendError(null);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setLocalReactions({});
     closeAttachmentReview();
     setSelected(conversation);
     if (typeof window !== "undefined") {
@@ -355,6 +370,10 @@ export default function WhatsAppConversationsPage() {
     setMuteMenuOpen(false);
     setActionRequest(null);
     setAttachmentError(null);
+    setSendError(null);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setLocalReactions({});
     closeAttachmentReview();
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -364,16 +383,151 @@ export default function WhatsAppConversationsPage() {
   }
 
   function openNewMessage() {
-    setComposeTarget(null);
-    setComposeSeed("");
     setComposeOpen(true);
   }
 
-  function openReplyReview() {
-    if (!selected || !replyDraft.trim()) return;
-    setComposeTarget(selected);
-    setComposeSeed(replyDraft.trim());
-    setComposeOpen(true);
+  async function sendCurrentMessage() {
+    if (!selected || !replyDraft.trim() || sendingMessage) return;
+    const text = replyDraft.trim();
+    const replyTarget = replyingTo;
+    const editTarget = editingMessage;
+
+    setSendingMessage(true);
+    setSendError(null);
+    setEmojiOpen(false);
+
+    if (editTarget) {
+      try {
+        await editWaMessage({
+          chat_id: selected.id,
+          msg_id: editTarget.id,
+          new_text: text,
+        });
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === editTarget.id ? { ...message, text } : message,
+          ),
+        );
+        setReplyDraft("");
+        setEditingMessage(null);
+        window.setTimeout(() => void loadThread(selected), 350);
+      } catch (error) {
+        setSendError(errorMessage(error, "generic"));
+      } finally {
+        setSendingMessage(false);
+      }
+      return;
+    }
+
+    const localId = `local-${Date.now()}`;
+    const optimistic: WaLiveMessage = {
+      id: localId,
+      chat_id: selected.id,
+      text,
+      from_me: true,
+      sender: "",
+      sender_jid: "",
+      type: "text",
+      timestamp_ms: Date.now(),
+      status: "sending",
+      quoted: replyTarget
+        ? {
+            id: replyTarget.id,
+            text: replyTarget.text,
+            sender: replyTarget.sender,
+          }
+        : null,
+    };
+    setMessages((current) => [...current, optimistic]);
+    setReplyDraft("");
+    setReplyingTo(null);
+
+    try {
+      const response = replyTarget
+        ? await sendWaReply({
+            chat_id: selected.id,
+            msg_id: replyTarget.id,
+            message: text,
+            original_text: replyTarget.text,
+            original_sender: replyTarget.sender_jid || "",
+          })
+        : await sendWaManualMessage({
+            to: selected.id,
+            message: text,
+            chat_name: displayConversationName(selected),
+          });
+
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === localId
+            ? {
+                ...message,
+                id: response.msg_id || localId,
+                status: response.status || "accepted",
+              }
+            : message,
+        ),
+      );
+      void loadConversations(query, filter);
+      window.setTimeout(() => void loadThread(selected), 450);
+    } catch (error) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === localId ? { ...message, status: "failed" } : message,
+        ),
+      );
+      setReplyDraft(text);
+      setReplyingTo(replyTarget);
+      setSendError(errorMessage(error, "generic"));
+    } finally {
+      setSendingMessage(false);
+    }
+  }
+
+  function startReply(message: WaLiveMessage) {
+    setEditingMessage(null);
+    setReplyingTo(message);
+    setReplyDraft("");
+    setSendError(null);
+    window.setTimeout(() => composerRef.current?.focus(), 0);
+  }
+
+  function startEdit(message: WaLiveMessage) {
+    if (!message.from_me || !message.text) return;
+    setReplyingTo(null);
+    setEditingMessage(message);
+    setReplyDraft(message.text);
+    setSendError(null);
+    window.setTimeout(() => composerRef.current?.focus(), 0);
+  }
+
+  async function reactToMessage(message: WaLiveMessage, emoji: string) {
+    if (!selected || !message.id) return;
+    setSendError(null);
+    setLocalReactions((current) => ({ ...current, [message.id]: emoji }));
+    try {
+      await reactWaMessage({
+        chat_id: selected.id,
+        msg_id: message.id,
+        emoji,
+      });
+    } catch (error) {
+      setLocalReactions((current) => {
+        const next = { ...current };
+        delete next[message.id];
+        return next;
+      });
+      setSendError(errorMessage(error, "generic"));
+    }
+  }
+
+  async function copyMessage(message: WaLiveMessage) {
+    if (!message.text || typeof navigator === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(message.text);
+    } catch {
+      setSendError("Impossible de copier ce message.");
+    }
   }
 
   async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
@@ -861,7 +1015,14 @@ export default function WhatsAppConversationsPage() {
 
                   {!loadingThread && !threadError && displayedMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
-                      <ThreadMessages messages={displayedMessages} />
+                      <ThreadMessages
+                        messages={displayedMessages}
+                        reactions={localReactions}
+                        onReply={startReply}
+                        onEdit={startEdit}
+                        onReact={(message, emoji) => void reactToMessage(message, emoji)}
+                        onCopy={(message) => void copyMessage(message)}
+                      />
                     </div>
                   )}
                 </div>
@@ -947,9 +1108,41 @@ export default function WhatsAppConversationsPage() {
 
                 <div className="px-3 pb-3 md:px-5" style={{ background: SURFACE }}>
                   <div className="mx-auto max-w-[980px]">
+                    {(replyingTo || editingMessage) && (
+                      <div
+                        className="mb-2 flex items-start gap-3 rounded-xl border px-3 py-2.5"
+                        style={{ borderColor: "rgba(8,200,117,.28)", background: "rgba(8,200,117,.06)" }}
+                      >
+                        <div className="mt-0.5" style={{ color: GREEN }}>
+                          {editingMessage ? <Pencil size={15} /> : <Reply size={15} />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-semibold" style={{ color: GREEN }}>
+                            {editingMessage ? "Modifier votre message" : "Répondre à ce message"}
+                          </p>
+                          <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
+                            {(editingMessage || replyingTo)?.text || messageTypeLabel((editingMessage || replyingTo)?.type || "text")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Annuler"
+                          onClick={() => {
+                            setReplyingTo(null);
+                            setEditingMessage(null);
+                            setReplyDraft("");
+                          }}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
+                          style={{ color: MUTED }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+
                     <div
                       className="flex items-end gap-2 rounded-[16px] border p-2"
-                      style={{ borderColor: BORDER, background: RAISED }}
+                      style={{ borderColor: sendError ? "rgba(255,107,107,.45)" : BORDER, background: RAISED }}
                     >
                       <div className="relative shrink-0">
                         <button
@@ -998,46 +1191,41 @@ export default function WhatsAppConversationsPage() {
                       </button>
 
                       <textarea
+                        ref={composerRef}
                         value={replyDraft}
-                        onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
+                        onChange={(event) => {
+                          setReplyDraft(event.target.value.slice(0, 4096));
+                          if (sendError) setSendError(null);
+                        }}
                         onKeyDown={(event) => {
-                          if (event.key === "Enter" && !event.shiftKey && replyDraft.trim()) {
+                          if (event.key === "Enter" && !event.shiftKey && replyDraft.trim() && !sendingMessage) {
                             event.preventDefault();
-                            openReplyReview();
+                            void sendCurrentMessage();
                           }
                         }}
-                        placeholder="Écrire un message…"
+                        placeholder={editingMessage ? "Modifier le message…" : replyingTo ? "Écrire votre réponse…" : "Écrire un message…"}
                         rows={1}
                         className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
                       />
 
-                      <span
-                        className="hidden shrink-0 items-center gap-1.5 px-2 text-[9px] lg:inline-flex"
-                        style={{ color: FAINT }}
-                      >
-                        <ShieldCheck size={14} color={GREEN} />
-                        Confirmation avant envoi
-                      </span>
-
                       <button
                         type="button"
-                        disabled={!replyDraft.trim()}
-                        onClick={openReplyReview}
-                        aria-label="Vérifier l’envoi"
+                        disabled={!replyDraft.trim() || sendingMessage}
+                        onClick={() => void sendCurrentMessage()}
+                        aria-label={editingMessage ? "Enregistrer la modification" : "Envoyer le message"}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
                         style={{ background: GREEN }}
                       >
-                        <Send size={18} />
+                        {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : editingMessage ? <Check size={18} /> : <Send size={18} />}
                       </button>
                     </div>
-                    {attachmentError && (
+                    {(attachmentError || sendError) && (
                       <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
-                        {attachmentError}
+                        {sendError || attachmentError}
                       </p>
                     )}
-                    <div className="mt-1.5 flex items-center justify-between px-1 text-[9px]" style={{ color: FAINT }}>
-                      <span className="lg:hidden">Confirmation requise avant chaque envoi.</span>
-                      <span className="ml-auto">{replyDraft.length}/4096</span>
+                    <div className="mt-1.5 flex items-center justify-end px-1 text-[9px]" style={{ color: FAINT }}>
+                      <span>{replyDraft.length}/4096 · Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne</span>
                     </div>
                   </div>
                 </div>
@@ -1050,12 +1238,7 @@ export default function WhatsAppConversationsPage() {
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
-        initialRecipient={composeTarget?.id}
-        initialName={composeTarget?.name}
-        initialMessage={composeSeed}
         onSent={() => {
-          setReplyDraft("");
-          setComposeSeed("");
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
           void loadConversations(query, filter);
         }}
@@ -1345,7 +1528,21 @@ function Avatar({
   );
 }
 
-function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
+function ThreadMessages({
+  messages,
+  reactions,
+  onReply,
+  onEdit,
+  onReact,
+  onCopy,
+}: {
+  messages: WaLiveMessage[];
+  reactions: Record<string, string>;
+  onReply: (message: WaLiveMessage) => void;
+  onEdit: (message: WaLiveMessage) => void;
+  onReact: (message: WaLiveMessage, emoji: string) => void;
+  onCopy: (message: WaLiveMessage) => void;
+}) {
   const groups = groupMessagesByDay(messages);
   return (
     <div className="flex flex-col gap-5">
@@ -1360,7 +1557,15 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
             </span>
           </div>
           {group.messages.map((message, index) => (
-            <MessageBubble key={message.id || `${message.timestamp_ms}-${index}`} message={message} />
+            <MessageBubble
+              key={message.id || `${message.timestamp_ms}-${index}`}
+              message={message}
+              reaction={message.id ? reactions[message.id] : undefined}
+              onReply={() => onReply(message)}
+              onEdit={() => onEdit(message)}
+              onReact={(emoji) => onReact(message, emoji)}
+              onCopy={() => onCopy(message)}
+            />
           ))}
         </div>
       ))}
@@ -1368,56 +1573,184 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
   );
 }
 
-function MessageBubble({ message }: { message: WaLiveMessage }) {
+function MessageBubble({
+  message,
+  reaction,
+  onReply,
+  onEdit,
+  onReact,
+  onCopy,
+}: {
+  message: WaLiveMessage;
+  reaction?: string;
+  onReply: () => void;
+  onEdit: () => void;
+  onReact: (emoji: string) => void;
+  onCopy: () => void;
+}) {
+  const [reactionOpen, setReactionOpen] = useState(false);
   const when = message.timestamp_ms
     ? new Intl.DateTimeFormat("fr-FR", {
         hour: "2-digit",
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
+  const hasMedia = message.type !== "text";
+  const mediaTitle = message.file_name || messageTypeLabel(message.type);
 
   return (
-    <div className={`flex ${message.from_me ? "justify-end" : "justify-start"}`}>
-      <div
-        className="max-w-[82%] rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)] sm:max-w-[70%] lg:max-w-[62%]"
-        style={{
-          background: message.from_me
-            ? "linear-gradient(145deg,#0b6447,#0a533d)"
-            : "linear-gradient(145deg,#182631,#14212b)",
-          border: `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
-        }}
-      >
-        {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
-          <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
-            {message.sender}
-          </p>
-        )}
+    <div
+      className={`group flex ${message.from_me ? "justify-end" : "justify-start"}`}
+      data-message-id={message.id || undefined}
+      data-message-direction={message.from_me ? "outbound" : "inbound"}
+    >
+      <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
+        <div
+          className="rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)]"
+          style={{
+            background: message.from_me
+              ? "linear-gradient(145deg,#0b6447,#0a533d)"
+              : "linear-gradient(145deg,#182631,#14212b)",
+            border: `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
+          }}
+        >
+          {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
+            <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
+              {message.sender}
+            </p>
+          )}
 
-        {message.type !== "text" && !message.text && (
-          <div className="flex items-center gap-2 text-[11px]" style={{ color: "#dbe4ea" }}>
-            <Paperclip size={15} color={GREEN} />
-            <span>{messageTypeLabel(message.type)}</span>
+          {message.quoted && (message.quoted.text || message.quoted.id) && (
+            <div
+              className="mb-2 rounded-lg border-l-2 px-2.5 py-2 text-[10px] leading-4"
+              style={{ borderColor: GREEN, background: "rgba(0,0,0,.16)", color: "#c6d1d8" }}
+            >
+              <p className="truncate font-semibold" style={{ color: GREEN }}>
+                {message.quoted.sender && !isTechnicalWhatsAppIdentity(message.quoted.sender)
+                  ? message.quoted.sender
+                  : "Message cité"}
+              </p>
+              <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words">
+                {message.quoted.text || "Message"}
+              </p>
+            </div>
+          )}
+
+          {hasMedia && (
+            <div
+              className="mb-2 flex min-w-[190px] items-center gap-3 rounded-xl border px-3 py-2.5"
+              style={{ borderColor: "rgba(255,255,255,.07)", background: "rgba(0,0,0,.12)" }}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05]" style={{ color: GREEN }}>
+                <Paperclip size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-semibold">{mediaTitle}</p>
+                <p className="mt-0.5 text-[9px]" style={{ color: "#9eacb7" }}>
+                  {[message.mime_type, formatDuration(message.duration_seconds)].filter(Boolean).join(" · ") || messageTypeLabel(message.type)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {message.text && (
+            <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
+              {message.text}
+            </p>
+          )}
+
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+            <span className="text-[8px]" style={{ color: "#9eacb7" }}>
+              {when}
+            </span>
+            {message.from_me && <DeliveryMark status={message.status} />}
           </div>
-        )}
+        </div>
 
-        {message.text && (
-          <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
-            {message.text}
-          </p>
-        )}
-
-        <div className="mt-1 flex items-center justify-end gap-1.5">
-          <span className="text-[8px]" style={{ color: "#9eacb7" }}>
-            {when}
+        {reaction && (
+          <span
+            className={`absolute -bottom-3 ${message.from_me ? "right-2" : "left-2"} rounded-full border px-1.5 py-0.5 text-[12px] shadow`}
+            style={{ borderColor: BORDER, background: "#10202b" }}
+          >
+            {reaction}
           </span>
-          {message.from_me && <DeliveryMark status={message.status} />}
+        )}
+
+        <div
+          className={`mt-1 flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 ${message.from_me ? "justify-end" : "justify-start"}`}
+        >
+          <MessageActionButton label="Répondre" icon={<Reply size={13} />} onClick={onReply} />
+          <div className="relative">
+            <MessageActionButton
+              label="Réagir"
+              icon={<SmilePlus size={13} />}
+              onClick={() => setReactionOpen((value) => !value)}
+            />
+            {reactionOpen && (
+              <div
+                className={`absolute bottom-8 z-30 flex gap-1 rounded-full border p-1.5 shadow-2xl ${message.from_me ? "right-0" : "left-0"}`}
+                style={{ borderColor: BORDER, background: "#111f2a" }}
+              >
+                {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    aria-label={`Réagir avec ${emoji}`}
+                    onClick={() => {
+                      onReact(emoji);
+                      setReactionOpen(false);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[16px] transition hover:bg-white/[0.08]"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {message.text && (
+            <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
+          )}
+          {message.from_me && message.type === "text" && message.text && !message.id.startsWith("local-") && (
+            <MessageActionButton label="Modifier" icon={<Pencil size={13} />} onClick={onEdit} />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+function MessageActionButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="flex h-7 items-center gap-1 rounded-lg px-2 text-[9px] transition hover:bg-white/[0.05]"
+      style={{ color: MUTED }}
+    >
+      {icon}
+      <span className="hidden md:inline">{label}</span>
+    </button>
+  );
+}
+
 function DeliveryMark({ status }: { status?: string | null }) {
+  if (status === "sending") {
+    return <Loader2 size={11} className="animate-spin" color="#afbdc7" aria-label="Envoi en cours" />;
+  }
+  if (status === "failed") {
+    return <CircleAlert size={12} color="#ff7d7d" aria-label="Échec" />;
+  }
   if (status === "read" || status === "played") {
     return <CheckCheck size={12} color="#53bdeb" aria-label="Lu" />;
   }
@@ -1425,6 +1758,14 @@ function DeliveryMark({ status }: { status?: string | null }) {
     return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
   }
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
+}
+
+function formatDuration(seconds?: number | null) {
+  if (!seconds || seconds <= 0) return "";
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
