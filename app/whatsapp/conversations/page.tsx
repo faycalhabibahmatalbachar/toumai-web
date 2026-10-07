@@ -118,6 +118,7 @@ export default function WhatsAppConversationsPage() {
   const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
   const [correctionTarget, setCorrectionTarget] = useState<WaLiveMessage | null>(null);
+  const [mediaCorrectionTarget, setMediaCorrectionTarget] = useState<WaLiveMessage | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -562,6 +563,7 @@ export default function WhatsAppConversationsPage() {
   function startReply(message: WaLiveMessage) {
     setEditingMessage(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setReplyingTo(message);
     setReplyDraft("");
     setSendError(null);
@@ -569,12 +571,26 @@ export default function WhatsAppConversationsPage() {
   }
 
   function startEdit(message: WaLiveMessage) {
-    if (!message.from_me || !message.text) return;
+    if (!message.from_me) return;
+
+    if (!isTextMessageType(message.type)) {
+      setEditingMessage(null);
+      setReplyingTo(message);
+      setCorrectionTarget(message);
+      setMediaCorrectionTarget(message);
+      setReplyDraft("");
+      setSendError(null);
+      window.setTimeout(() => composerRef.current?.focus(), 0);
+      return;
+    }
+
+    if (!message.text) return;
 
     if (isWaNativeEditExpired(message)) {
       setEditingMessage(null);
       setReplyingTo(message);
       setCorrectionTarget(message);
+      setMediaCorrectionTarget(null);
       setReplyDraft(message.text);
       setSendError(null);
       window.setTimeout(() => composerRef.current?.focus(), 0);
@@ -583,6 +599,7 @@ export default function WhatsAppConversationsPage() {
 
     setReplyingTo(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setEditingMessage(message);
     setReplyDraft(message.text);
     setSendError(null);
