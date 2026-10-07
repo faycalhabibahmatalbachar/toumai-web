@@ -7,6 +7,7 @@ import { errorMessage } from "@/lib/errors";
 import {
   sendWaMedia,
   type WaLiveConversation,
+  type WaLiveMessage,
   type WaMediaType,
   type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
@@ -24,6 +25,7 @@ export function WhatsAppAttachmentModal({
   file,
   uploaded,
   mediaType,
+  correctionTarget,
   onClose,
   onSent,
 }: {
@@ -32,6 +34,7 @@ export function WhatsAppAttachmentModal({
   file: File | null;
   uploaded: WaUploadedFile | null;
   mediaType: WaMediaType | null;
+  correctionTarget?: WaLiveMessage | null;
   onClose: () => void;
   onSent: () => void;
 }) {
@@ -69,6 +72,10 @@ export function WhatsAppAttachmentModal({
         filename: activeUpload.file_name || activeFile.name,
         mimetype: activeFile.type || undefined,
         caption: caption.trim() || undefined,
+        reply_to_msg_id: correctionTarget?.id || undefined,
+        reply_to_text: correctionTarget?.text || undefined,
+        reply_to_type: correctionTarget?.type || undefined,
+        reply_to_sender: correctionTarget?.sender_jid || undefined,
         confirmed: true,
       });
       onSent();
@@ -102,7 +109,9 @@ export function WhatsAppAttachmentModal({
             {isVisual ? <ImageIcon size={18} /> : <FileText size={18} />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 id="wa-attachment-title" className="text-[16px] font-semibold">Pièce jointe</h2>
+            <h2 id="wa-attachment-title" className="text-[16px] font-semibold">
+              {correctionTarget ? "Corriger le média" : "Pièce jointe"}
+            </h2>
             <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
               {conversation.name}
             </p>
@@ -120,6 +129,16 @@ export function WhatsAppAttachmentModal({
         </header>
 
         <div className="p-5">
+          {correctionTarget && (
+            <div
+              className="mb-4 rounded-xl border px-4 py-3 text-[12px] leading-5"
+              style={{ borderColor: "rgba(8,200,117,.28)", background: "rgba(8,200,117,.06)", color: MUTED }}
+            >
+              WhatsApp ne permet pas de modifier une photo, une vidéo ou un autre média déjà envoyé.
+              Cette nouvelle pièce jointe sera donc envoyée comme <strong style={{ color: TEXT }}>correction liée au média original</strong>,
+              et non comme une fausse modification native.
+            </div>
+          )}
           {previewUrl && mediaType === "image" && (
             <div className="mb-4 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "#08131c" }}>
               <img src={previewUrl} alt={file.name} className="max-h-[320px] w-full object-contain" />
@@ -193,7 +212,7 @@ export function WhatsAppAttachmentModal({
               {sending ? (
                 <><Loader2 size={17} className="animate-spin" /> Envoi…</>
               ) : (
-                <><Send size={17} /> Envoyer</>
+                <><Send size={17} /> {correctionTarget ? "Envoyer la correction" : "Envoyer"}</>
               )}
             </button>
           </div>
