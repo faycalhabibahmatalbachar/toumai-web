@@ -1015,7 +1015,14 @@ export default function WhatsAppConversationsPage() {
 
                   {!loadingThread && !threadError && displayedMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
-                      <ThreadMessages messages={displayedMessages} />
+                      <ThreadMessages
+                        messages={displayedMessages}
+                        reactions={localReactions}
+                        onReply={startReply}
+                        onEdit={startEdit}
+                        onReact={(message, emoji) => void reactToMessage(message, emoji)}
+                        onCopy={(message) => void copyMessage(message)}
+                      />
                     </div>
                   )}
                 </div>
