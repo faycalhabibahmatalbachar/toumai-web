@@ -48,6 +48,7 @@ import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
+import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
@@ -79,6 +80,7 @@ const MUTED = "#9ba8b3";
 const FAINT = "#6f7f8d";
 const GREEN = "#08c875";
 const ORANGE = "#ff9518";
+const WHATSAPP_NATIVE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const NAV_ITEMS = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -115,6 +117,7 @@ export default function WhatsAppConversationsPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
+  const [correctionTarget, setCorrectionTarget] = useState<WaLiveMessage | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -226,19 +229,43 @@ export default function WhatsAppConversationsPage() {
     }
   }, [kindFilter]);
 
-  const loadThread = useCallback(async (conversation: WaLiveConversation) => {
-    setLoadingThread(true);
-    setThreadError(null);
+  const loadThread = useCallback(async (
+    conversation: WaLiveConversation,
+    options: { silent?: boolean } = {},
+  ) => {
+    const silent = Boolean(options.silent);
+    if (!silent) {
+      setLoadingThread(true);
+      setThreadError(null);
+    }
     try {
       const data = await getWaConversationMessages(conversation.id, 120);
       setMessages(data.messages);
+      if (!silent) setThreadError(null);
     } catch (error) {
-      setMessages([]);
-      setThreadError(errorMessage(error, "history"));
+      // Une resynchronisation de fond ne doit jamais faire disparaître un fil
+      // déjà visible ni démonter ses contrôles pendant une interaction.
+      if (!silent) {
+        setMessages([]);
+        setThreadError(errorMessage(error, "history"));
+      }
     } finally {
-      setLoadingThread(false);
+      if (!silent) setLoadingThread(false);
     }
   }, []);
+
+  const refreshRealtimeConversations = useCallback(async () => {
+    await loadConversations(query, filter);
+    if (selected) await loadThread(selected, { silent: true });
+  }, [filter, loadConversations, loadThread, query, selected]);
+
+  useWhatsAppRealtimeInvalidation({
+    enabled: Boolean(session),
+    refreshOverview: () => undefined,
+    refreshConversations: refreshRealtimeConversations,
+    refreshAutomations: () => undefined,
+    refreshConnection: () => undefined,
+  });
 
   const runThreadSearch = useCallback(async () => {
     if (!selected || !threadSearchQuery.trim()) {
@@ -333,6 +360,38 @@ export default function WhatsAppConversationsPage() {
     return () => window.clearTimeout(timer);
   }, [selected, session, loadThread]);
 
+  useEffect(() => {
+    if (!session || typeof window === "undefined") return;
+
+    const refreshThreadAndList = () => {
+      if (document.visibilityState === "hidden") return;
+      void refreshRealtimeConversations();
+    };
+    const refreshListOnly = () => {
+      if (document.visibilityState === "hidden") return;
+      void loadConversations(query, filter);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshThreadAndList();
+    };
+
+    // Le polling de secours ne remonte que la liste. Recharger tout le fil
+    // toutes les 30 s détachait les contrôles interactifs (picker de réaction,
+    // menu de message) en plein clic. Le fil actif reste temps réel via SSE,
+    // puis se resynchronise au focus, au retour réseau et au retour d'onglet.
+    const interval = window.setInterval(refreshListOnly, 30_000);
+    window.addEventListener("online", refreshThreadAndList);
+    window.addEventListener("focus", refreshThreadAndList);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("online", refreshThreadAndList);
+      window.removeEventListener("focus", refreshThreadAndList);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [filter, loadConversations, query, session, refreshRealtimeConversations]);
+
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
     setMessages([]);
@@ -349,6 +408,7 @@ export default function WhatsAppConversationsPage() {
     setSendError(null);
     setReplyingTo(null);
     setEditingMessage(null);
+    setCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     setSelected(conversation);
@@ -375,6 +435,7 @@ export default function WhatsAppConversationsPage() {
     setSendError(null);
     setReplyingTo(null);
     setEditingMessage(null);
+    setCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     if (typeof window !== "undefined") {
@@ -412,9 +473,20 @@ export default function WhatsAppConversationsPage() {
         );
         setReplyDraft("");
         setEditingMessage(null);
-        window.setTimeout(() => void loadThread(selected), 350);
+        setCorrectionTarget(null);
+        window.setTimeout(() => void loadThread(selected, { silent: true }), 350);
       } catch (error) {
-        setSendError(errorMessage(error, "generic"));
+        if (isWaNativeEditExpired(editTarget)) {
+          setEditingMessage(null);
+          setReplyingTo(editTarget);
+          setCorrectionTarget(editTarget);
+          setReplyDraft(text);
+          setSendError(
+            "La fenêtre d’édition native WhatsApp est terminée. Votre texte est prêt à partir comme correction liée au message original.",
+          );
+        } else {
+          setSendError(errorMessage(error, "generic"));
+        }
       } finally {
         setSendingMessage(false);
       }
@@ -470,8 +542,9 @@ export default function WhatsAppConversationsPage() {
             : message,
         ),
       );
+      setCorrectionTarget(null);
       void loadConversations(query, filter);
-      window.setTimeout(() => void loadThread(selected), 450);
+      window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
       setMessages((current) =>
         current.map((message) =>
@@ -488,6 +561,7 @@ export default function WhatsAppConversationsPage() {
 
   function startReply(message: WaLiveMessage) {
     setEditingMessage(null);
+    setCorrectionTarget(null);
     setReplyingTo(message);
     setReplyDraft("");
     setSendError(null);
@@ -496,7 +570,19 @@ export default function WhatsAppConversationsPage() {
 
   function startEdit(message: WaLiveMessage) {
     if (!message.from_me || !message.text) return;
+
+    if (isWaNativeEditExpired(message)) {
+      setEditingMessage(null);
+      setReplyingTo(message);
+      setCorrectionTarget(message);
+      setReplyDraft(message.text);
+      setSendError(null);
+      window.setTimeout(() => composerRef.current?.focus(), 0);
+      return;
+    }
+
     setReplyingTo(null);
+    setCorrectionTarget(null);
     setEditingMessage(message);
     setReplyDraft(message.text);
     setSendError(null);
@@ -1124,11 +1210,20 @@ export default function WhatsAppConversationsPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-semibold" style={{ color: GREEN }}>
-                            {editingMessage ? "Modifier votre message" : "Répondre à ce message"}
+                            {editingMessage
+                              ? "Modifier votre message"
+                              : correctionTarget
+                                ? "Corriger un ancien message"
+                                : "Répondre à ce message"}
                           </p>
                           <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
                             {(editingMessage || replyingTo)?.text || messageTypeLabel((editingMessage || replyingTo)?.type || "text")}
                           </p>
+                          {correctionTarget && (
+                            <p className="mt-1 text-[10px] leading-4" style={{ color: FAINT }}>
+                              WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message.
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1136,6 +1231,7 @@ export default function WhatsAppConversationsPage() {
                           onClick={() => {
                             setReplyingTo(null);
                             setEditingMessage(null);
+                            setCorrectionTarget(null);
                             setReplyDraft("");
                           }}
                           className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
@@ -1764,7 +1860,11 @@ function MessageBubble({
             <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
           )}
           {message.from_me && message.type === "text" && message.text && !message.id.startsWith("local-") && (
-            <MessageActionButton label="Modifier" icon={<Pencil size={13} />} onClick={onEdit} />
+            <MessageActionButton
+              label={isWaNativeEditExpired(message) ? "Corriger" : "Modifier"}
+              icon={<Pencil size={13} />}
+              onClick={onEdit}
+            />
           )}
         </div>
       </div>
@@ -1879,6 +1979,11 @@ function formatDayLabel(date: Date) {
     day: "numeric",
     month: "short",
   }).format(date);
+}
+
+function isWaNativeEditExpired(message: WaLiveMessage) {
+  if (!message.timestamp_ms) return false;
+  return Date.now() - message.timestamp_ms >= WHATSAPP_NATIVE_EDIT_WINDOW_MS;
 }
 
 function messageTypeLabel(type: string) {

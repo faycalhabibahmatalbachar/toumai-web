@@ -97,6 +97,16 @@ const threadMessages = [
     status: null,
   },
   {
+    id: "t-old",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "Ancien message à corriger",
+    from_me: true,
+    sender: "",
+    type: "text",
+    timestamp_ms: now - 20 * 60_000,
+    status: "delivered",
+  },
+  {
     id: "t2",
     chat_id: "23566111111@s.whatsapp.net",
     text: "Bonjour Mahamat",
@@ -722,6 +732,18 @@ async function certifyConversations() {
   assert(state.edits.length === 1, "Modifier doit appeler une fois /message/edit.");
   assert(state.edits[0].msg_id === "t2", "La modification doit viser le message envoyé sélectionné.");
   assert(state.edits[0].new_text === "Bonjour Mahamat !", "La modification doit transmettre le nouveau texte.");
+
+  const oldOutbound = page.locator('[data-message-id="t-old"]');
+  await oldOutbound.getByRole("button", { name: "Corriger" }).click();
+  await page.getByText("Corriger un ancien message", { exact: true }).waitFor();
+  const correctionBox = page.getByPlaceholder("Écrire votre réponse…");
+  await correctionBox.fill("Ancien message corrigé");
+  await correctionBox.press("Enter");
+  await page.waitForTimeout(120);
+  assert(state.edits.length === 1, "Un ancien message ne doit pas produire une fausse édition native.");
+  assert(state.replies.length === 2, "La correction hors fenêtre doit partir comme réponse réelle.");
+  assert(state.replies.at(-1).msg_id === "t-old", "La correction doit rester liée au message original.");
+  assert(state.replies.at(-1).message === "Ancien message corrigé", "La correction doit envoyer le texte exact.");
 
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
