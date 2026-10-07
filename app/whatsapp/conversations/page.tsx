@@ -352,26 +352,34 @@ export default function WhatsAppConversationsPage() {
   useEffect(() => {
     if (!session || typeof window === "undefined") return;
 
-    const refresh = () => {
+    const refreshThreadAndList = () => {
       if (document.visibilityState === "hidden") return;
       void refreshRealtimeConversations();
     };
+    const refreshListOnly = () => {
+      if (document.visibilityState === "hidden") return;
+      void loadConversations(query, filter);
+    };
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") refreshThreadAndList();
     };
 
-    const interval = window.setInterval(refresh, 30_000);
-    window.addEventListener("online", refresh);
-    window.addEventListener("focus", refresh);
+    // Le polling de secours ne remonte que la liste. Recharger tout le fil
+    // toutes les 30 s détachait les contrôles interactifs (picker de réaction,
+    // menu de message) en plein clic. Le fil actif reste temps réel via SSE,
+    // puis se resynchronise au focus, au retour réseau et au retour d'onglet.
+    const interval = window.setInterval(refreshListOnly, 30_000);
+    window.addEventListener("online", refreshThreadAndList);
+    window.addEventListener("focus", refreshThreadAndList);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       window.clearInterval(interval);
-      window.removeEventListener("online", refresh);
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refreshThreadAndList);
+      window.removeEventListener("focus", refreshThreadAndList);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [session, refreshRealtimeConversations]);
+  }, [filter, loadConversations, query, session, refreshRealtimeConversations]);
 
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
