@@ -8,7 +8,6 @@ import {
   Loader2,
   Search,
   Send,
-  ShieldCheck,
   UserRound,
   X,
 } from "lucide-react";
@@ -136,6 +135,11 @@ export function WhatsAppComposeModal({
   }, [rawRecipient]);
   const recipient = selected?.jid || manualRecipient || "";
   const recipientLabel = selected?.name || (manualRecipient ? `+${manualRecipient}` : "");
+  const recipientDetail = selected?.number
+    ? `+${selected.number}`
+    : manualRecipient
+      ? `+${manualRecipient}`
+      : "";
   const canReview = Boolean(recipient && message.trim());
 
   async function sendNow() {
@@ -206,9 +210,6 @@ export function WhatsAppComposeModal({
             <h2 id="wa-compose-title" className="text-[16px] font-semibold">
               {stage === "compose" ? "Nouveau message" : stage === "review" ? "Confirmer l’envoi" : "Message WhatsApp"}
             </h2>
-            <p className="mt-0.5 text-[11px]" style={{ color: MUTED }}>
-              Session Baileys Toumaï · aucun second jumelage
-            </p>
           </div>
           <button
             type="button"
@@ -233,7 +234,7 @@ export function WhatsAppComposeModal({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{selected.name}</p>
                   <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
-                    {selected.number ? `+${selected.number}` : selected.jid}
+                    {selected.number ? `+${selected.number}` : "Contact WhatsApp"}
                   </p>
                 </div>
                 <button
@@ -284,7 +285,7 @@ export function WhatsAppComposeModal({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-semibold">{contact.name}</span>
                           <span className="mt-0.5 block truncate text-[11px]" style={{ color: MUTED }}>
-                            {contact.number ? `+${contact.number}` : contact.jid}
+                            {contact.number ? `+${contact.number}` : "Contact WhatsApp"}
                           </span>
                         </span>
                       </button>
@@ -327,11 +328,7 @@ export function WhatsAppComposeModal({
 
             {error && <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-300">{error}</p>}
 
-            <div className="mt-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-[11px]" style={{ color: MUTED }}>
-                <ShieldCheck size={15} />
-                Aucun envoi n’est rejoué automatiquement en cas d’incertitude.
-              </div>
+            <div className="mt-5 flex items-center justify-end gap-4">
               <button
                 type="button"
                 disabled={!canReview || message.length > 4096}
@@ -353,7 +350,9 @@ export function WhatsAppComposeModal({
             <div className="rounded-xl border p-4" style={{ background: SURFACE_RAISED, borderColor: BORDER }}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Destinataire</p>
               <p className="mt-2 text-sm font-semibold">{recipientLabel}</p>
-              <p className="mt-1 break-all text-[11px]" style={{ color: MUTED }}>{recipient}</p>
+              {recipientDetail && recipientDetail !== recipientLabel && (
+                <p className="mt-1 text-[11px]" style={{ color: MUTED }}>{recipientDetail}</p>
+              )}
               <div className="my-4 h-px" style={{ background: BORDER }} />
               <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Message</p>
               <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{message.trim()}</p>
@@ -393,7 +392,7 @@ export function WhatsAppComposeModal({
             </p>
 
             <div className="mx-auto mt-5 grid max-w-[430px] grid-cols-3 gap-2 text-left">
-              <ProofStep label="Accepté" active={Boolean(accepted?.msgId)} />
+              <ProofStep label="Envoyé" active={Boolean(accepted?.msgId)} />
               <ProofStep label="Livré" active={Boolean(result?.delivery_confirmed)} />
               <ProofStep label="Lu" active={Boolean(result?.read_confirmed)} />
             </div>
@@ -443,10 +442,10 @@ function statusTitle(status: string) {
 }
 
 function statusDescription(status: string) {
-  if (status === "read" || status === "played") return "WhatsApp confirme que le destinataire a ouvert le message.";
-  if (status === "delivered") return "WhatsApp confirme la remise sur l’appareil du destinataire. Il n’est pas encore déclaré lu.";
-  if (status === "sent") return "Les serveurs WhatsApp ont accusé réception. La remise au destinataire reste à confirmer.";
-  if (status === "failed") return "WhatsApp a signalé un échec. Le message n’est pas présenté comme livré.";
-  if (status === "accepted") return "La passerelle a accepté l’envoi. Toumaï attend une preuve plus forte avant d’afficher « livré » ou « lu ».";
-  return "Toumaï ne dispose pas encore d’une preuve suffisante sur la livraison.";
+  if (status === "read" || status === "played") return "Le destinataire a lu votre message.";
+  if (status === "delivered") return "Le message a été livré au destinataire.";
+  if (status === "sent") return "Message envoyé. Livraison en attente.";
+  if (status === "failed") return "L’envoi a échoué. Vous pouvez réessayer.";
+  if (status === "accepted") return "Envoi en cours de confirmation.";
+  return "Statut de livraison en attente.";
 }
