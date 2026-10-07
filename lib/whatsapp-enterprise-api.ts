@@ -201,15 +201,26 @@ export function getWaAutopilotConversations(
 }
 
 
+export interface WaQuotedMessage {
+  id: string;
+  text: string;
+  sender: string;
+}
+
 export interface WaLiveMessage {
   id: string;
   chat_id: string;
   text: string;
   from_me: boolean;
   sender: string;
+  sender_jid?: string;
   type: string;
   timestamp_ms: number;
   status?: string | null;
+  mime_type?: string | null;
+  file_name?: string | null;
+  duration_seconds?: number | null;
+  quoted?: WaQuotedMessage | null;
 }
 
 export interface WaLiveConversation {
@@ -412,6 +423,32 @@ export function sendWaManualMessage(input: {
   chat_name?: string;
 }): Promise<WaManualSendResult> {
   return http.post<WaManualSendResult>("/whatsapp/message/send", input);
+}
+
+export function sendWaReply(input: {
+  chat_id: string;
+  msg_id: string;
+  message: string;
+  original_text?: string;
+  original_sender?: string;
+}): Promise<{ chat_id: string; msg_id: string | null; reply_to: string; status: string }> {
+  return http.post("/whatsapp/message/reply", input);
+}
+
+export function reactWaMessage(input: {
+  chat_id: string;
+  msg_id: string;
+  emoji: string;
+}): Promise<{ chat_id: string; msg_id: string; emoji: string; reacted: boolean }> {
+  return http.post("/whatsapp/message/react", input);
+}
+
+export function editWaMessage(input: {
+  chat_id: string;
+  msg_id: string;
+  new_text: string;
+}): Promise<{ chat_id: string; msg_id: string; edited: boolean; new_msg_id?: string | null }> {
+  return http.post("/whatsapp/message/edit", input);
 }
 
 export function getWaMessageStatus(
