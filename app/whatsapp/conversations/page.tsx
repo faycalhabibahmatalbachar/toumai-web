@@ -48,6 +48,7 @@ import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
+import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
@@ -240,6 +241,19 @@ export default function WhatsAppConversationsPage() {
     }
   }, []);
 
+  const refreshRealtimeConversations = useCallback(async () => {
+    await loadConversations(query, filter);
+    if (selected) await loadThread(selected);
+  }, [filter, loadConversations, loadThread, query, selected]);
+
+  useWhatsAppRealtimeInvalidation({
+    enabled: Boolean(session),
+    refreshOverview: () => undefined,
+    refreshConversations: refreshRealtimeConversations,
+    refreshAutomations: () => undefined,
+    refreshConnection: () => undefined,
+  });
+
   const runThreadSearch = useCallback(async () => {
     if (!selected || !threadSearchQuery.trim()) {
       setThreadSearchResults([]);
@@ -332,6 +346,30 @@ export default function WhatsAppConversationsPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [selected, session, loadThread]);
+
+  useEffect(() => {
+    if (!session || typeof window === "undefined") return;
+
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      void refreshRealtimeConversations();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("online", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [session, refreshRealtimeConversations]);
 
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
