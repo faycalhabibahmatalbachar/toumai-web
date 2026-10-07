@@ -56,6 +56,7 @@ import {
   getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  getWaMessageStatus,
   inferWaMediaType,
   reactWaMessage,
   searchWaConversation,
@@ -66,6 +67,7 @@ import {
   type WaLiveConversation,
   type WaLiveMessage,
   type WaMediaType,
+  type WaMessageStatus,
   type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
 import { safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
@@ -119,6 +121,10 @@ export default function WhatsAppConversationsPage() {
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
   const [correctionTarget, setCorrectionTarget] = useState<WaLiveMessage | null>(null);
   const [mediaCorrectionTarget, setMediaCorrectionTarget] = useState<WaLiveMessage | null>(null);
+  const [messageInfoTarget, setMessageInfoTarget] = useState<WaLiveMessage | null>(null);
+  const [messageInfo, setMessageInfo] = useState<WaMessageStatus | null>(null);
+  const [messageInfoLoading, setMessageInfoLoading] = useState(false);
+  const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -639,6 +645,29 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
+  async function openMessageInfo(message: WaLiveMessage) {
+    if (!message.from_me || !message.id || message.id.startsWith("local-")) return;
+    setMessageInfoTarget(message);
+    setMessageInfo(null);
+    setMessageInfoError(null);
+    setMessageInfoLoading(true);
+    try {
+      const status = await getWaMessageStatus(message.id, message.chat_id);
+      setMessageInfo(status);
+    } catch (error) {
+      setMessageInfoError(errorMessage(error, "history"));
+    } finally {
+      setMessageInfoLoading(false);
+    }
+  }
+
+  function closeMessageInfo() {
+    setMessageInfoTarget(null);
+    setMessageInfo(null);
+    setMessageInfoError(null);
+    setMessageInfoLoading(false);
+  }
+
   async function prepareAttachment(file: File) {
     if (!selected || attachmentUploading) return;
     if (file.size > 100 * 1024 * 1024) {
@@ -1135,6 +1164,7 @@ export default function WhatsAppConversationsPage() {
                         onEdit={startEdit}
                         onReact={(message, emoji) => void reactToMessage(message, emoji)}
                         onCopy={(message) => void copyMessage(message)}
+                        onInfo={(message) => void openMessageInfo(message)}
                       />
                     </div>
                   )}
@@ -1721,6 +1751,7 @@ function ThreadMessages({
   onEdit,
   onReact,
   onCopy,
+  onInfo,
 }: {
   messages: WaLiveMessage[];
   reactions: Record<string, string>;
@@ -1728,6 +1759,7 @@ function ThreadMessages({
   onEdit: (message: WaLiveMessage) => void;
   onReact: (message: WaLiveMessage, emoji: string) => void;
   onCopy: (message: WaLiveMessage) => void;
+  onInfo: (message: WaLiveMessage) => void;
 }) {
   const groups = groupMessagesByDay(messages);
   return (
@@ -1751,6 +1783,7 @@ function ThreadMessages({
               onEdit={() => onEdit(message)}
               onReact={(emoji) => onReact(message, emoji)}
               onCopy={() => onCopy(message)}
+              onInfo={() => onInfo(message)}
             />
           ))}
         </div>
@@ -1766,6 +1799,7 @@ function MessageBubble({
   onEdit,
   onReact,
   onCopy,
+  onInfo,
 }: {
   message: WaLiveMessage;
   reaction?: string;
@@ -1773,6 +1807,7 @@ function MessageBubble({
   onEdit: () => void;
   onReact: (emoji: string) => void;
   onCopy: () => void;
+  onInfo: () => void;
 }) {
   const [reactionOpen, setReactionOpen] = useState(false);
   const when = message.timestamp_ms
@@ -1896,6 +1931,9 @@ function MessageBubble({
           </div>
           {message.text && (
             <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
+          )}
+          {message.from_me && !message.id.startsWith("local-") && (
+            <MessageActionButton label="Infos" icon={<Info size={13} />} onClick={onInfo} />
           )}
           {message.from_me && isTextMessageType(message.type) && message.text && !message.id.startsWith("local-") && (
             <MessageActionButton
