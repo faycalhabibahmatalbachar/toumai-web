@@ -239,6 +239,23 @@ export interface WaConversationMessages {
   source: "baileys" | "autopilot-log";
 }
 
+export interface WaConversationSearchResult {
+  chat_id: string;
+  query: string;
+  messages: WaLiveMessage[];
+  count: number;
+}
+
+export interface WaContactInfo {
+  chat_id: string;
+  name: string;
+  phone: string | null;
+  about: string | null;
+  picture_url: string | null;
+  on_whatsapp: boolean | null;
+  is_business: boolean;
+}
+
 export interface WaManualSendResult {
   chat_id: string;
   msg_id: string | null;
@@ -287,6 +304,26 @@ export function getWaConversationMessages(
     since_ms: String(sinceMs),
   });
   return http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`);
+}
+
+export function searchWaConversation(
+  chatId: string,
+  queryText: string,
+  limit = 40,
+): Promise<WaConversationSearchResult> {
+  const query = new URLSearchParams({
+    chat_id: chatId,
+    q: queryText,
+    limit: String(limit),
+  });
+  return http.get<WaConversationSearchResult>(
+    `/whatsapp/conversation/search?${query.toString()}`,
+  );
+}
+
+export function getWaContactInfo(chatId: string): Promise<WaContactInfo> {
+  const query = new URLSearchParams({ chat_id: chatId });
+  return http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`);
 }
 
 export function sendWaManualMessage(input: {
