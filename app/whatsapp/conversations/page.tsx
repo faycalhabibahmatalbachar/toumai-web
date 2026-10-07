@@ -1528,7 +1528,21 @@ function Avatar({
   );
 }
 
-function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
+function ThreadMessages({
+  messages,
+  reactions,
+  onReply,
+  onEdit,
+  onReact,
+  onCopy,
+}: {
+  messages: WaLiveMessage[];
+  reactions: Record<string, string>;
+  onReply: (message: WaLiveMessage) => void;
+  onEdit: (message: WaLiveMessage) => void;
+  onReact: (message: WaLiveMessage, emoji: string) => void;
+  onCopy: (message: WaLiveMessage) => void;
+}) {
   const groups = groupMessagesByDay(messages);
   return (
     <div className="flex flex-col gap-5">
@@ -1543,7 +1557,15 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
             </span>
           </div>
           {group.messages.map((message, index) => (
-            <MessageBubble key={message.id || `${message.timestamp_ms}-${index}`} message={message} />
+            <MessageBubble
+              key={message.id || `${message.timestamp_ms}-${index}`}
+              message={message}
+              reaction={message.id ? reactions[message.id] : undefined}
+              onReply={() => onReply(message)}
+              onEdit={() => onEdit(message)}
+              onReact={(emoji) => onReact(message, emoji)}
+              onCopy={() => onCopy(message)}
+            />
           ))}
         </div>
       ))}
@@ -1551,56 +1573,180 @@ function ThreadMessages({ messages }: { messages: WaLiveMessage[] }) {
   );
 }
 
-function MessageBubble({ message }: { message: WaLiveMessage }) {
+function MessageBubble({
+  message,
+  reaction,
+  onReply,
+  onEdit,
+  onReact,
+  onCopy,
+}: {
+  message: WaLiveMessage;
+  reaction?: string;
+  onReply: () => void;
+  onEdit: () => void;
+  onReact: (emoji: string) => void;
+  onCopy: () => void;
+}) {
+  const [reactionOpen, setReactionOpen] = useState(false);
   const when = message.timestamp_ms
     ? new Intl.DateTimeFormat("fr-FR", {
         hour: "2-digit",
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
+  const hasMedia = message.type !== "text";
+  const mediaTitle = message.file_name || messageTypeLabel(message.type);
 
   return (
-    <div className={`flex ${message.from_me ? "justify-end" : "justify-start"}`}>
-      <div
-        className="max-w-[82%] rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)] sm:max-w-[70%] lg:max-w-[62%]"
-        style={{
-          background: message.from_me
-            ? "linear-gradient(145deg,#0b6447,#0a533d)"
-            : "linear-gradient(145deg,#182631,#14212b)",
-          border: `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
-        }}
-      >
-        {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
-          <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
-            {message.sender}
-          </p>
-        )}
+    <div className={`group flex ${message.from_me ? "justify-end" : "justify-start"}`}>
+      <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
+        <div
+          className="rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)]"
+          style={{
+            background: message.from_me
+              ? "linear-gradient(145deg,#0b6447,#0a533d)"
+              : "linear-gradient(145deg,#182631,#14212b)",
+            border: `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
+          }}
+        >
+          {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
+            <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
+              {message.sender}
+            </p>
+          )}
 
-        {message.type !== "text" && !message.text && (
-          <div className="flex items-center gap-2 text-[11px]" style={{ color: "#dbe4ea" }}>
-            <Paperclip size={15} color={GREEN} />
-            <span>{messageTypeLabel(message.type)}</span>
+          {message.quoted && (message.quoted.text || message.quoted.id) && (
+            <div
+              className="mb-2 rounded-lg border-l-2 px-2.5 py-2 text-[10px] leading-4"
+              style={{ borderColor: GREEN, background: "rgba(0,0,0,.16)", color: "#c6d1d8" }}
+            >
+              <p className="truncate font-semibold" style={{ color: GREEN }}>
+                {message.quoted.sender && !isTechnicalWhatsAppIdentity(message.quoted.sender)
+                  ? message.quoted.sender
+                  : "Message cité"}
+              </p>
+              <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap break-words">
+                {message.quoted.text || "Message"}
+              </p>
+            </div>
+          )}
+
+          {hasMedia && (
+            <div
+              className="mb-2 flex min-w-[190px] items-center gap-3 rounded-xl border px-3 py-2.5"
+              style={{ borderColor: "rgba(255,255,255,.07)", background: "rgba(0,0,0,.12)" }}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05]" style={{ color: GREEN }}>
+                <Paperclip size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-semibold">{mediaTitle}</p>
+                <p className="mt-0.5 text-[9px]" style={{ color: "#9eacb7" }}>
+                  {[message.mime_type, formatDuration(message.duration_seconds)].filter(Boolean).join(" · ") || messageTypeLabel(message.type)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {message.text && (
+            <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
+              {message.text}
+            </p>
+          )}
+
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+            <span className="text-[8px]" style={{ color: "#9eacb7" }}>
+              {when}
+            </span>
+            {message.from_me && <DeliveryMark status={message.status} />}
           </div>
-        )}
+        </div>
 
-        {message.text && (
-          <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
-            {message.text}
-          </p>
-        )}
-
-        <div className="mt-1 flex items-center justify-end gap-1.5">
-          <span className="text-[8px]" style={{ color: "#9eacb7" }}>
-            {when}
+        {reaction && (
+          <span
+            className={`absolute -bottom-3 ${message.from_me ? "right-2" : "left-2"} rounded-full border px-1.5 py-0.5 text-[12px] shadow`}
+            style={{ borderColor: BORDER, background: "#10202b" }}
+          >
+            {reaction}
           </span>
-          {message.from_me && <DeliveryMark status={message.status} />}
+        )}
+
+        <div
+          className={`mt-1 flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 ${message.from_me ? "justify-end" : "justify-start"}`}
+        >
+          <MessageActionButton label="Répondre" icon={<Reply size={13} />} onClick={onReply} />
+          <div className="relative">
+            <MessageActionButton
+              label="Réagir"
+              icon={<SmilePlus size={13} />}
+              onClick={() => setReactionOpen((value) => !value)}
+            />
+            {reactionOpen && (
+              <div
+                className={`absolute bottom-8 z-30 flex gap-1 rounded-full border p-1.5 shadow-2xl ${message.from_me ? "right-0" : "left-0"}`}
+                style={{ borderColor: BORDER, background: "#111f2a" }}
+              >
+                {["👍", "❤️", "😂", "😮", "😢", "🙏"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    aria-label={`Réagir avec ${emoji}`}
+                    onClick={() => {
+                      onReact(emoji);
+                      setReactionOpen(false);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[16px] transition hover:bg-white/[0.08]"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {message.text && (
+            <MessageActionButton label="Copier" icon={<Copy size={13} />} onClick={onCopy} />
+          )}
+          {message.from_me && message.type === "text" && message.text && !message.id.startsWith("local-") && (
+            <MessageActionButton label="Modifier" icon={<Pencil size={13} />} onClick={onEdit} />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+function MessageActionButton({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="flex h-7 items-center gap-1 rounded-lg px-2 text-[9px] transition hover:bg-white/[0.05]"
+      style={{ color: MUTED }}
+    >
+      {icon}
+      <span className="hidden md:inline">{label}</span>
+    </button>
+  );
+}
+
 function DeliveryMark({ status }: { status?: string | null }) {
+  if (status === "sending") {
+    return <Loader2 size={11} className="animate-spin" color="#afbdc7" aria-label="Envoi en cours" />;
+  }
+  if (status === "failed") {
+    return <CircleAlert size={12} color="#ff7d7d" aria-label="Échec" />;
+  }
   if (status === "read" || status === "played") {
     return <CheckCheck size={12} color="#53bdeb" aria-label="Lu" />;
   }
@@ -1608,6 +1754,14 @@ function DeliveryMark({ status }: { status?: string | null }) {
     return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
   }
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
+}
+
+function formatDuration(seconds?: number | null) {
+  if (!seconds || seconds <= 0) return "";
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
