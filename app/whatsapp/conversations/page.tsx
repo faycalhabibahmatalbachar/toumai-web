@@ -66,6 +66,7 @@ import {
   reactWaMessage,
   searchWaConversation,
   sendWaManualMessage,
+  sendWaMedia,
   sendWaReply,
   uploadWaAttachment,
   type WaContactInfo,
@@ -729,6 +730,38 @@ export default function WhatsAppConversationsPage() {
     else if (choice === "sticker") stickerInputRef.current?.click();
     else if (choice === "contact") setContactShareOpen(true);
     else if (choice === "poll") setPollOpen(true);
+  }
+
+  async function sendRecordedVoice(file: File) {
+    if (!selected || attachmentUploading || sendingMessage) return;
+    const replyTarget = replyingTo;
+    setAttachmentUploading(true);
+    setAttachmentError(null);
+    setSendError(null);
+    try {
+      const uploaded = await uploadWaAttachment(file);
+      await sendWaMedia({
+        to: selected.id,
+        type: "voice",
+        url: uploaded.url,
+        filename: uploaded.file_name || file.name,
+        mimetype: file.type || undefined,
+        reply_to_msg_id: replyTarget?.id || undefined,
+        reply_to_text: replyTarget?.text || undefined,
+        reply_to_type: replyTarget?.type || undefined,
+        reply_to_sender: replyTarget?.sender_jid || undefined,
+        confirmed: true,
+      });
+      setReplyingTo(null);
+      setCorrectionTarget(null);
+      setMediaCorrectionTarget(null);
+      void loadConversations(query, filter);
+      window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
+    } catch (error) {
+      setAttachmentError(errorMessage(error, "generic"));
+    } finally {
+      setAttachmentUploading(false);
+    }
   }
 
   function prepareConversationAction(request: ConversationActionRequest) {
@@ -1461,7 +1494,7 @@ export default function WhatsAppConversationsPage() {
 
                       <WhatsAppAudioRecorder
                         disabled={attachmentUploading || sendingMessage}
-                        onRecorded={prepareAttachment}
+                        onRecorded={sendRecordedVoice}
                         onError={(message) => setAttachmentError(message)}
                       />
 
