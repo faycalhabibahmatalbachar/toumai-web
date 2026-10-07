@@ -59,8 +59,12 @@ export function WhatsAppPollModal({
         selectable_count: multiple ? cleanOptions.length : 1,
         confirmed: true,
       });
+      setQuestion("");
+      setOptions(["", ""]);
+      setMultiple(false);
+      setError(null);
       onSent();
-      close();
+      onClose();
     } catch (exc) {
       setError(errorMessage(exc, "generic"));
     } finally {
