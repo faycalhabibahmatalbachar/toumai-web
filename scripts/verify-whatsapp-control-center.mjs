@@ -378,8 +378,10 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   } else if (path === "/whatsapp/conversations") {
     const q = (url.searchParams.get("search") || "").toLowerCase();
     const pending = url.searchParams.get("pending") === "true";
+    const kind = url.searchParams.get("kind") || "all";
     let rows = conversations;
     if (pending) rows = rows.filter((item) => item.pending);
+    if (kind !== "all") rows = rows.filter((item) => item.kind === kind);
     if (q) rows = rows.filter((item) => item.name.toLowerCase().includes(q));
     data = {
       conversations: rows,
@@ -392,6 +394,23 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     };
   } else if (path === "/whatsapp/conversation/messages") {
     data = { chat_id: url.searchParams.get("chat_id"), messages: threadMessages, count: threadMessages.length, source: "baileys" };
+  } else if (path === "/whatsapp/conversation/search") {
+    const q = (url.searchParams.get("q") || "").toLowerCase();
+    const chatId = url.searchParams.get("chat_id");
+    const messages = threadMessages.filter((message) =>
+      message.chat_id === chatId && String(message.text || "").toLowerCase().includes(q)
+    );
+    data = { chat_id: chatId, query: q, messages, count: messages.length };
+  } else if (path === "/whatsapp/contact/info") {
+    data = {
+      chat_id: url.searchParams.get("chat_id"),
+      name: "Mahamat Ali",
+      phone: "+23566111111",
+      about: "Disponible pour un rappel",
+      picture_url: null,
+      on_whatsapp: true,
+      is_business: false,
+    };
   } else if (path === "/whatsapp/message/send" && method === "POST") {
     const body = request.postDataJSON();
     state.sends.push(body);
@@ -521,9 +540,33 @@ async function certifyConversations() {
   );
 
   await page.getByText("Assistant IA", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Réponse suggérée" }).waitFor();
   await page.getByText("Aujourd’hui", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Filtres avancés" }).click();
+  await page.getByRole("button", { name: "Contacts", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Toutes", exact: true }).click();
+
+  await page.getByRole("button", { name: "Rechercher dans la conversation" }).click();
+  const threadSearch = page.getByPlaceholder("Rechercher dans cette conversation…");
+  await threadSearch.fill("rappeler");
+  await page.getByText("1 résultat", { exact: true }).waitFor();
+  await page.getByText("Tu peux me rappeler ?", { exact: true }).waitFor();
+
+  await page.getByRole("button", { name: "Informations du contact" }).click();
+  await page.getByText("Disponible pour un rappel", { exact: true }).waitFor();
+  await page.getByText("+23566111111", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Fermer les informations" }).click();
+
+  await page.getByRole("button", { name: "Fermer la recherche" }).click();
+  await page.getByRole("button", { name: "Emoji" }).click();
+  await page.getByPlaceholder("Rechercher un emoji").waitFor();
+  await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByText("Contact WhatsApp", { exact: true }).waitFor();
+  assert(
+    (await page.getByRole("button", { name: "Réponse suggérée" }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Joindre un fichier" }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Plus d’options" }).count()) === 0,
+    "Aucun contrôle Conversations non branché ne doit rester visible.",
+  );
   assert(
     (await page.getByText(/@lid/i).count()) === 0,
     "Un identifiant technique @lid ne doit jamais être visible dans l’interface.",
