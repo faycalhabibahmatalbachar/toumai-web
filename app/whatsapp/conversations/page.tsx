@@ -42,12 +42,15 @@ import {
 } from "lucide-react";
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
+import { WhatsAppAttachmentMenu, type WhatsAppAttachmentChoice } from "@/components/whatsapp/WhatsAppAttachmentMenu";
 import { WhatsAppAttachmentModal } from "@/components/whatsapp/WhatsAppAttachmentModal";
 import { WhatsAppAudioRecorder } from "@/components/whatsapp/WhatsAppAudioRecorder";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
+import { WhatsAppContactShareModal } from "@/components/whatsapp/WhatsAppContactShareModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppPollModal } from "@/components/whatsapp/WhatsAppPollModal";
 import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
