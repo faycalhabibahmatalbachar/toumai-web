@@ -663,6 +663,37 @@ async function certifyConversations() {
   await page.getByText("+23566111111", { exact: true }).last().waitFor();
   await page.getByRole("button", { name: "Fermer les informations" }).click();
 
+  await page.getByRole("button", { name: "Joindre", exact: true }).click();
+  await page.getByRole("menu", { name: "Pièces jointes WhatsApp" }).waitFor();
+  for (const label of ["Document", "Photos et vidéos", "Caméra", "Audio", "Contact", "Sondage", "Nouveau sticker"]) {
+    await page.getByRole("menuitem", { name: label, exact: true }).waitFor();
+  }
+
+  const mediaBeforePoll = state.mediaSends.length;
+  await page.getByRole("menuitem", { name: "Sondage", exact: true }).click();
+  await page.getByRole("heading", { name: "Créer un sondage" }).waitFor();
+  await page.getByPlaceholder("Posez votre question").fill("Quelle heure vous convient ?");
+  await page.getByPlaceholder("Option 1").fill("10 h");
+  await page.getByPlaceholder("Option 2").fill("14 h");
+  await page.getByRole("button", { name: "Envoyer le sondage", exact: true }).click();
+  await page.getByRole("heading", { name: "Créer un sondage" }).waitFor({ state: "hidden" });
+  assert(state.mediaSends.length === mediaBeforePoll + 1, "Le sondage doit produire un seul envoi réel.");
+  assert(state.mediaSends.at(-1).type === "poll", "Le sondage doit utiliser le type poll.");
+  assert(state.mediaSends.at(-1).poll_name === "Quelle heure vous convient ?", "La question du sondage doit être transmise.");
+  assert(state.mediaSends.at(-1).poll_options.length === 2, "Les options du sondage doivent être transmises.");
+
+  await page.getByRole("button", { name: "Joindre", exact: true }).click();
+  const mediaBeforeContact = state.mediaSends.length;
+  await page.getByRole("menuitem", { name: "Contact", exact: true }).click();
+  await page.getByRole("heading", { name: "Partager un contact" }).waitFor();
+  await page.getByText("Amina Saleh", { exact: true }).waitFor();
+  await page.getByText("Amina Saleh", { exact: true }).click();
+  await page.getByRole("button", { name: "Partager", exact: true }).click();
+  await page.getByRole("heading", { name: "Partager un contact" }).waitFor({ state: "hidden" });
+  assert(state.mediaSends.length === mediaBeforeContact + 1, "Le partage de contact doit produire un seul envoi réel.");
+  assert(state.mediaSends.at(-1).type === "contact", "Le partage doit utiliser le type contact.");
+  assert(state.mediaSends.at(-1).contact_to_share === "23566222222", "Le numéro du contact sélectionné doit être transmis.");
+
   await page.getByRole("button", { name: "Fermer la recherche" }).click();
   await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByPlaceholder("Rechercher un emoji").waitFor();
