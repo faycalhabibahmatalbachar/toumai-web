@@ -695,7 +695,8 @@ async function certifyConversations() {
     "Aucun texte de double confirmation ne doit rester dans le chat.",
   );
 
-  await page.getByRole("button", { name: "Répondre" }).last().click();
+  const inboundT3 = page.locator('[data-message-id="t3"]');
+  await inboundT3.getByRole("button", { name: "Répondre" }).click();
   const nativeReply = page.getByPlaceholder("Écrire votre réponse…");
   await nativeReply.fill("Oui, je te rappelle.");
   await nativeReply.press("Enter");
@@ -704,14 +705,15 @@ async function certifyConversations() {
   assert(state.replies[0].msg_id === "t3", "La réponse doit citer le vrai msg_id sélectionné.");
   assert(state.replies[0].chat_id === "23566111111@s.whatsapp.net", "La réponse doit conserver le JID exact.");
 
-  await page.getByRole("button", { name: "Réagir" }).last().click();
-  await page.getByRole("button", { name: "Réagir avec ❤️" }).click();
+  await inboundT3.getByRole("button", { name: "Réagir" }).click();
+  await inboundT3.getByRole("button", { name: "Réagir avec ❤️" }).click();
   await page.waitForTimeout(120);
   assert(state.reactions.length === 1, "Une réaction doit appeler une fois /message/react.");
   assert(state.reactions[0].msg_id === "t3", "La réaction doit viser le vrai message sélectionné.");
   assert(state.reactions[0].emoji === "❤️", "La réaction doit transmettre l'emoji choisi.");
 
-  await page.getByRole("button", { name: "Modifier" }).first().click();
+  const outboundT2 = page.locator('[data-message-id="t2"]');
+  await outboundT2.getByRole("button", { name: "Modifier" }).click();
   const editBox = page.getByPlaceholder("Modifier le message…");
   await editBox.fill("Bonjour Mahamat !");
   await editBox.press("Enter");
