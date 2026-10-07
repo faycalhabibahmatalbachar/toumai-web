@@ -1542,6 +1542,26 @@ export default function WhatsAppConversationsPage() {
         }}
       />
 
+      <WhatsAppPollModal
+        open={pollOpen}
+        conversation={selected}
+        onClose={() => setPollOpen(false)}
+        onSent={() => {
+          if (selected) window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
+          void loadConversations(query, filter);
+        }}
+      />
+
+      <WhatsAppContactShareModal
+        open={contactShareOpen}
+        conversation={selected}
+        onClose={() => setContactShareOpen(false)}
+        onSent={() => {
+          if (selected) window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
+          void loadConversations(query, filter);
+        }}
+      />
+
       <WhatsAppAttachmentModal
         key={attachmentUploaded?.url || "wa-attachment"}
         open={attachmentOpen}
