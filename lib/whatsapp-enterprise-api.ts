@@ -280,6 +280,7 @@ export function getWaLiveConversations(params?: {
   search?: string;
   pending?: boolean;
   unread?: boolean;
+  kind?: "contact" | "group";
   offset?: number;
   limit?: number;
 }): Promise<WaLiveConversations> {
@@ -287,6 +288,7 @@ export function getWaLiveConversations(params?: {
   if (params?.search) query.set("search", params.search);
   if (params?.pending) query.set("pending", "true");
   if (params?.unread) query.set("unread", "true");
+  if (params?.kind) query.set("kind", params.kind);
   if (typeof params?.offset === "number") query.set("offset", String(params.offset));
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.size ? `?${query.toString()}` : "";
