@@ -63,8 +63,9 @@ export function WhatsAppAudioRecorder({
       return;
     }
 
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const candidates = [
         "audio/webm;codecs=opus",
         "audio/webm",
@@ -90,7 +91,7 @@ export function WhatsAppAudioRecorder({
         setSeconds((value) => value + 1);
       }, 1000);
     } catch (error) {
-      stream.getTracks().forEach((track) => track.stop());
+      stream?.getTracks().forEach((track) => track.stop());
       const name = error instanceof DOMException ? error.name : "";
       onError(
         name === "NotAllowedError"
