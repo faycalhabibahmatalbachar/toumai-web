@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Menu,
   MessageCircle,
+  Paperclip,
   Plug,
   RefreshCw,
   Search,
@@ -241,11 +242,7 @@ export default function WhatsAppConversationsPage() {
   }, [selected]);
 
   useEffect(() => {
-    if (!threadSearchOpen || !threadSearchQuery.trim()) {
-      setThreadSearchResults([]);
-      setThreadSearchError(null);
-      return;
-    }
+    if (!threadSearchOpen || !threadSearchQuery.trim()) return;
     const timer = window.setTimeout(() => {
       void runThreadSearch();
     }, 220);
