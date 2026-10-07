@@ -16,8 +16,6 @@ import {
   ListTodo,
   Menu,
   MessageCircle,
-  MoreVertical,
-  Paperclip,
   Plug,
   RefreshCw,
   Search,
@@ -34,12 +32,16 @@ import {
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
+import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  searchWaConversation,
+  type WaContactInfo,
   type WaLiveConversation,
   type WaLiveMessage,
 } from "@/lib/whatsapp-enterprise-api";
@@ -70,6 +72,7 @@ const LOWER_NAV = [
 ] as const;
 
 type Filter = "all" | "pending" | "unread";
+type KindFilter = "all" | "contact" | "group";
 
 export default function WhatsAppConversationsPage() {
   const { session } = useAuth();
@@ -92,6 +95,18 @@ export default function WhatsAppConversationsPage() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [threadSearchOpen, setThreadSearchOpen] = useState(false);
+  const [threadSearchQuery, setThreadSearchQuery] = useState("");
+  const [threadSearchResults, setThreadSearchResults] = useState<WaLiveMessage[]>([]);
+  const [threadSearchLoading, setThreadSearchLoading] = useState(false);
+  const [threadSearchError, setThreadSearchError] = useState<string | null>(null);
+  const [contactInfoOpen, setContactInfoOpen] = useState(false);
+  const [contactInfo, setContactInfo] = useState<WaContactInfo | null>(null);
+  const [contactInfoLoading, setContactInfoLoading] = useState(false);
+  const [contactInfoError, setContactInfoError] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   const visibleMessages = useMemo(
     () =>
