@@ -1826,7 +1826,7 @@ function MessageBubble({
         minute: "2-digit",
       }).format(new Date(message.timestamp_ms))
     : "";
-  const hasMedia = !isTextMessageType(message.type);
+  const hasMedia = isMediaMessageType(message.type);
 
   return (
     <div
