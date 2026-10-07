@@ -344,6 +344,10 @@ export default function WhatsAppConversationsPage() {
     setMuteMenuOpen(false);
     setActionRequest(null);
     setAttachmentError(null);
+    setSendError(null);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setLocalReactions({});
     closeAttachmentReview();
     setSelected(conversation);
     if (typeof window !== "undefined") {
@@ -366,6 +370,10 @@ export default function WhatsAppConversationsPage() {
     setMuteMenuOpen(false);
     setActionRequest(null);
     setAttachmentError(null);
+    setSendError(null);
+    setReplyingTo(null);
+    setEditingMessage(null);
+    setLocalReactions({});
     closeAttachmentReview();
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -375,16 +383,151 @@ export default function WhatsAppConversationsPage() {
   }
 
   function openNewMessage() {
-    setComposeTarget(null);
-    setComposeSeed("");
     setComposeOpen(true);
   }
 
-  function openReplyReview() {
-    if (!selected || !replyDraft.trim()) return;
-    setComposeTarget(selected);
-    setComposeSeed(replyDraft.trim());
-    setComposeOpen(true);
+  async function sendCurrentMessage() {
+    if (!selected || !replyDraft.trim() || sendingMessage) return;
+    const text = replyDraft.trim();
+    const replyTarget = replyingTo;
+    const editTarget = editingMessage;
+
+    setSendingMessage(true);
+    setSendError(null);
+    setEmojiOpen(false);
+
+    if (editTarget) {
+      try {
+        await editWaMessage({
+          chat_id: selected.id,
+          msg_id: editTarget.id,
+          new_text: text,
+        });
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === editTarget.id ? { ...message, text } : message,
+          ),
+        );
+        setReplyDraft("");
+        setEditingMessage(null);
+        window.setTimeout(() => void loadThread(selected), 350);
+      } catch (error) {
+        setSendError(errorMessage(error, "generic"));
+      } finally {
+        setSendingMessage(false);
+      }
+      return;
+    }
+
+    const localId = `local-${Date.now()}`;
+    const optimistic: WaLiveMessage = {
+      id: localId,
+      chat_id: selected.id,
+      text,
+      from_me: true,
+      sender: "",
+      sender_jid: "",
+      type: "text",
+      timestamp_ms: Date.now(),
+      status: "sending",
+      quoted: replyTarget
+        ? {
+            id: replyTarget.id,
+            text: replyTarget.text,
+            sender: replyTarget.sender,
+          }
+        : null,
+    };
+    setMessages((current) => [...current, optimistic]);
+    setReplyDraft("");
+    setReplyingTo(null);
+
+    try {
+      const response = replyTarget
+        ? await sendWaReply({
+            chat_id: selected.id,
+            msg_id: replyTarget.id,
+            message: text,
+            original_text: replyTarget.text,
+            original_sender: replyTarget.sender_jid || "",
+          })
+        : await sendWaManualMessage({
+            to: selected.id,
+            message: text,
+            chat_name: displayConversationName(selected),
+          });
+
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === localId
+            ? {
+                ...message,
+                id: response.msg_id || localId,
+                status: response.status || "accepted",
+              }
+            : message,
+        ),
+      );
+      void loadConversations(query, filter);
+      window.setTimeout(() => void loadThread(selected), 450);
+    } catch (error) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === localId ? { ...message, status: "failed" } : message,
+        ),
+      );
+      setReplyDraft(text);
+      setReplyingTo(replyTarget);
+      setSendError(errorMessage(error, "generic"));
+    } finally {
+      setSendingMessage(false);
+    }
+  }
+
+  function startReply(message: WaLiveMessage) {
+    setEditingMessage(null);
+    setReplyingTo(message);
+    setReplyDraft("");
+    setSendError(null);
+    window.setTimeout(() => composerRef.current?.focus(), 0);
+  }
+
+  function startEdit(message: WaLiveMessage) {
+    if (!message.from_me || !message.text) return;
+    setReplyingTo(null);
+    setEditingMessage(message);
+    setReplyDraft(message.text);
+    setSendError(null);
+    window.setTimeout(() => composerRef.current?.focus(), 0);
+  }
+
+  async function reactToMessage(message: WaLiveMessage, emoji: string) {
+    if (!selected || !message.id) return;
+    setSendError(null);
+    setLocalReactions((current) => ({ ...current, [message.id]: emoji }));
+    try {
+      await reactWaMessage({
+        chat_id: selected.id,
+        msg_id: message.id,
+        emoji,
+      });
+    } catch (error) {
+      setLocalReactions((current) => {
+        const next = { ...current };
+        delete next[message.id];
+        return next;
+      });
+      setSendError(errorMessage(error, "generic"));
+    }
+  }
+
+  async function copyMessage(message: WaLiveMessage) {
+    if (!message.text || typeof navigator === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(message.text);
+    } catch {
+      setSendError("Impossible de copier ce message.");
+    }
   }
 
   async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
