@@ -1233,16 +1233,20 @@ export default function WhatsAppConversationsPage() {
                           <p className="text-[10px] font-semibold" style={{ color: GREEN }}>
                             {editingMessage
                               ? "Modifier votre message"
-                              : correctionTarget
-                                ? "Corriger un ancien message"
-                                : "Répondre à ce message"}
+                              : mediaCorrectionTarget
+                                ? "Corriger le média"
+                                : correctionTarget
+                                  ? "Corriger un ancien message"
+                                  : "Répondre à ce message"}
                           </p>
                           <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
                             {(editingMessage || replyingTo)?.text || messageTypeLabel((editingMessage || replyingTo)?.type || "text")}
                           </p>
                           {correctionTarget && (
                             <p className="mt-1 text-[10px] leading-4" style={{ color: FAINT }}>
-                              WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message.
+                              {mediaCorrectionTarget
+                                ? "WhatsApp ne permet pas de modifier un média déjà envoyé. Écrivez un texte ou joignez un nouveau fichier : Toumaï l’enverra comme correction liée au média original."
+                                : "WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message."}
                             </p>
                           )}
                         </div>
@@ -1253,6 +1257,7 @@ export default function WhatsAppConversationsPage() {
                             setReplyingTo(null);
                             setEditingMessage(null);
                             setCorrectionTarget(null);
+                            setMediaCorrectionTarget(null);
                             setReplyDraft("");
                           }}
                           className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
@@ -1372,7 +1377,15 @@ export default function WhatsAppConversationsPage() {
                             void sendCurrentMessage();
                           }
                         }}
-                        placeholder={editingMessage ? "Modifier le message…" : replyingTo ? "Écrire votre réponse…" : "Écrire un message…"}
+                        placeholder={
+                          editingMessage
+                            ? "Modifier le message…"
+                            : mediaCorrectionTarget
+                              ? "Écrire une correction ou joindre un fichier…"
+                              : replyingTo
+                                ? "Écrire votre réponse…"
+                                : "Écrire un message…"
+                        }
                         rows={1}
                         className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
                       />
