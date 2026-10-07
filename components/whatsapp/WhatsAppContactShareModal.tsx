@@ -85,8 +85,12 @@ export function WhatsAppContactShareModal({
         display_name: selected.name || selected.number || undefined,
         confirmed: true,
       });
+      setQuery("");
+      setContacts([]);
+      setSelected(null);
+      setError(null);
       onSent();
-      close();
+      onClose();
     } catch (exc) {
       setError(errorMessage(exc, "generic"));
     } finally {
