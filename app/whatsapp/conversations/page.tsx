@@ -11,9 +11,7 @@ import {
   CheckCheck,
   CircleAlert,
   Info,
-  Languages,
   LayoutDashboard,
-  ListTodo,
   Menu,
   MessageCircle,
   Plug,
@@ -804,10 +802,6 @@ export default function WhatsAppConversationsPage() {
                         <Sparkles size={13} />
                         Assistant IA
                       </span>
-                      <AiAction icon={<Sparkles size={13} />} label="Réponse suggérée" />
-                      <AiAction icon={<MessageCircle size={13} />} label="Résumer" />
-                      <AiAction icon={<Languages size={13} />} label="Traduire" />
-                      <AiAction icon={<ListTodo size={13} />} label="Créer une tâche" />
                     </div>
                   </div>
                 </div>
@@ -1212,21 +1206,6 @@ function DeliveryMark({ status }: { status?: string | null }) {
     return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
   }
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
-}
-
-function AiAction({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      title={`${label} — bientôt disponible`}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium opacity-75"
-      style={{ borderColor: BORDER, background: RAISED, color: "#bdc8d0" }}
-    >
-      {icon}
-      {label}
-    </button>
-  );
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
