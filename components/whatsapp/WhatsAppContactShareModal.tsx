@@ -65,6 +65,8 @@ export function WhatsAppContactShareModal({
 
   if (!open || !conversation) return null;
 
+  const activeConversation = conversation;
+
   function close() {
     if (busy) return;
     setQuery("");
@@ -80,7 +82,7 @@ export function WhatsAppContactShareModal({
     setError(null);
     try {
       await sendWaContactCard({
-        to: conversation.id,
+        to: activeConversation.id,
         contact_to_share: selectedTarget,
         display_name: selected.name || selected.number || undefined,
         confirmed: true,
@@ -116,7 +118,7 @@ export function WhatsAppContactShareModal({
         <header className="flex items-center border-b px-5 py-4" style={{ borderColor: BORDER }}>
           <div className="min-w-0 flex-1">
             <h2 id="wa-contact-share-title" className="text-[16px] font-semibold">Partager un contact</h2>
-            <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>{conversation.name}</p>
+            <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>{activeConversation.name}</p>
           </div>
           <button
             type="button"
