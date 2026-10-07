@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -11,12 +11,9 @@ import {
   CheckCheck,
   CircleAlert,
   Info,
-  Languages,
   LayoutDashboard,
-  ListTodo,
   Menu,
   MessageCircle,
-  MoreVertical,
   Paperclip,
   Plug,
   RefreshCw,
@@ -34,12 +31,16 @@ import {
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
+import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  searchWaConversation,
+  type WaContactInfo,
   type WaLiveConversation,
   type WaLiveMessage,
 } from "@/lib/whatsapp-enterprise-api";
@@ -70,6 +71,7 @@ const LOWER_NAV = [
 ] as const;
 
 type Filter = "all" | "pending" | "unread";
+type KindFilter = "all" | "contact" | "group";
 
 export default function WhatsAppConversationsPage() {
   const { session } = useAuth();
@@ -92,6 +94,18 @@ export default function WhatsAppConversationsPage() {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
+  const [threadSearchOpen, setThreadSearchOpen] = useState(false);
+  const [threadSearchQuery, setThreadSearchQuery] = useState("");
+  const [threadSearchResults, setThreadSearchResults] = useState<WaLiveMessage[]>([]);
+  const [threadSearchLoading, setThreadSearchLoading] = useState(false);
+  const [threadSearchError, setThreadSearchError] = useState<string | null>(null);
+  const [contactInfoOpen, setContactInfoOpen] = useState(false);
+  const [contactInfo, setContactInfo] = useState<WaContactInfo | null>(null);
+  const [contactInfoLoading, setContactInfoLoading] = useState(false);
+  const [contactInfoError, setContactInfoError] = useState<string | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   const visibleMessages = useMemo(
     () =>
@@ -100,6 +114,19 @@ export default function WhatsAppConversationsPage() {
         .filter((message) => Boolean(message.text) || message.type !== "text"),
     [messages],
   );
+
+  const visibleSearchResults = useMemo(
+    () =>
+      threadSearchResults
+        .map((message) => ({ ...message, text: safeWhatsAppVisibleText(message.text) || "" }))
+        .filter((message) => Boolean(message.text) || message.type !== "text"),
+    [threadSearchResults],
+  );
+
+  const displayedMessages =
+    threadSearchOpen && threadSearchQuery.trim()
+      ? visibleSearchResults
+      : visibleMessages;
 
   const unreadCount = useMemo(
     () => conversations.filter((conversation) => conversation.unread_count > 0).length,
@@ -126,6 +153,7 @@ export default function WhatsAppConversationsPage() {
         search: search.trim() || undefined,
         pending: selectedFilter === "pending",
         unread: selectedFilter === "unread",
+        kind: kindFilter === "all" ? undefined : kindFilter,
         offset,
         limit: 80,
       });
@@ -158,7 +186,7 @@ export default function WhatsAppConversationsPage() {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
     }
-  }, []);
+  }, [kindFilter]);
 
   const loadThread = useCallback(async (conversation: WaLiveConversation) => {
     setLoadingThread(true);
@@ -174,13 +202,60 @@ export default function WhatsAppConversationsPage() {
     }
   }, []);
 
+  const runThreadSearch = useCallback(async () => {
+    if (!selected || !threadSearchQuery.trim()) {
+      setThreadSearchResults([]);
+      setThreadSearchError(null);
+      return;
+    }
+    setThreadSearchLoading(true);
+    setThreadSearchError(null);
+    try {
+      const data = await searchWaConversation(
+        selected.id,
+        threadSearchQuery.trim(),
+        60,
+      );
+      setThreadSearchResults(data.messages);
+    } catch (error) {
+      setThreadSearchResults([]);
+      setThreadSearchError(errorMessage(error, "history"));
+    } finally {
+      setThreadSearchLoading(false);
+    }
+  }, [selected, threadSearchQuery]);
+
+  const openContactInfo = useCallback(async () => {
+    if (!selected || selected.kind !== "contact") return;
+    setContactInfoOpen(true);
+    setContactInfoLoading(true);
+    setContactInfoError(null);
+    try {
+      const data = await getWaContactInfo(selected.id);
+      setContactInfo(data);
+    } catch (error) {
+      setContactInfo(null);
+      setContactInfoError(errorMessage(error, "history"));
+    } finally {
+      setContactInfoLoading(false);
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    if (!threadSearchOpen || !threadSearchQuery.trim()) return;
+    const timer = window.setTimeout(() => {
+      void runThreadSearch();
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [threadSearchOpen, threadSearchQuery, runThreadSearch]);
+
   useEffect(() => {
     if (!session) return;
     const timer = window.setTimeout(() => {
       void loadConversations(query, filter);
     }, query ? 220 : 0);
     return () => window.clearTimeout(timer);
-  }, [session, query, filter, loadConversations]);
+  }, [session, query, filter, kindFilter, loadConversations]);
 
   useEffect(() => {
     if (!session || typeof window === "undefined") return;
@@ -223,6 +298,12 @@ export default function WhatsAppConversationsPage() {
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
     setMessages([]);
+    setThreadSearchOpen(false);
+    setThreadSearchQuery("");
+    setThreadSearchResults([]);
+    setContactInfoOpen(false);
+    setContactInfo(null);
+    setEmojiOpen(false);
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -234,6 +315,12 @@ export default function WhatsAppConversationsPage() {
   function backToConversationList() {
     setSelected(null);
     setMessages([]);
+    setThreadSearchOpen(false);
+    setThreadSearchQuery("");
+    setThreadSearchResults([]);
+    setContactInfoOpen(false);
+    setContactInfo(null);
+    setEmojiOpen(false);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.delete("chat");
@@ -340,16 +427,49 @@ export default function WhatsAppConversationsPage() {
                     style={{ borderColor: BORDER, background: RAISED }}
                   />
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  title="Filtres avancés bientôt disponibles"
-                  aria-label="Filtres avancés"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border opacity-70"
-                  style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
-                >
-                  <SlidersHorizontal size={17} />
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    title="Filtrer les conversations"
+                    aria-label="Filtres avancés"
+                    aria-expanded={advancedFiltersOpen}
+                    onClick={() => setAdvancedFiltersOpen((value) => !value)}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                    style={{
+                      borderColor: kindFilter === "all" ? BORDER : "rgba(8,200,117,.45)",
+                      background: RAISED,
+                      color: kindFilter === "all" ? MUTED : GREEN,
+                    }}
+                  >
+                    <SlidersHorizontal size={17} />
+                  </button>
+                  {advancedFiltersOpen && (
+                    <div
+                      className="absolute right-0 top-12 z-30 w-44 rounded-xl border p-1.5 shadow-2xl"
+                      style={{ borderColor: BORDER, background: "#111f2a" }}
+                    >
+                      {([
+                        ["all", "Toutes"],
+                        ["contact", "Contacts"],
+                        ["group", "Groupes"],
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            setKindFilter(value);
+                            setAdvancedFiltersOpen(false);
+                          }}
+                          className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-xs transition hover:bg-white/[0.05]"
+                          style={{ color: kindFilter === value ? TEXT : MUTED }}
+                        >
+                          <span>{label}</span>
+                          {kindFilter === value && <Check size={14} color={GREEN} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="mt-3 flex items-center gap-2">
@@ -439,7 +559,7 @@ export default function WhatsAppConversationsPage() {
             </div>
           </aside>
 
-          <section className={`${selected ? "flex" : "hidden lg:flex"} min-h-0 min-w-0 flex-col`} style={{ background: PAGE_BG }}>
+          <section className={`${selected ? "flex" : "hidden lg:flex"} relative min-h-0 min-w-0 flex-col`} style={{ background: PAGE_BG }}>
             {!selected ? (
               <EmptyConversationState onNewMessage={openNewMessage} />
             ) : (
@@ -480,35 +600,86 @@ export default function WhatsAppConversationsPage() {
 
                   <button
                     type="button"
-                    disabled
-                    title="Recherche dans la conversation bientôt disponible"
+                    title="Rechercher dans la conversation"
                     aria-label="Rechercher dans la conversation"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl border opacity-75"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
+                    aria-expanded={threadSearchOpen}
+                    onClick={() => {
+                      setThreadSearchOpen((value) => !value);
+                      setThreadSearchQuery("");
+                      setThreadSearchResults([]);
+                      setThreadSearchError(null);
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                    style={{
+                      borderColor: threadSearchOpen ? "rgba(8,200,117,.45)" : BORDER,
+                      background: RAISED,
+                      color: threadSearchOpen ? GREEN : MUTED,
+                    }}
                   >
                     <Search size={17} />
                   </button>
-                  <button
-                    type="button"
-                    disabled
-                    title="Informations du contact bientôt disponibles"
-                    aria-label="Informations du contact"
-                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
-                  >
-                    <Info size={17} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    title="Plus d’options bientôt disponibles"
-                    aria-label="Plus d’options"
-                    className="hidden h-10 w-10 items-center justify-center rounded-xl border opacity-75 sm:flex"
-                    style={{ borderColor: BORDER, background: RAISED, color: MUTED }}
-                  >
-                    <MoreVertical size={17} />
-                  </button>
+                  {selected.kind === "contact" && (
+                    <button
+                      type="button"
+                      title="Informations du contact"
+                      aria-label="Informations du contact"
+                      aria-expanded={contactInfoOpen}
+                      onClick={() => {
+                        if (contactInfoOpen) setContactInfoOpen(false);
+                        else void openContactInfo();
+                      }}
+                      className="hidden h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04] sm:flex"
+                      style={{
+                        borderColor: contactInfoOpen ? "rgba(8,200,117,.45)" : BORDER,
+                        background: RAISED,
+                        color: contactInfoOpen ? GREEN : MUTED,
+                      }}
+                    >
+                      <Info size={17} />
+                    </button>
+                  )}
                 </div>
+
+                {threadSearchOpen && (
+                  <div className="border-b px-4 py-2.5 md:px-5" style={{ borderColor: BORDER, background: SURFACE }}>
+                    <div className="mx-auto flex max-w-[980px] items-center gap-2">
+                      <div className="relative min-w-0 flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={15} color={MUTED} />
+                        <input
+                          autoFocus
+                          value={threadSearchQuery}
+                          onChange={(event) => setThreadSearchQuery(event.target.value)}
+                          placeholder="Rechercher dans cette conversation…"
+                          className="h-10 w-full rounded-xl border bg-transparent pl-9 pr-3 text-xs outline-none focus:border-[#2f8cff]"
+                          style={{ borderColor: BORDER, background: RAISED }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Fermer la recherche"
+                        onClick={() => {
+                          setThreadSearchOpen(false);
+                          setThreadSearchQuery("");
+                          setThreadSearchResults([]);
+                          setThreadSearchError(null);
+                        }}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl border"
+                        style={{ borderColor: BORDER, color: MUTED }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="mx-auto mt-1 max-w-[980px] px-1 text-[10px]" style={{ color: MUTED }}>
+                      {threadSearchLoading
+                        ? "Recherche…"
+                        : threadSearchError
+                          ? threadSearchError
+                          : threadSearchQuery.trim()
+                            ? `${visibleSearchResults.length} résultat${visibleSearchResults.length > 1 ? "s" : ""}`
+                            : "Saisissez un mot ou une expression."}
+                    </div>
+                  </div>
+                )}
 
                 <div
                   className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-6 lg:px-8"
@@ -533,21 +704,90 @@ export default function WhatsAppConversationsPage() {
                     </div>
                   )}
 
-                  {!loadingThread && !threadError && visibleMessages.length === 0 && (
+                  {!loadingThread && !threadError && displayedMessages.length === 0 && (
                     <div className="flex min-h-[360px] items-center justify-center text-center">
                       <div>
                         <MessageCircle className="mx-auto" size={26} color={FAINT} />
-                        <p className="mt-3 text-sm font-medium">Aucun message pour le moment</p>
+                        <p className="mt-3 text-sm font-medium">
+                          {threadSearchOpen && threadSearchQuery.trim()
+                            ? "Aucun résultat"
+                            : "Aucun message pour le moment"}
+                        </p>
                       </div>
                     </div>
                   )}
 
-                  {!loadingThread && !threadError && visibleMessages.length > 0 && (
+                  {!loadingThread && !threadError && displayedMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
-                      <ThreadMessages messages={visibleMessages} />
+                      <ThreadMessages messages={displayedMessages} />
                     </div>
                   )}
                 </div>
+
+                {contactInfoOpen && selected.kind === "contact" && (
+                  <div
+                    className="absolute right-3 top-[84px] z-30 w-[min(340px,calc(100%-24px))] rounded-2xl border p-4 shadow-2xl md:right-5"
+                    style={{ borderColor: BORDER, background: "#0f1d27" }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar
+                        name={contactInfo?.name || displayConversationName(selected)}
+                        kind="contact"
+                        size="lg"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">
+                          {contactInfo?.name || displayConversationName(selected)}
+                        </p>
+                        {contactInfo?.phone && (
+                          <p className="mt-0.5 text-xs" style={{ color: MUTED }}>
+                            {contactInfo.phone}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Fermer les informations"
+                        onClick={() => setContactInfoOpen(false)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg"
+                        style={{ color: MUTED }}
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+
+                    {contactInfoLoading && (
+                      <div className="mt-4 h-16 animate-pulse rounded-xl bg-white/[0.035]" />
+                    )}
+                    {!contactInfoLoading && contactInfoError && (
+                      <p className="mt-4 text-xs leading-5 text-red-200">{contactInfoError}</p>
+                    )}
+                    {!contactInfoLoading && !contactInfoError && contactInfo && (
+                      <div className="mt-4 space-y-3 text-xs">
+                        {contactInfo.about && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: FAINT }}>
+                              À propos
+                            </p>
+                            <p className="mt-1 leading-5" style={{ color: MUTED }}>{contactInfo.about}</p>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {contactInfo.on_whatsapp === true && (
+                            <span className="rounded-full px-2.5 py-1" style={{ background: "rgba(8,200,117,.10)", color: GREEN }}>
+                              Compte WhatsApp
+                            </span>
+                          )}
+                          {contactInfo.is_business && (
+                            <span className="rounded-full px-2.5 py-1" style={{ background: "rgba(47,140,255,.10)", color: "#74afff" }}>
+                              Entreprise
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="border-t px-3 pt-2.5 md:px-5" style={{ borderColor: BORDER, background: SURFACE }}>
                   <div className="mx-auto max-w-[980px]">
@@ -559,10 +799,6 @@ export default function WhatsAppConversationsPage() {
                         <Sparkles size={13} />
                         Assistant IA
                       </span>
-                      <AiAction icon={<Sparkles size={13} />} label="Réponse suggérée" />
-                      <AiAction icon={<MessageCircle size={13} />} label="Résumer" />
-                      <AiAction icon={<Languages size={13} />} label="Traduire" />
-                      <AiAction icon={<ListTodo size={13} />} label="Créer une tâche" />
                     </div>
                   </div>
                 </div>
@@ -573,26 +809,31 @@ export default function WhatsAppConversationsPage() {
                       className="flex items-end gap-2 rounded-[16px] border p-2"
                       style={{ borderColor: BORDER, background: RAISED }}
                     >
-                      <button
-                        type="button"
-                        disabled
-                        aria-label="Emoji"
-                        title="Emoji bientôt disponible"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
-                        style={{ color: MUTED }}
-                      >
-                        <Smile size={19} />
-                      </button>
-                      <button
-                        type="button"
-                        disabled
-                        aria-label="Joindre un fichier"
-                        title="Pièces jointes bientôt disponibles"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-65"
-                        style={{ color: MUTED }}
-                      >
-                        <Paperclip size={19} />
-                      </button>
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          aria-label="Emoji"
+                          title="Ajouter un emoji"
+                          aria-expanded={emojiOpen}
+                          onClick={() => setEmojiOpen((value) => !value)}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-white/[0.04]"
+                          style={{ color: emojiOpen ? GREEN : MUTED }}
+                        >
+                          <Smile size={19} />
+                        </button>
+                        {emojiOpen && (
+                          <div
+                            className="absolute bottom-12 left-0 z-40 w-[min(350px,calc(100vw-32px))] overflow-hidden rounded-2xl border shadow-2xl"
+                            style={{ borderColor: BORDER, background: "#111f2a" }}
+                          >
+                            <WhatsAppEmojiPicker
+                              onPick={(emoji) => {
+                                setReplyDraft((current) => (current + emoji).slice(0, 4096));
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
 
                       <textarea
                         value={replyDraft}
@@ -962,21 +1203,6 @@ function DeliveryMark({ status }: { status?: string | null }) {
     return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
   }
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
-}
-
-function AiAction({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      title={`${label} — bientôt disponible`}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-medium opacity-75"
-      style={{ borderColor: BORDER, background: RAISED, color: "#bdc8d0" }}
-    >
-      {icon}
-      {label}
-    </button>
-  );
 }
 
 function displayConversationName(conversation: WaLiveConversation) {

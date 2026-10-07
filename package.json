@@ -19,6 +19,7 @@
   "dependencies": {
     "@gsap/react": "^2.1.2",
     "@types/qrcode": "^1.5.6",
+    "emoji-picker-react": "^4.22.3",
     "framer-motion": "^12.42.2",
     "gsap": "^3.15.0",
     "highlight.js": "^11.11.1",

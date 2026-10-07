@@ -239,6 +239,23 @@ export interface WaConversationMessages {
   source: "baileys" | "autopilot-log";
 }
 
+export interface WaConversationSearchResult {
+  chat_id: string;
+  query: string;
+  messages: WaLiveMessage[];
+  count: number;
+}
+
+export interface WaContactInfo {
+  chat_id: string;
+  name: string;
+  phone: string | null;
+  about: string | null;
+  picture_url: string | null;
+  on_whatsapp: boolean | null;
+  is_business: boolean;
+}
+
 export interface WaManualSendResult {
   chat_id: string;
   msg_id: string | null;
@@ -263,6 +280,7 @@ export function getWaLiveConversations(params?: {
   search?: string;
   pending?: boolean;
   unread?: boolean;
+  kind?: "contact" | "group";
   offset?: number;
   limit?: number;
 }): Promise<WaLiveConversations> {
@@ -270,6 +288,7 @@ export function getWaLiveConversations(params?: {
   if (params?.search) query.set("search", params.search);
   if (params?.pending) query.set("pending", "true");
   if (params?.unread) query.set("unread", "true");
+  if (params?.kind) query.set("kind", params.kind);
   if (typeof params?.offset === "number") query.set("offset", String(params.offset));
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.size ? `?${query.toString()}` : "";
@@ -287,6 +306,26 @@ export function getWaConversationMessages(
     since_ms: String(sinceMs),
   });
   return http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`);
+}
+
+export function searchWaConversation(
+  chatId: string,
+  queryText: string,
+  limit = 40,
+): Promise<WaConversationSearchResult> {
+  const query = new URLSearchParams({
+    chat_id: chatId,
+    q: queryText,
+    limit: String(limit),
+  });
+  return http.get<WaConversationSearchResult>(
+    `/whatsapp/conversation/search?${query.toString()}`,
+  );
+}
+
+export function getWaContactInfo(chatId: string): Promise<WaContactInfo> {
+  const query = new URLSearchParams({ chat_id: chatId });
+  return http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`);
 }
 
 export function sendWaManualMessage(input: {
