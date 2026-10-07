@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   CheckCheck,
-  ChevronLeft,
   Loader2,
   Search,
   Send,
@@ -29,7 +28,7 @@ const GREEN = "#08c875";
 const BLUE = "#2f8cff";
 const ORANGE = "#ff9518";
 
-type Stage = "compose" | "review" | "result";
+type Stage = "compose" | "result";
 
 export function WhatsAppComposeModal({
   open,
@@ -60,8 +59,7 @@ export function WhatsAppComposeModal({
 
   useEffect(() => {
     if (!open) return;
-    const preparedReply = Boolean(initialRecipient && initialMessage?.trim());
-    setStage(preparedReply ? "review" : "compose");
+    setStage("compose");
     setMessage(initialMessage || "");
     setError(null);
     setResult(null);
@@ -135,12 +133,7 @@ export function WhatsAppComposeModal({
   }, [rawRecipient]);
   const recipient = selected?.jid || manualRecipient || "";
   const recipientLabel = selected?.name || (manualRecipient ? `+${manualRecipient}` : "");
-  const recipientDetail = selected?.number
-    ? `+${selected.number}`
-    : manualRecipient
-      ? `+${manualRecipient}`
-      : "";
-  const canReview = Boolean(recipient && message.trim());
+  const canSend = Boolean(recipient && message.trim() && message.length <= 4096);
 
   async function sendNow() {
     if (!recipient || !message.trim() || sending) return;
@@ -191,24 +184,12 @@ export function WhatsAppComposeModal({
         style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
       >
         <header className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: BORDER }}>
-          {stage !== "compose" && stage !== "result" ? (
-            <button
-              type="button"
-              aria-label="Retour"
-              onClick={() => setStage("compose")}
-              className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-white/5"
-              style={{ color: MUTED }}
-            >
-              <ChevronLeft size={19} />
-            </button>
-          ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#073d2c]" style={{ color: GREEN }}>
-              <Send size={18} />
-            </div>
-          )}
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#073d2c]" style={{ color: GREEN }}>
+            <Send size={18} />
+          </div>
           <div className="min-w-0 flex-1">
             <h2 id="wa-compose-title" className="text-[16px] font-semibold">
-              {stage === "compose" ? "Nouveau message" : stage === "review" ? "Confirmer l’envoi" : "Message WhatsApp"}
+              {stage === "compose" ? "Nouveau message" : "Message WhatsApp"}
             </h2>
           </div>
           <button
@@ -222,7 +203,6 @@ export function WhatsAppComposeModal({
             <X size={19} />
           </button>
         </header>
-
         {stage === "compose" && (
           <div className="p-5">
             <label className="text-[12px] font-semibold">Destinataire</label>
@@ -301,7 +281,7 @@ export function WhatsAppComposeModal({
                         </div>
                         <span>
                           <span className="block text-[13px] font-semibold">Envoyer à +{manualRecipient}</span>
-                          <span className="mt-0.5 block text-[11px]" style={{ color: MUTED }}>WhatsApp vérifiera le destinataire avant l’envoi.</span>
+                          <span className="mt-0.5 block text-[11px]" style={{ color: MUTED }}>Utiliser ce numéro</span>
                         </span>
                       </button>
                     )}
@@ -331,53 +311,12 @@ export function WhatsAppComposeModal({
             <div className="mt-5 flex items-center justify-end gap-4">
               <button
                 type="button"
-                disabled={!canReview || message.length > 4096}
-                onClick={() => {
-                  setError(null);
-                  setStage("review");
-                }}
-                className="h-11 rounded-xl px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35"
-                style={{ background: GREEN }}
-              >
-                Vérifier l’envoi
-              </button>
-            </div>
-          </div>
-        )}
-
-        {stage === "review" && (
-          <div className="p-5">
-            <div className="rounded-xl border p-4" style={{ background: SURFACE_RAISED, borderColor: BORDER }}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Destinataire</p>
-              <p className="mt-2 text-sm font-semibold">{recipientLabel}</p>
-              {recipientDetail && recipientDetail !== recipientLabel && (
-                <p className="mt-1 text-[11px]" style={{ color: MUTED }}>{recipientDetail}</p>
-              )}
-              <div className="my-4 h-px" style={{ background: BORDER }} />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: MUTED }}>Message</p>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{message.trim()}</p>
-            </div>
-
-            {error && <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-300">{error}</p>}
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={sending}
-                onClick={() => setStage("compose")}
-                className="h-11 rounded-xl border px-4 text-sm font-medium disabled:opacity-40"
-                style={{ borderColor: BORDER, color: TEXT }}
-              >
-                Modifier
-              </button>
-              <button
-                type="button"
-                disabled={sending}
+                disabled={!canSend || sending}
                 onClick={() => void sendNow()}
-                className="flex h-11 min-w-[160px] items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-55"
+                className="flex h-11 min-w-[150px] items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35"
                 style={{ background: GREEN }}
               >
-                {sending ? <><Loader2 size={17} className="animate-spin" /> Envoi…</> : <><Send size={17} /> Envoyer maintenant</>}
+                {sending ? <><Loader2 size={17} className="animate-spin" /> Envoi…</> : <><Send size={17} /> Envoyer</>}
               </button>
             </div>
           </div>
