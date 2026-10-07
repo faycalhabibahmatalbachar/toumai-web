@@ -133,6 +133,7 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1099,6 +1100,26 @@ export default function WhatsAppConversationsPage() {
                         className="absolute right-0 top-11 z-40 w-56 rounded-xl border p-1.5 shadow-2xl"
                         style={{ borderColor: BORDER, background: "#111f2a" }}
                       >
+                        {selected.kind === "contact" && (
+                          <ConversationMenuItem
+                            icon={<Info size={15} />}
+                            label="Informations du contact"
+                            onClick={() => {
+                              setConversationMenuOpen(false);
+                              void openContactInfo();
+                            }}
+                          />
+                        )}
+                        <ConversationMenuItem
+                          icon={<Search size={15} />}
+                          label="Rechercher"
+                          onClick={() => {
+                            setConversationMenuOpen(false);
+                            setThreadSearchOpen(true);
+                            window.setTimeout(() => threadSearchInputRef.current?.focus(), 0);
+                          }}
+                        />
+                        <div className="my-1 h-px" style={{ background: BORDER }} />
                         <ConversationMenuItem icon={<Archive size={15} />} label="Archiver" onClick={() => prepareConversationAction({ action: "archive" })} />
                         <ConversationMenuItem icon={<Pin size={15} />} label="Épingler" onClick={() => prepareConversationAction({ action: "pin" })} />
 
@@ -1151,6 +1172,7 @@ export default function WhatsAppConversationsPage() {
                       <div className="relative min-w-0 flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={15} color={MUTED} />
                         <input
+                          ref={threadSearchInputRef}
                           autoFocus
                           value={threadSearchQuery}
                           onChange={(event) => setThreadSearchQuery(event.target.value)}
