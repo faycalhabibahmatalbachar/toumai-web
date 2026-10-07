@@ -117,6 +117,19 @@ const threadMessages = [
     status: "read",
   },
   {
+    id: "t-media",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: true,
+    sender: "",
+    sender_jid: "23568663737@s.whatsapp.net",
+    type: "image",
+    mime_type: "image/jpeg",
+    file_name: "photo.jpg",
+    timestamp_ms: now - 90_000,
+    status: "delivered",
+  },
+  {
     id: "t3",
     chat_id: "23566111111@s.whatsapp.net",
     text: "Tu peux me rappeler ?",
@@ -744,6 +757,36 @@ async function certifyConversations() {
   assert(state.replies.length === 2, "La correction hors fenêtre doit partir comme réponse réelle.");
   assert(state.replies.at(-1).msg_id === "t-old", "La correction doit rester liée au message original.");
   assert(state.replies.at(-1).message === "Ancien message corrigé", "La correction doit envoyer le texte exact.");
+
+  const mediaOutbound = page.locator('[data-message-id="t-media"]');
+  await mediaOutbound.getByRole("button", { name: "Corriger" }).click();
+  await page.getByText("Corriger le média", { exact: true }).waitFor();
+  const mediaTextCorrection = page.getByPlaceholder("Écrire une correction ou joindre un fichier…");
+  await mediaTextCorrection.fill("Correction : voici la bonne information.");
+  await mediaTextCorrection.press("Enter");
+  await page.waitForTimeout(120);
+  assert(state.edits.length === 1, "Un média ne doit jamais appeler /message/edit.");
+  assert(state.replies.length === 3, "Une correction texte d'un média doit partir comme réponse liée.");
+  assert(state.replies.at(-1).msg_id === "t-media", "La correction texte doit citer le média original.");
+
+  await mediaOutbound.getByRole("button", { name: "Corriger" }).click();
+  const mediaSendsBeforeCorrection = state.mediaSends.length;
+  await page.getByLabel("Sélectionner une pièce jointe").setInputFiles({
+    name: "photo-corrigee.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+  });
+  await page.getByRole("heading", { name: "Corriger le média" }).waitFor();
+  await page.getByRole("dialog").getByRole("button", { name: "Envoyer la correction", exact: true }).click();
+  await page.getByRole("heading", { name: "Corriger le média" }).waitFor({ state: "hidden" });
+  assert(
+    state.mediaSends.length === mediaSendsBeforeCorrection + 1,
+    "Une correction média doit produire un seul nouvel envoi média.",
+  );
+  assert(state.mediaSends.at(-1).type === "image", "La correction doit conserver la nature image.");
+  assert(state.mediaSends.at(-1).reply_to_msg_id === "t-media", "La nouvelle image doit être liée au média original.");
+  assert(state.mediaSends.at(-1).reply_to_type === "image", "Le contexte doit conserver le type du média original.");
+  assert(state.edits.length === 1, "La correction média ne doit jamais simuler une édition native.");
 
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
