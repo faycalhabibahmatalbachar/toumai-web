@@ -142,7 +142,7 @@ export default function WhatsAppAutomationsPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#08b963]"><WhatsAppIcon size={24} /></div>
           <div>
             <h1 className="text-[16px] font-semibold">Automatisations WhatsApp</h1>
-            <p className="text-[11px]" style={{ color: MUTED }}>Cycle de vie réel des tâches Toumaï</p>
+            <p className="text-[11px]" style={{ color: MUTED }}>Gérez vos envois programmés.</p>
           </div>
           <Link href="/chat" className="ml-auto flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white" style={{ background: GREEN }}>
             <Send size={16} /> <span className="hidden sm:inline">Créer via Toumaï</span>
@@ -361,11 +361,11 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
           </Field>
           <Field label="Récurrence">
             <select value={recurrence} onChange={(event) => setRecurrence(event.target.value as WhatsAppAutomation["recurrence"])} className="h-10 w-full rounded-xl border px-3 text-sm outline-none" style={{ background: RAISED, borderColor: BORDER }}>
-              <option value="none">Une fois</option><option value="daily">Chaque jour</option><option value="weekly">Chaque semaine</option><option value="monthly">Chaque mois</option><option value="cron">Cron</option>
+              <option value="none">Une fois</option><option value="daily">Chaque jour</option><option value="weekly">Chaque semaine</option><option value="monthly">Chaque mois</option><option value="cron">Personnalisée</option>
             </select>
           </Field>
         </div>
-        {recurrence === "cron" && <Field label="Expression cron"><input value={cron} onChange={(event) => setCron(event.target.value)} placeholder="0 8 * * 1-5" className="h-10 w-full rounded-xl border px-3 text-sm outline-none" style={{ background: RAISED, borderColor: BORDER }} /></Field>}
+        {recurrence === "cron" && <Field label="Planification avancée"><input value={cron} onChange={(event) => setCron(event.target.value)} placeholder="0 8 * * 1-5" className="h-10 w-full rounded-xl border px-3 text-sm outline-none" style={{ background: RAISED, borderColor: BORDER }} /></Field>}
         {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200">{error}</div>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-xl border px-4 text-xs font-semibold" style={{ borderColor: BORDER }}>Annuler</button>
@@ -383,7 +383,7 @@ function HistoryModal({ task, entries, loading, onClose }: { task: WhatsAppAutom
     <Modal title={`Historique · ${task.title}`} onClose={onClose}>
       <div className="max-h-[62vh] overflow-y-auto p-5">
         {loading && <div className="flex items-center justify-center py-10"><Loader2 className="animate-spin" size={20} /></div>}
-        {!loading && entries.length === 0 && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucun événement journalisé.</p>}
+        {!loading && entries.length === 0 && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucun historique disponible.</p>}
         {!loading && entries.map((entry, index) => (
           <div key={`${entry.created_at}-${index}`} className="flex gap-3 border-b py-3 last:border-b-0" style={{ borderColor: BORDER }}>
             <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: entry.success ? GREEN : "#ff6b6b" }} />
@@ -417,7 +417,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function formatSchedule(task: WhatsAppAutomation) {
   const date = formatDate(task.send_at);
-  const labels: Record<string, string> = { none: "une fois", daily: "quotidien", weekly: "hebdomadaire", monthly: "mensuel", cron: "cron" };
+  const labels: Record<string, string> = { none: "une fois", daily: "quotidien", weekly: "hebdomadaire", monthly: "mensuel", cron: "personnalisée" };
   return `${date} · ${labels[task.recurrence] || task.recurrence}`;
 }
 

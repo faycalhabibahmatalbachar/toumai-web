@@ -314,9 +314,6 @@ export default function WhatsAppConversationsPage() {
               </div>
               <div className="min-w-0">
                 <h1 className="truncate text-[18px] font-semibold tracking-[-0.02em]">WhatsApp</h1>
-                <p className="mt-0.5 truncate text-[10px]" style={{ color: MUTED }}>
-                  Centre de conversation Toumaï
-                </p>
               </div>
 
               <button
@@ -540,10 +537,7 @@ export default function WhatsAppConversationsPage() {
                     <div className="flex min-h-[360px] items-center justify-center text-center">
                       <div>
                         <MessageCircle className="mx-auto" size={26} color={FAINT} />
-                        <p className="mt-3 text-sm font-medium">Aucun message visible</p>
-                        <p className="mt-1 max-w-sm text-xs leading-5" style={{ color: MUTED }}>
-                          Aucun échange exploitable n’est disponible pour cette conversation.
-                        </p>
+                        <p className="mt-3 text-sm font-medium">Aucun message pour le moment</p>
                       </div>
                     </div>
                   )}

@@ -346,8 +346,7 @@ export default function WhatsAppOverviewPage() {
                   <div className="flex h-full items-center justify-center text-center">
                     <div>
                       <CircleGauge className="mx-auto" size={24} color={FAINT} />
-                      <p className="mt-3 text-sm font-medium">Aucune activité instrumentée</p>
-                      <p className="mt-1 text-xs" style={{ color: MUTED }}>Les événements Baileys réels apparaîtront ici.</p>
+                      <p className="mt-3 text-sm font-medium">Aucune activité pour cette période</p>
                     </div>
                   </div>
                 )}
@@ -686,7 +685,7 @@ function connectionPresentation(etat: WaEtat | null, loading: boolean) {
   if (loading) return { label: "Vérification...", color: FAINT };
   if (!etat) return { label: "WhatsApp indisponible", color: "#ff6b6b" };
   if (etat.code === "connecte" && etat.pret) return { label: "WhatsApp connecté", color: GREEN };
-  if (etat.code === "injoignable") return { label: "Passerelle injoignable", color: ORANGE };
+  if (etat.code === "injoignable") return { label: "WhatsApp indisponible", color: ORANGE };
   if (["connexion", "jumelage", "qr"].includes(etat.code)) return { label: "Connexion en cours", color: ORANGE };
   if (etat.code === "session_expiree") return { label: "Session expirée", color: "#ff6b6b" };
   if (etat.code === "en_pause") return { label: "WhatsApp en pause", color: ORANGE };
