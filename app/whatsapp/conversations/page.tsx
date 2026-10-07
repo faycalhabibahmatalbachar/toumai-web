@@ -18,6 +18,10 @@ import {
   BookOpen,
   Check,
   CheckCheck,
+  SmilePlus,
+  Reply,
+  Pencil,
+  Copy,
   CircleAlert,
   Info,
   LayoutDashboard,
@@ -29,7 +33,6 @@ import {
   Search,
   Send,
   Settings,
-  ShieldCheck,
   SlidersHorizontal,
   Smile,
   Sparkles,
@@ -47,11 +50,15 @@ import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  editWaMessage,
   getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
   inferWaMediaType,
+  reactWaMessage,
   searchWaConversation,
+  sendWaManualMessage,
+  sendWaReply,
   uploadWaAttachment,
   type WaContactInfo,
   type WaLiveConversation,
@@ -102,9 +109,13 @@ export default function WhatsAppConversationsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeTarget, setComposeTarget] = useState<WaLiveConversation | null>(null);
-  const [composeSeed, setComposeSeed] = useState("");
   const [replyDraft, setReplyDraft] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
+  const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
