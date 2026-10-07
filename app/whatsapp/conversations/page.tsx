@@ -116,6 +116,19 @@ export default function WhatsAppConversationsPage() {
     [messages],
   );
 
+  const visibleSearchResults = useMemo(
+    () =>
+      threadSearchResults
+        .map((message) => ({ ...message, text: safeWhatsAppVisibleText(message.text) || "" }))
+        .filter((message) => Boolean(message.text) || message.type !== "text"),
+    [threadSearchResults],
+  );
+
+  const displayedMessages =
+    threadSearchOpen && threadSearchQuery.trim()
+      ? visibleSearchResults
+      : visibleMessages;
+
   const unreadCount = useMemo(
     () => conversations.filter((conversation) => conversation.unread_count > 0).length,
     [conversations],
@@ -141,6 +154,7 @@ export default function WhatsAppConversationsPage() {
         search: search.trim() || undefined,
         pending: selectedFilter === "pending",
         unread: selectedFilter === "unread",
+        kind: kindFilter === "all" ? undefined : kindFilter,
         offset,
         limit: 80,
       });
@@ -173,7 +187,7 @@ export default function WhatsAppConversationsPage() {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
     }
-  }, []);
+  }, [kindFilter]);
 
   const loadThread = useCallback(async (conversation: WaLiveConversation) => {
     setLoadingThread(true);
@@ -189,13 +203,64 @@ export default function WhatsAppConversationsPage() {
     }
   }, []);
 
+  const runThreadSearch = useCallback(async () => {
+    if (!selected || !threadSearchQuery.trim()) {
+      setThreadSearchResults([]);
+      setThreadSearchError(null);
+      return;
+    }
+    setThreadSearchLoading(true);
+    setThreadSearchError(null);
+    try {
+      const data = await searchWaConversation(
+        selected.id,
+        threadSearchQuery.trim(),
+        60,
+      );
+      setThreadSearchResults(data.messages);
+    } catch (error) {
+      setThreadSearchResults([]);
+      setThreadSearchError(errorMessage(error, "history"));
+    } finally {
+      setThreadSearchLoading(false);
+    }
+  }, [selected, threadSearchQuery]);
+
+  const openContactInfo = useCallback(async () => {
+    if (!selected || selected.kind !== "contact") return;
+    setContactInfoOpen(true);
+    setContactInfoLoading(true);
+    setContactInfoError(null);
+    try {
+      const data = await getWaContactInfo(selected.id);
+      setContactInfo(data);
+    } catch (error) {
+      setContactInfo(null);
+      setContactInfoError(errorMessage(error, "history"));
+    } finally {
+      setContactInfoLoading(false);
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    if (!threadSearchOpen || !threadSearchQuery.trim()) {
+      setThreadSearchResults([]);
+      setThreadSearchError(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void runThreadSearch();
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [threadSearchOpen, threadSearchQuery, runThreadSearch]);
+
   useEffect(() => {
     if (!session) return;
     const timer = window.setTimeout(() => {
       void loadConversations(query, filter);
     }, query ? 220 : 0);
     return () => window.clearTimeout(timer);
-  }, [session, query, filter, loadConversations]);
+  }, [session, query, filter, kindFilter, loadConversations]);
 
   useEffect(() => {
     if (!session || typeof window === "undefined") return;
@@ -238,6 +303,12 @@ export default function WhatsAppConversationsPage() {
   function chooseConversation(conversation: WaLiveConversation) {
     setReplyDraft("");
     setMessages([]);
+    setThreadSearchOpen(false);
+    setThreadSearchQuery("");
+    setThreadSearchResults([]);
+    setContactInfoOpen(false);
+    setContactInfo(null);
+    setEmojiOpen(false);
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -249,6 +320,12 @@ export default function WhatsAppConversationsPage() {
   function backToConversationList() {
     setSelected(null);
     setMessages([]);
+    setThreadSearchOpen(false);
+    setThreadSearchQuery("");
+    setThreadSearchResults([]);
+    setContactInfoOpen(false);
+    setContactInfo(null);
+    setEmojiOpen(false);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.delete("chat");
