@@ -623,6 +623,7 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByPlaceholder("Rechercher un emoji").waitFor();
   await page.getByRole("button", { name: "Emoji" }).click();
+  await page.getByRole("button", { name: "Enregistrer un audio" }).waitFor();
   await page.getByText("Contact WhatsApp", { exact: true }).waitFor();
   assert(
     (await page.getByRole("button", { name: "Réponse suggérée" }).count()) === 0,
@@ -635,10 +636,10 @@ async function certifyConversations() {
     mimeType: "text/plain",
     buffer: Buffer.from("preuve C2"),
   });
-  await page.getByRole("heading", { name: "Confirmer la pièce jointe" }).waitFor();
+  await page.getByRole("heading", { name: "Pièce jointe" }).waitFor();
   await page.getByText("preuve.txt", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Envoyer maintenant" }).click();
-  await page.getByRole("heading", { name: "Confirmer la pièce jointe" }).waitFor({ state: "hidden" });
+  await page.getByRole("dialog").getByRole("button", { name: "Envoyer", exact: true }).click();
+  await page.getByRole("heading", { name: "Pièce jointe" }).waitFor({ state: "hidden" });
 
   assert(state.uploads.length === 1, `Une pièce jointe doit produire un seul upload, obtenu ${state.uploads.length}.`);
   assert(
