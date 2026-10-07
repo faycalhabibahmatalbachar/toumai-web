@@ -399,7 +399,7 @@ assert(automationsCard.y + automationsCard.height <= 936, `La carte Automatisati
 const ibrahima = await box(page.getByText("Ibrahima Ba", { exact: true }), "quatrième conversation");
 assert(ibrahima.y + ibrahima.height <= 936, "La quatrième conversation doit être visible dans le viewport 1672x941.");
 assert((await page.getByText("3 842", { exact: true }).count()) === 1, "Le KPI Messages envoyés n'affiche pas les données attendues.");
-assert((await page.getByText("Non instrumenté sur tous les messages", { exact: true }).count()) === 1, "Le KPI Taux de réponse doit rester explicitement non instrumenté.");
+assert((await page.getByText("Données en cours de collecte", { exact: true }).count()) === 1, "Le KPI Taux de réponse doit rester indisponible pendant la collecte.");
 assert((await page.getByText("+235 68 66 37 37", { exact: true }).count()) === 1, "Le numéro Baileys réel/mocqué n'est pas rendu.");
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 assert(overflow <= 1, `Débordement horizontal détecté: ${overflow}px`);
