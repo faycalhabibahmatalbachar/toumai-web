@@ -1989,14 +1989,6 @@ function DeliveryMark({ status }: { status?: string | null }) {
   return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
 }
 
-function formatDuration(seconds?: number | null) {
-  if (!seconds || seconds <= 0) return "";
-  const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  const rest = total % 60;
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
-}
-
 function displayConversationName(conversation: WaLiveConversation) {
   const candidate = (conversation.name || "").trim();
   if (candidate && !isTechnicalWhatsAppIdentity(candidate) && candidate !== conversation.id) {
