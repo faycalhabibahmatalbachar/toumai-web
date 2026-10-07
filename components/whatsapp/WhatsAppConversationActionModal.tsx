@@ -51,6 +51,8 @@ export function WhatsAppConversationActionModal({
 
   if (!open || !conversation || !request) return null;
 
+  const activeConversation = conversation;
+  const activeRequest = request;
   const destructive = request.action === "clear" || request.action === "delete";
   const copy = actionCopy(request);
 
@@ -60,12 +62,12 @@ export function WhatsAppConversationActionModal({
     setError(null);
     try {
       await applyWaConversationAction({
-        chat_id: conversation.id,
-        action: request.action,
-        duration: request.duration,
+        chat_id: activeConversation.id,
+        action: activeRequest.action,
+        duration: activeRequest.duration,
         confirmed: true,
       });
-      onApplied(request.action);
+      onApplied(activeRequest.action);
       onClose();
     } catch (exc) {
       setError(errorMessage(exc, "generic"));
