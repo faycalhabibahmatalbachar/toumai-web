@@ -1,4 +1,4 @@
-import { http, postForm } from "./http";
+import { authFetch, http, postForm } from "./http";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -467,4 +467,13 @@ export function getWaMessageStatus(
   const query = new URLSearchParams({ msg_id: msgId });
   if (chatId) query.set("chat_id", chatId);
   return http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`);
+}
+
+
+export async function getWaMessageMediaBlob(msgId: string): Promise<Blob> {
+  const response = await authFetch(`/whatsapp/media/${encodeURIComponent(msgId)}`);
+  if (!response.ok) {
+    throw new Error(response.status === 404 ? "Pièce jointe indisponible." : "Impossible de charger la pièce jointe.");
+  }
+  return await response.blob();
 }
