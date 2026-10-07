@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { EmojiClickData, PickerProps } from "emoji-picker-react";
+import { Theme, type EmojiClickData, type PickerProps } from "emoji-picker-react";
 
 const EmojiPicker = dynamic<PickerProps>(
   () => import("emoji-picker-react"),
@@ -22,7 +22,7 @@ export function WhatsAppEmojiPicker({
 }) {
   return (
     <EmojiPicker
-      theme={"dark" as PickerProps["theme"]}
+      theme={Theme.DARK}
       width="100%"
       height={340}
       lazyLoadEmojis
