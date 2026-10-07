@@ -291,6 +291,9 @@ const logs = {
 
 const state = {
   sends: [],
+  uploads: [],
+  mediaSends: [],
+  chatActions: [],
   legacySends: [],
   legacyConversationReads: 0,
   modern404s: [],
@@ -410,6 +413,34 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       picture_url: null,
       on_whatsapp: true,
       is_business: false,
+    };
+  } else if (path === "/files/upload" && method === "POST") {
+    state.uploads.push({
+      contentType: request.headers()["content-type"] || "",
+      size: request.postDataBuffer()?.byteLength || 0,
+    });
+    data = {
+      url: "https://storage.toumai.test/user_files/control-center-user/preuve.txt",
+      file_name: "preuve.txt",
+      size: 9,
+    };
+  } else if (path === "/whatsapp/media/send" && method === "POST") {
+    const body = request.postDataJSON();
+    state.mediaSends.push(body);
+    data = {
+      chat_id: body.to,
+      msg_id: "MEDIA-UI-1",
+      type: body.type,
+      status: "accepted",
+      accepted_by_gateway: true,
+    };
+  } else if (path === "/whatsapp/conversation/action" && method === "POST") {
+    const body = request.postDataJSON();
+    state.chatActions.push(body);
+    data = {
+      chat_id: body.chat_id,
+      action: body.action,
+      applied: true,
     };
   } else if (path === "/whatsapp/message/send" && method === "POST") {
     const body = request.postDataJSON();
@@ -562,11 +593,41 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByText("Contact WhatsApp", { exact: true }).waitFor();
   assert(
-    (await page.getByRole("button", { name: "Réponse suggérée" }).count()) === 0 &&
-      (await page.getByRole("button", { name: "Joindre un fichier" }).count()) === 0 &&
-      (await page.getByRole("button", { name: "Plus d’options" }).count()) === 0,
-    "Aucun contrôle Conversations non branché ne doit rester visible.",
+    (await page.getByRole("button", { name: "Réponse suggérée" }).count()) === 0,
+    "Un raccourci IA non branché ne doit pas réapparaître.",
   );
+
+  const attachmentInput = page.getByLabel("Sélectionner une pièce jointe");
+  await attachmentInput.setInputFiles({
+    name: "preuve.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("preuve C2"),
+  });
+  await page.getByRole("heading", { name: "Confirmer la pièce jointe" }).waitFor();
+  await page.getByText("preuve.txt", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Envoyer maintenant" }).click();
+  await page.getByRole("heading", { name: "Confirmer la pièce jointe" }).waitFor({ state: "hidden" });
+
+  assert(state.uploads.length === 1, `Une pièce jointe doit produire un seul upload, obtenu ${state.uploads.length}.`);
+  assert(
+    state.uploads[0].contentType.includes("multipart/form-data"),
+    "L'upload de pièce jointe doit rester multipart.",
+  );
+  assert(state.mediaSends.length === 1, `Une confirmation média doit produire un seul envoi, obtenu ${state.mediaSends.length}.`);
+  assert(state.mediaSends[0].to === "23566111111@s.whatsapp.net", "Le média doit conserver le JID exact sélectionné.");
+  assert(state.mediaSends[0].type === "document", "Un fichier texte doit suivre le flux document.");
+  assert(state.mediaSends[0].confirmed === true, "L'envoi média doit porter une confirmation explicite.");
+
+  await page.getByRole("button", { name: "Plus d’options" }).click();
+  await page.getByRole("button", { name: "Marquer comme lue", exact: true }).click();
+  await page.getByRole("heading", { name: "Marquer comme lue" }).waitFor();
+  await page.getByRole("button", { name: "Appliquer", exact: true }).click();
+  await page.getByRole("heading", { name: "Marquer comme lue" }).waitFor({ state: "hidden" });
+
+  assert(state.chatActions.length === 1, `Une action confirmée doit produire un seul appel, obtenu ${state.chatActions.length}.`);
+  assert(state.chatActions[0].chat_id === "23566111111@s.whatsapp.net", "L'action doit viser le JID exact sélectionné.");
+  assert(state.chatActions[0].action === "mark_read", "Le menu doit transmettre l'action canonique mark_read.");
+  assert(state.chatActions[0].confirmed === true, "L'action de conversation doit porter une confirmation explicite.");
   assert(
     (await page.getByText(/@lid/i).count()) === 0,
     "Un identifiant technique @lid ne doit jamais être visible dans l’interface.",

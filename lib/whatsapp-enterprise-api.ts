@@ -1,4 +1,4 @@
-import { http } from "./http";
+import { http, postForm } from "./http";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -256,6 +256,47 @@ export interface WaContactInfo {
   is_business: boolean;
 }
 
+export type WaConversationAction =
+  | "archive"
+  | "unarchive"
+  | "pin"
+  | "unpin"
+  | "mute"
+  | "unmute"
+  | "mark_read"
+  | "mark_unread"
+  | "clear"
+  | "delete";
+
+export interface WaConversationActionResult {
+  chat_id: string;
+  action: WaConversationAction;
+  applied: boolean;
+}
+
+export type WaMediaType =
+  | "image"
+  | "video"
+  | "gif"
+  | "audio"
+  | "voice"
+  | "sticker"
+  | "document";
+
+export interface WaUploadedFile {
+  url: string;
+  file_name: string;
+  size: number;
+}
+
+export interface WaMediaSendResult {
+  chat_id: string;
+  msg_id: string | null;
+  type: WaMediaType;
+  status: "accepted" | "unknown";
+  accepted_by_gateway: boolean;
+}
+
 export interface WaManualSendResult {
   chat_id: string;
   msg_id: string | null;
@@ -326,6 +367,43 @@ export function searchWaConversation(
 export function getWaContactInfo(chatId: string): Promise<WaContactInfo> {
   const query = new URLSearchParams({ chat_id: chatId });
   return http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`);
+}
+
+export async function uploadWaAttachment(file: File): Promise<WaUploadedFile> {
+  const form = new FormData();
+  form.append("file", file);
+  return postForm<WaUploadedFile>("/files/upload", form);
+}
+
+export function inferWaMediaType(file: File): WaMediaType {
+  const mime = (file.type || "").toLowerCase();
+  const name = file.name.toLowerCase();
+  if (mime === "image/gif" || name.endsWith(".gif")) return "gif";
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  if (name.endsWith(".webp")) return "sticker";
+  return "document";
+}
+
+export function sendWaMedia(input: {
+  to: string;
+  type: WaMediaType;
+  url: string;
+  caption?: string;
+  filename?: string;
+  confirmed: true;
+}): Promise<WaMediaSendResult> {
+  return http.post<WaMediaSendResult>("/whatsapp/media/send", input);
+}
+
+export function applyWaConversationAction(input: {
+  chat_id: string;
+  action: WaConversationAction;
+  duration?: "8h" | "1j" | "7j" | "always";
+  confirmed: true;
+}): Promise<WaConversationActionResult> {
+  return http.post<WaConversationActionResult>("/whatsapp/conversation/action", input);
 }
 
 export function sendWaManualMessage(input: {

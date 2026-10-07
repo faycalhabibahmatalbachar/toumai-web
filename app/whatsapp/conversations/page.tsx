@@ -2,9 +2,18 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
+  Trash2,
+  Pin,
+  MoreVertical,
+  MailOpen,
+  Mail,
+  Loader2,
+  Eraser,
+  BellOff,
+  Archive,
   Bot,
   BookOpen,
   Check,
@@ -30,7 +39,9 @@ import {
 } from "lucide-react";
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
+import { WhatsAppAttachmentModal } from "@/components/whatsapp/WhatsAppAttachmentModal";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
+import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
@@ -39,10 +50,14 @@ import {
   getWaContactInfo,
   getWaConversationMessages,
   getWaLiveConversations,
+  inferWaMediaType,
   searchWaConversation,
+  uploadWaAttachment,
   type WaContactInfo,
   type WaLiveConversation,
   type WaLiveMessage,
+  type WaMediaType,
+  type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
 import { safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
 
@@ -106,6 +121,16 @@ export default function WhatsAppConversationsPage() {
   const [contactInfoLoading, setContactInfoLoading] = useState(false);
   const [contactInfoError, setContactInfoError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentUploaded, setAttachmentUploaded] = useState<WaUploadedFile | null>(null);
+  const [attachmentType, setAttachmentType] = useState<WaMediaType | null>(null);
+  const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
+  const [muteMenuOpen, setMuteMenuOpen] = useState(false);
+  const [actionRequest, setActionRequest] = useState<ConversationActionRequest | null>(null);
 
   const visibleMessages = useMemo(
     () =>
@@ -304,6 +329,11 @@ export default function WhatsAppConversationsPage() {
     setContactInfoOpen(false);
     setContactInfo(null);
     setEmojiOpen(false);
+    setConversationMenuOpen(false);
+    setMuteMenuOpen(false);
+    setActionRequest(null);
+    setAttachmentError(null);
+    closeAttachmentReview();
     setSelected(conversation);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
@@ -321,6 +351,11 @@ export default function WhatsAppConversationsPage() {
     setContactInfoOpen(false);
     setContactInfo(null);
     setEmojiOpen(false);
+    setConversationMenuOpen(false);
+    setMuteMenuOpen(false);
+    setActionRequest(null);
+    setAttachmentError(null);
+    closeAttachmentReview();
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.delete("chat");
@@ -339,6 +374,44 @@ export default function WhatsAppConversationsPage() {
     setComposeTarget(selected);
     setComposeSeed(replyDraft.trim());
     setComposeOpen(true);
+  }
+
+  async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    event.currentTarget.value = "";
+    if (!file || !selected || attachmentUploading) return;
+    if (file.size > 100 * 1024 * 1024) {
+      setAttachmentError("Fichier trop volumineux (100 Mo maximum).");
+      return;
+    }
+
+    setAttachmentUploading(true);
+    setAttachmentError(null);
+    setEmojiOpen(false);
+    try {
+      const uploaded = await uploadWaAttachment(file);
+      setAttachmentFile(file);
+      setAttachmentUploaded(uploaded);
+      setAttachmentType(inferWaMediaType(file));
+      setAttachmentOpen(true);
+    } catch (error) {
+      setAttachmentError(errorMessage(error, "generic"));
+    } finally {
+      setAttachmentUploading(false);
+    }
+  }
+
+  function prepareConversationAction(request: ConversationActionRequest) {
+    setConversationMenuOpen(false);
+    setMuteMenuOpen(false);
+    setActionRequest(request);
+  }
+
+  function closeAttachmentReview() {
+    setAttachmentOpen(false);
+    setAttachmentFile(null);
+    setAttachmentUploaded(null);
+    setAttachmentType(null);
   }
 
   return (
@@ -638,6 +711,75 @@ export default function WhatsAppConversationsPage() {
                       <Info size={17} />
                     </button>
                   )}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      title="Plus d’options"
+                      aria-label="Plus d’options"
+                      aria-expanded={conversationMenuOpen}
+                      onClick={() => {
+                        setConversationMenuOpen((value) => !value);
+                        setMuteMenuOpen(false);
+                      }}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl border transition hover:bg-white/[0.04]"
+                      style={{
+                        borderColor: conversationMenuOpen ? "rgba(8,200,117,.45)" : BORDER,
+                        background: RAISED,
+                        color: conversationMenuOpen ? GREEN : MUTED,
+                      }}
+                    >
+                      <MoreVertical size={17} />
+                    </button>
+
+                    {conversationMenuOpen && (
+                      <div
+                        className="absolute right-0 top-11 z-40 w-56 rounded-xl border p-1.5 shadow-2xl"
+                        style={{ borderColor: BORDER, background: "#111f2a" }}
+                      >
+                        <ConversationMenuItem icon={<Archive size={15} />} label="Archiver" onClick={() => prepareConversationAction({ action: "archive" })} />
+                        <ConversationMenuItem icon={<Pin size={15} />} label="Épingler" onClick={() => prepareConversationAction({ action: "pin" })} />
+
+                        <div className="relative">
+                          <ConversationMenuItem
+                            icon={<BellOff size={15} />}
+                            label="Mettre en sourdine"
+                            onClick={() => setMuteMenuOpen((value) => !value)}
+                          />
+                          {muteMenuOpen && (
+                            <div
+                              className="absolute right-full top-0 mr-1 w-36 rounded-xl border p-1.5 shadow-2xl"
+                              style={{ borderColor: BORDER, background: "#111f2a" }}
+                            >
+                              {([
+                                ["8h", "8 heures"],
+                                ["1j", "1 jour"],
+                                ["7j", "7 jours"],
+                                ["always", "Toujours"],
+                              ] as const).map(([duration, label]) => (
+                                <button
+                                  key={duration}
+                                  type="button"
+                                  onClick={() => prepareConversationAction({ action: "mute", duration })}
+                                  className="flex h-9 w-full items-center rounded-lg px-3 text-left text-xs hover:bg-white/[0.05]"
+                                  style={{ color: MUTED }}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="my-1 h-px" style={{ background: BORDER }} />
+                        <ConversationMenuItem icon={<MailOpen size={15} />} label="Marquer comme lue" onClick={() => prepareConversationAction({ action: "mark_read" })} />
+                        <ConversationMenuItem icon={<Mail size={15} />} label="Marquer comme non lue" onClick={() => prepareConversationAction({ action: "mark_unread" })} />
+
+                        <div className="my-1 h-px" style={{ background: BORDER }} />
+                        <ConversationMenuItem icon={<Eraser size={15} />} label="Vider la conversation" danger onClick={() => prepareConversationAction({ action: "clear" })} />
+                        <ConversationMenuItem icon={<Trash2 size={15} />} label="Supprimer la conversation" danger onClick={() => prepareConversationAction({ action: "delete" })} />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {threadSearchOpen && (
@@ -835,6 +977,26 @@ export default function WhatsAppConversationsPage() {
                         )}
                       </div>
 
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Sélectionner une pièce jointe"
+                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                        onChange={(event) => void handleAttachmentSelected(event)}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Joindre un fichier"
+                        title="Joindre un fichier"
+                        disabled={attachmentUploading}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-45"
+                        style={{ color: MUTED }}
+                      >
+                        {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
+                      </button>
+
                       <textarea
                         value={replyDraft}
                         onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
@@ -868,6 +1030,11 @@ export default function WhatsAppConversationsPage() {
                         <Send size={18} />
                       </button>
                     </div>
+                    {attachmentError && (
+                      <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
+                        {attachmentError}
+                      </p>
+                    )}
                     <div className="mt-1.5 flex items-center justify-between px-1 text-[9px]" style={{ color: FAINT }}>
                       <span className="lg:hidden">Confirmation requise avant chaque envoi.</span>
                       <span className="ml-auto">{replyDraft.length}/4096</span>
@@ -893,7 +1060,62 @@ export default function WhatsAppConversationsPage() {
           void loadConversations(query, filter);
         }}
       />
+
+      <WhatsAppAttachmentModal
+        key={attachmentUploaded?.url || "wa-attachment"}
+        open={attachmentOpen}
+        conversation={selected}
+        file={attachmentFile}
+        uploaded={attachmentUploaded}
+        mediaType={attachmentType}
+        onClose={closeAttachmentReview}
+        onSent={() => {
+          setAttachmentError(null);
+          if (selected) window.setTimeout(() => void loadThread(selected), 700);
+          void loadConversations(query, filter);
+        }}
+      />
+
+      <WhatsAppConversationActionModal
+        key={actionRequest ? `${selected?.id || "chat"}:${actionRequest.action}:${actionRequest.duration || ""}` : "wa-action"}
+        open={Boolean(actionRequest)}
+        conversation={selected}
+        request={actionRequest}
+        onClose={() => setActionRequest(null)}
+        onApplied={(action) => {
+          void loadConversations(query, filter);
+          if (action === "archive" || action === "delete") {
+            backToConversationList();
+          } else if (selected) {
+            window.setTimeout(() => void loadThread(selected), 300);
+          }
+        }}
+      />
     </div>
+  );
+}
+
+function ConversationMenuItem({
+  icon,
+  label,
+  danger = false,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-xs transition hover:bg-white/[0.05]"
+      style={{ color: danger ? "#ff9d9d" : MUTED }}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }
 
