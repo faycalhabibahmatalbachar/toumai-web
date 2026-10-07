@@ -319,6 +319,7 @@ const state = {
   edits: [],
   uploads: [],
   mediaSends: [],
+  mediaLoads: [],
   chatActions: [],
   legacySends: [],
   legacyConversationReads: 0,
@@ -337,6 +338,19 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const path = url.pathname.replace("/api/v1", "");
   const method = request.method();
   let data = {};
+
+  if (path.startsWith("/whatsapp/media/") && method === "GET") {
+    state.mediaLoads.push(path);
+    await route.fulfill({
+      status: 200,
+      contentType: "image/png",
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
+    return;
+  }
 
   if (path === "/whatsapp/events") {
     state.realtimeAuth.push(request.headers()["authorization"] || "");
@@ -507,15 +521,22 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       read_confirmed: false,
     };
   } else if (path === "/whatsapp/message/status") {
+    const statusMsgId = url.searchParams.get("msg_id") || "MSG-UI-1";
+    const isInfoTarget = statusMsgId === "t2";
     data = {
-      msg_id: "MSG-UI-1",
+      msg_id: statusMsgId,
       chat_id: url.searchParams.get("chat_id"),
       known: true,
-      status: "delivered",
+      status: isInfoTarget ? "read" : "delivered",
       server_ack_confirmed: true,
       delivery_confirmed: true,
-      read_confirmed: false,
+      read_confirmed: isInfoTarget,
       failed: false,
+      sent_at: now - 120_000,
+      edited_at: isInfoTarget ? now - 30_000 : null,
+      timeline: isInfoTarget
+        ? { sent: now - 120_000, delivered: now - 110_000, read: now - 90_000 }
+        : { sent: now - 120_000, delivered: now - 110_000 },
     };
   } else if (path === "/whatsapp/suggestion/send" && method === "POST") {
     const body = request.postDataJSON();
@@ -759,6 +780,20 @@ async function certifyConversations() {
   assert(state.replies.at(-1).message === "Ancien message corrigé", "La correction doit envoyer le texte exact.");
 
   const mediaOutbound = page.locator('[data-message-id="t-media"]');
+  await mediaOutbound.locator("img").waitFor();
+  assert(
+    state.mediaLoads.some((path) => path.endsWith("/whatsapp/media/t-media")),
+    "Une image du fil doit charger ses octets réels via l'endpoint média authentifié.",
+  );
+
+  await outboundT2.getByRole("button", { name: "Infos" }).click();
+  await page.getByRole("heading", { name: "Infos du message" }).waitFor();
+  await page.getByText("Lu", { exact: true }).waitFor();
+  await page.getByText("Distribué", { exact: true }).waitFor();
+  await page.getByText("Envoyé", { exact: true }).waitFor();
+  await page.getByText("Modifié", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Fermer" }).click();
+
   await mediaOutbound.getByRole("button", { name: "Corriger" }).click();
   await page.getByText("Corriger le média", { exact: true }).waitFor();
   const mediaTextCorrection = page.getByPlaceholder("Écrire une correction ou joindre un fichier…");
