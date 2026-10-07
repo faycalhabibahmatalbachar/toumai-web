@@ -229,23 +229,34 @@ export default function WhatsAppConversationsPage() {
     }
   }, [kindFilter]);
 
-  const loadThread = useCallback(async (conversation: WaLiveConversation) => {
-    setLoadingThread(true);
-    setThreadError(null);
+  const loadThread = useCallback(async (
+    conversation: WaLiveConversation,
+    options: { silent?: boolean } = {},
+  ) => {
+    const silent = Boolean(options.silent);
+    if (!silent) {
+      setLoadingThread(true);
+      setThreadError(null);
+    }
     try {
       const data = await getWaConversationMessages(conversation.id, 120);
       setMessages(data.messages);
+      if (!silent) setThreadError(null);
     } catch (error) {
-      setMessages([]);
-      setThreadError(errorMessage(error, "history"));
+      // Une resynchronisation de fond ne doit jamais faire disparaître un fil
+      // déjà visible ni démonter ses contrôles pendant une interaction.
+      if (!silent) {
+        setMessages([]);
+        setThreadError(errorMessage(error, "history"));
+      }
     } finally {
-      setLoadingThread(false);
+      if (!silent) setLoadingThread(false);
     }
   }, []);
 
   const refreshRealtimeConversations = useCallback(async () => {
     await loadConversations(query, filter);
-    if (selected) await loadThread(selected);
+    if (selected) await loadThread(selected, { silent: true });
   }, [filter, loadConversations, loadThread, query, selected]);
 
   useWhatsAppRealtimeInvalidation({
@@ -463,7 +474,7 @@ export default function WhatsAppConversationsPage() {
         setReplyDraft("");
         setEditingMessage(null);
         setCorrectionTarget(null);
-        window.setTimeout(() => void loadThread(selected), 350);
+        window.setTimeout(() => void loadThread(selected, { silent: true }), 350);
       } catch (error) {
         if (isWaNativeEditExpired(editTarget)) {
           setEditingMessage(null);
@@ -533,7 +544,7 @@ export default function WhatsAppConversationsPage() {
       );
       setCorrectionTarget(null);
       void loadConversations(query, filter);
-      window.setTimeout(() => void loadThread(selected), 450);
+      window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
       setMessages((current) =>
         current.map((message) =>
