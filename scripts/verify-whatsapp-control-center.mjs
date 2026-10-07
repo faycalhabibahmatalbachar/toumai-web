@@ -729,6 +729,7 @@ async function certifyConversations() {
     "Un raccourci IA non branché ne doit pas réapparaître.",
   );
 
+  const mediaBeforeAttachment = state.mediaSends.length;
   const attachmentInput = page.getByLabel("Sélectionner une pièce jointe");
   await attachmentInput.setInputFiles({
     name: "preuve.txt",
@@ -745,10 +746,14 @@ async function certifyConversations() {
     state.uploads[0].contentType.includes("multipart/form-data"),
     "L'upload de pièce jointe doit rester multipart.",
   );
-  assert(state.mediaSends.length === 1, `Une confirmation média doit produire un seul envoi, obtenu ${state.mediaSends.length}.`);
-  assert(state.mediaSends[0].to === "23566111111@s.whatsapp.net", "Le média doit conserver le JID exact sélectionné.");
-  assert(state.mediaSends[0].type === "document", "Un fichier texte doit suivre le flux document.");
-  assert(state.mediaSends[0].confirmed === true, "L'envoi média doit porter une confirmation explicite.");
+  assert(
+    state.mediaSends.length === mediaBeforeAttachment + 1,
+    `Une pièce jointe confirmée doit produire un seul nouvel envoi, obtenu ${state.mediaSends.length - mediaBeforeAttachment}.`,
+  );
+  const attachmentSend = state.mediaSends.at(-1);
+  assert(attachmentSend.to === "23566111111@s.whatsapp.net", "Le média doit conserver le JID exact sélectionné.");
+  assert(attachmentSend.type === "document", "Un fichier texte doit suivre le flux document.");
+  assert(attachmentSend.confirmed === true, "L'envoi média doit porter une confirmation explicite.");
 
   await page.getByRole("button", { name: "Plus d’options" }).click();
   await page.getByRole("button", { name: "Marquer comme lue", exact: true }).click();
