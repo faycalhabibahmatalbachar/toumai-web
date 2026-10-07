@@ -1101,9 +1101,41 @@ export default function WhatsAppConversationsPage() {
 
                 <div className="px-3 pb-3 md:px-5" style={{ background: SURFACE }}>
                   <div className="mx-auto max-w-[980px]">
+                    {(replyingTo || editingMessage) && (
+                      <div
+                        className="mb-2 flex items-start gap-3 rounded-xl border px-3 py-2.5"
+                        style={{ borderColor: "rgba(8,200,117,.28)", background: "rgba(8,200,117,.06)" }}
+                      >
+                        <div className="mt-0.5" style={{ color: GREEN }}>
+                          {editingMessage ? <Pencil size={15} /> : <Reply size={15} />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-semibold" style={{ color: GREEN }}>
+                            {editingMessage ? "Modifier votre message" : "Répondre à ce message"}
+                          </p>
+                          <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
+                            {(editingMessage || replyingTo)?.text || messageTypeLabel((editingMessage || replyingTo)?.type || "text")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Annuler"
+                          onClick={() => {
+                            setReplyingTo(null);
+                            setEditingMessage(null);
+                            setReplyDraft("");
+                          }}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.05]"
+                          style={{ color: MUTED }}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+
                     <div
                       className="flex items-end gap-2 rounded-[16px] border p-2"
-                      style={{ borderColor: BORDER, background: RAISED }}
+                      style={{ borderColor: sendError ? "rgba(255,107,107,.45)" : BORDER, background: RAISED }}
                     >
                       <div className="relative shrink-0">
                         <button
@@ -1152,46 +1184,41 @@ export default function WhatsAppConversationsPage() {
                       </button>
 
                       <textarea
+                        ref={composerRef}
                         value={replyDraft}
-                        onChange={(event) => setReplyDraft(event.target.value.slice(0, 4096))}
+                        onChange={(event) => {
+                          setReplyDraft(event.target.value.slice(0, 4096));
+                          if (sendError) setSendError(null);
+                        }}
                         onKeyDown={(event) => {
-                          if (event.key === "Enter" && !event.shiftKey && replyDraft.trim()) {
+                          if (event.key === "Enter" && !event.shiftKey && replyDraft.trim() && !sendingMessage) {
                             event.preventDefault();
-                            openReplyReview();
+                            void sendCurrentMessage();
                           }
                         }}
-                        placeholder="Écrire un message…"
+                        placeholder={editingMessage ? "Modifier le message…" : replyingTo ? "Écrire votre réponse…" : "Écrire un message…"}
                         rows={1}
                         className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
                       />
 
-                      <span
-                        className="hidden shrink-0 items-center gap-1.5 px-2 text-[9px] lg:inline-flex"
-                        style={{ color: FAINT }}
-                      >
-                        <ShieldCheck size={14} color={GREEN} />
-                        Confirmation avant envoi
-                      </span>
-
                       <button
                         type="button"
-                        disabled={!replyDraft.trim()}
-                        onClick={openReplyReview}
-                        aria-label="Vérifier l’envoi"
+                        disabled={!replyDraft.trim() || sendingMessage}
+                        onClick={() => void sendCurrentMessage()}
+                        aria-label={editingMessage ? "Enregistrer la modification" : "Envoyer le message"}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
                         style={{ background: GREEN }}
                       >
-                        <Send size={18} />
+                        {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : editingMessage ? <Check size={18} /> : <Send size={18} />}
                       </button>
                     </div>
-                    {attachmentError && (
+                    {(attachmentError || sendError) && (
                       <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
-                        {attachmentError}
+                        {sendError || attachmentError}
                       </p>
                     )}
-                    <div className="mt-1.5 flex items-center justify-between px-1 text-[9px]" style={{ color: FAINT }}>
-                      <span className="lg:hidden">Confirmation requise avant chaque envoi.</span>
-                      <span className="ml-auto">{replyDraft.length}/4096</span>
+                    <div className="mt-1.5 flex items-center justify-end px-1 text-[9px]" style={{ color: FAINT }}>
+                      <span>{replyDraft.length}/4096 · Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne</span>
                     </div>
                   </div>
                 </div>
@@ -1204,12 +1231,7 @@ export default function WhatsAppConversationsPage() {
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
-        initialRecipient={composeTarget?.id}
-        initialName={composeTarget?.name}
-        initialMessage={composeSeed}
         onSent={() => {
-          setReplyDraft("");
-          setComposeSeed("");
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
           void loadConversations(query, filter);
         }}
