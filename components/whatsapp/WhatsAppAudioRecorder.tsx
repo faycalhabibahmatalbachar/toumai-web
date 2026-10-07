@@ -1,11 +1,13 @@
 "use client";
 
-import { Loader2, Mic, Send, X } from "lucide-react";
+import { Loader2, Mic, Pause, Play, Send, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const MUTED = "#9ba8b3";
 const GREEN = "#08c875";
-const RED = "#ff6b6b";
+const RED = "#ff7185";
+const RAISED = "#17201f";
+const BORDER = "#26332f";
 
 export function WhatsAppAudioRecorder({
   disabled = false,
@@ -20,36 +22,93 @@ export function WhatsAppAudioRecorder({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationRef = useRef<number | null>(null);
+
   const [recording, setRecording] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [preparing, setPreparing] = useState(false);
+  const [levels, setLevels] = useState<number[]>(() => Array.from({ length: 34 }, () => 0.12));
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) window.clearInterval(timerRef.current);
+    return () => cleanup(true);
+    // The recorder owns browser resources; cleanup only on unmount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function stopVisualizer() {
+    if (animationRef.current !== null) {
+      window.cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    analyserRef.current = null;
+    const context = audioContextRef.current;
+    audioContextRef.current = null;
+    if (context && context.state !== "closed") {
+      void context.close().catch(() => {});
+    }
+  }
+
+  function cleanup(stopRecorder = false) {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (stopRecorder) {
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== "inactive") {
         try {
           recorder.stop();
         } catch {
-          // Best-effort cleanup when leaving the conversation.
+          // Best-effort cleanup.
         }
       }
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
-
-  function cleanup() {
-    if (timerRef.current !== null) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
     }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     recorderRef.current = null;
     chunksRef.current = [];
+    pausedRef.current = false;
+    stopVisualizer();
     setRecording(false);
+    setPaused(false);
     setSeconds(0);
+    setLevels(Array.from({ length: 34 }, () => 0.12));
+  }
+
+  function startVisualizer(stream: MediaStream) {
+    try {
+      const AudioContextCtor = window.AudioContext;
+      const context = new AudioContextCtor();
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 128;
+      analyser.smoothingTimeConstant = 0.72;
+      const source = context.createMediaStreamSource(stream);
+      source.connect(analyser);
+      audioContextRef.current = context;
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      const draw = () => {
+        const active = analyserRef.current;
+        if (!active) return;
+        active.getByteFrequencyData(data);
+        const bars = 34;
+        const stride = Math.max(1, Math.floor(data.length / bars));
+        const next = Array.from({ length: bars }, (_, index) => {
+          const value = data[Math.min(data.length - 1, index * stride)] || 0;
+          return Math.max(0.12, Math.min(1, value / 170));
+        });
+        setLevels(next);
+        animationRef.current = window.requestAnimationFrame(draw);
+      };
+      draw();
+    } catch {
+      // Recording still works if Web Audio visualization is unavailable.
+    }
   }
 
   async function start() {
@@ -85,10 +144,13 @@ export function WhatsAppAudioRecorder({
       });
 
       recorder.start(250);
+      pausedRef.current = false;
       setRecording(true);
+      setPaused(false);
       setSeconds(0);
+      startVisualizer(stream);
       timerRef.current = window.setInterval(() => {
-        setSeconds((value) => value + 1);
+        if (!pausedRef.current) setSeconds((value) => value + 1);
       }, 1000);
     } catch (error) {
       stream?.getTracks().forEach((track) => track.stop());
@@ -115,7 +177,7 @@ export function WhatsAppAudioRecorder({
           const blob = new Blob(chunksRef.current, { type: mime });
           const extension = mime.includes("ogg") ? "ogg" : "webm";
           const file = blob.size
-            ? new File([blob], `audio-${Date.now()}.${extension}`, { type: mime })
+            ? new File([blob], `vocal-${Date.now()}.${extension}`, { type: mime })
             : null;
           cleanup();
           resolve(file);
@@ -124,6 +186,23 @@ export function WhatsAppAudioRecorder({
       );
       recorder.stop();
     });
+  }
+
+  function togglePause() {
+    const recorder = recorderRef.current;
+    if (!recorder || recorder.state === "inactive" || preparing) return;
+
+    if (recorder.state === "recording") {
+      recorder.pause();
+      pausedRef.current = true;
+      setPaused(true);
+      return;
+    }
+    if (recorder.state === "paused") {
+      recorder.resume();
+      pausedRef.current = false;
+      setPaused(false);
+    }
   }
 
   async function send() {
@@ -141,7 +220,7 @@ export function WhatsAppAudioRecorder({
     }
   }
 
-  async function cancel() {
+  async function discard() {
     if (!recording || preparing) return;
     await stopAsFile();
   }
@@ -163,31 +242,59 @@ export function WhatsAppAudioRecorder({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div
+      className="absolute inset-0 z-30 flex items-center gap-3 rounded-[16px] border px-3 shadow-[0_10px_35px_rgba(0,0,0,.22)]"
+      style={{ background: RAISED, borderColor: BORDER }}
+    >
       <button
         type="button"
-        aria-label="Annuler l’enregistrement"
-        title="Annuler"
+        aria-label="Supprimer l’enregistrement"
+        title="Supprimer"
         disabled={preparing}
-        onClick={() => void cancel()}
-        className="flex h-9 w-9 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-40"
-        style={{ color: RED }}
+        onClick={() => void discard()}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.05] disabled:opacity-40"
+        style={{ color: "#eef3f5" }}
       >
-        <X size={17} />
+        <Trash2 size={18} />
       </button>
-      <span className="min-w-[42px] text-center text-[10px] tabular-nums" style={{ color: RED }}>
-        ● {formatDuration(seconds)}
+
+      <span className="flex min-w-[58px] shrink-0 items-center gap-2 text-[12px] tabular-nums text-white">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: RED, opacity: paused ? 0.45 : 1 }} />
+        {formatDuration(seconds)}
       </span>
+
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-[2px] overflow-hidden" aria-label="Niveau audio">
+        {levels.map((level, index) => (
+          <span
+            key={index}
+            className="w-[3px] shrink-0 rounded-full bg-white/55 transition-[height] duration-75"
+            style={{ height: `${Math.round(8 + level * 22)}px`, opacity: paused ? 0.35 : 0.85 }}
+          />
+        ))}
+      </div>
+
+      <button
+        type="button"
+        aria-label={paused ? "Reprendre l’enregistrement" : "Mettre l’enregistrement en pause"}
+        title={paused ? "Reprendre" : "Pause"}
+        disabled={preparing}
+        onClick={togglePause}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.05] disabled:opacity-40"
+        style={{ color: "#ff9ab0" }}
+      >
+        {paused ? <Play size={17} fill="currentColor" /> : <Pause size={17} fill="currentColor" />}
+      </button>
+
       <button
         type="button"
         aria-label="Envoyer l’audio"
-        title="Envoyer l’audio"
+        title="Envoyer"
         disabled={preparing}
         onClick={() => void send()}
-        className="flex h-9 w-9 items-center justify-center rounded-xl text-white disabled:opacity-40"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#062015] shadow-[0_8px_24px_rgba(8,200,117,.25)] disabled:opacity-40"
         style={{ background: GREEN }}
       >
-        {preparing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+        {preparing ? <Loader2 size={17} className="animate-spin" /> : <Send size={20} fill="currentColor" />}
       </button>
     </div>
   );
