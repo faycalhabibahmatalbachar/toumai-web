@@ -2258,7 +2258,7 @@ function isTextMessageType(type: string) {
 }
 
 function isMediaMessageType(type: string) {
-  return ["image", "video", "gif", "audio", "voice", "voix", "sticker", "document"].includes(type);
+  return ["image", "video", "gif", "audio", "voice", "voix", "sticker", "document", "poll", "contact"].includes(type);
 }
 
 function isWaNativeEditExpired(message: WaLiveMessage) {
