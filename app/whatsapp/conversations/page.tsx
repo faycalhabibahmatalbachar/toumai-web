@@ -43,6 +43,7 @@ import {
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppAttachmentModal } from "@/components/whatsapp/WhatsAppAttachmentModal";
+import { WhatsAppAudioRecorder } from "@/components/whatsapp/WhatsAppAudioRecorder";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
@@ -139,6 +140,7 @@ export default function WhatsAppConversationsPage() {
   const [attachmentUploaded, setAttachmentUploaded] = useState<WaUploadedFile | null>(null);
   const [attachmentType, setAttachmentType] = useState<WaMediaType | null>(null);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
   const [muteMenuOpen, setMuteMenuOpen] = useState(false);
   const [actionRequest, setActionRequest] = useState<ConversationActionRequest | null>(null);
@@ -530,10 +532,8 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
-  async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] || null;
-    event.currentTarget.value = "";
-    if (!file || !selected || attachmentUploading) return;
+  async function prepareAttachment(file: File) {
+    if (!selected || attachmentUploading) return;
     if (file.size > 100 * 1024 * 1024) {
       setAttachmentError("Fichier trop volumineux (100 Mo maximum).");
       return;
@@ -553,6 +553,12 @@ export default function WhatsAppConversationsPage() {
     } finally {
       setAttachmentUploading(false);
     }
+  }
+
+  async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    event.currentTarget.value = "";
+    if (file) await prepareAttachment(file);
   }
 
   function prepareConversationAction(request: ConversationActionRequest) {
@@ -1141,9 +1147,42 @@ export default function WhatsAppConversationsPage() {
                     )}
 
                     <div
-                      className="flex items-end gap-2 rounded-[16px] border p-2"
-                      style={{ borderColor: sendError ? "rgba(255,107,107,.45)" : BORDER, background: RAISED }}
+                      className="relative flex items-end gap-2 rounded-[16px] border p-2"
+                      style={{
+                        borderColor: dragActive
+                          ? "rgba(8,200,117,.75)"
+                          : sendError
+                            ? "rgba(255,107,107,.45)"
+                            : BORDER,
+                        background: dragActive ? "rgba(8,200,117,.055)" : RAISED,
+                      }}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setDragActive(true);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDragActive(true);
+                      }}
+                      onDragLeave={(event) => {
+                        event.preventDefault();
+                        if (event.currentTarget === event.target) setDragActive(false);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        setDragActive(false);
+                        const file = event.dataTransfer.files?.[0];
+                        if (file) void prepareAttachment(file);
+                      }}
                     >
+                      {dragActive && (
+                        <div
+                          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[16px] border border-dashed text-[11px] font-semibold"
+                          style={{ borderColor: GREEN, background: "rgba(6,17,26,.90)", color: GREEN }}
+                        >
+                          Déposez le fichier ici
+                        </div>
+                      )}
                       <div className="relative shrink-0">
                         <button
                           type="button"
@@ -1190,12 +1229,25 @@ export default function WhatsAppConversationsPage() {
                         {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
                       </button>
 
+                      <WhatsAppAudioRecorder
+                        disabled={attachmentUploading || sendingMessage}
+                        onRecorded={prepareAttachment}
+                        onError={(message) => setAttachmentError(message)}
+                      />
+
                       <textarea
                         ref={composerRef}
                         value={replyDraft}
                         onChange={(event) => {
                           setReplyDraft(event.target.value.slice(0, 4096));
                           if (sendError) setSendError(null);
+                        }}
+                        onPaste={(event) => {
+                          const file = event.clipboardData.files?.[0];
+                          if (file) {
+                            event.preventDefault();
+                            void prepareAttachment(file);
+                          }
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" && !event.shiftKey && replyDraft.trim() && !sendingMessage) {
