@@ -462,7 +462,7 @@ async function certifyOverviewComposer() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "WhatsApp Overview" }).waitFor();
-  await page.getByText("Non instrumenté sur tous les messages", { exact: true }).waitFor();
+  await page.getByText("Données en cours de collecte", { exact: true }).waitFor();
   for (let attempt = 0; attempt < 20 && state.realtimeAuth.length === 0; attempt++) {
     await page.waitForTimeout(50);
   }
