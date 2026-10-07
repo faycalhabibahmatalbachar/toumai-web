@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, ImageIcon, Loader2, Send, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { errorMessage } from "@/lib/errors";
 import {
@@ -38,6 +38,17 @@ export function WhatsAppAttachmentModal({
   const [caption, setCaption] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  useEffect(() => {
+    if (!open || !file) {
+      setPreviewUrl("");
+      return;
+    }
+    const next = URL.createObjectURL(file);
+    setPreviewUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [open, file]);
 
   if (!open || !conversation || !file || !uploaded || !mediaType) return null;
 
@@ -56,6 +67,7 @@ export function WhatsAppAttachmentModal({
         type: activeMediaType,
         url: activeUpload.url,
         filename: activeUpload.file_name || activeFile.name,
+        mimetype: activeFile.type || undefined,
         caption: caption.trim() || undefined,
         confirmed: true,
       });
@@ -90,7 +102,7 @@ export function WhatsAppAttachmentModal({
             {isVisual ? <ImageIcon size={18} /> : <FileText size={18} />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 id="wa-attachment-title" className="text-[16px] font-semibold">Confirmer la pièce jointe</h2>
+            <h2 id="wa-attachment-title" className="text-[16px] font-semibold">Pièce jointe</h2>
             <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
               {conversation.name}
             </p>
@@ -108,6 +120,22 @@ export function WhatsAppAttachmentModal({
         </header>
 
         <div className="p-5">
+          {previewUrl && mediaType === "image" && (
+            <div className="mb-4 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "#08131c" }}>
+              <img src={previewUrl} alt={file.name} className="max-h-[320px] w-full object-contain" />
+            </div>
+          )}
+          {previewUrl && (mediaType === "video" || mediaType === "gif") && (
+            <div className="mb-4 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "#08131c" }}>
+              <video src={previewUrl} controls className="max-h-[320px] w-full" />
+            </div>
+          )}
+          {previewUrl && (mediaType === "audio" || mediaType === "voice") && (
+            <div className="mb-4 rounded-xl border p-3" style={{ borderColor: BORDER, background: RAISED }}>
+              <audio src={previewUrl} controls className="w-full" />
+            </div>
+          )}
+
           <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: RAISED }}>
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.04]">
@@ -145,10 +173,6 @@ export function WhatsAppAttachmentModal({
             </p>
           )}
 
-          <p className="mt-4 text-[11px] leading-5" style={{ color: MUTED }}>
-            Le fichier a été préparé dans votre espace Toumaï. Il ne sera envoyé sur WhatsApp qu’après votre confirmation.
-          </p>
-
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
@@ -169,7 +193,7 @@ export function WhatsAppAttachmentModal({
               {sending ? (
                 <><Loader2 size={17} className="animate-spin" /> Envoi…</>
               ) : (
-                <><Send size={17} /> Envoyer maintenant</>
+                <><Send size={17} /> Envoyer</>
               )}
             </button>
           </div>

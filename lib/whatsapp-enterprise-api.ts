@@ -403,6 +403,7 @@ export function sendWaMedia(input: {
   url: string;
   caption?: string;
   filename?: string;
+  mimetype?: string;
   confirmed: true;
 }): Promise<WaMediaSendResult> {
   return http.post<WaMediaSendResult>("/whatsapp/media/send", input);
