@@ -549,7 +549,7 @@ async function certifyConversations() {
   const threadSearch = page.getByPlaceholder("Rechercher dans cette conversation…");
   await threadSearch.fill("rappeler");
   await page.getByText("1 résultat", { exact: true }).waitFor();
-  await page.getByText("Tu peux me rappeler ?", { exact: true }).waitFor();
+  await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
 
   await page.getByRole("button", { name: "Informations du contact" }).click();
   await page.getByText("Disponible pour un rappel", { exact: true }).waitFor();
