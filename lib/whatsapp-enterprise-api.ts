@@ -306,6 +306,7 @@ export interface WaMediaSendResult {
   type: WaMediaType;
   status: "accepted" | "unknown";
   accepted_by_gateway: boolean;
+  reply_to?: string | null;
 }
 
 export interface WaManualSendResult {
@@ -404,6 +405,10 @@ export function sendWaMedia(input: {
   caption?: string;
   filename?: string;
   mimetype?: string;
+  reply_to_msg_id?: string;
+  reply_to_text?: string;
+  reply_to_type?: string;
+  reply_to_sender?: string;
   confirmed: true;
 }): Promise<WaMediaSendResult> {
   return http.post<WaMediaSendResult>("/whatsapp/media/send", input);
