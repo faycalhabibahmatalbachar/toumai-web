@@ -708,8 +708,9 @@ async function certifyConversations() {
   const mediaBeforeContact = state.mediaSends.length;
   await page.getByRole("menuitem", { name: "Contact", exact: true }).click();
   await page.getByRole("heading", { name: "Partager un contact" }).waitFor();
-  await page.getByText("Amina Saleh", { exact: true }).waitFor();
-  await page.getByText("Amina Saleh", { exact: true }).click();
+  const aminaContact = page.getByRole("button", { name: /Amina Saleh/ });
+  await aminaContact.waitFor();
+  await aminaContact.click();
   await page.getByRole("button", { name: "Partager", exact: true }).click();
   await page.getByRole("heading", { name: "Partager un contact" }).waitFor({ state: "hidden" });
   assert(state.mediaSends.length === mediaBeforeContact + 1, "Le partage de contact doit produire un seul envoi réel.");
