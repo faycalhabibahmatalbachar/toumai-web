@@ -302,7 +302,7 @@ export default function WhatsAppOverviewPage() {
               delta={metricDelta(responseMetric)}
               unit={metricDeltaUnit(responseMetric)}
               loading={overviewDataLoading}
-              note={responseMetric?.instrumented === false ? "Non instrumenté sur tous les messages" : undefined}
+              note={responseMetric?.instrumented === false ? "Données en cours de collecte" : undefined}
               icon={<Clock3 size={28} />}
               tone="purple"
             />
@@ -638,7 +638,7 @@ function overviewConnectionPresentation(
 ) {
   if (connection.status === "connected") return { label: "WhatsApp connecté", color: GREEN };
   if (connection.status === "connecting") return { label: connection.label || "Connexion en cours", color: ORANGE };
-  if (connection.status === "degraded") return { label: connection.label || "Connexion dégradée", color: ORANGE };
+  if (connection.status === "degraded") return { label: connection.label || "Connexion instable", color: ORANGE };
   return { label: connection.label || "WhatsApp non connecté", color: FAINT };
 }
 
