@@ -42,12 +42,15 @@ import {
 } from "lucide-react";
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
+import { WhatsAppAttachmentMenu, type WhatsAppAttachmentChoice } from "@/components/whatsapp/WhatsAppAttachmentMenu";
 import { WhatsAppAttachmentModal } from "@/components/whatsapp/WhatsAppAttachmentModal";
 import { WhatsAppAudioRecorder } from "@/components/whatsapp/WhatsAppAudioRecorder";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
+import { WhatsAppContactShareModal } from "@/components/whatsapp/WhatsAppContactShareModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppPollModal } from "@/components/whatsapp/WhatsAppPollModal";
 import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
@@ -63,6 +66,7 @@ import {
   reactWaMessage,
   searchWaConversation,
   sendWaManualMessage,
+  sendWaMedia,
   sendWaReply,
   uploadWaAttachment,
   type WaContactInfo,
@@ -129,6 +133,7 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -145,7 +150,14 @@ export default function WhatsAppConversationsPage() {
   const [contactInfoLoading, setContactInfoLoading] = useState(false);
   const [contactInfoError, setContactInfoError] = useState<string | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const [contactShareOpen, setContactShareOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const stickerInputRef = useRef<HTMLInputElement>(null);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -410,6 +422,9 @@ export default function WhatsAppConversationsPage() {
     setContactInfoOpen(false);
     setContactInfo(null);
     setEmojiOpen(false);
+    setAttachmentMenuOpen(false);
+    setPollOpen(false);
+    setContactShareOpen(false);
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
     setActionRequest(null);
@@ -438,6 +453,9 @@ export default function WhatsAppConversationsPage() {
     setContactInfoOpen(false);
     setContactInfo(null);
     setEmojiOpen(false);
+    setAttachmentMenuOpen(false);
+    setPollOpen(false);
+    setContactShareOpen(false);
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
     setActionRequest(null);
@@ -670,7 +688,7 @@ export default function WhatsAppConversationsPage() {
     setMessageInfoLoading(false);
   }
 
-  async function prepareAttachment(file: File) {
+  async function prepareAttachment(file: File, forcedType?: WaMediaType) {
     if (!selected || attachmentUploading) return;
     if (file.size > 100 * 1024 * 1024) {
       setAttachmentError("Fichier trop volumineux (100 Mo maximum).");
@@ -680,11 +698,12 @@ export default function WhatsAppConversationsPage() {
     setAttachmentUploading(true);
     setAttachmentError(null);
     setEmojiOpen(false);
+    setAttachmentMenuOpen(false);
     try {
       const uploaded = await uploadWaAttachment(file);
       setAttachmentFile(file);
       setAttachmentUploaded(uploaded);
-      setAttachmentType(inferWaMediaType(file));
+      setAttachmentType(forcedType || inferWaMediaType(file));
       setAttachmentOpen(true);
     } catch (error) {
       setAttachmentError(errorMessage(error, "generic"));
@@ -693,10 +712,70 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
-  async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
+  async function handleAttachmentSelected(
+    event: ChangeEvent<HTMLInputElement>,
+    forcedType?: WaMediaType,
+  ) {
     const file = event.target.files?.[0] || null;
     event.currentTarget.value = "";
-    if (file) await prepareAttachment(file);
+    if (file) await prepareAttachment(file, forcedType);
+  }
+
+  async function handleStickerSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    event.currentTarget.value = "";
+    if (!file) return;
+
+    try {
+      const sticker = await makeWhatsAppStickerFile(file);
+      await prepareAttachment(sticker, "sticker");
+    } catch {
+      setAttachmentError("Impossible de préparer cette image comme sticker.");
+    }
+  }
+
+  function chooseAttachment(choice: WhatsAppAttachmentChoice) {
+    setAttachmentMenuOpen(false);
+    setEmojiOpen(false);
+    if (choice === "document") documentInputRef.current?.click();
+    else if (choice === "media") fileInputRef.current?.click();
+    else if (choice === "camera") cameraInputRef.current?.click();
+    else if (choice === "audio") audioFileInputRef.current?.click();
+    else if (choice === "sticker") stickerInputRef.current?.click();
+    else if (choice === "contact") setContactShareOpen(true);
+    else if (choice === "poll") setPollOpen(true);
+  }
+
+  async function sendRecordedVoice(file: File) {
+    if (!selected || attachmentUploading || sendingMessage) return;
+    const replyTarget = replyingTo;
+    setAttachmentUploading(true);
+    setAttachmentError(null);
+    setSendError(null);
+    try {
+      const uploaded = await uploadWaAttachment(file);
+      await sendWaMedia({
+        to: selected.id,
+        type: "voice",
+        url: uploaded.url,
+        filename: uploaded.file_name || file.name,
+        mimetype: file.type || undefined,
+        reply_to_msg_id: replyTarget?.id || undefined,
+        reply_to_text: replyTarget?.text || undefined,
+        reply_to_type: replyTarget?.type || undefined,
+        reply_to_sender: replyTarget?.sender_jid || undefined,
+        confirmed: true,
+      });
+      setReplyingTo(null);
+      setCorrectionTarget(null);
+      setMediaCorrectionTarget(null);
+      void loadConversations(query, filter);
+      window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
+    } catch (error) {
+      setAttachmentError(errorMessage(error, "generic"));
+    } finally {
+      setAttachmentUploading(false);
+    }
   }
 
   function prepareConversationAction(request: ConversationActionRequest) {
@@ -1034,6 +1113,26 @@ export default function WhatsAppConversationsPage() {
                         className="absolute right-0 top-11 z-40 w-56 rounded-xl border p-1.5 shadow-2xl"
                         style={{ borderColor: BORDER, background: "#111f2a" }}
                       >
+                        {selected.kind === "contact" && (
+                          <ConversationMenuItem
+                            icon={<Info size={15} />}
+                            label="Informations du contact"
+                            onClick={() => {
+                              setConversationMenuOpen(false);
+                              void openContactInfo();
+                            }}
+                          />
+                        )}
+                        <ConversationMenuItem
+                          icon={<Search size={15} />}
+                          label="Rechercher"
+                          onClick={() => {
+                            setConversationMenuOpen(false);
+                            setThreadSearchOpen(true);
+                            window.setTimeout(() => threadSearchInputRef.current?.focus(), 0);
+                          }}
+                        />
+                        <div className="my-1 h-px" style={{ background: BORDER }} />
                         <ConversationMenuItem icon={<Archive size={15} />} label="Archiver" onClick={() => prepareConversationAction({ action: "archive" })} />
                         <ConversationMenuItem icon={<Pin size={15} />} label="Épingler" onClick={() => prepareConversationAction({ action: "pin" })} />
 
@@ -1086,6 +1185,7 @@ export default function WhatsAppConversationsPage() {
                       <div className="relative min-w-0 flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={15} color={MUTED} />
                         <input
+                          ref={threadSearchInputRef}
                           autoFocus
                           value={threadSearchQuery}
                           onChange={(event) => setThreadSearchQuery(event.target.value)}
@@ -1368,24 +1468,68 @@ export default function WhatsAppConversationsPage() {
                         type="file"
                         className="hidden"
                         aria-label="Sélectionner une pièce jointe"
-                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                        accept="image/*,video/*"
                         onChange={(event) => void handleAttachmentSelected(event)}
                       />
-                      <button
-                        type="button"
-                        aria-label="Joindre un fichier"
-                        title="Joindre un fichier"
-                        disabled={attachmentUploading}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-45"
-                        style={{ color: MUTED }}
-                      >
-                        {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
-                      </button>
+                      <input
+                        ref={documentInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Sélectionner un document"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,application/pdf,text/*"
+                        onChange={(event) => void handleAttachmentSelected(event, "document")}
+                      />
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Prendre une photo"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(event) => void handleAttachmentSelected(event, "image")}
+                      />
+                      <input
+                        ref={audioFileInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Sélectionner un audio"
+                        accept="audio/*"
+                        onChange={(event) => void handleAttachmentSelected(event, "audio")}
+                      />
+                      <input
+                        ref={stickerInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Créer un sticker depuis une image"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => void handleStickerSelected(event)}
+                      />
+
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          aria-label="Joindre"
+                          title="Joindre"
+                          aria-expanded={attachmentMenuOpen}
+                          disabled={attachmentUploading}
+                          onClick={() => {
+                            setAttachmentMenuOpen((value) => !value);
+                            setEmojiOpen(false);
+                          }}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-45"
+                          style={{ color: attachmentMenuOpen ? GREEN : MUTED }}
+                        >
+                          {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
+                        </button>
+                        <WhatsAppAttachmentMenu
+                          open={attachmentMenuOpen}
+                          onChoose={chooseAttachment}
+                        />
+                      </div>
 
                       <WhatsAppAudioRecorder
                         disabled={attachmentUploading || sendingMessage}
-                        onRecorded={prepareAttachment}
+                        onRecorded={sendRecordedVoice}
                         onError={(message) => setAttachmentError(message)}
                       />
 
@@ -1462,6 +1606,26 @@ export default function WhatsAppConversationsPage() {
         onClose={() => setComposeOpen(false)}
         onSent={() => {
           if (selected) window.setTimeout(() => void loadThread(selected), 700);
+          void loadConversations(query, filter);
+        }}
+      />
+
+      <WhatsAppPollModal
+        open={pollOpen}
+        conversation={selected}
+        onClose={() => setPollOpen(false)}
+        onSent={() => {
+          if (selected) window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
+          void loadConversations(query, filter);
+        }}
+      />
+
+      <WhatsAppContactShareModal
+        open={contactShareOpen}
+        conversation={selected}
+        onClose={() => setContactShareOpen(false)}
+        onSent={() => {
+          if (selected) window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
           void loadConversations(query, filter);
         }}
       />
@@ -2050,12 +2214,51 @@ function formatDayLabel(date: Date) {
   }).format(date);
 }
 
+async function makeWhatsAppStickerFile(file: File): Promise<File> {
+  if ((file.type || "").toLowerCase() === "image/webp" || file.name.toLowerCase().endsWith(".webp")) {
+    return file;
+  }
+  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") {
+    throw new Error("conversion sticker indisponible");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const size = 512;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("canvas indisponible");
+
+    const scale = Math.min(size / bitmap.width, size / bitmap.height);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const x = Math.round((size - width) / 2);
+    const y = Math.round((size - height) / 2);
+    context.clearRect(0, 0, size, size);
+    context.drawImage(bitmap, x, y, width, height);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => result ? resolve(result) : reject(new Error("encodage WebP impossible")),
+        "image/webp",
+        0.92,
+      );
+    });
+    const base = file.name.replace(/\.[^.]+$/, "") || "sticker";
+    return new File([blob], `${base}.webp`, { type: "image/webp" });
+  } finally {
+    bitmap.close();
+  }
+}
+
 function isTextMessageType(type: string) {
   return type === "text" || type === "texte";
 }
 
 function isMediaMessageType(type: string) {
-  return ["image", "video", "gif", "audio", "voice", "voix", "sticker", "document"].includes(type);
+  return ["image", "video", "gif", "audio", "voice", "voix", "sticker", "document", "poll", "contact"].includes(type);
 }
 
 function isWaNativeEditExpired(message: WaLiveMessage) {
@@ -2065,6 +2268,8 @@ function isWaNativeEditExpired(message: WaLiveMessage) {
 
 function messageTypeLabel(type: string) {
   const labels: Record<string, string> = {
+    poll: "Sondage",
+    contact: "Contact",
     image: "Image",
     video: "Vidéo",
     audio: "Audio",

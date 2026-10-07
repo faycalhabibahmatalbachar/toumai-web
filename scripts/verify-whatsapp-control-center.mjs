@@ -130,6 +130,28 @@ const threadMessages = [
     status: "delivered",
   },
   {
+    id: "t-poll",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: true,
+    sender: "",
+    type: "poll",
+    media_label: "Quelle heure vous convient ?",
+    timestamp_ms: now - 75_000,
+    status: "delivered",
+  },
+  {
+    id: "t-contact-card",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: true,
+    sender: "",
+    type: "contact",
+    media_label: "Amina Saleh",
+    timestamp_ms: now - 70_000,
+    status: "delivered",
+  },
+  {
     id: "t3",
     chat_id: "23566111111@s.whatsapp.net",
     text: "Tu peux me rappeler ?",
@@ -663,6 +685,39 @@ async function certifyConversations() {
   await page.getByText("+23566111111", { exact: true }).last().waitFor();
   await page.getByRole("button", { name: "Fermer les informations" }).click();
 
+  await page.getByRole("button", { name: "Joindre", exact: true }).click();
+  await page.getByRole("menu", { name: "Pièces jointes WhatsApp" }).waitFor();
+  for (const label of ["Document", "Photos et vidéos", "Caméra", "Audio", "Contact", "Sondage", "Nouveau sticker"]) {
+    await page.getByRole("menuitem", { name: label, exact: true }).waitFor();
+  }
+
+  const mediaBeforePoll = state.mediaSends.length;
+  await page.getByRole("menuitem", { name: "Sondage", exact: true }).click();
+  await page.getByRole("heading", { name: "Créer un sondage" }).waitFor();
+  await page.getByPlaceholder("Posez votre question").fill("Quelle heure vous convient ?");
+  await page.getByPlaceholder("Option 1").fill("10 h");
+  await page.getByPlaceholder("Option 2").fill("14 h");
+  await page.getByRole("button", { name: "Envoyer le sondage", exact: true }).click();
+  await page.getByRole("heading", { name: "Créer un sondage" }).waitFor({ state: "hidden" });
+  assert(state.mediaSends.length === mediaBeforePoll + 1, "Le sondage doit produire un seul envoi réel.");
+  assert(state.mediaSends.at(-1).type === "poll", "Le sondage doit utiliser le type poll.");
+  assert(state.mediaSends.at(-1).poll_name === "Quelle heure vous convient ?", "La question du sondage doit être transmise.");
+  assert(state.mediaSends.at(-1).poll_options.length === 2, "Les options du sondage doivent être transmises.");
+
+  await page.getByRole("button", { name: "Joindre", exact: true }).click();
+  const mediaBeforeContact = state.mediaSends.length;
+  await page.getByRole("menuitem", { name: "Contact", exact: true }).click();
+  await page.getByRole("heading", { name: "Partager un contact" }).waitFor();
+  const contactDialog = page.getByRole("dialog", { name: "Partager un contact" });
+  const aminaContact = contactDialog.getByRole("button", { name: /Amina Saleh/ });
+  await aminaContact.waitFor();
+  await aminaContact.click();
+  await contactDialog.getByRole("button", { name: "Partager", exact: true }).click();
+  await page.getByRole("heading", { name: "Partager un contact" }).waitFor({ state: "hidden" });
+  assert(state.mediaSends.length === mediaBeforeContact + 1, "Le partage de contact doit produire un seul envoi réel.");
+  assert(state.mediaSends.at(-1).type === "contact", "Le partage doit utiliser le type contact.");
+  assert(state.mediaSends.at(-1).contact_to_share === "23566222222", "Le numéro du contact sélectionné doit être transmis.");
+
   await page.getByRole("button", { name: "Fermer la recherche" }).click();
   await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByPlaceholder("Rechercher un emoji").waitFor();
@@ -674,6 +729,7 @@ async function certifyConversations() {
     "Un raccourci IA non branché ne doit pas réapparaître.",
   );
 
+  const mediaBeforeAttachment = state.mediaSends.length;
   const attachmentInput = page.getByLabel("Sélectionner une pièce jointe");
   await attachmentInput.setInputFiles({
     name: "preuve.txt",
@@ -690,10 +746,14 @@ async function certifyConversations() {
     state.uploads[0].contentType.includes("multipart/form-data"),
     "L'upload de pièce jointe doit rester multipart.",
   );
-  assert(state.mediaSends.length === 1, `Une confirmation média doit produire un seul envoi, obtenu ${state.mediaSends.length}.`);
-  assert(state.mediaSends[0].to === "23566111111@s.whatsapp.net", "Le média doit conserver le JID exact sélectionné.");
-  assert(state.mediaSends[0].type === "document", "Un fichier texte doit suivre le flux document.");
-  assert(state.mediaSends[0].confirmed === true, "L'envoi média doit porter une confirmation explicite.");
+  assert(
+    state.mediaSends.length === mediaBeforeAttachment + 1,
+    `Une pièce jointe confirmée doit produire un seul nouvel envoi, obtenu ${state.mediaSends.length - mediaBeforeAttachment}.`,
+  );
+  const attachmentSend = state.mediaSends.at(-1);
+  assert(attachmentSend.to === "23566111111@s.whatsapp.net", "Le média doit conserver le JID exact sélectionné.");
+  assert(attachmentSend.type === "document", "Un fichier texte doit suivre le flux document.");
+  assert(attachmentSend.confirmed === true, "L'envoi média doit porter une confirmation explicite.");
 
   await page.getByRole("button", { name: "Plus d’options" }).click();
   await page.getByRole("button", { name: "Marquer comme lue", exact: true }).click();
@@ -778,6 +838,15 @@ async function certifyConversations() {
   assert(state.replies.length === 2, "La correction hors fenêtre doit partir comme réponse réelle.");
   assert(state.replies.at(-1).msg_id === "t-old", "La correction doit rester liée au message original.");
   assert(state.replies.at(-1).message === "Ancien message corrigé", "La correction doit envoyer le texte exact.");
+
+  const pollBubble = page.locator('[data-message-id="t-poll"]');
+  await pollBubble.getByText("Quelle heure vous convient ?", { exact: true }).waitFor();
+  const contactCardBubble = page.locator('[data-message-id="t-contact-card"]');
+  await contactCardBubble.getByText("Amina Saleh", { exact: true }).waitFor();
+  assert(
+    !state.mediaLoads.some((path) => path.endsWith("/whatsapp/media/t-poll") || path.endsWith("/whatsapp/media/t-contact-card")),
+    "Sondages et contacts ne doivent pas déclencher de faux téléchargement binaire.",
+  );
 
   const mediaOutbound = page.locator('[data-message-id="t-media"]');
   await mediaOutbound.locator("img").waitFor();

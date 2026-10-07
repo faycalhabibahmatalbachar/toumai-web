@@ -219,6 +219,7 @@ export interface WaLiveMessage {
   status?: string | null;
   mime_type?: string | null;
   file_name?: string | null;
+  media_label?: string | null;
   duration_seconds?: number | null;
   quoted?: WaQuotedMessage | null;
 }
@@ -303,7 +304,7 @@ export interface WaUploadedFile {
 export interface WaMediaSendResult {
   chat_id: string;
   msg_id: string | null;
-  type: WaMediaType;
+  type: WaMediaType | "poll" | "contact";
   status: "accepted" | "unknown";
   accepted_by_gateway: boolean;
   reply_to?: string | null;
@@ -394,10 +395,10 @@ export function inferWaMediaType(file: File): WaMediaType {
   const mime = (file.type || "").toLowerCase();
   const name = file.name.toLowerCase();
   if (mime === "image/gif" || name.endsWith(".gif")) return "gif";
+  if (mime === "image/webp" || name.endsWith(".webp")) return "sticker";
   if (mime.startsWith("image/")) return "image";
   if (mime.startsWith("video/")) return "video";
   if (mime.startsWith("audio/")) return "audio";
-  if (name.endsWith(".webp")) return "sticker";
   return "document";
 }
 
@@ -415,6 +416,38 @@ export function sendWaMedia(input: {
   confirmed: true;
 }): Promise<WaMediaSendResult> {
   return http.post<WaMediaSendResult>("/whatsapp/media/send", input);
+}
+
+export function sendWaPoll(input: {
+  to: string;
+  question: string;
+  options: string[];
+  selectable_count?: number;
+  confirmed: true;
+}): Promise<WaMediaSendResult> {
+  return http.post<WaMediaSendResult>("/whatsapp/media/send", {
+    to: input.to,
+    type: "poll",
+    poll_name: input.question,
+    poll_options: input.options,
+    selectable_count: input.selectable_count ?? 1,
+    confirmed: input.confirmed,
+  });
+}
+
+export function sendWaContactCard(input: {
+  to: string;
+  contact_to_share: string;
+  display_name?: string;
+  confirmed: true;
+}): Promise<WaMediaSendResult> {
+  return http.post<WaMediaSendResult>("/whatsapp/media/send", {
+    to: input.to,
+    type: "contact",
+    contact_to_share: input.contact_to_share,
+    display_name: input.display_name,
+    confirmed: input.confirmed,
+  });
 }
 
 export function applyWaConversationAction(input: {

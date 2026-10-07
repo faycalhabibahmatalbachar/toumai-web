@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Loader2, Music2, Play } from "lucide-react";
+import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Music2, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getWaMessageMediaBlob, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
@@ -17,12 +17,18 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
   const [failed, setFailed] = useState(false);
   const mediaType = normalizeType(message.type);
   const fileName = message.file_name || defaultFileName(mediaType, mime);
+  const binaryMedia = ["image", "sticker", "video", "gif", "audio", "voice", "document"].includes(mediaType);
 
   useEffect(() => {
     let active = true;
     let objectUrl: string | null = null;
 
     async function load() {
+      if (!binaryMedia) {
+        setLoading(false);
+        setFailed(false);
+        return;
+      }
       if (!message.id || message.id.startsWith("local-")) {
         setLoading(false);
         setFailed(true);
@@ -48,9 +54,35 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [message.id, message.mime_type]);
+  }, [binaryMedia, message.id, message.mime_type]);
 
   const typeLabel = useMemo(() => labelFor(mediaType), [mediaType]);
+
+  if (mediaType === "poll") {
+    return (
+      <div className="mb-2 min-w-[240px] rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <div className="flex items-center gap-2">
+          <ListChecks size={17} color={GREEN} />
+          <span className="text-[11px] font-semibold">Sondage</span>
+        </div>
+        <p className="mt-2 text-[12px] leading-5">{message.media_label || message.text || "Sondage WhatsApp"}</p>
+      </div>
+    );
+  }
+
+  if (mediaType === "contact") {
+    return (
+      <div className="mb-2 flex min-w-[240px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05]">
+          <ContactRound size={18} color={GREEN} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-semibold">{message.media_label || "Contact WhatsApp"}</p>
+          <p className="mt-0.5 text-[9px]" style={{ color: MUTED }}>Fiche contact</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -170,6 +202,8 @@ function normalizeType(type: string) {
 
 function labelFor(type: string) {
   const labels: Record<string, string> = {
+    poll: "Sondage",
+    contact: "Contact",
     image: "Image",
     video: "Vidéo",
     gif: "GIF",
