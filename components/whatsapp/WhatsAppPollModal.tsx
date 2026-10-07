@@ -38,6 +38,8 @@ export function WhatsAppPollModal({
 
   if (!open || !conversation) return null;
 
+  const activeConversation = conversation;
+
   function close() {
     if (busy) return;
     setQuestion("");
@@ -53,7 +55,7 @@ export function WhatsAppPollModal({
     setError(null);
     try {
       await sendWaPoll({
-        to: conversation.id,
+        to: activeConversation.id,
         question: question.trim(),
         options: cleanOptions,
         selectable_count: multiple ? cleanOptions.length : 1,
@@ -90,7 +92,7 @@ export function WhatsAppPollModal({
         <header className="flex items-center border-b px-5 py-4" style={{ borderColor: BORDER }}>
           <div className="min-w-0 flex-1">
             <h2 id="wa-poll-title" className="text-[16px] font-semibold">Créer un sondage</h2>
-            <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>{conversation.name}</p>
+            <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>{activeConversation.name}</p>
           </div>
           <button
             type="button"
