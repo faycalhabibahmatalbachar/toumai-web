@@ -48,6 +48,7 @@ import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
@@ -1826,7 +1827,6 @@ function MessageBubble({
       }).format(new Date(message.timestamp_ms))
     : "";
   const hasMedia = !isTextMessageType(message.type);
-  const mediaTitle = message.file_name || messageTypeLabel(message.type);
 
   return (
     <div
@@ -1866,22 +1866,7 @@ function MessageBubble({
             </div>
           )}
 
-          {hasMedia && (
-            <div
-              className="mb-2 flex min-w-[190px] items-center gap-3 rounded-xl border px-3 py-2.5"
-              style={{ borderColor: "rgba(255,255,255,.07)", background: "rgba(0,0,0,.12)" }}
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05]" style={{ color: GREEN }}>
-                <Paperclip size={16} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-semibold">{mediaTitle}</p>
-                <p className="mt-0.5 text-[9px]" style={{ color: "#9eacb7" }}>
-                  {[message.mime_type, formatDuration(message.duration_seconds)].filter(Boolean).join(" · ") || messageTypeLabel(message.type)}
-                </p>
-              </div>
-            </div>
-          )}
+          {hasMedia && <WhatsAppMessageMedia message={message} />}
 
           {message.text && (
             <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
