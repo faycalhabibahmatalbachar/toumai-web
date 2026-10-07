@@ -721,6 +721,19 @@ export default function WhatsAppConversationsPage() {
     if (file) await prepareAttachment(file, forcedType);
   }
 
+  async function handleStickerSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    event.currentTarget.value = "";
+    if (!file) return;
+
+    try {
+      const sticker = await makeWhatsAppStickerFile(file);
+      await prepareAttachment(sticker, "sticker");
+    } catch {
+      setAttachmentError("Impossible de préparer cette image comme sticker.");
+    }
+  }
+
   function chooseAttachment(choice: WhatsAppAttachmentChoice) {
     setAttachmentMenuOpen(false);
     setEmojiOpen(false);
@@ -1487,9 +1500,9 @@ export default function WhatsAppConversationsPage() {
                         ref={stickerInputRef}
                         type="file"
                         className="hidden"
-                        aria-label="Sélectionner un sticker"
-                        accept="image/webp,.webp"
-                        onChange={(event) => void handleAttachmentSelected(event, "sticker")}
+                        aria-label="Créer un sticker depuis une image"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => void handleStickerSelected(event)}
                       />
 
                       <div className="relative shrink-0">
@@ -2199,6 +2212,45 @@ function formatDayLabel(date: Date) {
     day: "numeric",
     month: "short",
   }).format(date);
+}
+
+async function makeWhatsAppStickerFile(file: File): Promise<File> {
+  if ((file.type || "").toLowerCase() === "image/webp" || file.name.toLowerCase().endsWith(".webp")) {
+    return file;
+  }
+  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") {
+    throw new Error("conversion sticker indisponible");
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const size = 512;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("canvas indisponible");
+
+    const scale = Math.min(size / bitmap.width, size / bitmap.height);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const x = Math.round((size - width) / 2);
+    const y = Math.round((size - height) / 2);
+    context.clearRect(0, 0, size, size);
+    context.drawImage(bitmap, x, y, width, height);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => result ? resolve(result) : reject(new Error("encodage WebP impossible")),
+        "image/webp",
+        0.92,
+      );
+    });
+    const base = file.name.replace(/\.[^.]+$/, "") || "sticker";
+    return new File([blob], `${base}.webp`, { type: "image/webp" });
+  } finally {
+    bitmap.close();
+  }
 }
 
 function isTextMessageType(type: string) {
