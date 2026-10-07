@@ -41,16 +41,21 @@ export function WhatsAppAttachmentModal({
 
   if (!open || !conversation || !file || !uploaded || !mediaType) return null;
 
+  const activeConversation = conversation;
+  const activeFile = file;
+  const activeUpload = uploaded;
+  const activeMediaType = mediaType;
+
   async function sendNow() {
     if (sending) return;
     setSending(true);
     setError(null);
     try {
       await sendWaMedia({
-        to: conversation.id,
-        type: mediaType,
-        url: uploaded.url,
-        filename: uploaded.file_name || file.name,
+        to: activeConversation.id,
+        type: activeMediaType,
+        url: activeUpload.url,
+        filename: activeUpload.file_name || activeFile.name,
         caption: caption.trim() || undefined,
         confirmed: true,
       });
