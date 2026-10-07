@@ -792,7 +792,7 @@ async function certifyConversations() {
   await page.getByText("Distribué", { exact: true }).waitFor();
   await page.getByText("Envoyé", { exact: true }).waitFor();
   await page.getByText("Modifié", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Fermer" }).click();
+  await page.getByRole("button", { name: "Fermer", exact: true }).click();
 
   await mediaOutbound.getByRole("button", { name: "Corriger" }).click();
   await page.getByText("Corriger le média", { exact: true }).waitFor();
