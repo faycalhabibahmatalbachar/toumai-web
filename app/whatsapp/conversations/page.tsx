@@ -420,6 +420,9 @@ export default function WhatsAppConversationsPage() {
     setContactInfoOpen(false);
     setContactInfo(null);
     setEmojiOpen(false);
+    setAttachmentMenuOpen(false);
+    setPollOpen(false);
+    setContactShareOpen(false);
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
     setActionRequest(null);
@@ -448,6 +451,9 @@ export default function WhatsAppConversationsPage() {
     setContactInfoOpen(false);
     setContactInfo(null);
     setEmojiOpen(false);
+    setAttachmentMenuOpen(false);
+    setPollOpen(false);
+    setContactShareOpen(false);
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
     setActionRequest(null);
