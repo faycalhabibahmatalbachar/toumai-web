@@ -553,7 +553,7 @@ async function certifyConversations() {
 
   await page.getByRole("button", { name: "Informations du contact" }).click();
   await page.getByText("Disponible pour un rappel", { exact: true }).waitFor();
-  await page.getByText("+23566111111", { exact: true }).waitFor();
+  await page.getByText("+23566111111", { exact: true }).last().waitFor();
   await page.getByRole("button", { name: "Fermer les informations" }).click();
 
   await page.getByRole("button", { name: "Fermer la recherche" }).click();
