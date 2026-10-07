@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
   Trash2,
@@ -376,7 +376,7 @@ export default function WhatsAppConversationsPage() {
     setComposeOpen(true);
   }
 
-  async function handleAttachmentSelected(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAttachmentSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
     event.currentTarget.value = "";
     if (!file || !selected || attachmentUploading) return;
@@ -1062,6 +1062,7 @@ export default function WhatsAppConversationsPage() {
       />
 
       <WhatsAppAttachmentModal
+        key={attachmentUploaded?.url || "wa-attachment"}
         open={attachmentOpen}
         conversation={selected}
         file={attachmentFile}
@@ -1076,6 +1077,7 @@ export default function WhatsAppConversationsPage() {
       />
 
       <WhatsAppConversationActionModal
+        key={actionRequest ? `${selected?.id || "chat"}:${actionRequest.action}:${actionRequest.duration || ""}` : "wa-action"}
         open={Boolean(actionRequest)}
         conversation={selected}
         request={actionRequest}
