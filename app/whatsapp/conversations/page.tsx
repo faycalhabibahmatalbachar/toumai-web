@@ -1394,20 +1394,64 @@ export default function WhatsAppConversationsPage() {
                         type="file"
                         className="hidden"
                         aria-label="Sélectionner une pièce jointe"
-                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                        accept="image/*,video/*"
                         onChange={(event) => void handleAttachmentSelected(event)}
                       />
-                      <button
-                        type="button"
-                        aria-label="Joindre un fichier"
-                        title="Joindre un fichier"
-                        disabled={attachmentUploading}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-45"
-                        style={{ color: MUTED }}
-                      >
-                        {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
-                      </button>
+                      <input
+                        ref={documentInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Sélectionner un document"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,application/pdf,text/*"
+                        onChange={(event) => void handleAttachmentSelected(event, "document")}
+                      />
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Prendre une photo"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(event) => void handleAttachmentSelected(event, "image")}
+                      />
+                      <input
+                        ref={audioFileInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Sélectionner un audio"
+                        accept="audio/*"
+                        onChange={(event) => void handleAttachmentSelected(event, "audio")}
+                      />
+                      <input
+                        ref={stickerInputRef}
+                        type="file"
+                        className="hidden"
+                        aria-label="Sélectionner un sticker"
+                        accept="image/webp,.webp"
+                        onChange={(event) => void handleAttachmentSelected(event, "sticker")}
+                      />
+
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          aria-label="Joindre"
+                          title="Joindre"
+                          aria-expanded={attachmentMenuOpen}
+                          disabled={attachmentUploading}
+                          onClick={() => {
+                            setAttachmentMenuOpen((value) => !value);
+                            setEmojiOpen(false);
+                          }}
+                          className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-45"
+                          style={{ color: attachmentMenuOpen ? GREEN : MUTED }}
+                        >
+                          {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
+                        </button>
+                        <WhatsAppAttachmentMenu
+                          open={attachmentMenuOpen}
+                          onChoose={chooseAttachment}
+                        />
+                      </div>
 
                       <WhatsAppAudioRecorder
                         disabled={attachmentUploading || sendingMessage}
