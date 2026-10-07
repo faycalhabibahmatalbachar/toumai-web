@@ -410,6 +410,7 @@ export default function WhatsAppConversationsPage() {
     setReplyingTo(null);
     setEditingMessage(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     setSelected(conversation);
@@ -437,6 +438,7 @@ export default function WhatsAppConversationsPage() {
     setReplyingTo(null);
     setEditingMessage(null);
     setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
     if (typeof window !== "undefined") {
@@ -475,6 +477,7 @@ export default function WhatsAppConversationsPage() {
         setReplyDraft("");
         setEditingMessage(null);
         setCorrectionTarget(null);
+        setMediaCorrectionTarget(null);
         window.setTimeout(() => void loadThread(selected, { silent: true }), 350);
       } catch (error) {
         if (isWaNativeEditExpired(editTarget)) {
@@ -544,6 +547,7 @@ export default function WhatsAppConversationsPage() {
         ),
       );
       setCorrectionTarget(null);
+      setMediaCorrectionTarget(null);
       void loadConversations(query, filter);
       window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
