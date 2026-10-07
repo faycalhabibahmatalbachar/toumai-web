@@ -322,11 +322,14 @@ export interface WaMessageStatus {
   msg_id: string;
   chat_id?: string | null;
   known: boolean;
-  status: "unknown" | "sent" | "delivered" | "read" | "played" | "failed" | string;
+  status: "unknown" | "queued" | "sent" | "delivered" | "read" | "played" | "failed" | string;
   server_ack_confirmed: boolean;
   delivery_confirmed: boolean;
   read_confirmed: boolean;
   failed: boolean;
+  sent_at?: number | null;
+  edited_at?: number | null;
+  timeline?: Partial<Record<"queued" | "sent" | "delivered" | "read" | "played" | "failed", number>>;
 }
 
 export function getWaLiveConversations(params?: {
