@@ -342,6 +342,7 @@ const state = {
   uploads: [],
   mediaSends: [],
   mediaLoads: [],
+  deletedOwnMessages: [],
   chatActions: [],
   legacySends: [],
   legacyConversationReads: 0,
@@ -494,6 +495,15 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       msg_id: "MEDIA-UI-1",
       type: body.type,
       status: "accepted",
+      accepted_by_gateway: true,
+    };
+  } else if (path === "/whatsapp/message/delete-own" && method === "POST") {
+    const body = request.postDataJSON();
+    state.deletedOwnMessages.push(body);
+    data = {
+      chat_id: body.chat_id,
+      msg_id: body.msg_id,
+      delete_submitted: true,
       accepted_by_gateway: true,
     };
   } else if (path === "/whatsapp/conversation/action" && method === "POST") {
@@ -864,8 +874,8 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Fermer", exact: true }).click();
 
   await mediaOutbound.getByRole("button", { name: "Corriger" }).click();
-  await page.getByText("Corriger le média", { exact: true }).waitFor();
-  const mediaTextCorrection = page.getByPlaceholder("Écrire une correction ou joindre un fichier…");
+  await page.getByText("Envoyer une correction média", { exact: true }).waitFor();
+  const mediaTextCorrection = page.getByPlaceholder("Joindre le média corrigé ou écrire une précision…");
   await mediaTextCorrection.fill("Correction : voici la bonne information.");
   await mediaTextCorrection.press("Enter");
   await page.waitForTimeout(120);
@@ -875,14 +885,15 @@ async function certifyConversations() {
 
   await mediaOutbound.getByRole("button", { name: "Corriger" }).click();
   const mediaSendsBeforeCorrection = state.mediaSends.length;
+  const deletedBeforeCorrection = state.deletedOwnMessages.length;
   await page.getByLabel("Sélectionner une pièce jointe").setInputFiles({
     name: "photo-corrigee.jpg",
     mimeType: "image/jpeg",
     buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
   });
-  await page.getByRole("heading", { name: "Corriger le média" }).waitFor();
+  await page.getByRole("heading", { name: "Envoyer une correction" }).waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Envoyer la correction", exact: true }).click();
-  await page.getByRole("heading", { name: "Corriger le média" }).waitFor({ state: "hidden" });
+  await page.getByRole("heading", { name: "Correction envoyée" }).waitFor();
   assert(
     state.mediaSends.length === mediaSendsBeforeCorrection + 1,
     "Une correction média doit produire un seul nouvel envoi média.",
@@ -891,6 +902,34 @@ async function certifyConversations() {
   assert(state.mediaSends.at(-1).reply_to_msg_id === "t-media", "La nouvelle image doit être liée au média original.");
   assert(state.mediaSends.at(-1).reply_to_type === "image", "Le contexte doit conserver le type du média original.");
   assert(state.edits.length === 1, "La correction média ne doit jamais simuler une édition native.");
+  assert(
+    state.deletedOwnMessages.length === deletedBeforeCorrection,
+    "L'ancien média doit rester intact immédiatement après l'envoi de la correction.",
+  );
+
+  await page.getByRole("dialog").getByRole("button", { name: "Vérifier le nouveau message", exact: true }).click();
+  await page.getByText(/confirmé par le serveur WhatsApp/i).waitFor();
+  assert(
+    state.deletedOwnMessages.length === deletedBeforeCorrection,
+    "Vérifier le nouveau message ne doit pas supprimer l'ancien.",
+  );
+
+  await page.getByRole("dialog").getByRole("button", { name: "Supprimer l’ancien message", exact: true }).click();
+  await page.getByText(/suppression de l’ancien message a été soumise/i).waitFor();
+  assert(
+    state.deletedOwnMessages.length === deletedBeforeCorrection + 1,
+    "La suppression de l'ancien doit être une seconde action explicite.",
+  );
+  assert(
+    state.deletedOwnMessages.at(-1).msg_id === "t-media",
+    "La suppression doit viser uniquement le média original.",
+  );
+  assert(
+    state.deletedOwnMessages.at(-1).confirmed === true,
+    "La suppression de l'ancien doit porter une confirmation explicite.",
+  );
+  await page.getByRole("dialog").getByRole("button", { name: "Terminer", exact: true }).click();
+  await page.getByRole("heading", { name: "Correction envoyée" }).waitFor({ state: "hidden" });
 
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
