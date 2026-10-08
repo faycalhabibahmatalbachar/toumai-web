@@ -701,6 +701,12 @@ async function certifyConversations() {
     ),
     "Ouvrir une conversation non lue doit la marquer réellement comme lue.",
   );
+  const activeConversationRow = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
+  await activeConversationRow.waitFor();
+  assert(
+    (await activeConversationRow.getAttribute("data-unread-count")) === "0",
+    "Le compteur non lu visible doit tomber à zéro après ouverture de la conversation.",
+  );
   await page.getByText("Aujourd’hui", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Filtres avancés" }).click();
   await page.getByRole("button", { name: "Contacts", exact: true }).waitFor();
