@@ -1,0 +1,68 @@
+name: WhatsApp MEDIA_EDIT production probe
+
+on:
+  push:
+    branches:
+      - research/backend-media-edit-prod-probe
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EXPECTED_BACKEND_SHA: 3d2a07a73285cce9b5b7d97f7eb02bf8d00ef2a1
+      BUILD_URL: https://api.toumaiai.com/api/v1/app/build
+      OPENAPI_URL: https://api.toumaiai.com/openapi.json
+    steps:
+      - name: Wait for exact backend SHA in production
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            body="$(curl -fsSL --connect-timeout 10 --max-time 20 "$BUILD_URL" || true)"
+            observed="$(python -c 'import json,sys; p=json.load(sys.stdin); print((p.get("data") or {}).get("commit_sha") or "")' <<<"$body" 2>/dev/null || true)"
+            echo "attempt=$attempt observed=${observed:-none}"
+            if [ "$observed" = "$EXPECTED_BACKEND_SHA" ]; then
+              echo "BACKEND_EXACT_SHA_PASS=$observed"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::Production did not attest exact backend SHA $EXPECTED_BACKEND_SHA"
+          exit 1
+
+      - name: Verify MEDIA_EDIT research routes in production OpenAPI when exposed
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/openapi.json -w '%{http_code}' --connect-timeout 10 --max-time 20 "$OPENAPI_URL" || true)"
+          echo "openapi_http=$code"
+          if [ "$code" = "200" ]; then
+            python - <<'PY'
+          import json
+          p=json.load(open('/tmp/openapi.json', encoding='utf-8'))
+          paths=p.get('paths') or {}
+          required=[
+              '/api/v1/whatsapp/research/media-edit',
+              '/api/v1/whatsapp/research/media-edit/result',
+          ]
+          missing=[x for x in required if x not in paths]
+          if missing:
+              raise SystemExit(f'MISSING_OPENAPI_ROUTES={missing}')
+          print('MEDIA_EDIT_OPENAPI_ROUTES_PASS')
+          PY
+          else
+            echo "OpenAPI is not publicly exposed; exact backend SHA remains the deployment proof."
+          fi
+
+      - name: Probe authenticated research surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/research.json -w '%{http_code}' --connect-timeout 10 --max-time 20 \
+            'https://api.toumaiai.com/api/v1/whatsapp/research/media-edit/result?experiment_id=waedit_probe_missing' || true)"
+          echo "research_route_http=$status"
+          case "$status" in
+            401|403|404|422|428) exit 0 ;;
+            *) echo "::error::Unexpected research route HTTP $status"; cat /tmp/research.json || true; exit 1 ;;
+          esac
