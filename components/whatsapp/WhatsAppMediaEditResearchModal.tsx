@@ -399,9 +399,9 @@ export function WhatsAppMediaEditResearchModal({
                       <span style={{ color: MUTED }}>SHA-256 source :</span> {result.evidence.sourcePlainSha256}
                     </div>
                   )}
-                  {result.evidence.outputFileSha256 && (
+                  {result.evidence.outputFileSha256 && result.mode !== "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH" && (
                     <div className="break-all font-mono">
-                      <span style={{ color: MUTED }}>SHA-256 ré-upload :</span> {result.evidence.outputFileSha256}
+                      <span style={{ color: MUTED }}>SHA-256 du média envoyé :</span> {result.evidence.outputFileSha256}
                     </div>
                   )}
                 </div>
