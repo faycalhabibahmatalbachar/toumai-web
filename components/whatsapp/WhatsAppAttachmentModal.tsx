@@ -1,10 +1,12 @@
 "use client";
 
-import { FileText, ImageIcon, Loader2, Send, X } from "lucide-react";
+import { CheckCircle2, FileText, ImageIcon, Loader2, Send, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { errorMessage } from "@/lib/errors";
 import {
+  deleteWaOwnMessage,
+  getWaMessageStatus,
   sendWaMedia,
   type WaLiveConversation,
   type WaLiveMessage,
@@ -38,8 +40,13 @@ export function WhatsAppAttachmentModal({
   onClose: () => void;
   onSent: () => void;
 }) {
-  const [caption, setCaption] = useState("");
+  const [caption, setCaption] = useState(() => correctionTarget?.text || "");
   const [sending, setSending] = useState(false);
+  const [checkingCorrection, setCheckingCorrection] = useState(false);
+  const [deletingOriginal, setDeletingOriginal] = useState(false);
+  const [correctionMsgId, setCorrectionMsgId] = useState<string | null>(null);
+  const [correctionVerified, setCorrectionVerified] = useState(false);
+  const [originalDeleteSubmitted, setOriginalDeleteSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
@@ -59,25 +66,43 @@ export function WhatsAppAttachmentModal({
   const activeFile = file;
   const activeUpload = uploaded;
   const activeMediaType = mediaType;
+  const activeCorrectionTarget = correctionTarget || null;
+
+  function finishCorrection() {
+    onSent();
+    onClose();
+  }
 
   async function sendNow() {
     if (sending) return;
     setSending(true);
     setError(null);
     try {
-      await sendWaMedia({
+      const result = await sendWaMedia({
         to: activeConversation.id,
         type: activeMediaType,
         url: activeUpload.url,
         filename: activeUpload.file_name || activeFile.name,
         mimetype: activeFile.type || undefined,
         caption: caption.trim() || undefined,
-        reply_to_msg_id: correctionTarget?.id || undefined,
-        reply_to_text: correctionTarget?.text || undefined,
-        reply_to_type: correctionTarget?.type || undefined,
-        reply_to_sender: correctionTarget?.sender_jid || undefined,
+        reply_to_msg_id: activeCorrectionTarget?.id || undefined,
+        reply_to_text: activeCorrectionTarget?.text || undefined,
+        reply_to_type: activeCorrectionTarget?.type || undefined,
+        reply_to_sender: activeCorrectionTarget?.sender_jid || undefined,
         confirmed: true,
       });
+
+      if (activeCorrectionTarget) {
+        if (!result.msg_id) {
+          setError(
+            "La nouvelle pièce jointe a été soumise, mais WhatsApp n’a pas retourné d’identifiant vérifiable. L’ancien message est conservé.",
+          );
+          return;
+        }
+        setCorrectionMsgId(result.msg_id);
+        return;
+      }
+
       onSent();
       onClose();
     } catch (exc) {
@@ -87,7 +112,74 @@ export function WhatsAppAttachmentModal({
     }
   }
 
+  async function verifyCorrection() {
+    if (!correctionMsgId || checkingCorrection) return false;
+    setCheckingCorrection(true);
+    setError(null);
+    try {
+      const status = await getWaMessageStatus(correctionMsgId, activeConversation.id);
+      if (status.failed) {
+        setError("La correction a échoué côté WhatsApp. L’ancien message a été conservé.");
+        return false;
+      }
+      if (!status.server_ack_confirmed) {
+        setError(
+          "La correction est acceptée par la passerelle mais pas encore confirmée par le serveur WhatsApp. L’ancien message reste intact ; réessayez dans quelques secondes.",
+        );
+        return false;
+      }
+      setCorrectionVerified(true);
+      return true;
+    } catch (exc) {
+      setError(errorMessage(exc, "history"));
+      return false;
+    } finally {
+      setCheckingCorrection(false);
+    }
+  }
+
+  async function deleteOriginalAfterVerification() {
+    if (!activeCorrectionTarget || !correctionMsgId || deletingOriginal) return;
+    setDeletingOriginal(true);
+    setError(null);
+    try {
+      let verified = correctionVerified;
+      if (!verified) {
+        const status = await getWaMessageStatus(correctionMsgId, activeConversation.id);
+        if (status.failed) {
+          setError("La correction a échoué côté WhatsApp. L’ancien message ne sera pas supprimé.");
+          return;
+        }
+        if (!status.server_ack_confirmed) {
+          setError(
+            "WhatsApp n’a pas encore confirmé le nouveau message. Par sécurité, Toumaï refuse de supprimer l’ancien.",
+          );
+          return;
+        }
+        verified = true;
+        setCorrectionVerified(true);
+      }
+
+      if (!verified) return;
+      const deletion = await deleteWaOwnMessage({
+        chat_id: activeConversation.id,
+        msg_id: activeCorrectionTarget.id,
+        confirmed: true,
+      });
+      if (!deletion.delete_submitted || !deletion.accepted_by_gateway) {
+        setError("La suppression de l’ancien message n’a pas été acceptée par WhatsApp.");
+        return;
+      }
+      setOriginalDeleteSubmitted(true);
+    } catch (exc) {
+      setError(errorMessage(exc, "generic"));
+    } finally {
+      setDeletingOriginal(false);
+    }
+  }
+
   const isVisual = ["image", "video", "gif", "sticker"].includes(mediaType);
+  const correctionSent = Boolean(activeCorrectionTarget && correctionMsgId);
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center px-4 py-6">
@@ -95,7 +187,13 @@ export function WhatsAppAttachmentModal({
         type="button"
         aria-label="Fermer"
         className="absolute inset-0 bg-black/70 backdrop-blur-[3px]"
-        onClick={sending ? undefined : onClose}
+        onClick={
+          sending || deletingOriginal || checkingCorrection
+            ? undefined
+            : correctionSent
+              ? finishCorrection
+              : onClose
+        }
       />
       <section
         role="dialog"
@@ -106,21 +204,25 @@ export function WhatsAppAttachmentModal({
       >
         <header className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: BORDER }}>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#073d2c]" style={{ color: GREEN }}>
-            {isVisual ? <ImageIcon size={18} /> : <FileText size={18} />}
+            {correctionSent ? <CheckCircle2 size={18} /> : isVisual ? <ImageIcon size={18} /> : <FileText size={18} />}
           </div>
           <div className="min-w-0 flex-1">
             <h2 id="wa-attachment-title" className="text-[16px] font-semibold">
-              {correctionTarget ? "Corriger le média" : "Pièce jointe"}
+              {correctionSent
+                ? "Correction envoyée"
+                : activeCorrectionTarget
+                  ? "Envoyer une correction"
+                  : "Pièce jointe"}
             </h2>
             <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
-              {conversation.name}
+              {activeConversation.name}
             </p>
           </div>
           <button
             type="button"
             aria-label="Fermer"
-            disabled={sending}
-            onClick={onClose}
+            disabled={sending || deletingOriginal || checkingCorrection}
+            onClick={correctionSent ? finishCorrection : onClose}
             className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-white/5 disabled:opacity-40"
             style={{ color: MUTED }}
           >
@@ -129,16 +231,27 @@ export function WhatsAppAttachmentModal({
         </header>
 
         <div className="p-5">
-          {correctionTarget && (
+          {activeCorrectionTarget && (
             <div
               className="mb-4 rounded-xl border px-4 py-3 text-[12px] leading-5"
               style={{ borderColor: "rgba(8,200,117,.28)", background: "rgba(8,200,117,.06)", color: MUTED }}
             >
-              WhatsApp ne permet pas de modifier une photo, une vidéo ou un autre média déjà envoyé.
-              Cette nouvelle pièce jointe sera donc envoyée comme <strong style={{ color: TEXT }}>correction liée au média original</strong>,
-              et non comme une fausse modification native.
+              {correctionSent ? (
+                <>
+                  La nouvelle pièce jointe a été envoyée comme <strong style={{ color: TEXT }}>nouveau message WhatsApp</strong>.
+                  Toumaï ne prétend pas avoir remplacé le média original. Vous pouvez conserver l’ancien message,
+                  ou demander sa suppression séparément après confirmation du nouveau message par WhatsApp.
+                </>
+              ) : (
+                <>
+                  WhatsApp ne remplace pas le contenu binaire d’un média déjà envoyé.
+                  Toumaï enverra donc cette pièce jointe comme <strong style={{ color: TEXT }}>nouveau message de correction lié à l’original</strong>.
+                  L’ancien message restera intact tant que vous ne demandez pas explicitement sa suppression.
+                </>
+              )}
             </div>
           )}
+
           {previewUrl && mediaType === "image" && (
             <div className="mb-4 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "#08131c" }}>
               <img src={previewUrl} alt={file.name} className="max-h-[320px] w-full object-contain" />
@@ -169,7 +282,7 @@ export function WhatsAppAttachmentModal({
             </div>
           </div>
 
-          {mediaType !== "sticker" && (
+          {!correctionSent && mediaType !== "sticker" && (
             <div className="mt-4">
               <label htmlFor="wa-media-caption" className="text-[12px] font-semibold">
                 Légende <span style={{ color: MUTED }}>(facultatif)</span>
@@ -186,35 +299,106 @@ export function WhatsAppAttachmentModal({
             </div>
           )}
 
+          {correctionSent && (
+            <div className="mt-4 rounded-xl border p-4" style={{ borderColor: BORDER, background: RAISED }}>
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <CheckCircle2 size={17} color={GREEN} />
+                Nouveau message créé
+              </div>
+              <p className="mt-2 text-[11px] leading-5" style={{ color: MUTED }}>
+                ID : <span className="font-mono" style={{ color: TEXT }}>{correctionMsgId}</span>
+              </p>
+              <p className="mt-1 text-[11px] leading-5" style={{ color: MUTED }}>
+                {originalDeleteSubmitted
+                  ? "La suppression de l’ancien message a été soumise à WhatsApp."
+                  : correctionVerified
+                    ? "Le nouveau message est confirmé par le serveur WhatsApp. La suppression de l’ancien peut maintenant être demandée."
+                    : "L’ancien message est conservé. Toumaï le supprimera uniquement après confirmation serveur du nouveau message."}
+              </p>
+            </div>
+          )}
+
           {error && (
             <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-300">
               {error}
             </p>
           )}
 
-          <div className="mt-5 flex justify-end gap-2">
-            <button
-              type="button"
-              disabled={sending}
-              onClick={onClose}
-              className="h-11 rounded-xl border px-4 text-sm font-medium disabled:opacity-40"
-              style={{ borderColor: BORDER }}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              disabled={sending}
-              onClick={() => void sendNow()}
-              className="flex h-11 min-w-[170px] items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-55"
-              style={{ background: GREEN }}
-            >
-              {sending ? (
-                <><Loader2 size={17} className="animate-spin" /> Envoi…</>
-              ) : (
-                <><Send size={17} /> {correctionTarget ? "Envoyer la correction" : "Envoyer"}</>
-              )}
-            </button>
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            {!correctionSent && (
+              <>
+                <button
+                  type="button"
+                  disabled={sending}
+                  onClick={onClose}
+                  className="h-11 rounded-xl border px-4 text-sm font-medium disabled:opacity-40"
+                  style={{ borderColor: BORDER }}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={sending}
+                  onClick={() => void sendNow()}
+                  className="flex h-11 min-w-[170px] items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-55"
+                  style={{ background: GREEN }}
+                >
+                  {sending ? (
+                    <><Loader2 size={17} className="animate-spin" /> Envoi…</>
+                  ) : (
+                    <><Send size={17} /> {activeCorrectionTarget ? "Envoyer la correction" : "Envoyer"}</>
+                  )}
+                </button>
+              </>
+            )}
+
+            {correctionSent && !originalDeleteSubmitted && (
+              <>
+                <button
+                  type="button"
+                  disabled={checkingCorrection || deletingOriginal}
+                  onClick={finishCorrection}
+                  className="h-11 rounded-xl border px-4 text-sm font-medium disabled:opacity-40"
+                  style={{ borderColor: BORDER }}
+                >
+                  Conserver l’ancien et terminer
+                </button>
+                {!correctionVerified && (
+                  <button
+                    type="button"
+                    disabled={checkingCorrection || deletingOriginal}
+                    onClick={() => void verifyCorrection()}
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold disabled:opacity-45"
+                    style={{ borderColor: "rgba(8,200,117,.35)", color: GREEN }}
+                  >
+                    {checkingCorrection ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                    Vérifier le nouveau message
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={checkingCorrection || deletingOriginal}
+                  onClick={() => void deleteOriginalAfterVerification()}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold disabled:opacity-45"
+                  style={{ background: "#7d2228", color: "#fff" }}
+                >
+                  {deletingOriginal ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  Supprimer l’ancien message
+                </button>
+              </>
+            )}
+
+            {correctionSent && originalDeleteSubmitted && (
+              <button
+                type="button"
+                onClick={finishCorrection}
+                className="flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white"
+                style={{ background: GREEN }}
+              >
+                <CheckCircle2 size={16} />
+                Terminer
+              </button>
+            )}
           </div>
         </div>
       </section>
