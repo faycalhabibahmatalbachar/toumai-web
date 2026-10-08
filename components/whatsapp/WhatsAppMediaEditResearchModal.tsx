@@ -66,6 +66,8 @@ export function WhatsAppMediaEditResearchModal({
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [running, setRunning] = useState(false);
+  const [runningStage, setRunningStage] = useState<"upload" | "gateway" | null>(null);
+  const [runningSeconds, setRunningSeconds] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [result, setResult] = useState<WaMediaEditResearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,12 +83,23 @@ export function WhatsAppMediaEditResearchModal({
     setError(null);
   }, [open, message]);
 
+  useEffect(() => {
+    if (!running) return;
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      setRunningSeconds(Math.floor((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
   if (!open || !message) return null;
   const activeMessage = message;
 
   async function run() {
     if (running) return;
+    setRunningSeconds(0);
     setRunning(true);
+    setRunningStage(needsReplacementFile ? "upload" : "gateway");
     setError(null);
     try {
       let url: string | undefined;
@@ -103,6 +116,8 @@ export function WhatsAppMediaEditResearchModal({
         filename = uploaded.file_name || file.name;
         mimetype = file.type || undefined;
       }
+
+      setRunningStage("gateway");
 
       const response = await runWaMediaEditResearch({
         chat_id: chatId,
@@ -127,6 +142,7 @@ export function WhatsAppMediaEditResearchModal({
       setError(err instanceof Error ? err.message : "Expérience impossible.");
     } finally {
       setRunning(false);
+      setRunningStage(null);
     }
   }
 
@@ -246,6 +262,15 @@ export function WhatsAppMediaEditResearchModal({
           {error && (
             <div className="rounded-xl border px-3 py-2.5 text-[10px]" style={{ borderColor: "rgba(255,100,100,.35)", background: "rgba(255,100,100,.07)", color: "#ffb1b1" }}>
               {error}
+            </div>
+          )}
+
+          {running && (
+            <div role="status" aria-live="polite" className="rounded-xl border px-3 py-2.5 text-[10px] leading-5" style={{ borderColor: "rgba(255,149,24,.35)", background: "rgba(255,149,24,.07)", color: "#ffd6a3" }}>
+              {runningStage === "upload" ? "Téléversement de l’image de remplacement" : "Soumission à la passerelle WhatsApp"} · {runningSeconds} s
+              {runningSeconds >= 30 && (
+                <div>L’opération prend plus de temps que prévu. Attendez le résultat et ne relancez pas l’expérience : un envoi peut encore être en cours.</div>
+              )}
             </div>
           )}
 
