@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
-      EXPECTED_BACKEND_SHA: 05631611cfacaa634c9ada8ce44fd47fc4bef21e
+      EXPECTED_BACKEND_SHA: 24c00b88c60521694dc12077d98ae403a8c064b8
       BUILD_URL: https://api.toumaiai.com/api/v1/app/build
       OPENAPI_URL: https://api.toumaiai.com/openapi.json
     steps:
