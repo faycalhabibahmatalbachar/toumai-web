@@ -402,30 +402,33 @@ export default function WhatsAppConversationsPage() {
     if (!selected || !session || selected.unread_count <= 0) return;
 
     const chatId = selected.id;
-    setConversations((current) =>
-      current.map((conversation) =>
-        conversation.id === chatId
-          ? { ...conversation, unread_count: 0 }
-          : conversation,
-      ),
-    );
-    setSelected((current) =>
-      current?.id === chatId ? { ...current, unread_count: 0 } : current,
-    );
+    const timer = window.setTimeout(() => {
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === chatId
+            ? { ...conversation, unread_count: 0 }
+            : conversation,
+        ),
+      );
+      setSelected((current) =>
+        current?.id === chatId ? { ...current, unread_count: 0 } : current,
+      );
 
-    void applyWaConversationAction({
-      chat_id: chatId,
-      action: "mark_read",
-      confirmed: true,
-    })
-      .then(() => loadConversations(query, filter))
-      .catch(() => loadConversations(query, filter));
+      void applyWaConversationAction({
+        chat_id: chatId,
+        action: "mark_read",
+        confirmed: true,
+      })
+        .then(() => loadConversations(query, filter))
+        .catch(() => loadConversations(query, filter));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [selected, session, loadConversations, query, filter]);
 
   useEffect(() => {
     if (!selected) {
       initialScrollChatRef.current = null;
-      setShowJumpToLatest(false);
       return;
     }
     if (loadingThread || messages.length === 0) return;
