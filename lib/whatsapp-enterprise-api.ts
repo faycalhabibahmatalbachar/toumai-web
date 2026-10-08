@@ -493,6 +493,19 @@ export function editWaMessage(input: {
   return http.post("/whatsapp/message/edit", input);
 }
 
+export function deleteWaOwnMessage(input: {
+  chat_id: string;
+  msg_id: string;
+  confirmed: true;
+}): Promise<{
+  chat_id: string;
+  msg_id: string;
+  delete_submitted: boolean;
+  accepted_by_gateway: boolean;
+}> {
+  return http.post("/whatsapp/message/delete-own", input);
+}
+
 export type WaMediaEditResearchMode =
   | "E0_TEXT_CONTROL"
   | "E1_MEDIA_TO_TEXT"
