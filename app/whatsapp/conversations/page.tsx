@@ -50,6 +50,7 @@ import { WhatsAppConversationActionModal, type ConversationActionRequest } from 
 import { WhatsAppContactShareModal } from "@/components/whatsapp/WhatsAppContactShareModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppMediaEditResearchModal } from "@/components/whatsapp/WhatsAppMediaEditResearchModal";
 import { WhatsAppPollModal } from "@/components/whatsapp/WhatsAppPollModal";
 import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
@@ -168,6 +169,14 @@ export default function WhatsAppConversationsPage() {
   const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
   const [muteMenuOpen, setMuteMenuOpen] = useState(false);
   const [actionRequest, setActionRequest] = useState<ConversationActionRequest | null>(null);
+  const [researchEnabled, setResearchEnabled] = useState(false);
+  const [researchTarget, setResearchTarget] = useState<WaLiveMessage | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setResearchEnabled(params.get("research") === "media-edit-v1");
+  }, []);
 
   const visibleMessages = useMemo(
     () =>
@@ -428,6 +437,7 @@ export default function WhatsAppConversationsPage() {
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
     setActionRequest(null);
+    setResearchTarget(null);
     setAttachmentError(null);
     setSendError(null);
     setReplyingTo(null);
@@ -459,6 +469,7 @@ export default function WhatsAppConversationsPage() {
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
     setActionRequest(null);
+    setResearchTarget(null);
     setAttachmentError(null);
     setSendError(null);
     setReplyingTo(null);
@@ -1267,6 +1278,8 @@ export default function WhatsAppConversationsPage() {
                         onReact={(message, emoji) => void reactToMessage(message, emoji)}
                         onCopy={(message) => void copyMessage(message)}
                         onInfo={(message) => void openMessageInfo(message)}
+                        researchEnabled={researchEnabled}
+                        onResearch={(message) => setResearchTarget(message)}
                       />
                     </div>
                   )}
@@ -1601,6 +1614,13 @@ export default function WhatsAppConversationsPage() {
         onClose={closeMessageInfo}
       />
 
+      <WhatsAppMediaEditResearchModal
+        open={researchEnabled && Boolean(researchTarget)}
+        chatId={selected?.id || researchTarget?.chat_id || ""}
+        message={researchTarget}
+        onClose={() => setResearchTarget(null)}
+      />
+
       <WhatsAppComposeModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
@@ -1926,6 +1946,8 @@ function ThreadMessages({
   onReact,
   onCopy,
   onInfo,
+  researchEnabled,
+  onResearch,
 }: {
   messages: WaLiveMessage[];
   reactions: Record<string, string>;
@@ -1934,6 +1956,8 @@ function ThreadMessages({
   onReact: (message: WaLiveMessage, emoji: string) => void;
   onCopy: (message: WaLiveMessage) => void;
   onInfo: (message: WaLiveMessage) => void;
+  researchEnabled: boolean;
+  onResearch: (message: WaLiveMessage) => void;
 }) {
   const groups = groupMessagesByDay(messages);
   return (
@@ -1958,6 +1982,8 @@ function ThreadMessages({
               onReact={(emoji) => onReact(message, emoji)}
               onCopy={() => onCopy(message)}
               onInfo={() => onInfo(message)}
+              researchEnabled={researchEnabled}
+              onResearch={() => onResearch(message)}
             />
           ))}
         </div>
@@ -1974,6 +2000,8 @@ function MessageBubble({
   onReact,
   onCopy,
   onInfo,
+  researchEnabled,
+  onResearch,
 }: {
   message: WaLiveMessage;
   reaction?: string;
@@ -1982,6 +2010,8 @@ function MessageBubble({
   onReact: (emoji: string) => void;
   onCopy: () => void;
   onInfo: () => void;
+  researchEnabled: boolean;
+  onResearch: () => void;
 }) {
   const [reactionOpen, setReactionOpen] = useState(false);
   const when = message.timestamp_ms
@@ -2107,6 +2137,17 @@ function MessageBubble({
               onClick={onEdit}
             />
           )}
+          {researchEnabled &&
+            message.from_me &&
+            !message.id.startsWith("local-") &&
+            !isWaNativeEditExpired(message) &&
+            (isTextMessageType(message.type) || ["image", "video", "gif", "document"].includes(message.type)) && (
+              <MessageActionButton
+                label="Lab"
+                icon={<Sparkles size={13} />}
+                onClick={onResearch}
+              />
+            )}
         </div>
       </div>
     </div>
