@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   ArrowLeft,
+  ArrowDown,
   Trash2,
   Pin,
   MoreVertical,
@@ -58,6 +59,7 @@ import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
 import {
+  applyWaConversationAction,
   editWaMessage,
   getWaContactInfo,
   getWaConversationMessages,
@@ -134,6 +136,9 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const threadScrollRef = useRef<HTMLDivElement>(null);
+  const initialScrollChatRef = useRef<string | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const threadSearchInputRef = useRef<HTMLInputElement>(null);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
@@ -394,6 +399,59 @@ export default function WhatsAppConversationsPage() {
   }, [selected, session, loadThread]);
 
   useEffect(() => {
+    if (!selected || !session || selected.unread_count <= 0) return;
+
+    const chatId = selected.id;
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === chatId
+          ? { ...conversation, unread_count: 0 }
+          : conversation,
+      ),
+    );
+    setSelected((current) =>
+      current?.id === chatId ? { ...current, unread_count: 0 } : current,
+    );
+
+    void applyWaConversationAction({
+      chat_id: chatId,
+      action: "mark_read",
+      confirmed: true,
+    })
+      .then(() => loadConversations(query, filter))
+      .catch(() => loadConversations(query, filter));
+  }, [selected, session, loadConversations, query, filter]);
+
+  useEffect(() => {
+    if (!selected) {
+      initialScrollChatRef.current = null;
+      setShowJumpToLatest(false);
+      return;
+    }
+    if (loadingThread || messages.length === 0) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const node = threadScrollRef.current;
+      if (!node) return;
+
+      const firstPaintForChat = initialScrollChatRef.current !== selected.id;
+      const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+      if (firstPaintForChat || distanceFromBottom <= 260) {
+        node.scrollTo({
+          top: node.scrollHeight,
+          behavior: firstPaintForChat ? "auto" : "smooth",
+        });
+        initialScrollChatRef.current = selected.id;
+        setShowJumpToLatest(false);
+      } else {
+        setShowJumpToLatest(true);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selected?.id, loadingThread, messages.length]);
+
+  useEffect(() => {
     if (!session || typeof window === "undefined") return;
 
     const refreshThreadAndList = () => {
@@ -449,7 +507,23 @@ export default function WhatsAppConversationsPage() {
     setMediaCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
-    setSelected(conversation);
+    initialScrollChatRef.current = null;
+    setShowJumpToLatest(false);
+    setSelected({ ...conversation, unread_count: 0 });
+    if (conversation.unread_count > 0) {
+      setConversations((current) =>
+        current.map((item) =>
+          item.id === conversation.id ? { ...item, unread_count: 0 } : item,
+        ),
+      );
+      void applyWaConversationAction({
+        chat_id: conversation.id,
+        action: "mark_read",
+        confirmed: true,
+      })
+        .then(() => loadConversations(query, filter))
+        .catch(() => loadConversations(query, filter));
+    }
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.set("chat", conversation.id);
@@ -481,6 +555,8 @@ export default function WhatsAppConversationsPage() {
     setMediaCorrectionTarget(null);
     setLocalReactions({});
     closeAttachmentReview();
+    initialScrollChatRef.current = null;
+    setShowJumpToLatest(false);
     if (typeof window !== "undefined") {
       const next = new URL(window.location.href);
       next.searchParams.delete("chat");
@@ -792,6 +868,13 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
+  function scrollThreadToBottom(behavior: ScrollBehavior = "smooth") {
+    const node = threadScrollRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior });
+    setShowJumpToLatest(false);
+  }
+
   function prepareConversationAction(request: ConversationActionRequest) {
     setConversationMenuOpen(false);
     setMuteMenuOpen(false);
@@ -808,10 +891,10 @@ export default function WhatsAppConversationsPage() {
   return (
     <div className="min-h-dvh" style={{ background: PAGE_BG, color: TEXT }}>
       <aside
-        className="fixed inset-y-0 left-0 z-50 hidden w-[253px] border-r lg:block"
+        className="fixed inset-y-0 left-0 z-50 hidden w-[76px] border-r lg:block"
         style={{ background: SIDEBAR_BG, borderColor: BORDER }}
       >
-        <SidebarContent />
+        <SidebarContent compact />
       </aside>
 
       {mobileNavOpen && (
@@ -840,7 +923,7 @@ export default function WhatsAppConversationsPage() {
         </div>
       )}
 
-      <div className="lg:pl-[253px]">
+      <div className="lg:pl-[76px]">
         <main className="grid h-dvh min-h-0 lg:grid-cols-[420px_minmax(0,1fr)] xl:grid-cols-[480px_minmax(0,1fr)] 2xl:grid-cols-[500px_minmax(0,1fr)]">
           <aside
             className={`${selected ? "hidden lg:flex" : "flex"} min-h-0 flex-col border-r`}
@@ -1236,6 +1319,12 @@ export default function WhatsAppConversationsPage() {
                 )}
 
                 <div
+                  ref={threadScrollRef}
+                  onScroll={(event) => {
+                    const node = event.currentTarget;
+                    const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+                    setShowJumpToLatest(distanceFromBottom > 180);
+                  }}
                   className="min-h-0 flex-1 overflow-y-auto px-3 py-5 md:px-6 lg:px-8"
                   style={{
                     backgroundColor: "#06131c",
@@ -1287,6 +1376,19 @@ export default function WhatsAppConversationsPage() {
                     </div>
                   )}
                 </div>
+
+                {showJumpToLatest && !threadSearchOpen && (
+                  <button
+                    type="button"
+                    aria-label="Aller au dernier message"
+                    title="Aller au dernier message"
+                    onClick={() => scrollThreadToBottom("smooth")}
+                    className="absolute bottom-[106px] right-5 z-20 flex h-11 w-11 items-center justify-center rounded-full border shadow-[0_8px_24px_rgba(0,0,0,.30)] transition hover:-translate-y-0.5 md:right-7"
+                    style={{ borderColor: BORDER, background: "#1f2c34", color: "#dce7eb" }}
+                  >
+                    <ArrowDown size={19} />
+                  </button>
+                )}
 
                 {contactInfoOpen && selected.kind === "contact" && (
                   <div
@@ -1353,21 +1455,7 @@ export default function WhatsAppConversationsPage() {
                   </div>
                 )}
 
-                <div className="border-t px-3 pt-2.5 md:px-5" style={{ borderColor: BORDER, background: SURFACE }}>
-                  <div className="mx-auto max-w-[980px]">
-                    <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
-                      <span
-                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[10px] font-semibold"
-                        style={{ background: "rgba(139,92,246,.10)", color: "#c4a8ff" }}
-                      >
-                        <Sparkles size={13} />
-                        Assistant IA
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="px-3 pb-3 md:px-5" style={{ background: SURFACE }}>
+                <div className="border-t px-3 pb-3 pt-2.5 md:px-5" style={{ borderColor: BORDER, background: SURFACE }}>
                   <div className="mx-auto max-w-[980px]">
                     {(replyingTo || editingMessage) && (
                       <div
@@ -1417,14 +1505,14 @@ export default function WhatsAppConversationsPage() {
                     )}
 
                     <div
-                      className="relative flex items-end gap-2 rounded-[16px] border p-2"
+                      className="relative flex items-end gap-1 rounded-[26px] border px-2 py-1.5"
                       style={{
                         borderColor: dragActive
                           ? "rgba(8,200,117,.75)"
                           : sendError
                             ? "rgba(255,107,107,.45)"
                             : BORDER,
-                        background: dragActive ? "rgba(8,200,117,.055)" : RAISED,
+                        background: dragActive ? "rgba(8,200,117,.055)" : "#17242d",
                       }}
                       onDragEnter={(event) => {
                         event.preventDefault();
@@ -1460,7 +1548,7 @@ export default function WhatsAppConversationsPage() {
                           title="Ajouter un emoji"
                           aria-expanded={emojiOpen}
                           onClick={() => setEmojiOpen((value) => !value)}
-                          className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-white/[0.04]"
+                          className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/[0.06]"
                           style={{ color: emojiOpen ? GREEN : MUTED }}
                         >
                           <Smile size={19} />
@@ -1532,7 +1620,7 @@ export default function WhatsAppConversationsPage() {
                             setAttachmentMenuOpen((value) => !value);
                             setEmojiOpen(false);
                           }}
-                          className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-45"
+                          className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-white/[0.06] disabled:opacity-45"
                           style={{ color: attachmentMenuOpen ? GREEN : MUTED }}
                         >
                           {attachmentUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={19} />}
@@ -1579,7 +1667,7 @@ export default function WhatsAppConversationsPage() {
                                 : "Écrire un message…"
                         }
                         rows={1}
-                        className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-[13px] leading-5 outline-none"
+                        className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-[14px] leading-5 outline-none placeholder:text-[#8796a1]"
                       />
 
                       <button
@@ -1587,7 +1675,7 @@ export default function WhatsAppConversationsPage() {
                         disabled={!replyDraft.trim() || sendingMessage}
                         onClick={() => void sendCurrentMessage()}
                         aria-label={editingMessage ? "Enregistrer la modification" : "Envoyer le message"}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
                         style={{ background: GREEN }}
                       >
                         {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : editingMessage ? <Check size={18} /> : <Send size={18} />}
@@ -1715,10 +1803,29 @@ function ConversationMenuItem({
   );
 }
 
-function SidebarContent() {
+function SidebarContent({ compact = false }: { compact?: boolean }) {
+  const itemClass = compact
+    ? "group relative flex h-11 items-center justify-center rounded-xl transition hover:bg-white/[0.05]"
+    : "flex h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-medium transition hover:bg-white/[0.035]";
+
+  const tooltip = (label: string) =>
+    compact ? (
+      <span
+        className="pointer-events-none absolute left-full z-[80] ml-3 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[11px] font-medium opacity-0 shadow-xl transition group-hover:opacity-100"
+        style={{ borderColor: BORDER, background: "#17242d", color: TEXT }}
+      >
+        {label}
+      </span>
+    ) : null;
+
   return (
-    <div className="flex h-full flex-col p-4">
-      <Link href="/chat" className="flex h-12 items-center gap-3 px-3" aria-label="Toumaï AI">
+    <div className={`flex h-full flex-col ${compact ? "px-3 py-4" : "p-4"}`}>
+      <Link
+        href="/chat"
+        title={compact ? "Toumaï AI" : undefined}
+        className={compact ? "group relative flex h-12 items-center justify-center" : "flex h-12 items-center gap-3 px-3"}
+        aria-label="Toumaï AI"
+      >
         <Image
           src="/logo.png"
           alt=""
@@ -1727,60 +1834,72 @@ function SidebarContent() {
           priority
           className="h-[38px] w-[38px] shrink-0 object-contain"
         />
-        <span className="text-[23px] font-bold tracking-[-0.03em]">Toumaï AI</span>
+        {!compact && <span className="text-[23px] font-bold tracking-[-0.03em]">Toumaï AI</span>}
+        {tooltip("Toumaï AI")}
       </Link>
 
-      <nav className="mt-8 space-y-1">
+      <nav className={`${compact ? "mt-7" : "mt-8"} space-y-1`}>
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
-            className="flex h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-medium transition hover:bg-white/[0.035]"
+            aria-label={label}
+            title={compact ? label : undefined}
+            className={itemClass}
             style={{ color: MUTED }}
           >
-            <Icon size={19} />
-            <span>{label}</span>
+            <Icon size={20} />
+            {compact ? tooltip(label) : <span>{label}</span>}
           </Link>
         ))}
 
-        <div
-          className="mt-2 flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-semibold"
+        <Link
+          href="/whatsapp/conversations"
+          aria-label="WhatsApp — Conversations"
+          title={compact ? "WhatsApp — Conversations" : undefined}
+          className={
+            compact
+              ? "group relative mt-2 flex h-11 items-center justify-center rounded-xl border"
+              : "mt-2 flex h-11 items-center gap-3 rounded-xl border px-3 text-[13px] font-semibold"
+          }
           style={{
             color: "#ffb35a",
             borderColor: "rgba(255,149,24,.25)",
             background: "rgba(255,149,24,.08)",
           }}
         >
-          <WhatsAppIcon size={19} />
-          <span>WhatsApp</span>
-        </div>
+          <WhatsAppIcon size={20} />
+          {compact ? tooltip("WhatsApp — Conversations") : <span>WhatsApp</span>}
+        </Link>
 
-        <div className="ml-[24px] mt-1 space-y-1 border-l pl-3" style={{ borderColor: BORDER }}>
-          <Link
-            href="/whatsapp"
-            className="flex h-9 items-center rounded-lg px-3 text-[11px] transition hover:bg-white/[0.035]"
-            style={{ color: MUTED }}
-          >
-            Overview
-          </Link>
-          <div
-            className="relative flex h-10 items-center overflow-hidden rounded-xl px-3 text-[11px] font-semibold"
-            style={{
-              color: "#e9fff5",
-              background: "linear-gradient(90deg, rgba(8,200,117,.22), rgba(8,200,117,.10))",
-            }}
-          >
-            <span className="absolute inset-y-1 left-0 w-[3px] rounded-r-full" style={{ background: GREEN }} />
-            Conversations
+        {!compact && (
+          <div className="ml-[24px] mt-1 space-y-1 border-l pl-3" style={{ borderColor: BORDER }}>
+            <Link
+              href="/whatsapp"
+              className="flex h-9 items-center rounded-lg px-3 text-[11px] transition hover:bg-white/[0.035]"
+              style={{ color: MUTED }}
+            >
+              Overview
+            </Link>
+            <div
+              className="relative flex h-10 items-center overflow-hidden rounded-xl px-3 text-[11px] font-semibold"
+              style={{
+                color: "#e9fff5",
+                background: "linear-gradient(90deg, rgba(8,200,117,.22), rgba(8,200,117,.10))",
+              }}
+            >
+              <span className="absolute inset-y-1 left-0 w-[3px] rounded-r-full" style={{ background: GREEN }} />
+              Conversations
+            </div>
+            <Link
+              href="/whatsapp/automations"
+              className="flex h-9 items-center rounded-lg px-3 text-[11px] transition hover:bg-white/[0.035]"
+              style={{ color: MUTED }}
+            >
+              Automatisations
+            </Link>
           </div>
-          <Link
-            href="/whatsapp/automations"
-            className="flex h-9 items-center rounded-lg px-3 text-[11px] transition hover:bg-white/[0.035]"
-            style={{ color: MUTED }}
-          >
-            Automatisations
-          </Link>
-        </div>
+        )}
       </nav>
 
       <div className="mt-auto space-y-1">
@@ -1788,11 +1907,13 @@ function SidebarContent() {
           <Link
             key={href}
             href={href}
-            className="flex h-11 items-center gap-3 rounded-xl px-3 text-[13px] font-medium transition hover:bg-white/[0.035]"
+            aria-label={label}
+            title={compact ? label : undefined}
+            className={itemClass}
             style={{ color: MUTED }}
           >
-            <Icon size={19} />
-            <span>{label}</span>
+            <Icon size={20} />
+            {compact ? tooltip(label) : <span>{label}</span>}
           </Link>
         ))}
       </div>
