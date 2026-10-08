@@ -26,6 +26,8 @@ const MODE_LABELS: Record<WaMediaEditResearchMode, string> = {
   E2_SAME_MEDIA_CAPTION: "E2 — même descripteur média, nouvelle légende",
   E3_REUPLOAD_SAME_MEDIA_CAPTION: "E3 — mêmes octets, ré-upload frais + nouvelle légende",
   E4_REPLACE_MEDIA: "E4 — remplacer le média",
+  E5_SAME_ID_IMAGE_RESEND: "E5 — ré-envoyer une nouvelle image avec le même ID",
+  E6_SAME_ID_EDIT_ENVELOPE: "E6 — edit + enveloppe portant le même ID",
 };
 
 function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
@@ -37,6 +39,8 @@ function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
       "E2_SAME_MEDIA_CAPTION",
       "E3_REUPLOAD_SAME_MEDIA_CAPTION",
       "E4_REPLACE_MEDIA",
+      "E5_SAME_ID_IMAGE_RESEND",
+      "E6_SAME_ID_EDIT_ENVELOPE",
     ];
   }
   if (["video", "gif", "document"].includes(type)) {
@@ -88,8 +92,12 @@ export function WhatsAppMediaEditResearchModal({
       let url: string | undefined;
       let filename: string | undefined;
       let mimetype: string | undefined;
-      if (mode === "E4_REPLACE_MEDIA") {
-        if (!file) throw new Error("Choisissez le nouveau média avant E4.");
+      const needsReplacementFile =
+        mode === "E4_REPLACE_MEDIA" ||
+        mode === "E5_SAME_ID_IMAGE_RESEND" ||
+        mode === "E6_SAME_ID_EDIT_ENVELOPE";
+      if (needsReplacementFile) {
+        if (!file) throw new Error("Choisissez la nouvelle image avant cette expérience.");
         const uploaded = await uploadWaAttachment(file);
         url = uploaded.url;
         filename = uploaded.file_name || file.name;
@@ -104,7 +112,9 @@ export function WhatsAppMediaEditResearchModal({
         caption:
           mode === "E2_SAME_MEDIA_CAPTION" ||
           mode === "E3_REUPLOAD_SAME_MEDIA_CAPTION" ||
-          mode === "E4_REPLACE_MEDIA"
+          mode === "E4_REPLACE_MEDIA" ||
+          mode === "E5_SAME_ID_IMAGE_RESEND" ||
+          mode === "E6_SAME_ID_EDIT_ENVELOPE"
             ? caption
             : undefined,
         url,
@@ -137,7 +147,13 @@ export function WhatsAppMediaEditResearchModal({
   const needsCaption =
     mode === "E2_SAME_MEDIA_CAPTION" ||
     mode === "E3_REUPLOAD_SAME_MEDIA_CAPTION" ||
-    mode === "E4_REPLACE_MEDIA";
+    mode === "E4_REPLACE_MEDIA" ||
+    mode === "E5_SAME_ID_IMAGE_RESEND" ||
+    mode === "E6_SAME_ID_EDIT_ENVELOPE";
+  const needsReplacementFile =
+    mode === "E4_REPLACE_MEDIA" ||
+    mode === "E5_SAME_ID_IMAGE_RESEND" ||
+    mode === "E6_SAME_ID_EDIT_ENVELOPE";
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Laboratoire MEDIA_EDIT">
@@ -210,7 +226,7 @@ export function WhatsAppMediaEditResearchModal({
             </label>
           )}
 
-          {mode === "E4_REPLACE_MEDIA" && (
+          {needsReplacementFile && (
             <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 text-[11px]" style={{ borderColor: BORDER, background: RAISED }}>
               <span className="min-w-0 truncate">{file ? file.name : "Choisir le média de remplacement"}</span>
               <span className="flex items-center gap-1.5" style={{ color: GREEN }}><Upload size={14} /> Parcourir</span>
@@ -241,6 +257,22 @@ export function WhatsAppMediaEditResearchModal({
               <div><span style={{ color: MUTED }}>Événement edit observé :</span> {result.gateway_update_has_edited_message ? "oui" : "pas encore"}</div>
               <div><span style={{ color: MUTED }}>Type observé :</span> {result.gateway_update_type || "—"}</div>
               <div><span style={{ color: MUTED }}>Mutation cache Toumaï :</span> {result.cache_mutation ? "oui" : "non"}</div>
+              {typeof result.gateway_update_matches_replacement === "boolean" && (
+                <div>
+                  <span style={{ color: MUTED }}>Update passerelle porte la nouvelle image :</span>{" "}
+                  {result.gateway_update_matches_replacement ? "oui" : "non"}
+                </div>
+              )}
+              {result.protocol_upserts && result.protocol_upserts.length > 0 && (
+                <div>
+                  <span style={{ color: MUTED }}>Enveloppes edit observées :</span>{" "}
+                  {result.protocol_upserts
+                    .map((item) =>
+                      `${item.eventType || "?"}:${item.editedType || "?"}:${item.matchesReplacement ? "nouvelle-image" : "autre"}`,
+                    )
+                    .join(" · ")}
+                </div>
+              )}
               {result.evidence?.strategy && (
                 <div className="mt-2 border-t pt-2" style={{ borderColor: BORDER }}>
                   <div><span style={{ color: MUTED }}>Stratégie de preuve :</span> {result.evidence.strategy}</div>
@@ -278,6 +310,12 @@ export function WhatsAppMediaEditResearchModal({
                     <div>
                       <span style={{ color: MUTED }}>Fichier WhatsApp = nouvelle image :</span>{" "}
                       {result.evidence.outputMatchesReplacement ? "oui" : "non"}
+                    </div>
+                  )}
+                  {typeof result.evidence.returnedSameMessageId === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>ID retourné = ID original :</span>{" "}
+                      {result.evidence.returnedSameMessageId ? "oui" : "non"}
                     </div>
                   )}
                   {result.evidence.originalByteLength != null && (
@@ -332,7 +370,7 @@ export function WhatsAppMediaEditResearchModal({
           <button
             type="button"
             onClick={() => void run()}
-            disabled={running || (needsText && !text.trim()) || (mode === "E4_REPLACE_MEDIA" && !file)}
+            disabled={running || (needsText && !text.trim()) || (needsReplacementFile && !file)}
             className="inline-flex h-9 items-center gap-2 rounded-xl px-4 text-[11px] font-semibold disabled:opacity-50"
             style={{ background: GREEN, color: "#032417" }}
           >
