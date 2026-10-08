@@ -1634,12 +1634,6 @@ export default function WhatsAppConversationsPage() {
                         />
                       </div>
 
-                      <WhatsAppAudioRecorder
-                        disabled={attachmentUploading || sendingMessage}
-                        onRecorded={sendRecordedVoice}
-                        onError={(message) => setAttachmentError(message)}
-                      />
-
                       <textarea
                         ref={composerRef}
                         value={replyDraft}
@@ -1673,16 +1667,26 @@ export default function WhatsAppConversationsPage() {
                         className="min-h-10 max-h-32 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-[14px] leading-5 outline-none placeholder:text-[#8796a1]"
                       />
 
-                      <button
-                        type="button"
-                        disabled={!replyDraft.trim() || sendingMessage}
-                        onClick={() => void sendCurrentMessage()}
-                        aria-label={editingMessage ? "Enregistrer la modification" : "Envoyer le message"}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
-                        style={{ background: GREEN }}
-                      >
-                        {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : editingMessage ? <Check size={18} /> : <Send size={18} />}
-                      </button>
+                      {!replyDraft.trim() && !editingMessage && (
+                        <WhatsAppAudioRecorder
+                          disabled={attachmentUploading || sendingMessage}
+                          onRecorded={sendRecordedVoice}
+                          onError={(message) => setAttachmentError(message)}
+                        />
+                      )}
+
+                      {(replyDraft.trim() || editingMessage) && (
+                        <button
+                          type="button"
+                          disabled={!replyDraft.trim() || sendingMessage}
+                          onClick={() => void sendCurrentMessage()}
+                          aria-label={editingMessage ? "Enregistrer la modification" : "Envoyer le message"}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_28px_rgba(8,200,117,.18)] disabled:cursor-not-allowed disabled:opacity-35"
+                          style={{ background: GREEN }}
+                        >
+                          {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : editingMessage ? <Check size={18} /> : <Send size={18} />}
+                        </button>
+                      )}
                     </div>
                     {(attachmentError || sendError) && (
                       <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
