@@ -520,8 +520,14 @@ export interface WaMediaEditResearchResult {
     sourcePlainSha256?: string | null;
     sourceProtoFileSha256?: string | null;
     sourceHashMatchesOriginalProto?: boolean;
+    originalByteLength?: number;
+    replacementByteLength?: number;
+    originalPlainSha256?: string | null;
+    replacementPlainSha256?: string | null;
+    replacementDiffersFromOriginal?: boolean;
     outputFileSha256?: string | null;
     samePlainBytesAfterReupload?: boolean;
+    outputMatchesReplacement?: boolean;
     descriptorChanged?: boolean;
     submittedCaption?: string;
     originalDescriptor?: Record<string, unknown> | null;
