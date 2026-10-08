@@ -1943,6 +1943,8 @@ function ConversationListItem({
     <button
       type="button"
       onClick={onClick}
+      data-conversation-id={conversation.id}
+      data-unread-count={conversation.unread_count}
       className="relative flex w-full items-center gap-3 border-b px-4 py-3 text-left transition hover:bg-white/[0.03]"
       style={{
         borderColor: BORDER,
