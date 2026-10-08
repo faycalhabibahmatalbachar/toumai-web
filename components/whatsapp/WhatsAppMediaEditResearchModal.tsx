@@ -28,7 +28,7 @@ const MODE_LABELS: Record<WaMediaEditResearchMode, string> = {
 };
 
 function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
-  const type = message.type === "voix" ? "voice" : message.type;
+  const type = activeMessage.type === "voix" ? "voice" : activeMessage.type;
   if (type === "text" || type === "texte") return ["E0_TEXT_CONTROL"];
   if (["image", "video", "gif", "document"].includes(type)) {
     return ["E1_MEDIA_TO_TEXT", "E2_SAME_MEDIA_CAPTION", "E4_REPLACE_MEDIA"];
@@ -69,6 +69,7 @@ export function WhatsAppMediaEditResearchModal({
   }, [open, message]);
 
   if (!open || !message) return null;
+  const activeMessage = message;
 
   async function run() {
     if (running) return;
@@ -88,7 +89,7 @@ export function WhatsAppMediaEditResearchModal({
 
       const response = await runWaMediaEditResearch({
         chat_id: chatId,
-        msg_id: message.id,
+        msg_id: activeMessage.id,
         mode,
         text: mode === "E0_TEXT_CONTROL" || mode === "E1_MEDIA_TO_TEXT" ? text.trim() : undefined,
         caption: mode === "E2_SAME_MEDIA_CAPTION" || mode === "E4_REPLACE_MEDIA" ? caption : undefined,
@@ -141,9 +142,9 @@ export function WhatsAppMediaEditResearchModal({
 
         <div className="space-y-4 px-5 py-4">
           <div className="rounded-xl border px-3 py-2.5 text-[11px]" style={{ borderColor: BORDER, background: RAISED }}>
-            <div><span style={{ color: MUTED }}>Message :</span> {message.id}</div>
-            <div className="mt-1"><span style={{ color: MUTED }}>Type :</span> {message.type}</div>
-            <div className="mt-1"><span style={{ color: MUTED }}>Âge :</span> {Math.max(0, Math.floor((Date.now() - message.timestamp_ms) / 1000))} s</div>
+            <div><span style={{ color: MUTED }}>Message :</span> {activeMessage.id}</div>
+            <div className="mt-1"><span style={{ color: MUTED }}>Type :</span> {activeMessage.type}</div>
+            <div className="mt-1"><span style={{ color: MUTED }}>Âge :</span> {Math.max(0, Math.floor((Date.now() - activeMessage.timestamp_ms) / 1000))} s</div>
           </div>
 
           <label className="block">
@@ -199,7 +200,7 @@ export function WhatsAppMediaEditResearchModal({
               <input
                 type="file"
                 className="hidden"
-                accept={message.type === "image" ? "image/*" : message.type === "document" ? "*/*" : "video/*"}
+                accept={activeMessage.type === "image" ? "image/*" : activeMessage.type === "document" ? "*/*" : "video/*"}
                 onChange={(event) => setFile(event.target.files?.[0] || null)}
               />
             </label>
