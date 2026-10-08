@@ -29,6 +29,7 @@ const MODE_LABELS: Record<WaMediaEditResearchMode, string> = {
   E5_SAME_ID_IMAGE_RESEND: "E5 — ré-envoyer une nouvelle image avec le même ID",
   E6_SAME_ID_EDIT_ENVELOPE: "E6 — edit + enveloppe portant le même ID",
   E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA: "E7 — nouveau média, vignette et dimensions d’origine",
+  E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH: "E8 — nouveau média, hash de l’image d’origine",
 };
 
 function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
@@ -43,6 +44,7 @@ function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
       "E5_SAME_ID_IMAGE_RESEND",
       "E6_SAME_ID_EDIT_ENVELOPE",
       "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA",
+      "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH",
     ];
   }
   if (["video", "gif", "document"].includes(type)) {
@@ -111,7 +113,8 @@ export function WhatsAppMediaEditResearchModal({
         mode === "E4_REPLACE_MEDIA" ||
         mode === "E5_SAME_ID_IMAGE_RESEND" ||
         mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
-        mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
+        mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA" ||
+        mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH";
       if (needsReplacementFile) {
         if (!file) throw new Error("Choisissez la nouvelle image avant cette expérience.");
         const uploaded = await uploadWaAttachment(file);
@@ -133,7 +136,8 @@ export function WhatsAppMediaEditResearchModal({
           mode === "E4_REPLACE_MEDIA" ||
           mode === "E5_SAME_ID_IMAGE_RESEND" ||
           mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
-          mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA"
+          mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA" ||
+          mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH"
             ? caption
             : undefined,
         url,
@@ -170,12 +174,14 @@ export function WhatsAppMediaEditResearchModal({
     mode === "E4_REPLACE_MEDIA" ||
     mode === "E5_SAME_ID_IMAGE_RESEND" ||
     mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
-    mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
+    mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA" ||
+    mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH";
   const needsReplacementFile =
     mode === "E4_REPLACE_MEDIA" ||
     mode === "E5_SAME_ID_IMAGE_RESEND" ||
     mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
-    mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
+    mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA" ||
+    mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH";
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Laboratoire MEDIA_EDIT">
@@ -264,6 +270,11 @@ export function WhatsAppMediaEditResearchModal({
           <div className="rounded-xl border px-3 py-2.5 text-[10px] leading-5" style={{ borderColor: "rgba(255,149,24,.35)", background: "rgba(255,149,24,.07)", color: "#ffd6a3" }}>
             Utilisez uniquement un message que vous venez d’envoyer. Le laboratoire ne modifie jamais localement le cache pour fabriquer un faux succès.
           </div>
+          {mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH" && (
+            <div className="rounded-xl border px-3 py-2.5 text-[10px] leading-5" style={{ borderColor: "rgba(255,100,100,.35)", background: "rgba(255,100,100,.07)", color: "#ffb1b1" }}>
+              Contrôle négatif : le hash annoncé sera celui de A alors que les octets téléversés seront ceux de B. Le média peut devenir illisible. Réservez ce test à un nouveau message sans importance.
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl border px-3 py-2.5 text-[10px]" style={{ borderColor: "rgba(255,100,100,.35)", background: "rgba(255,100,100,.07)", color: "#ffb1b1" }}>
@@ -339,7 +350,7 @@ export function WhatsAppMediaEditResearchModal({
                   )}
                   {typeof result.evidence.outputMatchesReplacement === "boolean" && (
                     <div>
-                      <span style={{ color: MUTED }}>Fichier WhatsApp = nouvelle image :</span>{" "}
+                      <span style={{ color: MUTED }}>{result.mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH" ? "Hash annoncé = nouvelle image :" : "Fichier WhatsApp = nouvelle image :"}</span>{" "}
                       {result.evidence.outputMatchesReplacement ? "oui" : "non"}
                     </div>
                   )}
@@ -351,6 +362,12 @@ export function WhatsAppMediaEditResearchModal({
                   )}
                   {result.evidence.copiedFields && (
                     <div><span style={{ color: MUTED }}>Métadonnées A conservées :</span> {result.evidence.copiedFields.join(", ") || "aucune"}</div>
+                  )}
+                  {result.evidence.uploadedFileSha256 && (
+                    <div className="break-all font-mono"><span style={{ color: MUTED }}>SHA-256 des octets téléversés :</span> {result.evidence.uploadedFileSha256}</div>
+                  )}
+                  {result.evidence.submittedFileSha256 && (
+                    <div className="break-all font-mono"><span style={{ color: MUTED }}>fileSha256 annoncé dans l’edit :</span> {result.evidence.submittedFileSha256}</div>
                   )}
                   {result.evidence.hybridDimensions && (
                     <div><span style={{ color: MUTED }}>Dimensions envoyées :</span> {result.evidence.hybridDimensions.width ?? "—"} × {result.evidence.hybridDimensions.height ?? "—"}</div>
