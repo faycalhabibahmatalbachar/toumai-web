@@ -493,6 +493,55 @@ export function editWaMessage(input: {
   return http.post("/whatsapp/message/edit", input);
 }
 
+export type WaMediaEditResearchMode =
+  | "E0_TEXT_CONTROL"
+  | "E1_MEDIA_TO_TEXT"
+  | "E2_SAME_MEDIA_CAPTION"
+  | "E4_REPLACE_MEDIA";
+
+export interface WaMediaEditResearchResult {
+  experiment_id: string;
+  mode: WaMediaEditResearchMode;
+  chat_id: string;
+  msg_id: string;
+  original_type: string;
+  age_ms: number | null;
+  transport_accepted: boolean;
+  generated_message_id?: string | null;
+  gateway_update_observed_at?: number | null;
+  gateway_update_has_edited_message: boolean;
+  gateway_update_type?: string | null;
+  cache_mutation: boolean;
+  verdict:
+    | "SUBMITTED_NOT_PROVEN"
+    | "GATEWAY_EDIT_EVENT_OBSERVED"
+    | "NOT_SUBMITTED"
+    | string;
+}
+
+export function runWaMediaEditResearch(input: {
+  chat_id: string;
+  msg_id: string;
+  mode: WaMediaEditResearchMode;
+  text?: string;
+  caption?: string;
+  url?: string;
+  filename?: string;
+  mimetype?: string;
+  confirmed: true;
+}): Promise<WaMediaEditResearchResult> {
+  return http.post<WaMediaEditResearchResult>("/whatsapp/research/media-edit", input);
+}
+
+export function getWaMediaEditResearchResult(
+  experimentId: string,
+): Promise<WaMediaEditResearchResult> {
+  const query = new URLSearchParams({ experiment_id: experimentId });
+  return http.get<WaMediaEditResearchResult>(
+    `/whatsapp/research/media-edit/result?${query.toString()}`,
+  );
+}
+
 export function getWaMessageStatus(
   msgId: string,
   chatId = "",
