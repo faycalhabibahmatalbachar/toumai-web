@@ -798,9 +798,13 @@ export default function WhatsAppConversationsPage() {
     setAttachmentMenuOpen(false);
     try {
       const uploaded = await uploadWaAttachment(file);
+      const detectedType =
+        uploaded.media_family && ["image", "video", "gif", "audio", "document"].includes(uploaded.media_family)
+          ? uploaded.media_family
+          : inferWaMediaType(file);
       setAttachmentFile(file);
       setAttachmentUploaded(uploaded);
-      setAttachmentType(forcedType || inferWaMediaType(file));
+      setAttachmentType(forcedType || detectedType);
       setAttachmentOpen(true);
     } catch (error) {
       setAttachmentError(errorMessage(error, "generic"));
