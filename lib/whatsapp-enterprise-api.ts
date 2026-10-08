@@ -498,7 +498,9 @@ export type WaMediaEditResearchMode =
   | "E1_MEDIA_TO_TEXT"
   | "E2_SAME_MEDIA_CAPTION"
   | "E3_REUPLOAD_SAME_MEDIA_CAPTION"
-  | "E4_REPLACE_MEDIA";
+  | "E4_REPLACE_MEDIA"
+  | "E5_SAME_ID_IMAGE_RESEND"
+  | "E6_SAME_ID_EDIT_ENVELOPE";
 
 export interface WaMediaEditResearchResult {
   experiment_id: string;
@@ -512,6 +514,17 @@ export interface WaMediaEditResearchResult {
   gateway_update_observed_at?: number | null;
   gateway_update_has_edited_message: boolean;
   gateway_update_type?: string | null;
+  gateway_update_descriptor?: Record<string, unknown> | null;
+  gateway_update_matches_replacement?: boolean;
+  protocol_upserts?: Array<{
+    at?: number;
+    eventType?: string;
+    envelopeMessageId?: string | null;
+    fromMe?: boolean;
+    editedType?: string | null;
+    descriptor?: Record<string, unknown> | null;
+    matchesReplacement?: boolean;
+  }>;
   cache_mutation: boolean;
   evidence?: {
     strategy?: string;
@@ -529,6 +542,9 @@ export interface WaMediaEditResearchResult {
     samePlainBytesAfterReupload?: boolean;
     outputMatchesReplacement?: boolean;
     descriptorChanged?: boolean;
+    requestedMessageId?: string;
+    returnedMessageId?: string | null;
+    returnedSameMessageId?: boolean;
     submittedCaption?: string;
     originalDescriptor?: Record<string, unknown> | null;
     editedDescriptor?: Record<string, unknown> | null;
