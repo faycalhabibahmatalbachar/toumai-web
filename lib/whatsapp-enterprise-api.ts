@@ -497,6 +497,7 @@ export type WaMediaEditResearchMode =
   | "E0_TEXT_CONTROL"
   | "E1_MEDIA_TO_TEXT"
   | "E2_SAME_MEDIA_CAPTION"
+  | "E3_REUPLOAD_SAME_MEDIA_CAPTION"
   | "E4_REPLACE_MEDIA";
 
 export interface WaMediaEditResearchResult {
@@ -512,6 +513,21 @@ export interface WaMediaEditResearchResult {
   gateway_update_has_edited_message: boolean;
   gateway_update_type?: string | null;
   cache_mutation: boolean;
+  evidence?: {
+    strategy?: string;
+    descriptorIdentical?: boolean;
+    sourceByteLength?: number;
+    sourcePlainSha256?: string | null;
+    sourceProtoFileSha256?: string | null;
+    sourceHashMatchesOriginalProto?: boolean;
+    outputFileSha256?: string | null;
+    samePlainBytesAfterReupload?: boolean;
+    descriptorChanged?: boolean;
+    submittedCaption?: string;
+    originalDescriptor?: Record<string, unknown> | null;
+    editedDescriptor?: Record<string, unknown> | null;
+    outputDescriptor?: Record<string, unknown> | null;
+  };
   verdict:
     | "SUBMITTED_NOT_PROVEN"
     | "GATEWAY_EDIT_EVENT_OBSERVED"
