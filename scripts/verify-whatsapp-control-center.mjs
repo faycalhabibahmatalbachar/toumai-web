@@ -351,6 +351,7 @@ const state = {
   resumes: [],
   cancels: [],
   realtimeAuth: [],
+  nextUploadMediaFamily: null,
 };
 
 let retiredFallbackMode = false;
@@ -482,10 +483,14 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       contentType: request.headers()["content-type"] || "",
       size: request.postDataBuffer()?.byteLength || 0,
     });
+    const detectedFamily = state.nextUploadMediaFamily || "image";
+    state.nextUploadMediaFamily = null;
     data = {
       url: "https://storage.toumai.test/user_files/control-center-user/preuve.txt",
       file_name: "preuve.txt",
       size: 9,
+      content_type: "image/jpeg",
+      media_family: detectedFamily,
     };
   } else if (path === "/whatsapp/media/send" && method === "POST") {
     const body = request.postDataJSON();
@@ -796,6 +801,35 @@ async function certifyConversations() {
   assert(attachmentSend.type === "image", "Une image JPEG doit suivre le flux image même si l'URL de stockage a un suffixe technique.");
   assert(attachmentSend.mimetype === "image/jpeg", "Le MIME réel du fichier choisi doit être transmis au backend.");
   assert(attachmentSend.confirmed === true, "L'envoi média doit porter une confirmation explicite.");
+
+  const mediaBeforeReclassified = state.mediaSends.length;
+  state.nextUploadMediaFamily = "video";
+  await attachmentInput.setInputFiles({
+    name: "fichier-mal-etiquete.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70,
+      0x6d, 0x70, 0x34, 0x32, 0x00, 0x00, 0x00, 0x00,
+      0x6d, 0x70, 0x34, 0x32, 0x69, 0x73, 0x6f, 0x6d,
+    ]),
+  });
+  await page.getByRole("heading", { name: "Pièce jointe" }).waitFor();
+  await page.getByRole("dialog").getByRole("button", { name: "Envoyer", exact: true }).click();
+  await page.getByRole("heading", { name: "Pièce jointe" }).waitFor({ state: "hidden" });
+
+  assert(
+    state.mediaSends.length === mediaBeforeReclassified + 1,
+    "Un upload reclassé par les octets doit toujours produire un seul envoi.",
+  );
+  const reclassifiedSend = state.mediaSends.at(-1);
+  assert(
+    reclassifiedSend.type === "video",
+    "La famille détectée par les octets doit gagner sur le faux type image du navigateur.",
+  );
+  assert(
+    !("mimetype" in reclassifiedSend) || !reclassifiedSend.mimetype,
+    "Un MIME navigateur contradictoire ne doit pas être renvoyé au backend.",
+  );
 
   const chatActionsBeforeManualRead = state.chatActions.length;
   await page.getByRole("button", { name: "Plus d’options" }).click();

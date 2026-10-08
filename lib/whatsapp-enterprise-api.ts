@@ -299,6 +299,8 @@ export interface WaUploadedFile {
   url: string;
   file_name: string;
   size: number;
+  content_type?: string | null;
+  media_family?: "image" | "video" | "gif" | "audio" | "document" | null;
 }
 
 export interface WaMediaSendResult {

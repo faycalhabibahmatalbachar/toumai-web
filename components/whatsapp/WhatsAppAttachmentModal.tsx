@@ -78,12 +78,19 @@ export function WhatsAppAttachmentModal({
     setSending(true);
     setError(null);
     try {
+      const declaredMimeFamily = mediaFamilyFromMime(activeFile.type);
+      const trustedMime =
+        activeFile.type &&
+        (!activeUpload.media_family || declaredMimeFamily === activeUpload.media_family)
+          ? activeFile.type
+          : undefined;
+
       const result = await sendWaMedia({
         to: activeConversation.id,
         type: activeMediaType,
         url: activeUpload.url,
         filename: activeUpload.file_name || activeFile.name,
-        mimetype: activeFile.type || undefined,
+        mimetype: trustedMime,
         caption: caption.trim() || undefined,
         reply_to_msg_id: activeCorrectionTarget?.id || undefined,
         reply_to_text: activeCorrectionTarget?.text || undefined,
@@ -405,6 +412,19 @@ export function WhatsAppAttachmentModal({
     </div>
   );
 }
+
+function mediaFamilyFromMime(
+  mime: string | null | undefined,
+): "image" | "video" | "gif" | "audio" | "document" | null {
+  const value = (mime || "").split(";", 1)[0].trim().toLowerCase();
+  if (!value || value === "application/octet-stream") return null;
+  if (value === "image/gif") return "gif";
+  if (value.startsWith("image/")) return "image";
+  if (value.startsWith("video/")) return "video";
+  if (value.startsWith("audio/") || value === "application/ogg") return "audio";
+  return "document";
+}
+
 
 function mediaLabel(type: WaMediaType) {
   const labels: Record<WaMediaType, string> = {
