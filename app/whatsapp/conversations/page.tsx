@@ -369,7 +369,11 @@ export default function WhatsAppConversationsPage() {
       setSelected((current) =>
         current || {
           id: requested,
-          name: "Contact WhatsApp",
+          name: requested.endsWith("@g.us")
+            ? "Groupe WhatsApp"
+            : waNumberFromId(requested)
+              ? `+${waNumberFromId(requested)}`
+              : "",
           number: waNumberFromId(requested),
           kind: requested.endsWith("@g.us") ? "group" : "contact",
           unread_count: 0,
@@ -2329,18 +2333,28 @@ function DeliveryMark({ status }: { status?: string | null }) {
 
 function displayConversationName(conversation: WaLiveConversation) {
   const candidate = (conversation.name || "").trim();
-  if (candidate && !isTechnicalWhatsAppIdentity(candidate) && candidate !== conversation.id) {
+  const genericContact = candidate.toLowerCase() === "contact whatsapp";
+  if (
+    candidate &&
+    !genericContact &&
+    !isTechnicalWhatsAppIdentity(candidate) &&
+    candidate !== conversation.id
+  ) {
     return candidate;
   }
-  const number = validWhatsAppNumber(conversation.number);
+  const number =
+    validWhatsAppNumber(conversation.number) ||
+    waNumberFromId(conversation.id);
   if (number) return `+${number}`;
-  return conversation.kind === "group" ? "Groupe WhatsApp" : "Contact WhatsApp";
+  return conversation.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
 }
 
 function displayConversationSecondary(conversation: WaLiveConversation) {
-  const number = validWhatsAppNumber(conversation.number);
+  const number =
+    validWhatsAppNumber(conversation.number) ||
+    waNumberFromId(conversation.id);
   if (number) return `+${number}`;
-  return conversation.kind === "group" ? "Groupe WhatsApp" : "Contact WhatsApp";
+  return conversation.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
 }
 
 function isTechnicalWhatsAppIdentity(value: string | null | undefined) {
