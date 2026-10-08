@@ -233,7 +233,7 @@ export function WhatsAppAudioRecorder({
         title="Enregistrer un audio"
         disabled={disabled || preparing}
         onClick={() => void start()}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition hover:bg-white/[0.04] disabled:opacity-40"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-white/[0.06] disabled:opacity-40"
         style={{ color: MUTED }}
       >
         {preparing ? <Loader2 size={18} className="animate-spin" /> : <Mic size={19} />}
@@ -243,7 +243,7 @@ export function WhatsAppAudioRecorder({
 
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center gap-3 rounded-[16px] border px-3 shadow-[0_10px_35px_rgba(0,0,0,.22)]"
+      className="absolute inset-0 z-30 flex items-center gap-3 rounded-[26px] border px-3 shadow-[0_10px_35px_rgba(0,0,0,.22)]"
       style={{ background: RAISED, borderColor: BORDER }}
     >
       <button

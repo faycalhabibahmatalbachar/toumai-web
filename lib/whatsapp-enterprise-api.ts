@@ -394,11 +394,22 @@ export async function uploadWaAttachment(file: File): Promise<WaUploadedFile> {
 export function inferWaMediaType(file: File): WaMediaType {
   const mime = (file.type || "").toLowerCase();
   const name = file.name.toLowerCase();
+
   if (mime === "image/gif" || name.endsWith(".gif")) return "gif";
-  if (mime === "image/webp" || name.endsWith(".webp")) return "sticker";
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("video/")) return "video";
-  if (mime.startsWith("audio/")) return "audio";
+  // Un WebP choisi depuis la galerie reste une image normale. Le type
+  // "sticker" n'est appliqué que par le flux explicite "Créer un sticker".
+  if (
+    mime.startsWith("image/") ||
+    /\.(jpe?g|png|webp|bmp|heic|heif|avif)$/i.test(name)
+  ) return "image";
+  if (
+    mime.startsWith("video/") ||
+    /\.(mp4|mov|m4v|webm|3gp|mkv)$/i.test(name)
+  ) return "video";
+  if (
+    mime.startsWith("audio/") ||
+    /\.(mp3|ogg|opus|wav|m4a|aac|flac|amr)$/i.test(name)
+  ) return "audio";
   return "document";
 }
 

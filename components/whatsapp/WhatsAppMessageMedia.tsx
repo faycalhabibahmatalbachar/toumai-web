@@ -1,6 +1,6 @@
 "use client";
 
-import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Music2, Play } from "lucide-react";
+import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Maximize2, Music2, Play, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getWaMessageMediaBlob, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
@@ -15,6 +15,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
   const [mime, setMime] = useState(message.mime_type || "");
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const mediaType = normalizeType(message.type);
   const fileName = message.file_name || defaultFileName(mediaType, mime);
   const binaryMedia = ["image", "sticker", "video", "gif", "audio", "voice", "document"].includes(mediaType);
@@ -55,6 +56,15 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [binaryMedia, message.id, message.mime_type]);
+
+  useEffect(() => {
+    if (!previewOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewOpen]);
 
   const typeLabel = useMemo(() => labelFor(mediaType), [mediaType]);
 
@@ -110,24 +120,76 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
 
   if (mediaType === "image" || mediaType === "sticker") {
     return (
-      <div className="mb-2 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
-        <a href={url} target="_blank" rel="noreferrer" className="block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={message.text || fileName || typeLabel}
-            className={mediaType === "sticker" ? "max-h-[220px] max-w-[220px] object-contain p-2" : "max-h-[420px] w-full min-w-[220px] object-cover"}
-          />
-        </a>
-        {mediaType !== "sticker" && (
-          <div className="flex items-center justify-between gap-3 px-3 py-2">
-            <span className="min-w-0 truncate text-[9px]" style={{ color: MUTED }}>{fileName || "Image"}</span>
-            <a href={url} download={fileName || "image"} aria-label="Télécharger la pièce jointe" className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]" style={{ color: GREEN }}>
-              <Download size={14} />
-            </a>
+      <>
+        <div className="mb-2 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            aria-label="Agrandir l’image"
+            title="Agrandir l’image"
+            className="group relative block w-full cursor-zoom-in text-left"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={message.text || fileName || typeLabel}
+              className={mediaType === "sticker" ? "max-h-[220px] max-w-[220px] object-contain p-2" : "max-h-[420px] w-full min-w-[220px] object-cover"}
+            />
+            <span className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 opacity-0 backdrop-blur-sm transition group-hover:opacity-100">
+              <Maximize2 size={15} color="#fff" />
+            </span>
+          </button>
+          {mediaType !== "sticker" && (
+            <div className="flex items-center justify-between gap-3 px-3 py-2">
+              <span className="min-w-0 truncate text-[9px]" style={{ color: MUTED }}>{fileName || "Image"}</span>
+              <a href={url} download={fileName || "image"} aria-label="Télécharger la pièce jointe" className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-white/[0.06]" style={{ color: GREEN }}>
+                <Download size={14} />
+              </a>
+            </div>
+          )}
+        </div>
+
+        {previewOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Aperçu de l’image"
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          >
+            <button
+              type="button"
+              aria-label="Fermer l’aperçu"
+              className="absolute inset-0"
+              onClick={() => setPreviewOpen(false)}
+            />
+            <div className="relative z-10 flex max-h-[94vh] max-w-[96vw] flex-col items-center">
+              <button
+                type="button"
+                aria-label="Fermer l’aperçu"
+                title="Fermer"
+                onClick={() => setPreviewOpen(false)}
+                className="absolute -right-2 -top-12 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+              >
+                <X size={20} />
+              </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt={message.text || fileName || typeLabel}
+                className="max-h-[88vh] max-w-[96vw] rounded-lg object-contain shadow-2xl"
+              />
+              <a
+                href={url}
+                download={fileName || "image"}
+                className="mt-3 flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-xs font-semibold text-white transition hover:bg-white/20"
+              >
+                <Download size={15} />
+                Télécharger
+              </a>
+            </div>
           </div>
         )}
-      </div>
+      </>
     );
   }
 
