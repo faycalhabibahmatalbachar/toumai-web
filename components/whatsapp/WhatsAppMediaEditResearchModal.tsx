@@ -28,6 +28,7 @@ const MODE_LABELS: Record<WaMediaEditResearchMode, string> = {
   E4_REPLACE_MEDIA: "E4 — remplacer le média",
   E5_SAME_ID_IMAGE_RESEND: "E5 — ré-envoyer une nouvelle image avec le même ID",
   E6_SAME_ID_EDIT_ENVELOPE: "E6 — edit + enveloppe portant le même ID",
+  E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA: "E7 — nouveau média, vignette et dimensions d’origine",
 };
 
 function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
@@ -41,6 +42,7 @@ function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
       "E4_REPLACE_MEDIA",
       "E5_SAME_ID_IMAGE_RESEND",
       "E6_SAME_ID_EDIT_ENVELOPE",
+      "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA",
     ];
   }
   if (["video", "gif", "document"].includes(type)) {
@@ -108,7 +110,8 @@ export function WhatsAppMediaEditResearchModal({
       const needsReplacementFile =
         mode === "E4_REPLACE_MEDIA" ||
         mode === "E5_SAME_ID_IMAGE_RESEND" ||
-        mode === "E6_SAME_ID_EDIT_ENVELOPE";
+        mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
+        mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
       if (needsReplacementFile) {
         if (!file) throw new Error("Choisissez la nouvelle image avant cette expérience.");
         const uploaded = await uploadWaAttachment(file);
@@ -129,7 +132,8 @@ export function WhatsAppMediaEditResearchModal({
           mode === "E3_REUPLOAD_SAME_MEDIA_CAPTION" ||
           mode === "E4_REPLACE_MEDIA" ||
           mode === "E5_SAME_ID_IMAGE_RESEND" ||
-          mode === "E6_SAME_ID_EDIT_ENVELOPE"
+          mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
+          mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA"
             ? caption
             : undefined,
         url,
@@ -165,11 +169,13 @@ export function WhatsAppMediaEditResearchModal({
     mode === "E3_REUPLOAD_SAME_MEDIA_CAPTION" ||
     mode === "E4_REPLACE_MEDIA" ||
     mode === "E5_SAME_ID_IMAGE_RESEND" ||
-    mode === "E6_SAME_ID_EDIT_ENVELOPE";
+    mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
+    mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
   const needsReplacementFile =
     mode === "E4_REPLACE_MEDIA" ||
     mode === "E5_SAME_ID_IMAGE_RESEND" ||
-    mode === "E6_SAME_ID_EDIT_ENVELOPE";
+    mode === "E6_SAME_ID_EDIT_ENVELOPE" ||
+    mode === "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Laboratoire MEDIA_EDIT">
@@ -342,6 +348,15 @@ export function WhatsAppMediaEditResearchModal({
                       <span style={{ color: MUTED }}>ID retourné = ID original :</span>{" "}
                       {result.evidence.returnedSameMessageId ? "oui" : "non"}
                     </div>
+                  )}
+                  {result.evidence.copiedFields && (
+                    <div><span style={{ color: MUTED }}>Métadonnées A conservées :</span> {result.evidence.copiedFields.join(", ") || "aucune"}</div>
+                  )}
+                  {result.evidence.hybridDimensions && (
+                    <div><span style={{ color: MUTED }}>Dimensions envoyées :</span> {result.evidence.hybridDimensions.width ?? "—"} × {result.evidence.hybridDimensions.height ?? "—"}</div>
+                  )}
+                  {result.evidence.hybridThumbnailFingerprint && (
+                    <div className="break-all font-mono"><span style={{ color: MUTED }}>Empreinte vignette envoyée :</span> {result.evidence.hybridThumbnailFingerprint}</div>
                   )}
                   {result.evidence.originalByteLength != null && (
                     <div><span style={{ color: MUTED }}>Octets image originale :</span> {result.evidence.originalByteLength}</div>

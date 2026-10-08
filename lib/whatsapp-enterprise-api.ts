@@ -500,7 +500,8 @@ export type WaMediaEditResearchMode =
   | "E3_REUPLOAD_SAME_MEDIA_CAPTION"
   | "E4_REPLACE_MEDIA"
   | "E5_SAME_ID_IMAGE_RESEND"
-  | "E6_SAME_ID_EDIT_ENVELOPE";
+  | "E6_SAME_ID_EDIT_ENVELOPE"
+  | "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
 
 export interface WaMediaEditResearchResult {
   experiment_id: string;
@@ -549,6 +550,13 @@ export interface WaMediaEditResearchResult {
     originalDescriptor?: Record<string, unknown> | null;
     editedDescriptor?: Record<string, unknown> | null;
     outputDescriptor?: Record<string, unknown> | null;
+    copiedFields?: string[];
+    originalThumbnailFingerprint?: string | null;
+    hybridThumbnailFingerprint?: string | null;
+    originalDimensions?: { width: number | null; height: number | null };
+    hybridDimensions?: { width: number | null; height: number | null };
+    freshDescriptor?: Record<string, unknown> | null;
+    hybridDescriptor?: Record<string, unknown> | null;
   };
   verdict:
     | "SUBMITTED_NOT_PROVEN"
