@@ -449,7 +449,7 @@ export default function WhatsAppConversationsPage() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [selected?.id, loadingThread, messages.length]);
+  }, [selected, loadingThread, messages.length]);
 
   useEffect(() => {
     if (!session || typeof window === "undefined") return;
