@@ -23,14 +23,23 @@ const ORANGE = "#ff9518";
 const MODE_LABELS: Record<WaMediaEditResearchMode, string> = {
   E0_TEXT_CONTROL: "E0 — texte → texte (contrôle)",
   E1_MEDIA_TO_TEXT: "E1 — média → texte",
-  E2_SAME_MEDIA_CAPTION: "E2 — même média, nouvelle légende",
+  E2_SAME_MEDIA_CAPTION: "E2 — même descripteur média, nouvelle légende",
+  E3_REUPLOAD_SAME_MEDIA_CAPTION: "E3 — mêmes octets, ré-upload frais + nouvelle légende",
   E4_REPLACE_MEDIA: "E4 — remplacer le média",
 };
 
 function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
   const type = message.type === "voix" ? "voice" : message.type;
   if (type === "text" || type === "texte") return ["E0_TEXT_CONTROL"];
-  if (["image", "video", "gif", "document"].includes(type)) {
+  if (type === "image") {
+    return [
+      "E1_MEDIA_TO_TEXT",
+      "E2_SAME_MEDIA_CAPTION",
+      "E3_REUPLOAD_SAME_MEDIA_CAPTION",
+      "E4_REPLACE_MEDIA",
+    ];
+  }
+  if (["video", "gif", "document"].includes(type)) {
     return ["E1_MEDIA_TO_TEXT", "E2_SAME_MEDIA_CAPTION", "E4_REPLACE_MEDIA"];
   }
   return ["E1_MEDIA_TO_TEXT"];
@@ -92,7 +101,12 @@ export function WhatsAppMediaEditResearchModal({
         msg_id: activeMessage.id,
         mode,
         text: mode === "E0_TEXT_CONTROL" || mode === "E1_MEDIA_TO_TEXT" ? text.trim() : undefined,
-        caption: mode === "E2_SAME_MEDIA_CAPTION" || mode === "E4_REPLACE_MEDIA" ? caption : undefined,
+        caption:
+          mode === "E2_SAME_MEDIA_CAPTION" ||
+          mode === "E3_REUPLOAD_SAME_MEDIA_CAPTION" ||
+          mode === "E4_REPLACE_MEDIA"
+            ? caption
+            : undefined,
         url,
         filename,
         mimetype,
@@ -120,7 +134,10 @@ export function WhatsAppMediaEditResearchModal({
   }
 
   const needsText = mode === "E0_TEXT_CONTROL" || mode === "E1_MEDIA_TO_TEXT";
-  const needsCaption = mode === "E2_SAME_MEDIA_CAPTION" || mode === "E4_REPLACE_MEDIA";
+  const needsCaption =
+    mode === "E2_SAME_MEDIA_CAPTION" ||
+    mode === "E3_REUPLOAD_SAME_MEDIA_CAPTION" ||
+    mode === "E4_REPLACE_MEDIA";
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Laboratoire MEDIA_EDIT">
@@ -224,6 +241,48 @@ export function WhatsAppMediaEditResearchModal({
               <div><span style={{ color: MUTED }}>Événement edit observé :</span> {result.gateway_update_has_edited_message ? "oui" : "pas encore"}</div>
               <div><span style={{ color: MUTED }}>Type observé :</span> {result.gateway_update_type || "—"}</div>
               <div><span style={{ color: MUTED }}>Mutation cache Toumaï :</span> {result.cache_mutation ? "oui" : "non"}</div>
+              {result.evidence?.strategy && (
+                <div className="mt-2 border-t pt-2" style={{ borderColor: BORDER }}>
+                  <div><span style={{ color: MUTED }}>Stratégie de preuve :</span> {result.evidence.strategy}</div>
+                  {typeof result.evidence.descriptorIdentical === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>Descripteur média strictement identique :</span>{" "}
+                      {result.evidence.descriptorIdentical ? "oui" : "non"}
+                    </div>
+                  )}
+                  {typeof result.evidence.sourceHashMatchesOriginalProto === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>SHA-256 téléchargé = fichier original :</span>{" "}
+                      {result.evidence.sourceHashMatchesOriginalProto ? "oui" : "non"}
+                    </div>
+                  )}
+                  {typeof result.evidence.samePlainBytesAfterReupload === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>Même contenu après ré-upload :</span>{" "}
+                      {result.evidence.samePlainBytesAfterReupload ? "oui" : "non"}
+                    </div>
+                  )}
+                  {typeof result.evidence.descriptorChanged === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>Nouveau descripteur chiffré :</span>{" "}
+                      {result.evidence.descriptorChanged ? "oui" : "non"}
+                    </div>
+                  )}
+                  {result.evidence.sourceByteLength != null && (
+                    <div><span style={{ color: MUTED }}>Octets source :</span> {result.evidence.sourceByteLength}</div>
+                  )}
+                  {result.evidence.sourcePlainSha256 && (
+                    <div className="break-all font-mono">
+                      <span style={{ color: MUTED }}>SHA-256 source :</span> {result.evidence.sourcePlainSha256}
+                    </div>
+                  )}
+                  {result.evidence.outputFileSha256 && (
+                    <div className="break-all font-mono">
+                      <span style={{ color: MUTED }}>SHA-256 ré-upload :</span> {result.evidence.outputFileSha256}
+                    </div>
+                  )}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => void refreshResult()}
