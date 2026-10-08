@@ -174,8 +174,11 @@ export default function WhatsAppConversationsPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    setResearchEnabled(params.get("research") === "media-edit-v1");
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      setResearchEnabled(params.get("research") === "media-edit-v1");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const visibleMessages = useMemo(
