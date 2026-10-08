@@ -509,6 +509,10 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   } else if (path === "/whatsapp/conversation/action" && method === "POST") {
     const body = request.postDataJSON();
     state.chatActions.push(body);
+    if (body.action === "mark_read") {
+      const target = conversations.find((item) => item.id === body.chat_id);
+      if (target) target.unread_count = 0;
+    }
     data = {
       chat_id: body.chat_id,
       action: body.action,
@@ -658,6 +662,11 @@ async function certifyConversations() {
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
   await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
+  const mediaMessage = page.locator('[data-message-id="t-media"]');
+  await mediaMessage.getByRole("button", { name: "Agrandir l’image" }).click();
+  await page.getByRole("dialog", { name: "Aperçu de l’image" }).waitFor();
+  await page.getByRole("button", { name: "Fermer l’aperçu" }).last().click();
+  await page.getByRole("dialog", { name: "Aperçu de l’image" }).waitFor({ state: "hidden" });
 
   assert(
     (await page.getByText(/We need to respond/i).count()) === 0,
@@ -667,8 +676,8 @@ async function certifyConversations() {
   const desktopSidebar = await page.locator("body > div aside").first().boundingBox();
   assert(Boolean(desktopSidebar), "Sidebar desktop WhatsApp absente.");
   assert(
-    Math.abs(desktopSidebar.width - 253) <= 3,
-    `Sidebar WhatsApp inattendue: ${desktopSidebar.width}px`,
+    Math.abs(desktopSidebar.width - 76) <= 3,
+    `Sidebar WhatsApp compacte inattendue: ${desktopSidebar.width}px`,
   );
 
   const conversationColumn = await page.locator("main > aside").boundingBox();
@@ -678,7 +687,20 @@ async function certifyConversations() {
     `Colonne Conversations attendue ~480px à 1440px, obtenue ${conversationColumn.width}px`,
   );
 
-  await page.getByText("Assistant IA", { exact: true }).waitFor();
+  assert(
+    (await page.getByText("Assistant IA", { exact: true }).count()) === 0,
+    "Le badge Assistant IA doit être retiré du composeur WhatsApp.",
+  );
+  await page.waitForTimeout(120);
+  assert(
+    state.chatActions.some(
+      (action) =>
+        action.chat_id === "23566111111@s.whatsapp.net" &&
+        action.action === "mark_read" &&
+        action.confirmed === true,
+    ),
+    "Ouvrir une conversation non lue doit la marquer réellement comme lue.",
+  );
   await page.getByText("Aujourd’hui", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Filtres avancés" }).click();
   await page.getByRole("button", { name: "Contacts", exact: true }).waitFor();
@@ -733,7 +755,10 @@ async function certifyConversations() {
   await page.getByPlaceholder("Rechercher un emoji").waitFor();
   await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByRole("button", { name: "Enregistrer un audio" }).waitFor();
-  await page.getByText("Contact WhatsApp", { exact: true }).waitFor();
+  assert(
+    (await page.getByText("Contact WhatsApp", { exact: true }).count()) === 0,
+    "Le nom réel ou le numéro du contact doit remplacer le libellé générique Contact WhatsApp.",
+  );
   assert(
     (await page.getByRole("button", { name: "Réponse suggérée" }).count()) === 0,
     "Un raccourci IA non branché ne doit pas réapparaître.",
@@ -742,12 +767,12 @@ async function certifyConversations() {
   const mediaBeforeAttachment = state.mediaSends.length;
   const attachmentInput = page.getByLabel("Sélectionner une pièce jointe");
   await attachmentInput.setInputFiles({
-    name: "preuve.txt",
-    mimeType: "text/plain",
-    buffer: Buffer.from("preuve C2"),
+    name: "photo-c2.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
   });
   await page.getByRole("heading", { name: "Pièce jointe" }).waitFor();
-  await page.getByText("preuve.txt", { exact: true }).waitFor();
+  await page.getByText("photo-c2.jpg", { exact: true }).waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Envoyer", exact: true }).click();
   await page.getByRole("heading", { name: "Pièce jointe" }).waitFor({ state: "hidden" });
 
@@ -762,19 +787,25 @@ async function certifyConversations() {
   );
   const attachmentSend = state.mediaSends.at(-1);
   assert(attachmentSend.to === "23566111111@s.whatsapp.net", "Le média doit conserver le JID exact sélectionné.");
-  assert(attachmentSend.type === "document", "Un fichier texte doit suivre le flux document.");
+  assert(attachmentSend.type === "image", "Une image JPEG doit suivre le flux image même si l'URL de stockage a un suffixe technique.");
+  assert(attachmentSend.mimetype === "image/jpeg", "Le MIME réel du fichier choisi doit être transmis au backend.");
   assert(attachmentSend.confirmed === true, "L'envoi média doit porter une confirmation explicite.");
 
+  const chatActionsBeforeManualRead = state.chatActions.length;
   await page.getByRole("button", { name: "Plus d’options" }).click();
   await page.getByRole("button", { name: "Marquer comme lue", exact: true }).click();
   await page.getByRole("heading", { name: "Marquer comme lue" }).waitFor();
   await page.getByRole("button", { name: "Appliquer", exact: true }).click();
   await page.getByRole("heading", { name: "Marquer comme lue" }).waitFor({ state: "hidden" });
 
-  assert(state.chatActions.length === 1, `Une action confirmée doit produire un seul appel, obtenu ${state.chatActions.length}.`);
-  assert(state.chatActions[0].chat_id === "23566111111@s.whatsapp.net", "L'action doit viser le JID exact sélectionné.");
-  assert(state.chatActions[0].action === "mark_read", "Le menu doit transmettre l'action canonique mark_read.");
-  assert(state.chatActions[0].confirmed === true, "L'action de conversation doit porter une confirmation explicite.");
+  assert(
+    state.chatActions.length === chatActionsBeforeManualRead + 1,
+    "Le clic manuel Marquer comme lue doit produire exactement un appel supplémentaire.",
+  );
+  const manualRead = state.chatActions.at(-1);
+  assert(manualRead.chat_id === "23566111111@s.whatsapp.net", "L'action doit viser le JID exact sélectionné.");
+  assert(manualRead.action === "mark_read", "Le menu doit transmettre l'action canonique mark_read.");
+  assert(manualRead.confirmed === true, "L'action de conversation doit porter une confirmation explicite.");
   assert(
     (await page.getByText(/@lid/i).count()) === 0,
     "Un identifiant technique @lid ne doit jamais être visible dans l’interface.",
