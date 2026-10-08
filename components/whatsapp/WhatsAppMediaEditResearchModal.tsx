@@ -28,7 +28,7 @@ const MODE_LABELS: Record<WaMediaEditResearchMode, string> = {
 };
 
 function availableModes(message: WaLiveMessage): WaMediaEditResearchMode[] {
-  const type = activeMessage.type === "voix" ? "voice" : activeMessage.type;
+  const type = message.type === "voix" ? "voice" : message.type;
   if (type === "text" || type === "texte") return ["E0_TEXT_CONTROL"];
   if (["image", "video", "gif", "document"].includes(type)) {
     return ["E1_MEDIA_TO_TEXT", "E2_SAME_MEDIA_CAPTION", "E4_REPLACE_MEDIA"];
