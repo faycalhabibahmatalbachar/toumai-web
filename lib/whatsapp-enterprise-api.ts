@@ -501,7 +501,8 @@ export type WaMediaEditResearchMode =
   | "E4_REPLACE_MEDIA"
   | "E5_SAME_ID_IMAGE_RESEND"
   | "E6_SAME_ID_EDIT_ENVELOPE"
-  | "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA";
+  | "E7_FRESH_MEDIA_ORIGINAL_VISUAL_METADATA"
+  | "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH";
 
 export interface WaMediaEditResearchResult {
   experiment_id: string;
@@ -557,6 +558,10 @@ export interface WaMediaEditResearchResult {
     hybridDimensions?: { width: number | null; height: number | null };
     freshDescriptor?: Record<string, unknown> | null;
     hybridDescriptor?: Record<string, unknown> | null;
+    uploadedFileSha256?: string | null;
+    submittedFileSha256?: string | null;
+    submittedHashMatchesOriginal?: boolean;
+    submittedHashMatchesReplacement?: boolean;
   };
   verdict:
     | "SUBMITTED_NOT_PROVEN"
