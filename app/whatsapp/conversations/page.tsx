@@ -1382,7 +1382,7 @@ export default function WhatsAppConversationsPage() {
                             {editingMessage
                               ? "Modifier votre message"
                               : mediaCorrectionTarget
-                                ? "Corriger le média"
+                                ? "Envoyer une correction média"
                                 : correctionTarget
                                   ? "Corriger un ancien message"
                                   : "Répondre à ce message"}
@@ -1393,7 +1393,7 @@ export default function WhatsAppConversationsPage() {
                           {correctionTarget && (
                             <p className="mt-1 text-[10px] leading-4" style={{ color: FAINT }}>
                               {mediaCorrectionTarget
-                                ? "WhatsApp ne permet pas de modifier un média déjà envoyé. Écrivez un texte ou joignez un nouveau fichier : Toumaï l’enverra comme correction liée au média original."
+                                ? "WhatsApp ne remplace pas le contenu binaire d’un média déjà envoyé. Joignez le nouveau fichier : Toumaï l’enverra comme nouveau message de correction, puis vous pourrez choisir séparément de supprimer l’ancien après confirmation WhatsApp."
                                 : "WhatsApp limite l’édition native à 15 minutes. La correction sera envoyée comme réponse liée à l’original, sans prétendre avoir modifié l’ancien message."}
                             </p>
                           )}
@@ -1573,7 +1573,7 @@ export default function WhatsAppConversationsPage() {
                           editingMessage
                             ? "Modifier le message…"
                             : mediaCorrectionTarget
-                              ? "Écrire une correction ou joindre un fichier…"
+                              ? "Joindre le média corrigé ou écrire une précision…"
                               : replyingTo
                                 ? "Écrire votre réponse…"
                                 : "Écrire un message…"
