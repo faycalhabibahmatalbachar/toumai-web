@@ -268,6 +268,34 @@ export function WhatsAppMediaEditResearchModal({
                       {result.evidence.descriptorChanged ? "oui" : "non"}
                     </div>
                   )}
+                  {typeof result.evidence.replacementDiffersFromOriginal === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>Nouvelle image différente de l’originale :</span>{" "}
+                      {result.evidence.replacementDiffersFromOriginal ? "oui" : "non"}
+                    </div>
+                  )}
+                  {typeof result.evidence.outputMatchesReplacement === "boolean" && (
+                    <div>
+                      <span style={{ color: MUTED }}>Fichier WhatsApp = nouvelle image :</span>{" "}
+                      {result.evidence.outputMatchesReplacement ? "oui" : "non"}
+                    </div>
+                  )}
+                  {result.evidence.originalByteLength != null && (
+                    <div><span style={{ color: MUTED }}>Octets image originale :</span> {result.evidence.originalByteLength}</div>
+                  )}
+                  {result.evidence.replacementByteLength != null && (
+                    <div><span style={{ color: MUTED }}>Octets nouvelle image :</span> {result.evidence.replacementByteLength}</div>
+                  )}
+                  {result.evidence.originalPlainSha256 && (
+                    <div className="break-all font-mono">
+                      <span style={{ color: MUTED }}>SHA-256 original :</span> {result.evidence.originalPlainSha256}
+                    </div>
+                  )}
+                  {result.evidence.replacementPlainSha256 && (
+                    <div className="break-all font-mono">
+                      <span style={{ color: MUTED }}>SHA-256 remplacement :</span> {result.evidence.replacementPlainSha256}
+                    </div>
+                  )}
                   {result.evidence.sourceByteLength != null && (
                     <div><span style={{ color: MUTED }}>Octets source :</span> {result.evidence.sourceByteLength}</div>
                   )}
