@@ -382,6 +382,8 @@ const state = {
   legacyConversationReads: 0,
   modern404s: [],
   pauses: [],
+  nativeCreations: [],
+  pagedReads: [],
   resumes: [],
   cancels: [],
   realtimeAuth: [],
@@ -695,6 +697,34 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     };
   } else if (path === "/whatsapp/automations" && method === "GET") {
     data = { tasks, count: tasks.length };
+  } else if (path === "/whatsapp/automations/paged" && method === "GET") {
+    const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
+    const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 25)));
+    const status = url.searchParams.get("status") || "all";
+    const search = (url.searchParams.get("search") || "").toLowerCase();
+    const matching = tasks.filter((t) => {
+      if (status === "active" && !["pending", "processing"].includes(t.status)) return false;
+      if (status === "paused" && t.status !== "paused") return false;
+      if (status === "failed" && t.status !== "failed") return false;
+      if (status === "done" && !["sent", "cancelled"].includes(t.status)) return false;
+      return !search || [t.title, t.recipient, t.message_preview].some((v) => String(v).toLowerCase().includes(search));
+    });
+    state.pagedReads.push({status, search, offset, limit});
+    data = {tasks: matching.slice(offset, offset + limit), count: matching.length, offset, limit};
+  } else if (path === "/whatsapp/automations/stats" && method === "GET") {
+    const count = (status) => tasks.filter((task) => task.status === status).length;
+    data = {
+      total: tasks.length,
+      by_status: {
+        pending: count("pending"), processing: count("processing"),
+        paused: count("paused"), sent: count("sent"),
+        failed: count("failed"), cancelled: count("cancelled"),
+      },
+    };
+  } else if (path === "/automations/v2/whatsapp" && method === "POST") {
+    const body = request.postDataJSON();
+    state.nativeCreations.push(body);
+    data = { automation: {id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", status: "active"}, replayed: false };
   } else if (/\/whatsapp\/automations\/[^/]+\/pause$/.test(path)) {
     state.pauses.push(path);
     data = { ...tasks[0], status: "paused" };
@@ -1538,7 +1568,29 @@ async function certifyAutomations() {
   await page.getByText("scheduled", { exact: true }).waitFor();
   await noHorizontalOverflow(page, "automations");
   await page.screenshot({ path: `${artifacts}/automations.png`, fullPage: false });
+  assert(state.pagedReads.some((r) => r.status === "all" && r.limit === 25 && r.offset === 0),
+    "Le tableau historique doit consulter réellement l’API paginée.");
   await page.close();
+
+  // Isolated fixture validates UI -> V2 API, not provider delivery.
+  const creator = await context.newPage();
+  await creator.goto(`${BASE}/whatsapp/automations/`, { waitUntil: "domcontentloaded" });
+  await creator.getByRole("button", { name: "Nouvelle automatisation", exact: true }).click();
+  await creator.getByRole("dialog", { name: "Nouvelle automatisation texte" }).waitFor();
+  await creator.getByPlaceholder("Nom exact ou numéro autorisé").fill("Mahamat Ali");
+  await creator.getByPlaceholder("Votre message...").fill("Rappel de test autorisé");
+  await creator.locator('input[type="datetime-local"]').fill("2030-01-15T09:00");
+  const createButton = creator.getByRole("button", { name: "Créer et activer" });
+  assert(await createButton.isDisabled(), "La création doit exiger une confirmation explicite.");
+  await creator.getByRole("checkbox").check();
+  await createButton.click();
+  await creator.waitForURL(/\/automations\/?\?id=/, { timeout: 12000 });
+  assert(state.nativeCreations.length === 1, "Une seule création doit appeler Automation OS V2.");
+  const created = state.nativeCreations[0];
+  assert(created.client === "web" && created.media_type === "text", "Le contrat doit être WhatsApp V2 texte.");
+  assert(created.to === "Mahamat Ali" && created.message === "Rappel de test autorisé", "Préserver le contenu confirmé.");
+  assert(created.trigger.kind === "exact_time" && Boolean(created.client_request_id), "Horaire et idempotence obligatoires.");
+  await creator.close();
 }
 
 async function certifyMobile() {
