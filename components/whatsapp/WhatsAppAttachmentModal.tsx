@@ -3,7 +3,7 @@
 import { CheckCircle2, FileText, ImageIcon, Loader2, Send, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import {
   deleteWaOwnMessage,
   getWaMessageStatus,
@@ -115,7 +115,7 @@ export function WhatsAppAttachmentModal({
       onSent();
       onClose();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setSending(false);
     }
@@ -140,7 +140,7 @@ export function WhatsAppAttachmentModal({
       setCorrectionVerified(true);
       return true;
     } catch (exc) {
-      setError(errorMessage(exc, "history"));
+      setError(whatsappUiError(exc, "history"));
       return false;
     } finally {
       setCheckingCorrection(false);
@@ -181,7 +181,7 @@ export function WhatsAppAttachmentModal({
       }
       setOriginalDeleteSubmitted(true);
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setDeletingOriginal(false);
     }
