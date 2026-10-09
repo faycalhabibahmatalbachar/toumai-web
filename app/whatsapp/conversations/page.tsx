@@ -46,6 +46,7 @@ import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppAttachmentMenu, type WhatsAppAttachmentChoice } from "@/components/whatsapp/WhatsAppAttachmentMenu";
 import { WhatsAppAttachmentModal } from "@/components/whatsapp/WhatsAppAttachmentModal";
 import { WhatsAppAudioRecorder } from "@/components/whatsapp/WhatsAppAudioRecorder";
+import { WhatsAppPendingVoiceList, type PendingWhatsAppVoice } from "@/components/whatsapp/WhatsAppPendingVoiceList";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
 import { WhatsAppConversationActionModal, type ConversationActionRequest } from "@/components/whatsapp/WhatsAppConversationActionModal";
 import { WhatsAppContactShareModal } from "@/components/whatsapp/WhatsAppContactShareModal";
@@ -132,6 +133,38 @@ export default function WhatsAppConversationsPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyDraft, setReplyDraft] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  // Voice files are kept only in memory. The composer is never tied to upload/conversion latency.
+  const [pendingVoices, setPendingVoices] = useState<PendingWhatsAppVoice[]>([]);
+  const [voiceOwner, setVoiceOwner] = useState(session?.user_id || "");
+  const voiceSequenceRef = useRef(0);
+  const voiceRequestsRef = useRef(new Set<string>());
+  const voiceUrlsRef = useRef(new Map<string, string>());
+  const voiceSessionRef = useRef(session?.user_id || "");
+  const currentVoiceOwner = session?.user_id || "";
+  // Account identity is part of the state, not a post-render cleanup effect.
+  if (voiceOwner !== currentVoiceOwner) {
+    setVoiceOwner(currentVoiceOwner);
+    setPendingVoices([]);
+  }
+  useEffect(() => {
+    voiceSessionRef.current = currentVoiceOwner;
+  }, [currentVoiceOwner]);
+  useEffect(() => {
+    const activeIds = new Set(pendingVoices.map((item) => item.id));
+    for (const [id, url] of voiceUrlsRef.current) {
+      if (!activeIds.has(id)) {
+        URL.revokeObjectURL(url);
+        voiceUrlsRef.current.delete(id);
+      }
+    }
+  }, [pendingVoices]);
+  useEffect(() => {
+    const urls = voiceUrlsRef.current;
+    return () => {
+      for (const url of urls.values()) URL.revokeObjectURL(url);
+      urls.clear();
+    };
+  }, []);
   const [sendError, setSendError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
@@ -255,6 +288,7 @@ export default function WhatsAppConversationsPage() {
     threadSearchOpen && threadSearchQuery.trim()
       ? visibleSearchResults
       : visibleMessages;
+  const visiblePendingVoices = pendingVoices.filter((voice) => voice.chatId === selected?.id);
 
   const unreadCount = useMemo(
     () => conversations.filter((conversation) => conversation.unread_count > 0).length,
@@ -474,6 +508,12 @@ export default function WhatsAppConversationsPage() {
       if (requestId !== threadRequestIdRef.current || activeChatIdRef.current !== conversation.id) return;
       messagesRef.current = data.messages;
       setMessages(data.messages);
+      // Replace local optimistic voices only when the authoritative thread
+      // actually contains their provider message IDs; no false delivery claim.
+      const serverIds = new Set(data.messages.map((message) => message.id));
+      setPendingVoices((current) => current.filter((voice) =>
+        voice.chatId !== conversation.id || !voice.msgId || !serverIds.has(voice.msgId),
+      ));
       cacheWrite<WaConversationMessages>(cacheKey, data);
       void enrichMessagePictures(data.messages);
       if (!silent) setThreadError(null);
@@ -687,7 +727,7 @@ export default function WhatsAppConversationsPage() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [selected, loadingThread, messages.length]);
+  }, [selected, loadingThread, messages.length, visiblePendingVoices.length]);
 
   useEffect(() => {
     if (!session || typeof window === "undefined") return;
@@ -1088,40 +1128,101 @@ export default function WhatsAppConversationsPage() {
     else if (choice === "poll") setPollOpen(true);
   }
 
-  async function sendRecordedVoice(file: File) {
-    if (!selected || attachmentUploading || sendingMessage) return;
-    const replyTarget = replyingTo;
+  async function transferVoice(voice: PendingWhatsAppVoice, account: string) {
+    if (voiceRequestsRef.current.has(voice.id)) return;
+    voiceRequestsRef.current.add(voice.id);
+    const update = (patch: Partial<PendingWhatsAppVoice>) => {
+      if (voiceSessionRef.current !== account) return;
+      setPendingVoices((current) => current.map((item) =>
+        item.id === voice.id ? { ...item, ...patch } : item,
+      ));
+    };
+    try {
+      // Audio conversion can be slow; it runs after the recorder has already
+      // returned to its ready state and the voice is visible in the thread.
+      let uploaded;
+      try {
+        uploaded = await withUiDeadline(
+          uploadWaAttachment(voice.file, { requestedType: "voice" }),
+          60_000,
+          "Préparation du vocal trop longue. Vous pouvez réessayer.",
+        );
+      } catch (error) {
+        update({ phase: "upload_failed", detail: errorMessage(error, "generic") });
+        return; // No WhatsApp send was attempted: safe to retry upload.
+      }
+      if (voiceSessionRef.current !== account) return; // Account switched.
+      update({ phase: "sending", detail: undefined });
+      try {
+        const result = await withUiDeadline(sendWaMedia({
+          to: voice.chatId,
+          type: "voice",
+          url: uploaded.url,
+          filename: uploaded.file_name || voice.file.name,
+          mimetype: uploaded.content_type || voice.file.type || undefined,
+          reply_to_msg_id: voice.replyTo?.id || undefined,
+          reply_to_text: voice.replyTo?.text || undefined,
+          reply_to_type: voice.replyTo?.type || undefined,
+          reply_to_sender: voice.replyTo?.senderJid || undefined,
+          confirmed: true,
+        }), 45_000, "Envoi WhatsApp non confirmé dans le délai imparti.");
+        if (voiceSessionRef.current !== account) return;
+        update({
+          phase: result.accepted_by_gateway && result.status === "accepted" ? "accepted" : "unconfirmed",
+          msgId: result.msg_id,
+          detail: undefined,
+        });
+        void loadConversations(query, filter);
+        if (selected?.id === voice.chatId) {
+          window.setTimeout(() => void loadThread(selected, { silent: true }), 650);
+        }
+      } catch (error) {
+        // Network timeout after a send request is ambiguous. NEVER retry
+        // automatically: the gateway may have sent the voice already.
+        update({ phase: "unconfirmed", detail: errorMessage(error, "generic") });
+      }
+    } finally {
+      voiceRequestsRef.current.delete(voice.id);
+    }
+  }
+
+  function sendRecordedVoice(file: File) {
+    if (!selected || !session || attachmentUploading || sendingMessage) return;
+    const account = session.user_id || "";
+    const localId = `local-voice-${Date.now()}-${++voiceSequenceRef.current}`;
+    const localUrl = URL.createObjectURL(file);
+    voiceUrlsRef.current.set(localId, localUrl);
+    const voice: PendingWhatsAppVoice = {
+      id: localId,
+      chatId: selected.id,
+      file,
+      localUrl,
+      createdAt: Date.now(),
+      phase: "uploading",
+      replyTo: replyingTo ? {
+        id: replyingTo.id,
+        text: replyingTo.text,
+        type: replyingTo.type,
+        senderJid: replyingTo.sender_jid || "",
+      } : null,
+    };
+    setPendingVoices((current) => [...current, voice]);
     setAttachmentError(null);
     setSendError(null);
-    try {
-      const uploaded = await uploadWaAttachment(file, {
-        requestedType: "voice",
-      });
-      await sendWaMedia({
-        to: selected.id,
-        type: "voice",
-        url: uploaded.url,
-        // Un PTT n'est pas présenté comme un fichier dans le fil. Le nom reste
-        // interne au transport/stocker, jamais une identité visuelle du vocal.
-        filename: uploaded.file_name || file.name,
-        mimetype: uploaded.content_type || file.type || undefined,
-        reply_to_msg_id: replyTarget?.id || undefined,
-        reply_to_text: replyTarget?.text || undefined,
-        reply_to_type: replyTarget?.type || undefined,
-        reply_to_sender: replyTarget?.sender_jid || undefined,
-        confirmed: true,
-      });
-      setReplyingTo(null);
-      setCorrectionTarget(null);
-      setMediaCorrectionTarget(null);
-      void loadConversations(query, filter);
-      window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
-    } catch (error) {
-      // Le recorder attend cette promesse pour maintenir son état "envoi",
-      // mais l'erreur est déjà rendue dans le composeur : ne jamais produire
-      // une rejection non gérée côté navigateur.
-      setAttachmentError(errorMessage(error, "generic"));
-    }
+    setReplyingTo(null);
+    setCorrectionTarget(null);
+    setMediaCorrectionTarget(null);
+    // Intentionally not awaited: the user can immediately record/write again.
+    void transferVoice(voice, account);
+  }
+
+  function retryPendingVoice(id: string) {
+    const voice = pendingVoices.find((item) => item.id === id && item.phase === "upload_failed");
+    if (!voice || voiceRequestsRef.current.has(id)) return;
+    setPendingVoices((current) => current.map((item) =>
+      item.id === id ? { ...item, phase: "uploading", detail: undefined } : item,
+    ));
+    void transferVoice(voice, voiceSessionRef.current);
   }
 
   function scrollThreadToBottom(behavior: ScrollBehavior = "smooth") {
@@ -1617,7 +1718,7 @@ export default function WhatsAppConversationsPage() {
                     </div>
                   )}
 
-                  {!loadingThread && !threadError && displayedMessages.length === 0 && (
+                  {!loadingThread && !threadError && displayedMessages.length === 0 && visiblePendingVoices.length === 0 && (
                     <div className="flex min-h-[360px] items-center justify-center text-center">
                       <div>
                         <MessageCircle className="mx-auto" size={26} color={FAINT} />
@@ -1645,6 +1746,11 @@ export default function WhatsAppConversationsPage() {
                       />
                     </div>
                   )}
+                  <WhatsAppPendingVoiceList
+                    voices={visiblePendingVoices}
+                    onRetry={retryPendingVoice}
+                    onDismiss={(id) => setPendingVoices((current) => current.filter((item) => item.id !== id))}
+                  />
                 </div>
 
                 {showJumpToLatest && !threadSearchOpen && (
@@ -1937,6 +2043,7 @@ export default function WhatsAppConversationsPage() {
 
                       {!replyDraft.trim() && !editingMessage && (
                         <WhatsAppAudioRecorder
+                          key={selected.id}
                           disabled={attachmentUploading || sendingMessage}
                           onRecorded={sendRecordedVoice}
                           onError={(message) => setAttachmentError(message)}

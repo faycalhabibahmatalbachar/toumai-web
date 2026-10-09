@@ -1290,6 +1290,89 @@ async function certifyConversations() {
   await page.close();
 }
 
+async function certifyVoiceInstantQueue() {
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    // Deterministic microphone/MediaRecorder only for this browser test.
+    class MockMediaRecorder extends EventTarget {
+      state = "inactive";
+      mimeType;
+      constructor(_stream, options) {
+        super();
+        this.mimeType = options?.mimeType || "audio/webm";
+      }
+      static isTypeSupported(type) { return type.includes("webm"); }
+      start() { this.state = "recording"; }
+      pause() { this.state = "paused"; }
+      resume() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        this.dispatchEvent(new BlobEvent("dataavailable", {
+          data: new Blob([new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])], { type: this.mimeType }),
+        }));
+        this.dispatchEvent(new Event("stop"));
+      }
+    }
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: MockMediaRecorder });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    });
+  });
+
+  let releaseUpload = null;
+  await page.route("**/api/v1/files/upload**", async (route) => {
+    await new Promise((resolve) => { releaseUpload = resolve; });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, data: {
+        url: "https://storage.toumai.test/user_files/control-center-user/vocal.ogg",
+        file_name: "vocal.ogg",
+        content_type: "audio/ogg; codecs=opus",
+        media_family: "audio",
+        size: 20,
+        converted: true,
+      } }),
+    });
+  });
+  await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Enregistrer un message vocal" }).click();
+  await page.getByRole("button", { name: "Envoyer le message vocal" }).click();
+
+  // The upload is deliberately blocked: composer must already be usable.
+  await page.locator('[data-voice-phase="uploading"]').waitFor();
+  const mic = page.getByRole("button", { name: "Enregistrer un message vocal" });
+  await mic.waitFor();
+  assert(await mic.isEnabled(), "Après clic Envoi, le micro ne doit pas attendre la conversion réseau.");
+  const pending = page.locator('[data-testid="whatsapp-pending-voice"]');
+  assert(await pending.count() === 1, "Un seul vocal optimiste doit apparaître.");
+  assert((await pending.getByText("Préparation et transfert du vocal…").count()) === 1,
+    "Le vocal doit indiquer sa préparation, et non prétendre être déjà envoyé.");
+
+  const draft = page.getByPlaceholder("Écrire un message…");
+  await draft.fill("Toumaï reste utilisable pendant le transfert");
+  assert(await draft.inputValue() === "Toumaï reste utilisable pendant le transfert",
+    "Le composeur doit permettre la saisie pendant la conversion.");
+  assert((await pending.getByText(/Accepté par la passerelle/).count()) === 0,
+    "Pas de faux succès avant la réponse du serveur.");
+
+  for (let attempt = 0; !releaseUpload && attempt < 30; attempt++) await page.waitForTimeout(50);
+  assert(typeof releaseUpload === "function", "La requête upload doit réellement démarrer.");
+  const sendsBefore = state.mediaSends.length;
+  assert(sendsBefore >= 0, "Le compteur d'envois mockés doit être accessible.");
+  releaseUpload();
+  await page.locator('[data-voice-phase="accepted"]').waitFor({ timeout: 12000 });
+  assert(state.mediaSends.length === sendsBefore + 1,
+    "L'envoi vocal doit appeler la passerelle exactement une fois après l'upload.");
+  const last = state.mediaSends.at(-1);
+  assert(last.type === "voice" && last.mimetype.startsWith("audio/ogg"),
+    "Le vocal doit être envoyé avec le MIME normalisé de la conversion.");
+  await page.screenshot({ path: `${artifacts}/voice-instant-queue.png`, fullPage: false });
+  await page.close();
+}
+
 async function certifyAutomations() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/automations/`, { waitUntil: "domcontentloaded" });
@@ -1419,6 +1502,7 @@ async function certifyRetired404Fallbacks() {
 
 await certifyOverviewComposer();
 await certifyConversations();
+await certifyVoiceInstantQueue();
 await certifyAutomations();
 await certifyMobile();
 await certifyRetired404Fallbacks();
@@ -1429,7 +1513,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "retired-fallbacks-404"],
+    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "voice-instant-queue", "retired-fallbacks-404"],
   }, null, 2),
 );
 
