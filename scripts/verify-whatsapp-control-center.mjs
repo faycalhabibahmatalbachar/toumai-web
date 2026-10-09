@@ -352,6 +352,10 @@ const state = {
   cancels: [],
   realtimeAuth: [],
   nextUploadMediaFamily: null,
+  nextUploadContentType: null,
+  nextUploadConverted: false,
+  nextUploadFileName: null,
+  nextUploadConversionNote: null,
 };
 
 let retiredFallbackMode = false;
@@ -482,15 +486,30 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     state.uploads.push({
       contentType: request.headers()["content-type"] || "",
       size: request.postDataBuffer()?.byteLength || 0,
+      purpose: url.searchParams.get("purpose"),
+      requestedType: url.searchParams.get("requested_type"),
     });
     const detectedFamily = state.nextUploadMediaFamily || "image";
+    const canonicalType = state.nextUploadContentType || (detectedFamily === "video" ? "video/mp4" : "image/jpeg");
+    const converted = state.nextUploadConverted;
+    const normalizedName = state.nextUploadFileName || (detectedFamily === "video" ? "normalise.mp4" : "photo-c2.jpg");
+    const conversionNote = state.nextUploadConversionNote;
     state.nextUploadMediaFamily = null;
+    state.nextUploadContentType = null;
+    state.nextUploadConverted = false;
+    state.nextUploadFileName = null;
+    state.nextUploadConversionNote = null;
     data = {
-      url: "https://storage.toumai.test/user_files/control-center-user/preuve.txt",
-      file_name: "preuve.txt",
-      size: 9,
-      content_type: "image/jpeg",
+      url: "https://storage.toumai.test/user_files/control-center-user/" + normalizedName,
+      file_name: normalizedName,
+      size: converted ? 7 : 9,
+      content_type: canonicalType,
       media_family: detectedFamily,
+      converted,
+      conversion_note: conversionNote,
+      original_file_name: converted ? "fichier-mal-etiquete.jpg" : normalizedName,
+      original_content_type: converted ? "image/jpeg" : canonicalType,
+      original_size: converted ? 24 : 9,
     };
   } else if (path === "/whatsapp/media/send" && method === "POST") {
     const body = request.postDataJSON();
@@ -793,6 +812,14 @@ async function certifyConversations() {
     "L'upload de pièce jointe doit rester multipart.",
   );
   assert(
+    state.uploads[0].purpose === "whatsapp",
+    "Une pièce jointe utilisateur doit demander explicitement la normalisation WhatsApp.",
+  );
+  assert(
+    state.uploads[0].requestedType === null,
+    "Un média galerie non forcé doit laisser le serveur détecter sa famille réelle.",
+  );
+  assert(
     state.mediaSends.length === mediaBeforeAttachment + 1,
     `Une pièce jointe confirmée doit produire un seul nouvel envoi, obtenu ${state.mediaSends.length - mediaBeforeAttachment}.`,
   );
@@ -804,6 +831,10 @@ async function certifyConversations() {
 
   const mediaBeforeReclassified = state.mediaSends.length;
   state.nextUploadMediaFamily = "video";
+  state.nextUploadContentType = "video/mp4";
+  state.nextUploadConverted = true;
+  state.nextUploadFileName = "fichier-mal-etiquete.mp4";
+  state.nextUploadConversionNote = "Vidéo convertie en MP4 H.264/AAC pour WhatsApp.";
   await attachmentInput.setInputFiles({
     name: "fichier-mal-etiquete.jpg",
     mimeType: "image/jpeg",
@@ -814,6 +845,8 @@ async function certifyConversations() {
     ]),
   });
   await page.getByRole("heading", { name: "Pièce jointe" }).waitFor();
+  await page.getByText("Optimisé pour WhatsApp", { exact: true }).waitFor();
+  await page.getByText(/Vidéo convertie en MP4 H\.264\/AAC/).waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Envoyer", exact: true }).click();
   await page.getByRole("heading", { name: "Pièce jointe" }).waitFor({ state: "hidden" });
 
@@ -827,8 +860,12 @@ async function certifyConversations() {
     "La famille détectée par les octets doit gagner sur le faux type image du navigateur.",
   );
   assert(
-    !("mimetype" in reclassifiedSend) || !reclassifiedSend.mimetype,
-    "Un MIME navigateur contradictoire ne doit pas être renvoyé au backend.",
+    reclassifiedSend.mimetype === "video/mp4",
+    "Après conversion, seul le MIME canonique produit par le serveur doit être envoyé.",
+  );
+  assert(
+    state.uploads.at(-1).purpose === "whatsapp",
+    "La reclassification doit rester dans le pipeline de normalisation WhatsApp.",
   );
 
   const chatActionsBeforeManualRead = state.chatActions.length;

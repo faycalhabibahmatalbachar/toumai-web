@@ -301,6 +301,11 @@ export interface WaUploadedFile {
   size: number;
   content_type?: string | null;
   media_family?: "image" | "video" | "gif" | "audio" | "document" | null;
+  converted?: boolean;
+  conversion_note?: string | null;
+  original_file_name?: string | null;
+  original_content_type?: string | null;
+  original_size?: number | null;
 }
 
 export interface WaMediaSendResult {
@@ -387,10 +392,23 @@ export function getWaContactInfo(chatId: string): Promise<WaContactInfo> {
   return http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`);
 }
 
-export async function uploadWaAttachment(file: File): Promise<WaUploadedFile> {
+export async function uploadWaAttachment(
+  file: File,
+  options: {
+    requestedType?: WaMediaType;
+    normalize?: boolean;
+  } = {},
+): Promise<WaUploadedFile> {
   const form = new FormData();
   form.append("file", file);
-  return postForm<WaUploadedFile>("/files/upload", form);
+
+  const query = new URLSearchParams();
+  if (options.normalize !== false) query.set("purpose", "whatsapp");
+  if (options.requestedType) query.set("requested_type", options.requestedType);
+  const encodedQuery = query.toString();
+  const suffix = encodedQuery ? `?${encodedQuery}` : "";
+
+  return postForm<WaUploadedFile>(`/files/upload${suffix}`, form);
 }
 
 export function inferWaMediaType(file: File): WaMediaType {

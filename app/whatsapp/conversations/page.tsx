@@ -79,7 +79,7 @@ import {
   type WaMessageStatus,
   type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
-import { safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
+import { displayWhatsAppIdentity, displayWhatsAppSecondary, isTechnicalWhatsAppIdentity, safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
 
 const PAGE_BG = "#06111a";
 const SIDEBAR_BG = "#0a151e";
@@ -136,6 +136,7 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const listSearchInputRef = useRef<HTMLInputElement>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
   const initialScrollChatRef = useRef<string | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -182,6 +183,11 @@ export default function WhatsAppConversationsPage() {
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
       setResearchEnabled(params.get("research") === "media-edit-v1");
+      const initialQuery = (params.get("q") || "").trim().slice(0, 160);
+      if (initialQuery) setQuery(initialQuery);
+      if (params.get("focus") === "search") {
+        window.requestAnimationFrame(() => listSearchInputRef.current?.focus());
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -797,14 +803,22 @@ export default function WhatsAppConversationsPage() {
     setEmojiOpen(false);
     setAttachmentMenuOpen(false);
     try {
-      const uploaded = await uploadWaAttachment(file);
+      const browserMime = (file.type || "").toLowerCase();
+      const semanticHint: WaMediaType | undefined =
+        forcedType ||
+        (browserMime.startsWith("audio/") || browserMime === "application/ogg"
+          ? "audio"
+          : undefined);
+      const uploaded = await uploadWaAttachment(file, {
+        requestedType: semanticHint,
+      });
       const detectedType =
         uploaded.media_family && ["image", "video", "gif", "audio", "document"].includes(uploaded.media_family)
           ? uploaded.media_family
           : inferWaMediaType(file);
       setAttachmentFile(file);
       setAttachmentUploaded(uploaded);
-      setAttachmentType(forcedType || detectedType);
+      setAttachmentType(semanticHint || detectedType);
       setAttachmentOpen(true);
     } catch (error) {
       setAttachmentError(errorMessage(error, "generic"));
@@ -826,13 +840,7 @@ export default function WhatsAppConversationsPage() {
     const file = event.target.files?.[0] || null;
     event.currentTarget.value = "";
     if (!file) return;
-
-    try {
-      const sticker = await makeWhatsAppStickerFile(file);
-      await prepareAttachment(sticker, "sticker");
-    } catch {
-      setAttachmentError("Impossible de préparer cette image comme sticker.");
-    }
+    await prepareAttachment(file, "sticker");
   }
 
   function chooseAttachment(choice: WhatsAppAttachmentChoice) {
@@ -854,13 +862,15 @@ export default function WhatsAppConversationsPage() {
     setAttachmentError(null);
     setSendError(null);
     try {
-      const uploaded = await uploadWaAttachment(file);
+      const uploaded = await uploadWaAttachment(file, {
+        requestedType: "voice",
+      });
       await sendWaMedia({
         to: selected.id,
         type: "voice",
         url: uploaded.url,
         filename: uploaded.file_name || file.name,
-        mimetype: file.type || undefined,
+        mimetype: uploaded.content_type || file.type || undefined,
         reply_to_msg_id: replyTarget?.id || undefined,
         reply_to_text: replyTarget?.text || undefined,
         reply_to_type: replyTarget?.type || undefined,
@@ -978,6 +988,7 @@ export default function WhatsAppConversationsPage() {
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2" size={17} color={MUTED} />
                   <input
+                    ref={listSearchInputRef}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Rechercher une conversation…"
@@ -1616,7 +1627,7 @@ export default function WhatsAppConversationsPage() {
                         type="file"
                         className="hidden"
                         aria-label="Créer un sticker depuis une image"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/*"
                         onChange={(event) => void handleStickerSelected(event)}
                       />
 
@@ -1696,6 +1707,16 @@ export default function WhatsAppConversationsPage() {
                         </button>
                       )}
                     </div>
+                    {attachmentUploading && (
+                      <div
+                        role="status"
+                        className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px]"
+                        style={{ borderColor: "rgba(8,200,117,.20)", background: "rgba(8,200,117,.045)", color: MUTED }}
+                      >
+                        <Loader2 size={13} className="animate-spin" color={GREEN} />
+                        Préparation du média pour WhatsApp… détection et conversion si nécessaire.
+                      </div>
+                    )}
                     {(attachmentError || sendError) && (
                       <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
                         {sendError || attachmentError}
@@ -2336,35 +2357,11 @@ function DeliveryMark({ status }: { status?: string | null }) {
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
-  const candidate = (conversation.name || "").trim();
-  const genericContact = candidate.toLowerCase() === "contact whatsapp";
-  if (
-    candidate &&
-    !genericContact &&
-    !isTechnicalWhatsAppIdentity(candidate) &&
-    candidate !== conversation.id
-  ) {
-    return candidate;
-  }
-  const number =
-    validWhatsAppNumber(conversation.number) ||
-    waNumberFromId(conversation.id);
-  if (number) return `+${number}`;
-  return conversation.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
+  return displayWhatsAppIdentity(conversation);
 }
 
 function displayConversationSecondary(conversation: WaLiveConversation) {
-  const number =
-    validWhatsAppNumber(conversation.number) ||
-    waNumberFromId(conversation.id);
-  if (number) return `+${number}`;
-  return conversation.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
-}
-
-function isTechnicalWhatsAppIdentity(value: string | null | undefined) {
-  const text = (value || "").trim();
-  if (!text) return false;
-  return /@(lid|s\.whatsapp\.net|g\.us)$/i.test(text) || /^\d{16,}$/.test(text);
+  return displayWhatsAppSecondary(conversation);
 }
 
 function validWhatsAppNumber(value: string | null | undefined) {
@@ -2404,45 +2401,6 @@ function formatDayLabel(date: Date) {
     day: "numeric",
     month: "short",
   }).format(date);
-}
-
-async function makeWhatsAppStickerFile(file: File): Promise<File> {
-  if ((file.type || "").toLowerCase() === "image/webp" || file.name.toLowerCase().endsWith(".webp")) {
-    return file;
-  }
-  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") {
-    throw new Error("conversion sticker indisponible");
-  }
-
-  const bitmap = await createImageBitmap(file);
-  try {
-    const size = 512;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("canvas indisponible");
-
-    const scale = Math.min(size / bitmap.width, size / bitmap.height);
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const x = Math.round((size - width) / 2);
-    const y = Math.round((size - height) / 2);
-    context.clearRect(0, 0, size, size);
-    context.drawImage(bitmap, x, y, width, height);
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) => result ? resolve(result) : reject(new Error("encodage WebP impossible")),
-        "image/webp",
-        0.92,
-      );
-    });
-    const base = file.name.replace(/\.[^.]+$/, "") || "sticker";
-    return new File([blob], `${base}.webp`, { type: "image/webp" });
-  } finally {
-    bitmap.close();
-  }
 }
 
 function isTextMessageType(type: string) {
