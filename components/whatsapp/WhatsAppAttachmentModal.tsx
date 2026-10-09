@@ -55,10 +55,14 @@ export function WhatsAppAttachmentModal({
       setPreviewUrl("");
       return;
     }
+    if (uploaded?.converted && uploaded.url) {
+      setPreviewUrl(uploaded.url);
+      return;
+    }
     const next = URL.createObjectURL(file);
     setPreviewUrl(next);
     return () => URL.revokeObjectURL(next);
-  }, [open, file]);
+  }, [open, file, uploaded]);
 
   if (!open || !conversation || !file || !uploaded || !mediaType) return null;
 
@@ -78,12 +82,10 @@ export function WhatsAppAttachmentModal({
     setSending(true);
     setError(null);
     try {
-      const declaredMimeFamily = mediaFamilyFromMime(activeFile.type);
       const trustedMime =
-        activeFile.type &&
-        (!activeUpload.media_family || declaredMimeFamily === activeUpload.media_family)
-          ? activeFile.type
-          : undefined;
+        activeUpload.content_type ||
+        activeFile.type ||
+        undefined;
 
       const result = await sendWaMedia({
         to: activeConversation.id,
@@ -281,12 +283,34 @@ export function WhatsAppAttachmentModal({
                 {isVisual ? <ImageIcon size={20} /> : <FileText size={20} />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{file.name}</p>
+                <p className="truncate text-sm font-semibold">{uploaded.file_name || file.name}</p>
                 <p className="mt-1 text-[11px]" style={{ color: MUTED }}>
-                  {formatBytes(file.size)} · {mediaLabel(mediaType)}
+                  {formatBytes(uploaded.size || file.size)} · {mediaLabel(mediaType)}
                 </p>
+                {uploaded.converted && uploaded.original_file_name && uploaded.original_file_name !== uploaded.file_name && (
+                  <p className="mt-1 truncate text-[10px]" style={{ color: MUTED }}>
+                    Original : {uploaded.original_file_name}
+                  </p>
+                )}
               </div>
             </div>
+            {uploaded.converted && (
+              <div
+                className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[11px] leading-5"
+                style={{ borderColor: "rgba(8,200,117,.25)", background: "rgba(8,200,117,.055)", color: MUTED }}
+              >
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0" color={GREEN} />
+                <div>
+                  <p className="font-semibold" style={{ color: "#c9f7df" }}>Optimisé pour WhatsApp</p>
+                  <p>{uploaded.conversion_note || "Le média a été converti dans un format plus compatible."}</p>
+                  {typeof uploaded.original_size === "number" && uploaded.original_size !== uploaded.size && (
+                    <p className="mt-0.5">
+                      {formatBytes(uploaded.original_size)} → {formatBytes(uploaded.size)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {!correctionSent && mediaType !== "sticker" && (
@@ -412,19 +436,6 @@ export function WhatsAppAttachmentModal({
     </div>
   );
 }
-
-function mediaFamilyFromMime(
-  mime: string | null | undefined,
-): "image" | "video" | "gif" | "audio" | "document" | null {
-  const value = (mime || "").split(";", 1)[0].trim().toLowerCase();
-  if (!value || value === "application/octet-stream") return null;
-  if (value === "image/gif") return "gif";
-  if (value.startsWith("image/")) return "image";
-  if (value.startsWith("video/")) return "video";
-  if (value.startsWith("audio/") || value === "application/ogg") return "audio";
-  return "document";
-}
-
 
 function mediaLabel(type: WaMediaType) {
   const labels: Record<WaMediaType, string> = {
