@@ -2226,11 +2226,14 @@ function MessageBubble({
               }}
             />
           )}
-          {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
-            <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
-              {message.sender}
-            </p>
-          )}
+          {!message.from_me &&
+            message.chat_id.endsWith("@g.us") &&
+            message.sender &&
+            !isTechnicalWhatsAppIdentity(message.sender) && (
+              <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
+                {message.sender}
+              </p>
+            )}
 
           {message.quoted && (message.quoted.text || message.quoted.id) && (
             <div
