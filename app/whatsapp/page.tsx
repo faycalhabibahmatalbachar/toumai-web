@@ -55,6 +55,7 @@ import {
 } from "@/lib/whatsapp-enterprise-api";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { useCached } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 
 const PAGE_BG = "#06111a";
 const SIDEBAR_BG = "#0a151e";
@@ -106,7 +107,7 @@ export default function WhatsAppOverviewPage() {
     data: etat,
     loading: etatLoading,
     refresh: refreshEtat,
-  } = useCached<WaEtat>("wa:etat", getWaEtat, {
+  } = useCached<WaEtat>(WA_CACHE.etat, getWaEtat, {
     enabled: !!session,
     ttlMs: 5_000,
     refreshIntervalMs: 30_000,
@@ -118,7 +119,7 @@ export default function WhatsAppOverviewPage() {
     error: overviewError,
     refresh: refreshOverview,
   } = useCached<WhatsAppOverview>(
-    `wa:overview:v1:${days}`,
+    WA_CACHE.overview(days),
     () => getWhatsAppOverview(days),
     { enabled: !!session, ttlMs: 15_000, refreshIntervalMs: 30_000 },
   );
@@ -130,7 +131,7 @@ export default function WhatsAppOverviewPage() {
     loading: conversationsLoading,
     refresh: refreshConversations,
   } = useCached(
-    "wa:overview:live-conversations",
+    WA_CACHE.conversations({ limit: 4 }),
     () => getWaLiveConversations({ limit: 4 }),
     { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
@@ -140,7 +141,7 @@ export default function WhatsAppOverviewPage() {
     loading: automationsLoading,
     refresh: refreshAutomations,
   } = useCached<{ tasks: WhatsAppAutomation[]; count: number }>(
-    "wa:overview:automations",
+    WA_CACHE.automations("", 20),
     () => getWhatsAppAutomations({ limit: 20 }),
     { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
