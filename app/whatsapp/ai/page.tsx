@@ -22,6 +22,8 @@ import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { cxDisplayStyle, cxScopeClass, cxScopeStyle } from "@/components/settings/cx-fonts";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
+import { cacheSeed, useCacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   getWaAutopilot,
   getWaAutopilotAnalytics,
@@ -49,9 +51,18 @@ export default function WhatsAppAiAgentPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  useCacheSeed<WaAutopilotSettings>(WA_CACHE.autopilot, (cached) => {
+    setSettings(cached);
+    setDraft(cached);
+    setLoading(false);
+  });
+  useCacheSeed<WaAutopilotAnalytics>(WA_CACHE.autopilotAnalytics(7), (cached) => {
+    setAnalytics(cached);
+  });
+
   const load = useCallback(async () => {
     if (!session) return;
-    setLoading(true);
+    setLoading(cacheSeed<WaAutopilotSettings>(WA_CACHE.autopilot) === null);
     setError(null);
     try {
       const [nextSettings, nextAnalytics] = await Promise.all([
