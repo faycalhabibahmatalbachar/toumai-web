@@ -104,7 +104,7 @@ export function WhatsAppAttachmentModal({
       if (activeCorrectionTarget) {
         if (!result.msg_id) {
           setError(
-            "La nouvelle pièce jointe a été soumise, mais WhatsApp n’a pas retourné d’identifiant vérifiable. L’ancien message est conservé.",
+            "Impossible de confirmer le nouvel envoi. Le message précédent est conservé.",
           );
           return;
         }
@@ -128,12 +128,12 @@ export function WhatsAppAttachmentModal({
     try {
       const status = await getWaMessageStatus(correctionMsgId, activeConversation.id);
       if (status.failed) {
-        setError("La correction a échoué côté WhatsApp. L’ancien message a été conservé.");
+        setError("La modification n’a pas abouti. Le message précédent est conservé.");
         return false;
       }
       if (!status.server_ack_confirmed) {
         setError(
-          "La correction est acceptée par la passerelle mais pas encore confirmée par le serveur WhatsApp. L’ancien message reste intact ; réessayez dans quelques secondes.",
+          "L’envoi est en attente de confirmation. Le message précédent est conservé.",
         );
         return false;
       }
@@ -306,7 +306,7 @@ export function WhatsAppAttachmentModal({
                 <CheckCircle2 size={15} className="mt-0.5 shrink-0" color={GREEN} />
                 <div>
                   <p className="font-semibold" style={{ color: "#c9f7df" }}>Optimisé pour WhatsApp</p>
-                  <p>{uploaded.conversion_note || "Le média a été converti dans un format plus compatible."}</p>
+                  <p>Le fichier est prêt à être envoyé.</p>
                   {typeof uploaded.original_size === "number" && uploaded.original_size !== uploaded.size && (
                     <p className="mt-0.5">
                       {formatBytes(uploaded.original_size)} → {formatBytes(uploaded.size)}
@@ -341,14 +341,14 @@ export function WhatsAppAttachmentModal({
                 Nouveau message créé
               </div>
               <p className="mt-2 text-[11px] leading-5" style={{ color: MUTED }}>
-                ID : <span className="font-mono" style={{ color: TEXT }}>{correctionMsgId}</span>
+                Référence : <span className="font-mono" style={{ color: TEXT }}>{correctionMsgId}</span>
               </p>
               <p className="mt-1 text-[11px] leading-5" style={{ color: MUTED }}>
                 {originalDeleteSubmitted
-                  ? "La suppression de l’ancien message a été soumise à WhatsApp."
+                  ? "Suppression demandée. Son résultat reste à confirmer."
                   : correctionVerified
-                    ? "Le nouveau message est confirmé par le serveur WhatsApp. La suppression de l’ancien peut maintenant être demandée."
-                    : "L’ancien message est conservé. Toumaï le supprimera uniquement après confirmation serveur du nouveau message."}
+                    ? "Nouveau message confirmé. Vous pouvez maintenant supprimer l’ancien."
+                    : "Le message précédent est conservé jusqu’à la confirmation du nouvel envoi."}
               </p>
             </div>
           )}
