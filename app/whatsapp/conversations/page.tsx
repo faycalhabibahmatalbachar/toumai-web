@@ -342,14 +342,17 @@ export default function WhatsAppConversationsPage() {
 
     try {
       const data = await withUiDeadline(
-        getWaLiveConversations({
-          search: search.trim() || undefined,
-          pending: selectedFilter === "pending",
-          unread: selectedFilter === "unread",
-          kind: kindFilter === "all" ? undefined : kindFilter,
-          offset,
-          limit: 80,
-        }),
+        getWaLiveConversations(
+          {
+            search: search.trim() || undefined,
+            pending: selectedFilter === "pending",
+            unread: selectedFilter === "unread",
+            kind: kindFilter === "all" ? undefined : kindFilter,
+            offset,
+            limit: 80,
+          },
+          { revalidate: true },
+        ),
         12_000,
         "La liste WhatsApp met trop de temps à répondre. Réessayez.",
       );
@@ -442,7 +445,7 @@ export default function WhatsAppConversationsPage() {
 
     try {
       const data = await withUiDeadline(
-        getWaConversationMessages(conversation.id, 120),
+        getWaConversationMessages(conversation.id, 120, 0, { revalidate: true }),
         12_000,
         "Cette conversation met trop de temps à répondre. Réessayez.",
       );
@@ -503,6 +506,7 @@ export default function WhatsAppConversationsPage() {
         selected.id,
         threadSearchQuery.trim(),
         60,
+        { revalidate: true },
       );
       setThreadSearchResults(data.messages);
     } catch (error) {
@@ -525,7 +529,7 @@ export default function WhatsAppConversationsPage() {
     }
     setContactInfoError(null);
     try {
-      const data = await getWaContactInfo(selected.id);
+      const data = await getWaContactInfo(selected.id, { revalidate: true });
       setContactInfo(data);
     } catch (error) {
       setContactInfo(null);
