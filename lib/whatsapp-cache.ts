@@ -54,18 +54,27 @@ export const WA_CACHE = {
     `wa:media-research:${encodeURIComponent(experimentId)}`,
 } as const;
 
+export interface WhatsAppReadOptions {
+  /** Ignore la fraîcheur locale et consulte réellement le serveur. */
+  revalidate?: boolean;
+}
+
 export async function waCachedRead<T>(
   key: string,
   fetcher: () => Promise<T>,
   options: {
     freshMs?: number;
     staleIfError?: boolean;
+    revalidate?: boolean;
   } = {},
 ): Promise<T> {
   const freshMs = Math.max(0, options.freshMs ?? 0);
-  const staleIfError = options.staleIfError ?? true;
+  const revalidate = options.revalidate ?? false;
+  // Une revalidation explicite ne doit jamais transformer une vieille valeur
+  // en "nouvelle" si le réseau échoue. Le hook UI garde déjà son snapshot.
+  const staleIfError = options.staleIfError ?? !revalidate;
 
-  if (freshMs > 0) {
+  if (!revalidate && freshMs > 0) {
     const fresh = cacheSeed<T>(key, freshMs);
     if (fresh !== null) return fresh;
   }
