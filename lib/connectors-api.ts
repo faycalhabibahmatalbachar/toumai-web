@@ -306,6 +306,7 @@ export interface WaContact {
   jid: string;
   number: string | null;
   name: string;
+  name_source?: "saved_contact" | "profile" | "phone" | "unresolved";
   picture_url?: string | null;
 }
 
@@ -328,6 +329,18 @@ export function getWaCarnet(
     WA_CACHE.carnet(search || ""),
     () => http.get(`/whatsapp/contacts${q}`),
     { freshMs: search ? 8_000 : 30_000, revalidate: readOptions.revalidate },
+  );
+}
+
+/** Full, owner-scoped address book for the conversations screen.
+ * One request per cache lifetime, never per visible row. */
+export function getWaContactNameBook(
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WaCarnet> {
+  return waCachedRead(
+    WA_CACHE.carnet("__identity_names_2000__"),
+    () => http.get<WaCarnet>("/whatsapp/contacts?limit=2000"),
+    { freshMs: 60_000, revalidate: readOptions.revalidate },
   );
 }
 
