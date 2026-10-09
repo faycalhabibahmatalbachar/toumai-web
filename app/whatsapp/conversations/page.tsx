@@ -59,9 +59,9 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
-import { getWaProfilePictures } from "@/lib/connectors-api";
+import { getWaContactNameBook, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
-import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
+import { cacheSeed, cacheSessionOwner, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   applyWaConversationAction,
@@ -100,6 +100,29 @@ const FAINT = "#6f7f8d";
 const GREEN = "#08c875";
 const ORANGE = "#ff9518";
 const WHATSAPP_NATIVE_EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+function enrichWithVerifiedContact(
+  conversation: WaLiveConversation,
+  contact: WaContact | undefined,
+): WaLiveConversation {
+  // Never infer identity from a display name, phone-number similarity or an
+  // opaque @lid: the verified contact must have the EXACT same JID.
+  if (!contact || contact.jid !== conversation.id || conversation.kind === "group") return conversation;
+  const supplied = displayWhatsAppIdentity({
+    id: contact.jid,
+    name: contact.name,
+    number: contact.number,
+    kind: "contact",
+  });
+  if (supplied === "WhatsApp" || supplied.startsWith("+")) return conversation;
+  if (!contact.name?.trim() || isTechnicalWhatsAppIdentity(contact.name)) return conversation;
+  const from = contact.name_source || "saved_contact"; // Legacy contact route: saved or notify.
+  if (from !== "saved_contact" && from !== "profile") return conversation;
+  if (conversation.name_source === "saved_contact" && from !== "saved_contact") return conversation;
+  if (conversation.name === supplied && conversation.name_source === from) return conversation;
+  return { ...conversation, name: supplied, name_source: from };
+}
+
 
 const NAV_ITEMS = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -304,8 +327,28 @@ export default function WhatsAppConversationsPage() {
   ) => {
     const jids = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
     if (!jids.length) return;
+    const requestOwner = cacheSessionOwner();
+    // Names and avatars hydrate independently; neither blocks the initial
+    // list, and results from an old authenticated account are discarded.
+    void getWaContactNameBook().then((book) => {
+      if (requestOwner !== cacheSessionOwner()) return;
+      const byJid = new Map(book.contacts.map((contact) => [contact.jid, contact]));
+      setConversations((current) => {
+        const enhanced = current.map((conversation) =>
+          enrichWithVerifiedContact(conversation, byJid.get(conversation.id)),
+        );
+        conversationsRef.current = enhanced;
+        return enhanced;
+      });
+      setSelected((current) =>
+        current ? enrichWithVerifiedContact(current, byJid.get(current.id)) : current,
+      );
+    }).catch(() => {
+      // Keep the last truthful identity visible if the carnet is offline.
+    });
     try {
       const pictures = await getWaProfilePictures(jids);
+      if (requestOwner !== cacheSessionOwner()) return;
       setConversations((current) =>
         current.map((item) => {
           const next = pictures[item.id];
@@ -2848,7 +2891,7 @@ function conversationListCacheKey(
   kind: KindFilter,
 ): string {
   const normalizedSearch = search.trim().toLowerCase().slice(0, 160);
-  return `wa:conversations:list:v1:${filter}:${kind}:${encodeURIComponent(normalizedSearch || "_")}`;
+  return `wa:conversations:list:v2:${filter}:${kind}:${encodeURIComponent(normalizedSearch || "_")}`;
 }
 
 function conversationThreadCacheKey(chatId: string): string {

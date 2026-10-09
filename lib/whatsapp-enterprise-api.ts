@@ -262,6 +262,7 @@ export interface WaLiveMessage {
 export interface WaLiveConversation {
   id: string;
   name: string;
+  name_source?: "saved_contact" | "profile" | "phone" | "unresolved" | "group";
   number: string | null;
   kind: "contact" | "group";
   picture_url?: string | null;
