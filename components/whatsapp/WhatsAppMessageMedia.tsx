@@ -87,7 +87,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
           <ContactRound size={18} color={GREEN} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-semibold">{message.media_label || "Contact WhatsApp"}</p>
+          <p className="truncate text-[11px] font-semibold">{message.media_label || "Contact partagé"}</p>
           <p className="mt-0.5 text-[9px]" style={{ color: MUTED }}>Fiche contact</p>
         </div>
       </div>
