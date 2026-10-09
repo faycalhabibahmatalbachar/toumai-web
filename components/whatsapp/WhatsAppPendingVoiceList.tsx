@@ -1,8 +1,6 @@
 "use client";
 
 import { CircleAlert, Clock3, Loader2, RefreshCw, X } from "lucide-react";
-import { useEffect, useState } from "react";
-
 import { WhatsAppVoiceNotePlayer } from "./WhatsAppVoiceNotePlayer";
 import type { WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
 
@@ -17,6 +15,7 @@ export interface PendingWhatsAppVoice {
   id: string;
   chatId: string;
   file: File;
+  localUrl: string;
   createdAt: number;
   phase: PendingVoicePhase;
   msgId?: string | null;
@@ -59,14 +58,6 @@ function PendingVoiceBubble({
   onRetry: () => void;
   onDismiss: () => void;
 }) {
-  const [localUrl, setLocalUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const next = URL.createObjectURL(voice.file);
-    setLocalUrl(next);
-    return () => URL.revokeObjectURL(next);
-  }, [voice.file]);
-
   const message: WaLiveMessage = {
     id: voice.id,
     chat_id: voice.chatId,
@@ -94,14 +85,7 @@ function PendingVoiceBubble({
   return (
     <div data-testid="whatsapp-pending-voice" data-voice-phase={voice.phase} className="flex justify-end">
       <div className="max-w-[92%] rounded-[10px] bg-[#144d37] px-3 py-2 text-[#f4f7f9] shadow-sm">
-        {localUrl ? (
-          <WhatsAppVoiceNotePlayer message={message} url={localUrl} />
-        ) : (
-          <div className="flex h-[72px] min-w-[240px] items-center gap-2 text-xs">
-            <Loader2 size={16} className="animate-spin" />
-            Préparation de l’aperçu…
-          </div>
-        )}
+        <WhatsAppVoiceNotePlayer message={message} url={voice.localUrl} />
         <div role="status" aria-live="polite" className="mt-1 flex items-start gap-1.5 text-[11px] text-[#c4d6d0]">
           {pending ? <Loader2 size={13} className="mt-0.5 shrink-0 animate-spin" /> : voice.phase === "accepted" ? (
             <Clock3 size={13} className="mt-0.5 shrink-0" />
