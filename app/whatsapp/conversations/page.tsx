@@ -534,8 +534,11 @@ export default function WhatsAppConversationsPage() {
       );
       setThreadSearchResults(data.messages);
     } catch (error) {
-      setThreadSearchResults([]);
-      setThreadSearchError(errorMessage(error, "history"));
+      // Preserve a cached search result during transient gateway failures.
+      if (!cachedSearch) {
+        setThreadSearchResults([]);
+        setThreadSearchError(errorMessage(error, "history"));
+      }
     } finally {
       setThreadSearchLoading(false);
     }
@@ -556,8 +559,11 @@ export default function WhatsAppConversationsPage() {
       const data = await getWaContactInfo(selected.id, { revalidate: true });
       setContactInfo(data);
     } catch (error) {
-      setContactInfo(null);
-      setContactInfoError(errorMessage(error, "history"));
+      // Contact details already on screen remain readable while offline.
+      if (!cachedInfo) {
+        setContactInfo(null);
+        setContactInfoError(errorMessage(error, "history"));
+      }
     } finally {
       setContactInfoLoading(false);
     }
@@ -712,6 +718,7 @@ export default function WhatsAppConversationsPage() {
   function chooseConversation(conversation: WaLiveConversation) {
     ++threadRequestIdRef.current;
     activeChatIdRef.current = conversation.id;
+    threadCacheKeyRef.current = "";
     messagesRef.current = [];
     setReplyDraft("");
     setMessages([]);
@@ -763,6 +770,7 @@ export default function WhatsAppConversationsPage() {
   function backToConversationList() {
     ++threadRequestIdRef.current;
     activeChatIdRef.current = null;
+    threadCacheKeyRef.current = "";
     messagesRef.current = [];
     setSelected(null);
     setMessages([]);
