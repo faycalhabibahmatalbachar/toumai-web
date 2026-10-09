@@ -828,13 +828,7 @@ export default function WhatsAppConversationsPage() {
     const file = event.target.files?.[0] || null;
     event.currentTarget.value = "";
     if (!file) return;
-
-    try {
-      const sticker = await makeWhatsAppStickerFile(file);
-      await prepareAttachment(sticker, "sticker");
-    } catch {
-      setAttachmentError("Impossible de préparer cette image comme sticker.");
-    }
+    await prepareAttachment(file, "sticker");
   }
 
   function chooseAttachment(choice: WhatsAppAttachmentChoice) {
@@ -1620,7 +1614,7 @@ export default function WhatsAppConversationsPage() {
                         type="file"
                         className="hidden"
                         aria-label="Créer un sticker depuis une image"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/*"
                         onChange={(event) => void handleStickerSelected(event)}
                       />
 
@@ -1700,6 +1694,16 @@ export default function WhatsAppConversationsPage() {
                         </button>
                       )}
                     </div>
+                    {attachmentUploading && (
+                      <div
+                        role="status"
+                        className="mt-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px]"
+                        style={{ borderColor: "rgba(8,200,117,.20)", background: "rgba(8,200,117,.045)", color: MUTED }}
+                      >
+                        <Loader2 size={13} className="animate-spin" color={GREEN} />
+                        Préparation du média pour WhatsApp… détection et conversion si nécessaire.
+                      </div>
+                    )}
                     {(attachmentError || sendError) && (
                       <p className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
                         {sendError || attachmentError}
@@ -2408,45 +2412,6 @@ function formatDayLabel(date: Date) {
     day: "numeric",
     month: "short",
   }).format(date);
-}
-
-async function makeWhatsAppStickerFile(file: File): Promise<File> {
-  if ((file.type || "").toLowerCase() === "image/webp" || file.name.toLowerCase().endsWith(".webp")) {
-    return file;
-  }
-  if (typeof document === "undefined" || typeof createImageBitmap === "undefined") {
-    throw new Error("conversion sticker indisponible");
-  }
-
-  const bitmap = await createImageBitmap(file);
-  try {
-    const size = 512;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("canvas indisponible");
-
-    const scale = Math.min(size / bitmap.width, size / bitmap.height);
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const x = Math.round((size - width) / 2);
-    const y = Math.round((size - height) / 2);
-    context.clearRect(0, 0, size, size);
-    context.drawImage(bitmap, x, y, width, height);
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (result) => result ? resolve(result) : reject(new Error("encodage WebP impossible")),
-        "image/webp",
-        0.92,
-      );
-    });
-    const base = file.name.replace(/\.[^.]+$/, "") || "sticker";
-    return new File([blob], `${base}.webp`, { type: "image/webp" });
-  } finally {
-    bitmap.close();
-  }
 }
 
 function isTextMessageType(type: string) {
