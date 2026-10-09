@@ -5,6 +5,7 @@ import {
   waCachedRead,
   waMutation,
   writeWhatsAppCache,
+  type WhatsAppReadOptions,
 } from "./whatsapp-cache";
 
 // ---- Google Agenda -------------------------------------------------------
@@ -157,8 +158,11 @@ export interface WaProtectionState {
   };
 }
 
-export function getWaEtat(): Promise<WaEtat> {
-  return waCachedRead(WA_CACHE.etat, () => http.get("/whatsapp/etat"), { freshMs: 1_000 });
+export function getWaEtat(readOptions: WhatsAppReadOptions = {}): Promise<WaEtat> {
+  return waCachedRead(WA_CACHE.etat, () => http.get("/whatsapp/etat"), {
+    freshMs: 1_000,
+    revalidate: readOptions.revalidate,
+  });
 }
 
 export interface WaCapacites {
@@ -175,12 +179,18 @@ export interface WaCapacites {
   impossibles: Record<string, string>;
 }
 
-export function getWaCapacites(): Promise<WaCapacites> {
-  return waCachedRead(WA_CACHE.capacites, () => http.get("/whatsapp/capacites"), { freshMs: 15_000 });
+export function getWaCapacites(readOptions: WhatsAppReadOptions = {}): Promise<WaCapacites> {
+  return waCachedRead(WA_CACHE.capacites, () => http.get("/whatsapp/capacites"), {
+    freshMs: 15_000,
+    revalidate: readOptions.revalidate,
+  });
 }
 
-export function getWhatsAppStatus(): Promise<WhatsAppState> {
-  return waCachedRead(WA_CACHE.status, () => http.get("/whatsapp/status"), { freshMs: 1_000 });
+export function getWhatsAppStatus(readOptions: WhatsAppReadOptions = {}): Promise<WhatsAppState> {
+  return waCachedRead(WA_CACHE.status, () => http.get("/whatsapp/status"), {
+    freshMs: 1_000,
+    revalidate: readOptions.revalidate,
+  });
 }
 
 /** Liaison par code de jumelage (saisie du numéro). */
@@ -230,8 +240,11 @@ export interface WaSettings {
   status_audience: "all" | "contacts";
 }
 
-export function getWaSettings(): Promise<WaSettings> {
-  return waCachedRead(WA_CACHE.settings, () => http.get("/whatsapp/settings"), { freshMs: 20_000 });
+export function getWaSettings(readOptions: WhatsAppReadOptions = {}): Promise<WaSettings> {
+  return waCachedRead(WA_CACHE.settings, () => http.get("/whatsapp/settings"), {
+    freshMs: 20_000,
+    revalidate: readOptions.revalidate,
+  });
 }
 
 export function updateWaSettings(patch: Partial<WaSettings>): Promise<WaSettings> {
@@ -257,11 +270,14 @@ export interface WaActivityStats {
   errors: number;
 }
 
-export function getWaActivity(opts?: {
-  category?: string;
-  days?: number;
-  limit?: number;
-}): Promise<{ items: WaActivityItem[]; stats: WaActivityStats }> {
+export function getWaActivity(
+  opts?: {
+    category?: string;
+    days?: number;
+    limit?: number;
+  },
+  readOptions: WhatsAppReadOptions = {},
+): Promise<{ items: WaActivityItem[]; stats: WaActivityStats }> {
   const p = new URLSearchParams();
   if (opts?.category) p.set("category", opts.category);
   if (opts?.days) p.set("days", String(opts.days));
@@ -271,7 +287,7 @@ export function getWaActivity(opts?: {
   return waCachedRead(
     key,
     () => http.get(`/whatsapp/activity${qs ? `?${qs}` : ""}`),
-    { freshMs: 10_000 },
+    { freshMs: 10_000, revalidate: readOptions.revalidate },
   );
 }
 
@@ -302,12 +318,15 @@ export interface WaCarnet {
   total_en_base: number;
 }
 
-export function getWaCarnet(search?: string): Promise<WaCarnet> {
+export function getWaCarnet(
+  search?: string,
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WaCarnet> {
   const q = search ? `?search=${encodeURIComponent(search)}` : "";
   return waCachedRead(
     WA_CACHE.carnet(search || ""),
     () => http.get(`/whatsapp/contacts${q}`),
-    { freshMs: search ? 8_000 : 30_000 },
+    { freshMs: search ? 8_000 : 30_000, revalidate: readOptions.revalidate },
   );
 }
 
@@ -405,10 +424,13 @@ export interface WhatsAppAutomationHistoryEntry {
   created_at: string;
 }
 
-export function getWhatsAppAutomations(params?: {
-  status?: WhatsAppAutomationStatus;
-  limit?: number;
-}): Promise<{ tasks: WhatsAppAutomation[]; count: number }> {
+export function getWhatsAppAutomations(
+  params?: {
+    status?: WhatsAppAutomationStatus;
+    limit?: number;
+  },
+  readOptions: WhatsAppReadOptions = {},
+): Promise<{ tasks: WhatsAppAutomation[]; count: number }> {
   const query = new URLSearchParams();
   if (params?.status) query.set("status", params.status);
   if (params?.limit) query.set("limit", String(params.limit));
@@ -416,7 +438,7 @@ export function getWhatsAppAutomations(params?: {
   return waCachedRead(
     WA_CACHE.automations(params?.status || "", params?.limit || 0),
     () => http.get(`/whatsapp/automations${suffix}`),
-    { freshMs: 5_000 },
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
   );
 }
 
@@ -461,6 +483,7 @@ export function cancelWhatsAppAutomation(id: string): Promise<WhatsAppAutomation
 export function getWhatsAppAutomationHistory(
   id: string,
   limit = 30,
+  readOptions: WhatsAppReadOptions = {},
 ): Promise<{ entries: WhatsAppAutomationHistoryEntry[]; count: number }> {
   return waCachedRead(
     WA_CACHE.automationHistory(id, limit),
@@ -468,6 +491,6 @@ export function getWhatsAppAutomationHistory(
       http.get(
         `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${limit}`,
       ),
-    { freshMs: 5_000 },
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
   );
 }
