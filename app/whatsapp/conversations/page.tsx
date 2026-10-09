@@ -2198,7 +2198,7 @@ function MessageBubble({
           data-voice-bubble={isVoice ? "true" : undefined}
           className={
             isVoice
-              ? "relative rounded-[9px] px-[10px] py-[7px] shadow-[0_2px_6px_rgba(0,0,0,.12)]"
+              ? "relative rounded-[9px] px-[14px] py-[8px] shadow-[0_2px_6px_rgba(0,0,0,.12)]"
               : "rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)]"
           }
           style={{
@@ -2259,7 +2259,7 @@ function MessageBubble({
           <div
             className={
               isVoice
-                ? "absolute bottom-[9px] right-[11px] z-10 flex items-center justify-end gap-1"
+                ? "absolute bottom-[10px] right-[16px] z-10 flex items-center justify-end gap-1"
                 : "mt-1 flex items-center justify-end gap-1.5"
             }
           >
