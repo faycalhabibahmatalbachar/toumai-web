@@ -282,14 +282,18 @@ export default function WhatsAppConversationsPage() {
     setListError(null);
 
     try {
-      const data = await getWaLiveConversations({
-        search: search.trim() || undefined,
-        pending: selectedFilter === "pending",
-        unread: selectedFilter === "unread",
-        kind: kindFilter === "all" ? undefined : kindFilter,
-        offset,
-        limit: 80,
-      });
+      const data = await withUiDeadline(
+        getWaLiveConversations({
+          search: search.trim() || undefined,
+          pending: selectedFilter === "pending",
+          unread: selectedFilter === "unread",
+          kind: kindFilter === "all" ? undefined : kindFilter,
+          offset,
+          limit: 80,
+        }),
+        12_000,
+        "La liste WhatsApp met trop de temps à répondre. Réessayez.",
+      );
       setConversations((current) => {
         if (!append) return data.conversations;
         const merged = [...current, ...data.conversations];
@@ -332,7 +336,11 @@ export default function WhatsAppConversationsPage() {
       setThreadError(null);
     }
     try {
-      const data = await getWaConversationMessages(conversation.id, 120);
+      const data = await withUiDeadline(
+        getWaConversationMessages(conversation.id, 120),
+        12_000,
+        "Cette conversation met trop de temps à répondre. Réessayez.",
+      );
       setMessages(data.messages);
       void enrichMessagePictures(data.messages);
       if (!silent) setThreadError(null);
@@ -2542,6 +2550,22 @@ function initials(value: string) {
   if (!parts.length) return "WA";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+async function withUiDeadline<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function formatTime(timestampMs: number) {
