@@ -89,20 +89,20 @@ export function WhatsAppComposeModal({
       setLoadingContacts(true);
       try {
         const shortlist = (await getWaCarnet(value)).contacts.slice(0, 8);
-        let pictures: Record<string, string | null> = {};
-        try {
-          pictures = await getWaProfilePictures(shortlist.map((contact) => contact.jid));
-        } catch {
-          // La recherche de contact reste utilisable si WhatsApp masque les photos.
-        }
-        if (!cancelled) {
-          setContacts(
-            shortlist.map((contact) => ({
-              ...contact,
-              picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
-            })),
-          );
-        }
+        if (!cancelled) setContacts(shortlist);
+        void getWaProfilePictures(shortlist.map((contact) => contact.jid))
+          .then((pictures) => {
+            if (cancelled) return;
+            setContacts((current) =>
+              current.map((contact) => ({
+                ...contact,
+                picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
+              })),
+            );
+          })
+          .catch(() => {
+            // Une photo ne doit jamais retarder la recherche de contacts.
+          });
       } catch {
         if (!cancelled) setContacts([]);
       } finally {
