@@ -75,6 +75,8 @@ jobs:
           components/settings/ConnectorsTab.tsx
           components/whatsapp/WhatsAppComposeModal.tsx
           components/whatsapp/WhatsAppContactShareModal.tsx
+          components/whatsapp/WhatsAppAudioRecorder.tsx
+          components/whatsapp/WhatsAppPendingVoiceList.tsx
           hooks/useWhatsAppRealtime.ts
           lib/whatsapp-realtime.ts
           lib/whatsapp-cache.ts
