@@ -136,6 +136,7 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const listSearchInputRef = useRef<HTMLInputElement>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
   const initialScrollChatRef = useRef<string | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
@@ -182,6 +183,11 @@ export default function WhatsAppConversationsPage() {
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
       setResearchEnabled(params.get("research") === "media-edit-v1");
+      const initialQuery = (params.get("q") || "").trim().slice(0, 160);
+      if (initialQuery) setQuery(initialQuery);
+      if (params.get("focus") === "search") {
+        window.requestAnimationFrame(() => listSearchInputRef.current?.focus());
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -976,6 +982,7 @@ export default function WhatsAppConversationsPage() {
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2" size={17} color={MUTED} />
                   <input
+                    ref={listSearchInputRef}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Rechercher une conversation…"
