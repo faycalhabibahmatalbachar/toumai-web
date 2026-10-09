@@ -219,7 +219,7 @@ function actionCopy(request: ConversationActionRequest) {
       return {
         title: "Confirmer l’action",
         question: "Appliquer cette action ?",
-        detail: "Toumaï vérifiera encore vos permissions avant l’exécution.",
+        detail: "Cette action sera appliquée à la conversation.",
       };
   }
 }
