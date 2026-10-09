@@ -1125,7 +1125,11 @@ export default function WhatsAppConversationsPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {loadingList && [0, 1, 2, 3, 4, 5, 6].map((index) => (
-                <div key={index} className="mx-3 my-2 h-[72px] animate-pulse rounded-xl bg-white/[0.025]" />
+                <div
+                  key={index}
+                  data-testid="conversation-list-skeleton"
+                  className="mx-3 my-2 h-[72px] animate-pulse rounded-xl bg-white/[0.025]"
+                />
               ))}
 
               {!loadingList && listError && (
