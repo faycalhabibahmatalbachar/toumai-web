@@ -948,6 +948,7 @@ async function certifyConversations() {
   const contactDialog = page.getByRole("dialog", { name: "Partager un contact" });
   const aminaContact = contactDialog.getByRole("button", { name: /Amina Saleh/ });
   await aminaContact.waitFor();
+  await aminaContact.getByAltText("Photo de profil WhatsApp de Amina Saleh").waitFor();
   await aminaContact.click();
   await contactDialog.getByRole("button", { name: "Partager", exact: true }).click();
   await page.getByRole("heading", { name: "Partager un contact" }).waitFor({ state: "hidden" });
