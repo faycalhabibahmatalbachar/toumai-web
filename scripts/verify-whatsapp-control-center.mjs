@@ -1373,6 +1373,53 @@ async function certifyVoiceInstantQueue() {
   await page.close();
 }
 
+async function certifyVerifiedContactNames() {
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const key = localStorage.key(i) || "";
+      if (key.startsWith("toumai:cache:") && (
+        key.includes("wa:conversations") || key.includes("__identity_names_2000__")
+      )) localStorage.removeItem(key);
+    }
+  });
+  await page.route("**/api/v1/whatsapp/conversations?*", async (route) => {
+    const rows = conversations.map((item) => {
+      if (item.id === "23566111111@s.whatsapp.net") return { ...item, name: "Nom erroné du chat", name_source: "profile" };
+      if (item.id === "23566222222@s.whatsapp.net") return { ...item, name: "Nom périmé", name_source: "phone" };
+      if (item.id.endsWith("@lid")) return { ...item, name: "255855597453404", number: "255855597453404", name_source: "phone" };
+      return item;
+    });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      success: true,
+      data: { conversations: rows, count: rows.length, offset: 0, limit: 80, has_more: false, next_offset: null, source: "baileys" },
+    }) });
+  });
+  await page.route("**/api/v1/whatsapp/contacts?limit=2000", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      success: true,
+      data: {
+        contacts: [
+          { jid: "23566111111@s.whatsapp.net", name: "Mahamat du carnet", name_source: "saved_contact", number: "23566111111" },
+          { jid: "23566222222@s.whatsapp.net", name: "Profil Amina vérifié", name_source: "profile", number: "23566222222" },
+        ],
+        count: 2, source: "passerelle", derniere_synchronisation: null, total_en_base: 2,
+      },
+    }) });
+  });
+  await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
+  await page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]').getByText("Mahamat du carnet").waitFor({ timeout: 8000 });
+  await page.locator('[data-conversation-id="23566222222@s.whatsapp.net"]').getByText("Profil Amina vérifié").waitFor({ timeout: 8000 });
+  const privateChat = page.locator('[data-conversation-id="255855597453404@lid"]');
+  await privateChat.waitFor();
+  const visible = await privateChat.innerText();
+  assert(!visible.includes("255855597453404"),
+    "Un JID privé ne doit jamais être affiché comme numéro de téléphone.");
+  assert(visible.includes("WhatsApp"), "Identifiant privé sans nom : fallback neutre.");
+  await page.screenshot({ path: `${artifacts}/verified-contact-names.png`, fullPage: false });
+  await page.close();
+}
+
 async function certifyAutomations() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/automations/`, { waitUntil: "domcontentloaded" });
@@ -1503,6 +1550,7 @@ async function certifyRetired404Fallbacks() {
 await certifyOverviewComposer();
 await certifyConversations();
 await certifyVoiceInstantQueue();
+await certifyVerifiedContactNames();
 await certifyAutomations();
 await certifyMobile();
 await certifyRetired404Fallbacks();
@@ -1513,7 +1561,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "voice-instant-queue", "retired-fallbacks-404"],
+    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "voice-instant-queue", "verified-contact-names", "retired-fallbacks-404"],
   }, null, 2),
 );
 
