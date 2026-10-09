@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CalendarClock,
@@ -460,15 +461,13 @@ function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState("Rappel WhatsApp");
   const [message, setMessage] = useState("");
   const [sendAt, setSendAt] = useState("");
-  const [timezone, setTimezone] = useState("UTC");
+  const [timezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  const [locked, setLocked] = useState(false);
+  const router = useRouter();
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestId = useRef("");
-
-  useEffect(() => {
-    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-  }, []);
 
   function localDateIsValid(value: string, date: Date): boolean {
     if (Number.isNaN(date.getTime())) return false;
@@ -495,6 +494,7 @@ function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
       return;
     }
     if (!requestId.current) requestId.current = newRequestId("wa-web");
+    setLocked(true);
     setBusy(true);
     try {
       const result = await createWhatsAppTextAutomation({
@@ -507,7 +507,7 @@ function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
       });
       if (!result.automation?.id) throw new Error("La création n'a pas retourné de référence.");
       // Created automations belong to V2, not the legacy scheduled-message list.
-      window.location.assign("/automations?id=" + encodeURIComponent(result.automation.id));
+      router.push("/automations?id=" + encodeURIComponent(result.automation.id));
     } catch (exc) {
       setError(whatsappUiError(exc) + " Vérifiez les workflows V2 avant de créer une autre tâche.");
     } finally {
@@ -515,7 +515,6 @@ function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const locked = Boolean(requestId.current);
   const setAndUnconfirm = (setter: (v: string) => void, value: string) => {
     setter(value);
     setConfirmed(false);
@@ -540,7 +539,7 @@ function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
           <label className="block text-xs">Message
             <textarea required disabled={locked} value={message} maxLength={4096} rows={4} onChange={(e) => setAndUnconfirm(setMessage, e.target.value)} placeholder="Votre message..." className="mt-1 block w-full rounded-xl border bg-transparent px-3 py-2 text-sm disabled:opacity-60" style={{ borderColor: BORDER }} />
           </label>
-          <label className="block text-xs">Date et heure de l'envoi
+          <label className="block text-xs">Date et heure de l&apos;envoi
             <input required disabled={locked} type="datetime-local" value={sendAt} onChange={(e) => setAndUnconfirm(setSendAt, e.target.value)} className="mt-1 block h-11 w-full rounded-xl border bg-transparent px-3 text-sm disabled:opacity-60" style={{ borderColor: BORDER }} />
             <span className="mt-1 block text-[11px]" style={{ color: MUTED }}>Fuseau : {timezone} · envoi unique.</span>
           </label>
@@ -553,7 +552,7 @@ function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
           </div>
           <label className="flex items-start gap-2 text-xs">
             <input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5" />
-            <span>Je confirme ce destinataire, ce message, cet horaire et l'autorisation de l'envoyer.</span>
+            <span>Je confirme ce destinataire, ce message, cet horaire et l&apos;autorisation de l&apos;envoyer.</span>
           </label>
           {error && <p role="alert" className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-200">{error}</p>}
           <div className="flex justify-end gap-2">
