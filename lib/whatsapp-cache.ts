@@ -95,6 +95,13 @@ export function invalidateWhatsAppCache(...prefixes: string[]): void {
   for (const prefix of targets) cachePurge(prefix);
 }
 
+export function readWhatsAppCache<T>(
+  key: string,
+  maxAgeMs = Infinity,
+): T | null {
+  return cacheSeed<T>(key, maxAgeMs);
+}
+
 export function writeWhatsAppCache<T>(key: string, value: T): void {
   cacheWrite(key, value);
 }
