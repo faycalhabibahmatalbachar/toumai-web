@@ -33,54 +33,49 @@ const ORANGE = "#ff9518";
 
 type Stage = "compose" | "result";
 
-export function WhatsAppComposeModal({
-  open,
-  onClose,
-  initialRecipient,
-  initialName,
-  initialMessage,
-  onSent,
-}: {
+type ComposeProps = {
   open: boolean;
   onClose: () => void;
   initialRecipient?: string;
   initialName?: string;
   initialMessage?: string;
   onSent?: (chatId: string) => void;
-}) {
+};
+
+/** Mount a fresh compose session at open time. No delayed reset may erase
+ * recipient/message input after the user starts typing. */
+export function WhatsAppComposeModal(props: ComposeProps) {
+  if (!props.open) return null;
+  return <WhatsAppComposeSession {...props} />;
+}
+
+function WhatsAppComposeSession({
+  open,
+  onClose,
+  initialRecipient,
+  initialName,
+  initialMessage,
+  onSent,
+}: ComposeProps) {
   const [stage, setStage] = useState<Stage>("compose");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialName || initialRecipient || "");
   const [contacts, setContacts] = useState<WaContact[]>([]);
-  const [selected, setSelected] = useState<WaContact | null>(null);
-  const [message, setMessage] = useState("");
+  const [selected, setSelected] = useState<WaContact | null>(() =>
+    initialRecipient ? {
+      jid: initialRecipient,
+      number: initialRecipient.endsWith("@s.whatsapp.net")
+        ? initialRecipient.split("@", 1)[0]
+        : initialRecipient.includes("@") ? null : initialRecipient,
+      name: initialName || initialRecipient,
+    } : null,
+  );
+  const [message, setMessage] = useState(initialMessage || "");
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<WaMessageStatus | null>(null);
   const [accepted, setAccepted] = useState<{ chatId: string; msgId: string | null } | null>(null);
   const pollToken = useRef(0);
-
-  useEffect(() => {
-    if (!open) return;
-    const timer = window.setTimeout(() => {
-      setStage("compose");
-      setMessage(initialMessage || "");
-      setError(null);
-      setResult(null);
-      setAccepted(null);
-      setQuery(initialName || initialRecipient || "");
-      setSelected(
-        initialRecipient
-          ? {
-              jid: initialRecipient,
-              number: initialRecipient.includes("@") ? initialRecipient.split("@", 1)[0] : initialRecipient,
-              name: initialName || initialRecipient,
-            }
-          : null,
-      );
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [open, initialRecipient, initialName, initialMessage]);
 
   useEffect(() => {
     if (!open || selected) return;
