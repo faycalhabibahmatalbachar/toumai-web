@@ -23,6 +23,7 @@ export function WhatsAppAudioRecorder({
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
+  const submitLockRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -206,7 +207,8 @@ export function WhatsAppAudioRecorder({
   }
 
   async function send() {
-    if (!recording || preparing) return;
+    if (!recording || preparing || submitLockRef.current) return;
+    submitLockRef.current = true;
     setPreparing(true);
     try {
       const file = await stopAsFile();
@@ -214,8 +216,13 @@ export function WhatsAppAudioRecorder({
         onError("Le message vocal enregistré est vide.");
         return;
       }
+      // Hand off the file to a background queue. The recorder no longer
+      // waits for the conversion/upload/gateway network round-trip.
       await onRecorded(file);
+    } catch {
+      onError("Impossible de préparer le vocal. Réessayez l’enregistrement.");
     } finally {
+      submitLockRef.current = false;
       setPreparing(false);
     }
   }
