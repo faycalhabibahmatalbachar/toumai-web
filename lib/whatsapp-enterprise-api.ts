@@ -405,7 +405,8 @@ export async function uploadWaAttachment(
   const query = new URLSearchParams();
   if (options.normalize !== false) query.set("purpose", "whatsapp");
   if (options.requestedType) query.set("requested_type", options.requestedType);
-  const suffix = query.size ? `?${query.toString()}` : "";
+  const encodedQuery = query.toString();
+  const suffix = encodedQuery ? `?${encodedQuery}` : "";
 
   return postForm<WaUploadedFile>(`/files/upload${suffix}`, form);
 }
