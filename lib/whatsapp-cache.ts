@@ -13,6 +13,9 @@ export const WA_CACHE = {
     `wa:profile-picture:${encodeURIComponent(jid.trim())}`,
   automations: (status = "", limit = 0) =>
     `wa:automations:${status || "all"}:${limit || 0}`,
+  automationStats: "wa:automations:stats:v2",
+  automationsPage: (status: string, search: string, offset: number, limit: number) =>
+    ["wa:automations:page:v2", status, encodeURIComponent(search.trim().toLowerCase()), offset, limit].join(":"),
   automationHistory: (id: string, limit = 30) =>
     `wa:automation-history:${encodeURIComponent(id)}:${limit}`,
   autopilot: "wa:autopilot",
