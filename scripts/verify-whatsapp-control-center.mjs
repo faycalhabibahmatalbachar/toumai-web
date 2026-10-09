@@ -738,11 +738,14 @@ async function certifyConversations() {
   await page.getByRole("dialog", { name: "Aperçu de l’image" }).waitFor({ state: "hidden" });
 
   const voiceMessage = page.locator('[data-message-id="t-voice"]');
-  await voiceMessage.getByLabel("Message vocal WhatsApp").waitFor();
+  const voicePlayer = voiceMessage.getByLabel("Message vocal WhatsApp");
+  await voicePlayer.waitFor();
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).waitFor();
   await voiceMessage.getByRole("slider", { name: "Position dans le message vocal" }).waitFor();
-  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
-  await voiceSpeed.waitFor();
+  assert(
+    (await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" }).count()) === 0,
+    "La vitesse ne doit pas polluer le vocal au repos : WhatsApp la révèle pendant la lecture.",
+  );
   assert(
     (await voiceMessage.getByText("vocal-1791544458618.ogg", { exact: true }).count()) === 0,
     "Un message vocal ne doit jamais exposer son nom de fichier technique.",
@@ -755,14 +758,38 @@ async function certifyConversations() {
     (await voiceMessage.getByRole("button", { name: "Corriger", exact: true }).count()) === 0,
     "L'action Corriger ne doit pas être proposée sur un message vocal.",
   );
-  await voiceSpeed.click();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
+
+  const voicePlayerBox = await voicePlayer.boundingBox();
+  const voiceAvatarBox = await voiceMessage.locator('[data-testid="voice-avatar"]').boundingBox();
+  const voiceBubbleBox = await voiceMessage.locator('[data-voice-bubble="true"]').boundingBox();
+  assert(Boolean(voicePlayerBox && voiceAvatarBox && voiceBubbleBox), "Géométrie du vocal introuvable.");
+  assert(
+    voicePlayerBox.height >= 70 && voicePlayerBox.height <= 74,
+    `Le lecteur vocal doit rester compact (~72px), obtenu ${voicePlayerBox.height}px.`,
+  );
+  assert(
+    voiceAvatarBox.width >= 72 && voiceAvatarBox.width <= 76 &&
+      voiceAvatarBox.height >= 72 && voiceAvatarBox.height <= 76,
+    `Avatar vocal attendu ~74px, obtenu ${voiceAvatarBox.width}x${voiceAvatarBox.height}px.`,
+  );
+  assert(
+    voiceBubbleBox.height >= 84 && voiceBubbleBox.height <= 94,
+    `Bulle vocale attendue ~90px comme WhatsApp, obtenue ${voiceBubbleBox.height}px.`,
+  );
+  assert(
+    voiceBubbleBox.width >= 430 && voiceBubbleBox.width <= 470,
+    `Largeur vocale attendue 430-470px, obtenue ${voiceBubbleBox.width}px.`,
+  );
 
   const playedBefore = state.voicePlayed.length;
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).click();
   await page.waitForTimeout(120);
+  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
+  await voiceSpeed.waitFor();
+  await voiceSpeed.click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
   assert(
     state.voicePlayed.length === playedBefore + 1,
     "Lire un vocal reçu dans Toumaï doit envoyer un seul accusé played.",
