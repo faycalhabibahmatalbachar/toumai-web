@@ -1638,8 +1638,20 @@ async function certifyRetired404Fallbacks() {
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
-  await page.getByPlaceholder("Écrivez votre message…").fill("salut");
-  await page.getByRole("button", { name: "Envoyer", exact: true }).click();
+  const textInput = page.getByPlaceholder("Écrivez votre message…");
+  await textInput.fill("salut");
+  const send = page.getByRole("button", { name: "Envoyer", exact: true });
+  const composerDiagnostics = {
+    recipient: await recipient.inputValue(),
+    message: await textInput.inputValue(),
+    canSend: await send.isEnabled(),
+  };
+  if (!composerDiagnostics.canSend) {
+    console.log("FALLBACK_COMPOSER_DIAGNOSTICS", JSON.stringify(composerDiagnostics));
+    await page.screenshot({ path: `${artifacts}/fallback-compose-disabled.png`, fullPage: false });
+  }
+  assert(composerDiagnostics.canSend, "Le composeur ne doit jamais bloquer un message et un numéro valides.");
+  await send.click();
   await page.waitForTimeout(500);
 
   assert(
