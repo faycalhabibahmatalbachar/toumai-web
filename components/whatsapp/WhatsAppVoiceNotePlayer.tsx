@@ -1,14 +1,14 @@
 "use client";
 
 import { Mic, Pause, Play } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { markWaVoicePlayed, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
 
-const GREEN = "#08c875";
+const GREEN = "#21c063";
 const BLUE = "#53bdeb";
-const MUTED = "#a8b3bb";
-const TRACK = "#617078";
+const MUTED = "#aebac1";
+const RAIL = "#2b7565";
 const EVENT_NAME = "toumai:whatsapp-voice-play";
 
 export function WhatsAppVoiceNotePlayer({
@@ -29,20 +29,10 @@ export function WhatsAppVoiceNotePlayer({
   );
   const [rate, setRate] = useState(1);
   const [played, setPlayed] = useState(Boolean(message.played) || message.status === "played");
-  const [decodedWaveform, setDecodedWaveform] = useState<number[] | null>(null);
-
-  const waveform = useMemo(() => {
-    const provider = normalizeProviderWaveform(message.waveform);
-    if (provider.length >= 8) return resample(provider, 48);
-    if (decodedWaveform?.length) return resample(decodedWaveform, 48);
-    // Pas de fausse waveform : tant que Baileys ou le décodage local n'a
-    // pas fourni de niveaux réels, afficher une ligne neutre et uniforme.
-    return Array.from({ length: 48 }, () => 0.28);
-  }, [decodedWaveform, message.id, message.waveform]);
 
   const progress = duration > 0 ? Math.min(1, Math.max(0, current / duration)) : 0;
-  const activeBars = Math.round(progress * waveform.length);
   const voiceColor = played || message.status === "played" ? BLUE : GREEN;
+  const senderInitials = voiceInitials(message.sender || "");
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -61,57 +51,6 @@ export function WhatsAppVoiceNotePlayer({
     return () => window.removeEventListener(EVENT_NAME, onOtherVoicePlay);
   }, [message.id]);
 
-  useEffect(() => {
-    if (normalizeProviderWaveform(message.waveform).length >= 8) return;
-    let cancelled = false;
-    let context: AudioContext | null = null;
-
-    async function buildWaveform() {
-      try {
-        const response = await fetch(url);
-        const bytes = await response.arrayBuffer();
-        if (cancelled || typeof AudioContext === "undefined") return;
-        context = new AudioContext();
-        const buffer = await context.decodeAudioData(bytes.slice(0));
-        if (cancelled) return;
-        const channel = buffer.getChannelData(0);
-        const bars = 64;
-        const bucket = Math.max(1, Math.floor(channel.length / bars));
-        const values = Array.from({ length: bars }, (_, index) => {
-          const start = index * bucket;
-          const end = Math.min(channel.length, start + bucket);
-          if (start >= end) return 0.12;
-          let squareSum = 0;
-          let samples = 0;
-          const stride = Math.max(1, Math.floor((end - start) / 768));
-          for (let cursor = start; cursor < end; cursor += stride) {
-            const sample = channel[cursor] || 0;
-            squareSum += sample * sample;
-            samples += 1;
-          }
-          const rms = samples ? Math.sqrt(squareSum / samples) : 0;
-          return Math.max(0.12, Math.min(1, rms * 4.6));
-        });
-        const peak = Math.max(...values, 0.12);
-        setDecodedWaveform(values.map((value) => Math.max(0.12, value / peak)));
-      } catch {
-        // Playback remains functional even if Web Audio decoding is unavailable.
-      } finally {
-        if (context && context.state !== "closed") {
-          void context.close().catch(() => {});
-        }
-      }
-    }
-
-    void buildWaveform();
-    return () => {
-      cancelled = true;
-      if (context && context.state !== "closed") {
-        void context.close().catch(() => {});
-      }
-    };
-  }, [message.waveform, url]);
-
   function announcePlayed() {
     if (message.from_me || playedReceiptSentRef.current) return;
     playedReceiptSentRef.current = true;
@@ -120,7 +59,7 @@ export function WhatsAppVoiceNotePlayer({
       chat_id: message.chat_id,
       msg_id: message.id,
     }).catch(() => {
-      // Listening must never fail because a receipt could not be sent.
+      // L'écoute locale ne doit jamais échouer à cause d'un receipt réseau.
     });
   }
 
@@ -156,7 +95,8 @@ export function WhatsAppVoiceNotePlayer({
 
   return (
     <div
-      className="mb-1 min-w-[270px] max-w-[390px] rounded-2xl px-2.5 py-2"
+      data-testid="whatsapp-voice-note"
+      className="w-[430px] max-w-[calc(88vw-34px)]"
       aria-label="Message vocal WhatsApp"
     >
       <audio
@@ -180,35 +120,54 @@ export function WhatsAppVoiceNotePlayer({
         }}
       />
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex h-[72px] items-center gap-3">
+        <VoiceAvatar
+          outbound={message.from_me}
+          initials={senderInitials}
+          color={voiceColor}
+          playing={playing || current > 0}
+          rate={rate}
+          onRate={cycleRate}
+        />
+
         <button
           type="button"
           onClick={() => void togglePlayback()}
           aria-label={playing ? "Mettre le message vocal en pause" : "Lire le message vocal"}
           title={playing ? "Pause" : "Lire"}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-white/[0.07]"
-          style={{ color: "#eef4f7" }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-black/[0.06]"
+          style={{ color: "#f0f2f5" }}
         >
           {playing ? (
-            <Pause size={20} fill="currentColor" />
+            <Pause size={22} fill="currentColor" />
           ) : (
-            <Play size={21} fill="currentColor" className="translate-x-[1px]" />
+            <Play size={23} fill="currentColor" className="translate-x-[1px]" />
           )}
         </button>
 
-        <div className="min-w-0 flex-1">
-          <div className="relative flex h-8 items-center gap-[2px]">
-            {waveform.map((level, index) => (
-              <span
-                key={index}
-                className="min-w-[2px] flex-1 rounded-full transition-colors"
-                style={{
-                  height: `${Math.max(4, Math.round(5 + level * 18))}px`,
-                  background: index < activeBars ? voiceColor : TRACK,
-                  opacity: index < activeBars ? 1 : 0.78,
-                }}
-              />
-            ))}
+        <div className="min-w-0 flex-1 self-stretch pt-[20px]">
+          <div
+            data-testid="voice-progress-track"
+            className="relative h-[18px]"
+          >
+            <div
+              className="absolute left-0 right-0 top-[8px] h-[4px] rounded-full"
+              style={{ background: RAIL }}
+            />
+            <div
+              className="absolute left-0 top-[8px] h-[4px] rounded-full"
+              style={{
+                width: `${progress * 100}%`,
+                background: voiceColor,
+              }}
+            />
+            <span
+              className="absolute top-[1px] h-[18px] w-[18px] -translate-x-1/2 rounded-full shadow-sm"
+              style={{
+                left: `${Math.max(0, Math.min(100, progress * 100))}%`,
+                background: voiceColor,
+              }}
+            />
             <input
               type="range"
               min={0}
@@ -221,21 +180,11 @@ export function WhatsAppVoiceNotePlayer({
             />
           </div>
 
-          <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] tabular-nums" style={{ color: MUTED }}>
-            <span className="inline-flex items-center gap-1">
-              <Mic size={11} color={voiceColor} />
-              {formatDuration(playing || current > 0 ? current : duration)}
-            </span>
-            <button
-              type="button"
-              onClick={cycleRate}
-              aria-label={`Vitesse de lecture ${formatRate(rate)}`}
-              title="Changer la vitesse de lecture"
-              className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition hover:bg-white/[0.07]"
-              style={{ color: "#d9e3e8" }}
-            >
-              {formatRate(rate)}
-            </button>
+          <div
+            className="mt-[3px] flex items-center text-[12px] leading-none tabular-nums"
+            style={{ color: MUTED }}
+          >
+            <span>{formatDuration(playing || current > 0 ? current : duration)}</span>
           </div>
         </div>
       </div>
@@ -243,27 +192,62 @@ export function WhatsAppVoiceNotePlayer({
   );
 }
 
-function normalizeProviderWaveform(values: number[] | null | undefined) {
-  if (!Array.isArray(values) || !values.length) return [];
-  const safe = values
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value))
-    .map((value) => Math.max(0, value));
-  if (!safe.length) return [];
-  const peak = Math.max(...safe, 1);
-  return safe.map((value) => Math.max(0.12, Math.min(1, value / peak)));
+function VoiceAvatar({
+  outbound,
+  initials,
+  color,
+  playing,
+  rate,
+  onRate,
+}: {
+  outbound: boolean;
+  initials: string;
+  color: string;
+  playing: boolean;
+  rate: number;
+  onRate: () => void;
+}) {
+  return (
+    <div
+      data-testid="voice-avatar"
+      className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-full"
+      style={{
+        background: outbound ? "#ffffff" : "#dfe5e7",
+        color: "#54656f",
+      }}
+    >
+      {!outbound && initials ? (
+        <span className="text-[18px] font-semibold">{initials}</span>
+      ) : null}
+
+      {playing ? (
+        <button
+          type="button"
+          onClick={onRate}
+          aria-label={`Vitesse de lecture ${formatRate(rate)}`}
+          title="Changer la vitesse de lecture"
+          className="absolute inset-0 flex items-center justify-center rounded-full bg-black/[0.06] text-[12px] font-bold transition hover:bg-black/[0.10]"
+          style={{ color: "#42525b" }}
+        >
+          {formatRate(rate)}
+        </button>
+      ) : null}
+
+      <span
+        className="absolute bottom-[2px] right-[3px] flex h-[24px] w-[24px] items-center justify-center rounded-full"
+        style={{ background: outbound ? "#ffffff" : "#dfe5e7" }}
+      >
+        <Mic size={20} strokeWidth={2.6} color={color} />
+      </span>
+    </div>
+  );
 }
 
-function resample(values: number[], target: number) {
-  if (!values.length) return [];
-  if (values.length === target) return values;
-  return Array.from({ length: target }, (_, index) => {
-    const position = (index / Math.max(1, target - 1)) * (values.length - 1);
-    const left = Math.floor(position);
-    const right = Math.min(values.length - 1, left + 1);
-    const fraction = position - left;
-    return values[left] * (1 - fraction) + values[right] * fraction;
-  });
+function voiceInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function formatDuration(value: number) {
