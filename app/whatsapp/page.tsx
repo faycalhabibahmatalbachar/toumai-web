@@ -50,6 +50,7 @@ import {
   type WaOverviewMetric,
   type WhatsAppOverview,
 } from "@/lib/whatsapp-enterprise-api";
+import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { useCached } from "@/lib/swr-cache";
 
 const PAGE_BG = "#06111a";
@@ -581,8 +582,8 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 }
 
 function ConversationRow({ conversation, index }: { conversation: WaLiveConversation; index: number }) {
-  const name = conversation.name || conversation.number || conversation.id || "Contact WhatsApp";
-  const secondary = conversation.number ? `+${conversation.number}` : conversation.id;
+  const name = displayWhatsAppIdentity(conversation);
+  const secondary = displayWhatsAppSecondary(conversation);
   const preview = conversation.last_message.text || "Message WhatsApp";
   const status = conversation.pending ? "En attente" : conversation.last_message.from_me ? "Répondu" : "Nouveau";
   const statusColor = conversation.pending ? ORANGE : conversation.last_message.from_me ? BLUE : GREEN;
