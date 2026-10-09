@@ -332,7 +332,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
   async function save() {
     if (saving || !message.trim() || !sendAt) return;
     setSaving(true);
-    setActionError(null);
+    setError(null);
     try {
       const iso = new Date(sendAt).toISOString();
       await updateWhatsAppAutomation(task.id, {
@@ -343,7 +343,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
       });
       await onSaved();
     } catch (exc) {
-      setActionError(errorMessage(exc, "generic"));
+      setError(errorMessage(exc, "generic"));
     } finally {
       setSaving(false);
     }
