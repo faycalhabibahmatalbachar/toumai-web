@@ -179,9 +179,9 @@ const threadMessages = [
     file_name: "vocal-1791544458618.ogg",
     duration_seconds: 13,
     waveform: [22, 43, 74, 108, 135, 98, 64, 39, 72, 118, 151, 103, 58, 31, 66, 120, 166, 123, 80, 45, 75, 129, 179, 128, 82, 50, 94, 148, 192, 142, 96, 59, 73, 117, 158, 122, 79, 48, 67, 109, 149, 114, 72, 42, 61, 96, 136, 101],
-    played: false,
+    played: true,
     timestamp_ms: now - 62_000,
-    status: "delivered",
+    status: "played",
   },
   {
     id: "t3",
@@ -625,20 +625,23 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   } else if (path === "/whatsapp/message/status") {
     const statusMsgId = url.searchParams.get("msg_id") || "MSG-UI-1";
     const isInfoTarget = statusMsgId === "t2";
+    const isVoiceTarget = statusMsgId === "t-voice-out";
     data = {
       msg_id: statusMsgId,
       chat_id: url.searchParams.get("chat_id"),
       known: true,
-      status: isInfoTarget ? "read" : "delivered",
+      status: isVoiceTarget ? "played" : isInfoTarget ? "read" : "delivered",
       server_ack_confirmed: true,
       delivery_confirmed: true,
-      read_confirmed: isInfoTarget,
+      read_confirmed: isInfoTarget || isVoiceTarget,
       failed: false,
       sent_at: now - 120_000,
       edited_at: isInfoTarget ? now - 30_000 : null,
-      timeline: isInfoTarget
-        ? { sent: now - 120_000, delivered: now - 110_000, read: now - 90_000 }
-        : { sent: now - 120_000, delivered: now - 110_000 },
+      timeline: isVoiceTarget
+        ? { sent: now - 120_000, delivered: now - 110_000, read: now - 92_000, played: now - 90_000 }
+        : isInfoTarget
+          ? { sent: now - 120_000, delivered: now - 110_000, read: now - 90_000 }
+          : { sent: now - 120_000, delivered: now - 110_000 },
     };
   } else if (path === "/whatsapp/suggestion/send" && method === "POST") {
     const body = request.postDataJSON();
@@ -772,7 +775,12 @@ async function certifyConversations() {
 
   const outboundVoice = page.locator('[data-message-id="t-voice-out"]');
   await outboundVoice.getByLabel("Message vocal WhatsApp").waitFor();
-  await outboundVoice.getByRole("button", { name: "Infos", exact: true }).waitFor();
+  await outboundVoice.getByLabel("Écouté").waitFor();
+  await outboundVoice.getByRole("button", { name: "Infos", exact: true }).click();
+  const voiceInfo = page.getByRole("dialog", { name: "Infos du message" });
+  await voiceInfo.getByText("Écouté", { exact: true }).waitFor();
+  await voiceInfo.getByText("Lu", { exact: true }).waitFor();
+  await voiceInfo.getByRole("button", { name: "Fermer", exact: true }).click();
   assert(
     (await outboundVoice.getByRole("button", { name: "Corriger", exact: true }).count()) === 0,
     "Un vocal envoyé doit garder Infos mais ne jamais proposer Corriger.",
