@@ -1,4 +1,5 @@
 import { http } from "./http";
+import { cacheSessionOwner } from "./swr-cache";
 import {
   WA_CACHE,
   readWhatsAppCache,
@@ -348,18 +349,25 @@ export async function getWaProfilePictures(
   }
   if (!missing.length) return pictures;
 
+  const requestOwner = cacheSessionOwner();
   try {
     const response = await http.post<{ pictures: Record<string, string | null>; count: number }>(
       "/whatsapp/profile-pictures",
       { jids: missing, force },
     );
+    // Do not attach A's profile photos to B's contacts after a session switch.
+    if (requestOwner !== cacheSessionOwner()) {
+      throw new Error("La session WhatsApp a changé pendant le chargement des photos.");
+    }
     for (const jid of missing) {
       const url = response.pictures?.[jid] ?? null;
       pictures[jid] = url;
       writeWhatsAppCache(WA_CACHE.profilePicture(jid), { url });
     }
   } catch (error) {
-    if (Object.keys(pictures).length === 0) throw error;
+    if (requestOwner !== cacheSessionOwner() || Object.keys(pictures).length === 0) {
+      throw error;
+    }
   }
   return pictures;
 }
