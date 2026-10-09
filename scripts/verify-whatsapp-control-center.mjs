@@ -152,6 +152,22 @@ const threadMessages = [
     status: "delivered",
   },
   {
+    id: "t-voice",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: false,
+    sender: "Mahamat Ali",
+    sender_jid: "23566111111@s.whatsapp.net",
+    type: "voice",
+    mime_type: "audio/ogg; codecs=opus",
+    file_name: "vocal-1791544458618.ogg",
+    duration_seconds: 13,
+    waveform: [18, 40, 70, 95, 120, 83, 52, 35, 61, 108, 141, 101, 54, 33, 72, 126, 159, 114, 68, 44, 79, 132, 176, 121, 74, 47, 89, 143, 188, 137, 92, 55, 68, 112, 154, 119, 77, 45, 63, 104, 145, 110, 69, 39, 58, 91, 132, 96],
+    played: false,
+    timestamp_ms: now - 65_000,
+    status: null,
+  },
+  {
     id: "t3",
     chat_id: "23566111111@s.whatsapp.net",
     text: "Tu peux me rappeler ?",
@@ -342,6 +358,7 @@ const state = {
   uploads: [],
   mediaSends: [],
   mediaLoads: [],
+  voicePlayed: [],
   deletedOwnMessages: [],
   chatActions: [],
   legacySends: [],
@@ -521,6 +538,15 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       status: "accepted",
       accepted_by_gateway: true,
     };
+  } else if (path === "/whatsapp/message/played" && method === "POST") {
+    const body = request.postDataJSON();
+    state.voicePlayed.push(body);
+    data = {
+      chat_id: body.chat_id,
+      msg_id: body.msg_id,
+      played: true,
+      receipt_sent: true,
+    };
   } else if (path === "/whatsapp/message/delete-own" && method === "POST") {
     const body = request.postDataJSON();
     state.deletedOwnMessages.push(body);
@@ -692,6 +718,42 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Fermer l’aperçu" }).last().click();
   await page.getByRole("dialog", { name: "Aperçu de l’image" }).waitFor({ state: "hidden" });
 
+  const voiceMessage = page.locator('[data-message-id="t-voice"]');
+  await voiceMessage.getByLabel("Message vocal WhatsApp").waitFor();
+  await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).waitFor();
+  await voiceMessage.getByRole("slider", { name: "Position dans le message vocal" }).waitFor();
+  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
+  await voiceSpeed.waitFor();
+  assert(
+    (await voiceMessage.getByText("vocal-1791544458618.ogg", { exact: true }).count()) === 0,
+    "Un message vocal ne doit jamais exposer son nom de fichier technique.",
+  );
+  assert(
+    (await voiceMessage.locator("audio[controls]").count()) === 0,
+    "Une note vocale ne doit pas retomber sur le lecteur audio HTML générique.",
+  );
+  assert(
+    (await voiceMessage.getByRole("button", { name: "Corriger", exact: true }).count()) === 0,
+    "L'action Corriger ne doit pas être proposée sur un message vocal.",
+  );
+  await voiceSpeed.click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
+
+  const playedBefore = state.voicePlayed.length;
+  await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).click();
+  await page.waitForTimeout(120);
+  assert(
+    state.voicePlayed.length === playedBefore + 1,
+    "Lire un vocal reçu dans Toumaï doit envoyer un seul accusé played.",
+  );
+  assert(
+    state.voicePlayed.at(-1).chat_id === "23566111111@s.whatsapp.net" &&
+      state.voicePlayed.at(-1).msg_id === "t-voice",
+    "L'accusé played doit viser le vrai chat et le vrai msg_id du vocal.",
+  );
+
   assert(
     (await page.getByText(/We need to respond/i).count()) === 0,
     "Le workspace ne doit jamais exposer un raisonnement interne du modèle.",
@@ -784,7 +846,7 @@ async function certifyConversations() {
   await page.getByRole("button", { name: "Emoji" }).click();
   await page.getByPlaceholder("Rechercher un emoji").waitFor();
   await page.getByRole("button", { name: "Emoji" }).click();
-  await page.getByRole("button", { name: "Enregistrer un audio" }).waitFor();
+  await page.getByRole("button", { name: "Enregistrer un message vocal" }).waitFor();
   assert(
     (await page.getByText("Contact WhatsApp", { exact: true }).count()) === 0,
     "Le nom réel ou le numéro du contact doit remplacer le libellé générique Contact WhatsApp.",
