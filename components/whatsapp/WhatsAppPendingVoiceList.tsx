@@ -21,6 +21,7 @@ export interface PendingWhatsAppVoice {
   phase: PendingVoicePhase;
   msgId?: string | null;
   detail?: string;
+  replyTo?: { id: string; text: string; type: string; senderJid: string } | null;
 }
 
 /** Local-only voice preview: never claim delivery from a browser upload.
