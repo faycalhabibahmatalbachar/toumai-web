@@ -158,7 +158,7 @@ export interface WaProtectionState {
 }
 
 export function getWaEtat(): Promise<WaEtat> {
-  return waCachedRead(WA_CACHE.etat, () => http.get("/whatsapp/etat"), { freshMs: 3_000 });
+  return waCachedRead(WA_CACHE.etat, () => http.get("/whatsapp/etat"), { freshMs: 1_000 });
 }
 
 export interface WaCapacites {
@@ -180,7 +180,7 @@ export function getWaCapacites(): Promise<WaCapacites> {
 }
 
 export function getWhatsAppStatus(): Promise<WhatsAppState> {
-  return waCachedRead(WA_CACHE.status, () => http.get("/whatsapp/status"), { freshMs: 3_000 });
+  return waCachedRead(WA_CACHE.status, () => http.get("/whatsapp/status"), { freshMs: 1_000 });
 }
 
 /** Liaison par code de jumelage (saisie du numéro). */
