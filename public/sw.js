@@ -41,9 +41,10 @@
  * LE NUMÉRO DE VERSION
  * ---------------------
  * `VERSION` est le SEUL levier : l'incrémenter crée un cache neuf et efface
- * les anciens à l'activation. Un agent de service qui ne sait pas se retirer
- * est la façon la plus sûre de servir un site périmé pendant des semaines —
- * d'où aussi `/sw-kill` plus bas, qui le désinstalle proprement.
+ * les anciennes versions Toumaï à l'activation. Un agent de service qui ne
+ * sait pas se retirer est la façon la plus sûre de servir un site périmé
+ * pendant des semaines — d'où aussi `/sw-kill` plus bas, qui le désinstalle
+ * proprement.
  */
 
 // v2 (4 septembre 2026) : la lampe quitte la page, le Puissance 4 la
@@ -57,7 +58,10 @@
 // efface ce que l ancienne strategie avait deja garde.
 // v7 (24 septembre 2026) : rafraîchit le bundle /chat après réduction du
 // sélecteur de modèle mobile.
-const VERSION = "toumai-v7";
+// v8 (5 octobre 2026) : ferme aussi la route exacte `/api` (sans slash final)
+// et borne la purge d'activation aux caches versionnés de Toumaï.
+const CACHE_PREFIX = "toumai-v";
+const VERSION = "toumai-v8";
 const CACHE = `${VERSION}`;
 
 /**
@@ -92,6 +96,7 @@ function estPrive(url) {
   return (
     url.hostname.startsWith("api.") ||
     url.hostname.startsWith("wa.") ||
+    url.pathname === "/api" ||
     url.pathname.startsWith("/api/")
   );
 }
@@ -141,7 +146,9 @@ self.addEventListener("activate", (evenement) => {
     (async () => {
       const noms = await caches.keys();
       await Promise.all(
-        noms.filter((n) => n !== CACHE).map((n) => caches.delete(n)),
+        noms
+          .filter((n) => n.startsWith(CACHE_PREFIX) && n !== CACHE)
+          .map((n) => caches.delete(n)),
       );
       // Les onglets déjà ouverts passent sous le nouvel agent sans être
       // rechargés à la main.
@@ -368,7 +375,6 @@ self.addEventListener("notificationclick", (evenement) => {
     })(),
   );
 });
-
 
 /**
  * La porte de sortie. `postMessage({ type: "desinstaller" })` depuis la page
