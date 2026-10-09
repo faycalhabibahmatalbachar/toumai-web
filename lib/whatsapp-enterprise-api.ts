@@ -1,4 +1,5 @@
-import { authFetch, http, postForm } from "./http";
+import { http, postForm } from "./http";
+import { getWhatsAppMediaBlob } from "./whatsapp-media-cache";
 import { WA_CACHE, waCachedRead, waMutation, type WhatsAppReadOptions } from "./whatsapp-cache";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
@@ -752,10 +753,9 @@ export function getWaMessageStatus(
 }
 
 
-export async function getWaMessageMediaBlob(msgId: string): Promise<Blob> {
-  const response = await authFetch(`/whatsapp/media/${encodeURIComponent(msgId)}`);
-  if (!response.ok) {
-    throw new Error(response.status === 404 ? "Pièce jointe indisponible." : "Impossible de charger la pièce jointe.");
-  }
-  return await response.blob();
+export function getWaMessageMediaBlob(
+  msgId: string,
+  options: { force?: boolean } = {},
+): Promise<Blob> {
+  return getWhatsAppMediaBlob(msgId, options);
 }

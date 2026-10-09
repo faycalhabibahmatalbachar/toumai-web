@@ -1,6 +1,6 @@
 "use client";
 
-import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Maximize2, Music2, Play, X } from "lucide-react";
+import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Maximize2, Music2, Play, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { WhatsAppVoiceNotePlayer } from "@/components/whatsapp/WhatsAppVoiceNotePlayer";
@@ -16,6 +16,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
   const [mime, setMime] = useState(message.mime_type || "");
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const mediaType = normalizeType(message.type);
   const fileName = message.file_name || defaultFileName(mediaType, mime);
@@ -40,12 +41,14 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
       setLoading(true);
       setFailed(false);
       try {
-        const blob = await getWaMessageMediaBlob(message.id);
+        const blob = await getWaMessageMediaBlob(message.id, { force: retryCount > 0 });
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
-        setMime(blob.type || message.mime_type || "");
+        setMime(blob.type || "");
       } catch {
+        // The bounded request settles even if the gateway never responds.
+        // A failed fetch must not be retried by SSE, polling or remounting.
         if (active) setFailed(true);
       } finally {
         if (active) setLoading(false);
@@ -57,7 +60,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [binaryMedia, message.id, message.mime_type]);
+  }, [binaryMedia, message.id, retryCount]);
 
   useEffect(() => {
     if (!previewOpen) return;
@@ -98,7 +101,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
 
   if (loading) {
     return (
-      <div className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+      <div data-testid="whatsapp-media-loading" className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
         <Loader2 size={17} className="animate-spin" color={GREEN} />
         <div>
           <p className="text-[11px] font-semibold">{visibleMediaName || typeLabel}</p>
@@ -110,12 +113,23 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
 
   if (failed || !url) {
     return (
-      <div className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
+      <div data-testid="whatsapp-media-failed" className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
         <FileIcon type={mediaType} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-semibold">{visibleMediaName || typeLabel}</p>
-          <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Pièce jointe temporairement indisponible</p>
+          <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Média indisponible</p>
         </div>
+        {binaryMedia && !message.id.startsWith("local-") && (
+          <button
+            type="button"
+            aria-label={`Réessayer le média : ${visibleMediaName || typeLabel}`}
+            title="Réessayer le téléchargement"
+            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[10px] text-white transition hover:bg-white/10"
+            onClick={() => setRetryCount((value) => value + 1)}
+          >
+            <RefreshCw size={13} /> Réessayer
+          </button>
+        )}
       </div>
     );
   }

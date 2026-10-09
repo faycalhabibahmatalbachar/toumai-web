@@ -17,12 +17,14 @@ on:
       - "lib/whatsapp-realtime.ts"
       - "lib/whatsapp-enterprise-api.ts"
       - "lib/whatsapp-cache.ts"
+      - "lib/whatsapp-media-cache.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
       - "scripts/verify-whatsapp-authoritative-client.mjs"
       - "scripts/verify-whatsapp-cache-coverage.mjs"
       - "scripts/verify-whatsapp-cache-races.mjs"
+      - "scripts/verify-whatsapp-media-cache.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
   pull_request:
     paths:
@@ -38,12 +40,14 @@ on:
       - "lib/whatsapp-realtime.ts"
       - "lib/whatsapp-enterprise-api.ts"
       - "lib/whatsapp-cache.ts"
+      - "lib/whatsapp-media-cache.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
       - "scripts/verify-whatsapp-authoritative-client.mjs"
       - "scripts/verify-whatsapp-cache-coverage.mjs"
       - "scripts/verify-whatsapp-cache-races.mjs"
+      - "scripts/verify-whatsapp-media-cache.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
 
 concurrency:
@@ -80,6 +84,8 @@ jobs:
           hooks/useWhatsAppRealtime.ts
           lib/whatsapp-realtime.ts
           lib/whatsapp-cache.ts
+          lib/whatsapp-media-cache.ts
+          components/whatsapp/WhatsAppMessageMedia.tsx
       - name: Verify Overview polling fallback
         run: node scripts/verify-whatsapp-overview-polling.mjs
       - name: Verify Overview realtime SSE
@@ -90,6 +96,8 @@ jobs:
         run: node scripts/verify-whatsapp-cache-coverage.mjs
       - name: Verify WhatsApp cache race and session isolation
         run: node scripts/verify-whatsapp-cache-races.mjs
+      - name: Verify bounded WhatsApp media loading
+        run: node scripts/verify-whatsapp-media-cache.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
