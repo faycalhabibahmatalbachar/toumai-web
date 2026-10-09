@@ -1286,6 +1286,49 @@ async function certifyConversations() {
   await page.getByRole("dialog").getByRole("button", { name: "Terminer", exact: true }).click();
   await page.getByRole("heading", { name: "Correction envoyée" }).waitFor({ state: "hidden" });
 
+
+  // Real right-click surface on an already-rendered outgoing message.
+  const bubble = page.locator('[data-message-id="t2"]');
+  await bubble.scrollIntoViewIfNeeded();
+  await bubble.click({ button: "right" });
+  const contextMenu = page.getByTestId("whatsapp-message-context-menu");
+  await contextMenu.waitFor();
+  await contextMenu.getByRole("menuitem", { name: "Infos du message" }).waitFor();
+  await contextMenu.getByRole("menuitem", { name: "Transférer" }).waitFor();
+  await contextMenu.getByRole("menuitem", { name: "Supprimer pour tous…" }).waitFor();
+  await page.screenshot({ path: `${artifacts}/conversations-context-menu.png`, fullPage: false });
+  const reactionBefore = state.reactions.length;
+  await contextMenu.getByRole("menuitem", { name: "Réagir avec 👍" }).click();
+  await page.waitForTimeout(200);
+  assert(state.reactions.length === reactionBefore + 1 && state.reactions.at(-1).msg_id === "t2",
+    "La réaction du clic droit doit réellement passer par l'API WhatsApp.");
+
+  await bubble.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Épingler dans Toumaï" }).click();
+  await page.getByTestId("whatsapp-local-pins").waitFor();
+  await bubble.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Favori dans Toumaï" }).click();
+  await bubble.getByTestId("whatsapp-message-marks").waitFor();
+
+  await bubble.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Transférer" }).click();
+  await page.getByRole("dialog", { name: "Transférer une copie" }).waitFor();
+  await page.getByRole("dialog", { name: "Transférer une copie" }).getByRole("button", { name: "Fermer" }).click();
+  await bubble.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Supprimer pour tous…" }).click();
+  const deletion = page.getByRole("dialog", { name: "Supprimer ce message pour tous ?" });
+  await deletion.waitFor();
+  await deletion.getByRole("button", { name: "Annuler" }).click();
+
+  const inboundVoice = page.locator('[data-message-id="t-voice"]');
+  await inboundVoice.scrollIntoViewIfNeeded();
+  await inboundVoice.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Télécharger" }).waitFor();
+  await contextMenu.getByRole("menuitem", { name: "Masquer dans Toumaï…" }).waitFor();
+  await page.keyboard.press("Escape");
+  await contextMenu.waitFor({ state: "hidden" });
+  await noHorizontalOverflow(page, "whatsapp-context-menu");
+
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
   await page.close();
 }
@@ -1348,8 +1391,14 @@ async function certifyVoiceInstantQueue() {
   assert(await mic.isEnabled(), "Après clic Envoi, le micro ne doit pas attendre la conversion réseau.");
   const pending = page.locator('[data-testid="whatsapp-pending-voice"]');
   assert(await pending.count() === 1, "Un seul vocal optimiste doit apparaître.");
-  assert((await pending.getByText("Préparation et transfert du vocal…").count()) === 1,
-    "Le vocal doit indiquer sa préparation, et non prétendre être déjà envoyé.");
+  assert((await pending.getByText("Préparation et transfert du vocal…").count()) === 0,
+    "Le texte de préparation ne doit plus être affiché sous un vocal.");
+  await pending.click({ button: "right" });
+  const voiceMenu = page.getByTestId("whatsapp-message-context-menu");
+  await voiceMenu.waitFor();
+  await voiceMenu.getByRole("menuitem", { name: "Télécharger le vocal" }).waitFor();
+  await page.keyboard.press("Escape");
+  await voiceMenu.waitFor({ state: "hidden" });
 
   const draft = page.getByPlaceholder("Écrire un message…");
   await draft.fill("Toumaï reste utilisable pendant le transfert");
@@ -1364,6 +1413,8 @@ async function certifyVoiceInstantQueue() {
   assert(sendsBefore >= 0, "Le compteur d'envois mockés doit être accessible.");
   releaseUpload();
   await page.locator('[data-voice-phase="accepted"]').waitFor({ timeout: 12000 });
+  assert((await pending.getByText(/Accepté par la passerelle/).count()) === 0,
+    "Le texte de livraison technique ne doit plus être visible.");
   assert(state.mediaSends.length === sendsBefore + 1,
     "L'envoi vocal doit appeler la passerelle exactement une fois après l'upload.");
   const last = state.mediaSends.at(-1);
