@@ -3,6 +3,7 @@
 import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Maximize2, Music2, Play, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { WhatsAppVoiceNotePlayer } from "@/components/whatsapp/WhatsAppVoiceNotePlayer";
 import { getWaMessageMediaBlob, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
 
 const BORDER = "#24323c";
@@ -18,6 +19,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const mediaType = normalizeType(message.type);
   const fileName = message.file_name || defaultFileName(mediaType, mime);
+  const visibleMediaName = mediaType === "voice" ? "Message vocal" : fileName || typeLabelFallback(mediaType);
   const binaryMedia = ["image", "sticker", "video", "gif", "audio", "voice", "document"].includes(mediaType);
 
   useEffect(() => {
@@ -99,7 +101,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
       <div className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
         <Loader2 size={17} className="animate-spin" color={GREEN} />
         <div>
-          <p className="text-[11px] font-semibold">{fileName || typeLabel}</p>
+          <p className="text-[11px] font-semibold">{visibleMediaName || typeLabel}</p>
           <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Chargement de la pièce jointe…</p>
         </div>
       </div>
@@ -111,7 +113,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
       <div className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
         <FileIcon type={mediaType} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-semibold">{fileName || typeLabel}</p>
+          <p className="truncate text-[11px] font-semibold">{visibleMediaName || typeLabel}</p>
           <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Pièce jointe temporairement indisponible</p>
         </div>
       </div>
@@ -208,7 +210,11 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
     );
   }
 
-  if (mediaType === "audio" || mediaType === "voice") {
+  if (mediaType === "voice") {
+    return <WhatsAppVoiceNotePlayer message={message} url={url} />;
+  }
+
+  if (mediaType === "audio") {
     return (
       <div className="mb-2 min-w-[260px] rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
         <div className="mb-2 flex items-center gap-2">
@@ -260,6 +266,10 @@ function FileIcon({ type }: { type: string }) {
 function normalizeType(type: string) {
   if (type === "voix") return "voice";
   return type;
+}
+
+function typeLabelFallback(type: string) {
+  return type === "voice" ? "Message vocal" : labelFor(type);
 }
 
 function labelFor(type: string) {
