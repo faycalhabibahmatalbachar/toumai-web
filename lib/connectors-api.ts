@@ -61,6 +61,7 @@ export interface WhatsAppState {
   pairingCode?: string | null;
   codeExpiresAt?: string | null;
   number?: string | null;
+  picture_url?: string | null;
   /** Message d'erreur éventuel renvoyé par la passerelle. */
   error?: string | null;
   /** Precision technique quand le service ne repond pas. Jamais affichee
@@ -93,6 +94,7 @@ export interface WaEtat {
   action_libelle?: string;
   numero?: string;
   nom_profil?: string;
+  photo_profil?: string;
   plateforme?: string;
   connecte_depuis_ms?: number;
   derniere_activite_ms?: number;
