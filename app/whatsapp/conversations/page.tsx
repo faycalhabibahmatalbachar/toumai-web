@@ -61,6 +61,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getWaProfilePictures } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   applyWaConversationAction,
   editWaMessage,
@@ -77,6 +78,7 @@ import {
   uploadWaAttachment,
   type WaContactInfo,
   type WaConversationMessages,
+  type WaConversationSearchResult,
   type WaLiveConversation,
   type WaLiveConversations,
   type WaLiveMessage,
@@ -487,7 +489,14 @@ export default function WhatsAppConversationsPage() {
       setThreadSearchError(null);
       return;
     }
-    setThreadSearchLoading(true);
+    const searchKey = WA_CACHE.conversationSearch(selected.id, threadSearchQuery.trim(), 60);
+    const cachedSearch = cacheSeed<WaConversationSearchResult>(searchKey);
+    if (cachedSearch) {
+      setThreadSearchResults(cachedSearch.messages);
+      setThreadSearchLoading(false);
+    } else {
+      setThreadSearchLoading(true);
+    }
     setThreadSearchError(null);
     try {
       const data = await searchWaConversation(
@@ -507,7 +516,13 @@ export default function WhatsAppConversationsPage() {
   const openContactInfo = useCallback(async () => {
     if (!selected || selected.kind !== "contact") return;
     setContactInfoOpen(true);
-    setContactInfoLoading(true);
+    const cachedInfo = cacheSeed<WaContactInfo>(WA_CACHE.contactInfo(selected.id));
+    if (cachedInfo) {
+      setContactInfo(cachedInfo);
+      setContactInfoLoading(false);
+    } else {
+      setContactInfoLoading(true);
+    }
     setContactInfoError(null);
     try {
       const data = await getWaContactInfo(selected.id);
