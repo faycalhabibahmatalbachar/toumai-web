@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, Pause, Play } from "lucide-react";
+import { Mic, Pause, Play, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
@@ -190,6 +190,73 @@ export function WhatsAppVoiceNotePlayer({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Match the exact voice-player geometry while the encrypted attachment
+ * is being fetched. This is a passive shell, not a fake playable recording.
+ * A failed request stays here with an explicit retry action.
+ */
+export function WhatsAppVoiceNotePlaceholder({
+  message,
+  status,
+  onRetry,
+}: {
+  message: WaLiveMessage;
+  status: "loading" | "failed";
+  onRetry?: () => void;
+}) {
+  const seconds = Number(message.duration_seconds);
+  const duration = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  return (
+    <div
+      data-testid={status === "loading" ? "whatsapp-media-loading" : "whatsapp-media-failed"}
+      className="w-[433px] max-w-[calc(88vw-42px)]"
+      aria-label={status === "loading" ? "Préparation du message vocal" : "Message vocal indisponible"}
+    >
+      <div className="flex h-[74px] items-center gap-[18px]">
+        <VoiceAvatar
+          outbound={message.from_me}
+          name={message.sender || ""}
+          pictureUrl={message.sender_picture_url}
+          color={GREEN}
+          playing={false}
+          rate={1}
+          onRate={() => undefined}
+        />
+        {status === "failed" && onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            aria-label="Réessayer le média : Message vocal"
+            title="Réessayer le message vocal"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#f0f2f5] transition hover:bg-black/[0.08]"
+          >
+            <RefreshCw size={22} />
+          </button>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-white/60"
+          >
+            <Play size={23} fill="currentColor" />
+          </span>
+        )}
+        <div className="mr-[12px] min-w-0 flex-1 self-stretch pt-[20px]">
+          <div className="relative h-[18px]" aria-hidden="true">
+            <div className="absolute left-0 right-0 top-[8px] h-[4px] rounded-full" style={{ background: RAIL }} />
+            <span className="absolute left-0 top-[1px] h-[18px] w-[18px] rounded-full bg-[#2b7565]" />
+          </div>
+          <div className="mt-[3px] text-[12px] leading-none tabular-nums" style={{ color: MUTED }}>
+            {formatDuration(duration)}
+          </div>
+        </div>
+      </div>
+      <span role="status" className="sr-only">
+        {status === "loading" ? "Préparation du message vocal" : "Le message vocal est indisponible. Vous pouvez réessayer."}
+      </span>
     </div>
   );
 }
