@@ -117,7 +117,7 @@ export function WhatsAppMediaEditResearchModal({
         mode === "E8_FRESH_MEDIA_ORIGINAL_PLAIN_HASH";
       if (needsReplacementFile) {
         if (!file) throw new Error("Choisissez la nouvelle image avant cette expérience.");
-        const uploaded = await uploadWaAttachment(file);
+        const uploaded = await uploadWaAttachment(file, { normalize: false });
         url = uploaded.url;
         filename = uploaded.file_name || file.name;
         mimetype = file.type || undefined;
