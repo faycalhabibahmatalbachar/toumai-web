@@ -385,7 +385,7 @@ const automationsCard = await box(
   "automatisations",
 );
 
-assert(sidebar.width >= 250 && sidebar.width <= 256, `Sidebar attendue ~253px, obtenue ${sidebar.width}`);
+assert(sidebar.width >= 73 && sidebar.width <= 79, `Sidebar compacte attendue ~76px, obtenue ${sidebar.width}`);
 assert(near(header.x, sidebar.width, 4), `Header doit commencer après la sidebar: x=${header.x}, sidebar=${sidebar.width}`);
 assert(header.height >= 68 && header.height <= 72, `Header attendu ~70px, obtenu ${header.height}`);
 assert(kpiBoxes.every((item) => near(item.y, kpiBoxes[0].y, 3)), "Les quatre KPI ne sont pas alignés horizontalement.");
@@ -401,6 +401,13 @@ assert(ibrahima.y + ibrahima.height <= 936, "La quatrième conversation doit êt
 assert((await page.getByText("3 842", { exact: true }).count()) === 1, "Le KPI Messages envoyés n'affiche pas les données attendues.");
 assert((await page.getByText("Données en cours de collecte", { exact: true }).count()) === 1, "Le KPI Taux de réponse doit rester indisponible pendant la collecte.");
 assert((await page.getByText("+235 68 66 37 37", { exact: true }).count()) === 1, "Le numéro Baileys réel/mocqué n'est pas rendu.");
+const workspaceSearch = page.getByRole("textbox", { name: "Rechercher dans WhatsApp" });
+await workspaceSearch.waitFor();
+await page.keyboard.press("Control+k");
+assert(await workspaceSearch.evaluate((element) => document.activeElement === element), "Ctrl+K doit focaliser la recherche WhatsApp.");
+const notificationsLink = page.getByRole("link", { name: "Notifications" });
+assert((await notificationsLink.getAttribute("href")) === "/notifications", "Le bouton Notifications doit ouvrir la vraie page Notifications.");
+
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 assert(overflow <= 1, `Débordement horizontal détecté: ${overflow}px`);
 
