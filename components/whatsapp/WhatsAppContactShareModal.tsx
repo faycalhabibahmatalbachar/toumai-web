@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
+import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { sendWaContactCard, type WaLiveConversation } from "@/lib/whatsapp-enterprise-api";
 
 const SURFACE = "#0d1923";
@@ -171,9 +172,11 @@ export function WhatsAppContactShareModal({
                   <UserRound size={18} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] font-semibold">{contact.name || contact.number || "Contact WhatsApp"}</span>
+                  <span className="block truncate text-[12px] font-semibold">
+                    {displayWhatsAppIdentity({ name: contact.name, number: contact.number, id: contact.jid, kind: "contact" })}
+                  </span>
                   <span className="mt-0.5 block truncate text-[10px]" style={{ color: FAINT }}>
-                    {contact.number ? `+${contact.number.replace(/^\+/, "")}` : "Identité WhatsApp"}
+                    {displayWhatsAppSecondary({ number: contact.number, id: contact.jid, kind: "contact" })}
                   </span>
                 </span>
                 <span
