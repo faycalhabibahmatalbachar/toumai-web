@@ -25,6 +25,8 @@ import {
   Copy,
   CircleAlert,
   Info,
+  Star,
+  Download,
   LayoutDashboard,
   Menu,
   MessageCircle,
@@ -52,6 +54,8 @@ import { WhatsAppConversationActionModal, type ConversationActionRequest } from 
 import { WhatsAppContactShareModal } from "@/components/whatsapp/WhatsAppContactShareModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppMessageContextMenu, type MessageContextAction, type MessageMenuAnchor } from "@/components/whatsapp/WhatsAppMessageContextMenu";
+import { WhatsAppForwardMessageModal, canForwardWhatsAppMessage } from "@/components/whatsapp/WhatsAppForwardMessageModal";
 import { WhatsAppMediaEditResearchModal } from "@/components/whatsapp/WhatsAppMediaEditResearchModal";
 import { WhatsAppPollModal } from "@/components/whatsapp/WhatsAppPollModal";
 import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
@@ -70,6 +74,8 @@ import {
   getWaConversationMessages,
   getWaLiveConversations,
   getWaMessageStatus,
+  getWaMessageMediaBlob,
+  deleteWaOwnMessage,
   inferWaMediaType,
   reactWaMessage,
   searchWaConversation,
@@ -116,6 +122,21 @@ const LOWER_NAV = [
 
 type Filter = "all" | "pending" | "unread";
 type KindFilter = "all" | "contact" | "group";
+type Mark = { pinned?: boolean; starred?: boolean; hidden?: boolean };
+type ContextTarget = { kind: "message"; message: WaLiveMessage; anchor: MessageMenuAnchor } | { kind: "pending"; id: string; anchor: MessageMenuAnchor };
+const EMPTY_MARKS: Record<string, Mark> = {};
+function marksStorageKey(owner: string, chatId: string) {
+  return `toumai:wa:message-marks:v1:${encodeURIComponent(owner)}:${encodeURIComponent(chatId)}`;
+}
+function getStoredMarks(key: string): Record<string, Mark> {
+  if (typeof window === "undefined" || !key) return {};
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) || "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value as Record<string, Mark>;
+  } catch { return {}; }
+}
+
 
 export default function WhatsAppConversationsPage() {
   const { session } = useAuth();
@@ -175,6 +196,12 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoLoading, setMessageInfoLoading] = useState(false);
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
+  const [contextTarget, setContextTarget] = useState<ContextTarget | null>(null);
+  const [forwardTarget, setForwardTarget] = useState<WaLiveMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WaLiveMessage | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+  const [deleteMessageError, setDeleteMessageError] = useState("");
+  const [markSnapshot, setMarkSnapshot] = useState<{ key: string; values: Record<string, Mark> }>({ key: "", values: {} });
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const listSearchInputRef = useRef<HTMLInputElement>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
@@ -268,20 +295,27 @@ export default function WhatsAppConversationsPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  const activeMarkKey = session?.user_id && selected?.id ? marksStorageKey(session.user_id, selected.id) : "";
+  const marks = markSnapshot.key === activeMarkKey ? markSnapshot.values : EMPTY_MARKS;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMarkSnapshot({ key: activeMarkKey, values: getStoredMarks(activeMarkKey) }), 0);
+    return () => window.clearTimeout(timer);
+  }, [activeMarkKey]);
+
   const visibleMessages = useMemo(
     () =>
       messages
         .map((message) => ({ ...message, text: safeWhatsAppVisibleText(message.text) || "" }))
-        .filter((message) => Boolean(message.text) || message.type !== "text"),
-    [messages],
+        .filter((message) => (Boolean(message.text) || message.type !== "text") && !marks[message.id]?.hidden),
+    [messages, marks],
   );
 
   const visibleSearchResults = useMemo(
     () =>
       threadSearchResults
         .map((message) => ({ ...message, text: safeWhatsAppVisibleText(message.text) || "" }))
-        .filter((message) => Boolean(message.text) || message.type !== "text"),
-    [threadSearchResults],
+        .filter((message) => (Boolean(message.text) || message.type !== "text") && !marks[message.id]?.hidden),
+    [threadSearchResults, marks],
   );
 
   const displayedMessages =
@@ -762,6 +796,9 @@ export default function WhatsAppConversationsPage() {
   }, [filter, loadConversations, query, session, refreshRealtimeConversations]);
 
   function chooseConversation(conversation: WaLiveConversation) {
+    setContextTarget(null);
+    setForwardTarget(null);
+    setDeleteTarget(null);
     ++threadRequestIdRef.current;
     activeChatIdRef.current = conversation.id;
     threadCacheKeyRef.current = "";
@@ -814,6 +851,9 @@ export default function WhatsAppConversationsPage() {
   }
 
   function backToConversationList() {
+    setContextTarget(null);
+    setForwardTarget(null);
+    setDeleteTarget(null);
     ++threadRequestIdRef.current;
     activeChatIdRef.current = null;
     threadCacheKeyRef.current = "";
