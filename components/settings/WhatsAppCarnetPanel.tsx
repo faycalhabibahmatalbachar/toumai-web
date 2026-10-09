@@ -51,7 +51,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
         });
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Chargement impossible");
+        if (!cancelled) setError("Impossible d’actualiser vos contacts.");
       });
     return () => {
       cancelled = true;
@@ -84,7 +84,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
       // faut regarder ailleurs.
       setResultat(
         res.synchronises === 0
-          ? "Aucun contact reçu de la passerelle. Le carnet n'a pas changé."
+          ? "Aucun nouveau contact trouvé. Votre carnet reste inchangé."
           : `${res.synchronises} contact${res.synchronises > 1 ? "s" : ""} synchronisé${
               res.synchronises > 1 ? "s" : ""
             }${res.nouveaux ? `, dont ${res.nouveaux} nouveau${res.nouveaux > 1 ? "x" : ""}` : ""}.`,
@@ -96,7 +96,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
         writeWhatsAppCache(WA_CACHE.carnet(""), enriched);
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "La synchronisation n'a pas abouti");
+      setError("La synchronisation n’a pas abouti. Réessayez.");
     } finally {
       setEnSynchro(false);
     }
@@ -181,14 +181,13 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
                 ? "Chargement…"
                 : carnet.derniere_synchronisation
                   ? `Dernière synchronisation : ${quand(carnet.derniere_synchronisation)}.`
-                  : "Jamais synchronisé. Toumaï ne peut donc pas retrouver quelqu'un par son nom tant que la passerelle est coupée."}
+                  : "Synchronisez vos contacts pour retrouver vos correspondants par nom."}
             </p>
             {carnet?.source === "base" && (
               /* LE DIRE PLUTÔT QUE DE LE TAIRE. Une liste datée présentée comme
                  fraîche fait chercher un contact récent qui n'y sera jamais. */
               <p className="mt-1 text-[12px]" style={{ color: "var(--cx-warn-text)" }}>
-                La passerelle ne répond pas : cette liste vient de la copie enregistrée. Les
-                contacts ajoutés depuis n&apos;y sont pas.
+                Votre dernière liste de contacts reste disponible. Les nouveaux contacts apparaîtront après synchronisation.
               </p>
             )}
             <button
@@ -232,7 +231,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
                       c.number ? "" : "italic"
                     }`}
                   >
-                    {c.number ? `+${c.number}` : "Numéro non communiqué par WhatsApp"}
+                    {c.number ? `+${c.number}` : "Numéro indisponible"}
                   </span>
                 </span>
               </li>
@@ -242,11 +241,11 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
           {carnet && visibles.length === 0 && (
             <p className="py-8 text-center text-[13px] text-[var(--cx-text-muted)]">
               {terme
-                ? "Aucun contact synchronisé ne porte ce nom. Si la personne vous a écrit récemment, synchronisez à nouveau."
+                ? "Aucun contact trouvé. Essayez une nouvelle synchronisation."
                 : /* ON NE DIT PAS « VOUS N'AVEZ AUCUN CONTACT » : c'est faux, et
                      vérifiable en ouvrant WhatsApp. Un carnet vide ici veut dire
                      « jamais synchronisé », ce qui appelle un geste. */
-                  "Toumaï n'a pas encore recopié votre carnet. Lancez une synchronisation."}
+                  "Synchronisez votre carnet pour afficher vos contacts."}
             </p>
           )}
 
