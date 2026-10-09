@@ -790,12 +790,6 @@ async function certifyConversations() {
   const playedBefore = state.voicePlayed.length;
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).click();
   await page.waitForTimeout(120);
-  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
-  await voiceSpeed.waitFor();
-  await voiceSpeed.click();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
   assert(
     state.voicePlayed.length === playedBefore + 1,
     "Lire un vocal reçu dans Toumaï doit envoyer un seul accusé played.",
@@ -805,6 +799,18 @@ async function certifyConversations() {
       state.voicePlayed.at(-1).msg_id === "t-voice",
     "L'accusé played doit viser le vrai chat et le vrai msg_id du vocal.",
   );
+
+  // Le mock audio n'est pas toujours décodable par Chromium CI. Cet événement
+  // natif certifie uniquement l'état visuel qui révèle la vitesse en lecture.
+  await voiceMessage.locator("audio").evaluate((audio) => {
+    audio.dispatchEvent(new Event("play"));
+  });
+  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
+  await voiceSpeed.waitFor();
+  await voiceSpeed.click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
 
   const outboundVoice = page.locator('[data-message-id="t-voice-out"]');
   await outboundVoice.getByLabel("Message vocal WhatsApp").waitFor();
