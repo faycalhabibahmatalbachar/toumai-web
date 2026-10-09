@@ -34,6 +34,7 @@ const conversations = [
     name: "Mahamat Ali",
     number: "23566111111",
     kind: "contact",
+    picture_url: "https://pps.whatsapp.test/mahamat.png",
     unread_count: 2,
     pending: true,
     last_message: {
@@ -52,6 +53,7 @@ const conversations = [
     name: "Amina Saleh",
     number: "23566222222",
     kind: "contact",
+    picture_url: "https://pps.whatsapp.test/amina.png",
     unread_count: 0,
     pending: false,
     last_message: {
@@ -158,6 +160,7 @@ const threadMessages = [
     from_me: false,
     sender: "Mahamat Ali",
     sender_jid: "23566111111@s.whatsapp.net",
+    sender_picture_url: "https://pps.whatsapp.test/mahamat.png",
     type: "voice",
     mime_type: "audio/ogg; codecs=opus",
     file_name: "vocal-1791544458618.ogg",
@@ -174,6 +177,7 @@ const threadMessages = [
     from_me: true,
     sender: "",
     sender_jid: "23568663737@s.whatsapp.net",
+    sender_picture_url: "https://pps.whatsapp.test/faycal.png",
     type: "voice",
     mime_type: "audio/ogg; codecs=opus",
     file_name: "vocal-1791544458618.ogg",
@@ -324,6 +328,7 @@ const overview = {
     label: "Connecté",
     contacts: 2,
     profile_name: "Fayçal A.",
+    picture_url: "https://pps.whatsapp.test/faycal.png",
   },
 };
 
@@ -393,6 +398,17 @@ const state = {
 
 let retiredFallbackMode = false;
 
+await context.route("https://pps.whatsapp.test/**", async (route) => {
+  await route.fulfill({
+    status: 200,
+    contentType: "image/png",
+    body: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+});
+
 await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const request = route.request();
   const url = new URL(request.url());
@@ -454,6 +470,7 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       action: "attendre",
       numero: "+235 68 66 37 37",
       nom_profil: "Fayçal A.",
+      photo_profil: "https://pps.whatsapp.test/faycal.png",
       plateforme: "Baileys",
       connecte_depuis_ms: now - 3_600_000,
       derniere_activite_ms: now,
@@ -479,6 +496,16 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       derniere_synchronisation: new Date(now).toISOString(),
       total_en_base: 2,
     };
+  } else if (path === "/whatsapp/profile-pictures" && method === "POST") {
+    const body = request.postDataJSON();
+    const pictures = {};
+    for (const jid of body.jids || []) {
+      if (jid === "23566111111@s.whatsapp.net") pictures[jid] = "https://pps.whatsapp.test/mahamat.png";
+      else if (jid === "23566222222@s.whatsapp.net") pictures[jid] = "https://pps.whatsapp.test/amina.png";
+      else if (jid === "23568663737@s.whatsapp.net") pictures[jid] = "https://pps.whatsapp.test/faycal.png";
+      else pictures[jid] = null;
+    }
+    data = { pictures, count: Object.keys(pictures).length };
   } else if (path === "/whatsapp/conversations") {
     const q = (url.searchParams.get("search") || "").toLowerCase();
     const pending = url.searchParams.get("pending") === "true";
@@ -511,7 +538,7 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       name: "Mahamat Ali",
       phone: "+23566111111",
       about: "Disponible pour un rappel",
-      picture_url: null,
+      picture_url: "https://pps.whatsapp.test/mahamat.png",
       on_whatsapp: true,
       is_business: false,
     };
