@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
 import { getWaCarnet, getWaProfilePictures, syncWaCarnet, type WaCarnet } from "@/lib/connectors-api";
+import { useCacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE, writeWhatsAppCache } from "@/lib/whatsapp-cache";
 import { WhatsAppIcon } from "./BrandIcons";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 
@@ -27,6 +29,14 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
   const [enSynchro, setEnSynchro] = useState(false);
   const [resultat, setResultat] = useState<string | null>(null);
 
+  useCacheSeed<WaCarnet>(WA_CACHE.carnet(""), (cached) => {
+    setCarnet(cached);
+    void enrichCarnetPictures(cached).then((enriched) => {
+      setCarnet(enriched);
+      writeWhatsAppCache(WA_CACHE.carnet(""), enriched);
+    });
+  });
+
   useEffect(() => {
     let cancelled = false;
     void getWaCarnet()
@@ -34,7 +44,10 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
         if (cancelled) return;
         setCarnet(next);
         void enrichCarnetPictures(next).then((enriched) => {
-          if (!cancelled) setCarnet(enriched);
+          if (!cancelled) {
+            setCarnet(enriched);
+            writeWhatsAppCache(WA_CACHE.carnet(""), enriched);
+          }
         });
       })
       .catch((err) => {
@@ -78,7 +91,10 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
       );
       const nextCarnet = await getWaCarnet();
       setCarnet(nextCarnet);
-      void enrichCarnetPictures(nextCarnet).then(setCarnet);
+      void enrichCarnetPictures(nextCarnet).then((enriched) => {
+        setCarnet(enriched);
+        writeWhatsAppCache(WA_CACHE.carnet(""), enriched);
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "La synchronisation n'a pas abouti");
     } finally {
