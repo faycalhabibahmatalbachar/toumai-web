@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowLeft, Copy, Download, Forward, Info, Pencil, Pin, Reply, RotateCw,
+  Copy, Download, Forward, Info, Pencil, Pin, Reply, RotateCw,
   Smile, Star, Trash2, X,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -70,7 +70,7 @@ export function WhatsAppMessageContextMenu({
         { id: "reply", label: "Répondre", icon: Reply },
         { id: "react", label: "Réagir", icon: Smile },
         ...(options.media ? [{ id: "download" as const, label: "Télécharger", icon: Download }] : []),
-        ...(options.text ? [{ id: "forward" as const, label: "Transférer le texte", icon: Forward }] : []),
+        ...((options.text || options.media) ? [{ id: "forward" as const, label: "Transférer", icon: Forward }] : []),
         ...(options.text ? [{ id: "copy" as const, label: "Copier le texte", icon: Copy }] : []),
         { id: "pin", label: options.pinned ? "Désépingler dans Toumaï" : "Épingler dans Toumaï", icon: Pin },
         { id: "star", label: options.starred ? "Retirer des favoris Toumaï" : "Favori dans Toumaï", icon: Star },
