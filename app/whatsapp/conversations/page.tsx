@@ -2236,7 +2236,7 @@ function MessageBubble({
             <span className="text-[8px]" style={{ color: "#9eacb7" }}>
               {when}
             </span>
-            {message.from_me && <DeliveryMark status={message.status} />}
+            {message.from_me && <DeliveryMark status={message.status} type={message.type} />}
           </div>
         </div>
 
@@ -2345,14 +2345,24 @@ function MessageActionButton({
   );
 }
 
-function DeliveryMark({ status }: { status?: string | null }) {
+function DeliveryMark({
+  status,
+  type,
+}: {
+  status?: string | null;
+  type?: string | null;
+}) {
   if (status === "sending") {
     return <Loader2 size={11} className="animate-spin" color="#afbdc7" aria-label="Envoi en cours" />;
   }
   if (status === "failed") {
     return <CircleAlert size={12} color="#ff7d7d" aria-label="Échec" />;
   }
-  if (status === "read" || status === "played") {
+  if (status === "played") {
+    const isVoice = type === "voice" || type === "voix";
+    return <CheckCheck size={12} color="#53bdeb" aria-label={isVoice ? "Écouté" : "Lu"} />;
+  }
+  if (status === "read") {
     return <CheckCheck size={12} color="#53bdeb" aria-label="Lu" />;
   }
   if (status === "delivered") {
