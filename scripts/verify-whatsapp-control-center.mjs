@@ -1327,6 +1327,15 @@ async function certifyConversations() {
   await contextMenu.getByRole("menuitem", { name: "Masquer dans Toumaï…" }).waitFor();
   await page.keyboard.press("Escape");
   await contextMenu.waitFor({ state: "hidden" });
+
+  // Restore shared test storage: an actual pinned message otherwise creates
+  // a second "Bonjour Mahamat" entry in subsequent mobile E2E assertions.
+  await bubble.scrollIntoViewIfNeeded();
+  await bubble.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Désépingler dans Toumaï" }).click();
+  await bubble.click({ button: "right" });
+  await contextMenu.getByRole("menuitem", { name: "Retirer des favoris Toumaï" }).click();
+  await page.getByTestId("whatsapp-local-pins").waitFor({ state: "hidden" });
   await noHorizontalOverflow(page, "whatsapp-context-menu");
 
   await page.screenshot({ path: `${artifacts}/conversations-workspace.png`, fullPage: false });
