@@ -45,7 +45,7 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
-        setMime(blob.type || message.mime_type || "");
+        setMime(blob.type || "");
       } catch {
         // The bounded request settles even if the gateway never responds.
         // A failed fetch must not be retried by SSE, polling or remounting.
