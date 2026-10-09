@@ -25,6 +25,8 @@ on:
       - "scripts/verify-whatsapp-cache-coverage.mjs"
       - "scripts/verify-whatsapp-cache-races.mjs"
       - "scripts/verify-whatsapp-media-cache.mjs"
+      - "scripts/verify-whatsapp-product-copy.mjs"
+      - "lib/whatsapp-ui-copy.ts"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
   pull_request:
     paths:
@@ -48,6 +50,8 @@ on:
       - "scripts/verify-whatsapp-cache-coverage.mjs"
       - "scripts/verify-whatsapp-cache-races.mjs"
       - "scripts/verify-whatsapp-media-cache.mjs"
+      - "scripts/verify-whatsapp-product-copy.mjs"
+      - "lib/whatsapp-ui-copy.ts"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
 
 concurrency:
@@ -86,6 +90,17 @@ jobs:
           lib/whatsapp-cache.ts
           lib/whatsapp-media-cache.ts
           components/whatsapp/WhatsAppMessageMedia.tsx
+          components/whatsapp/WhatsAppMessageInfoModal.tsx
+          components/whatsapp/WhatsAppAttachmentModal.tsx
+          components/whatsapp/WhatsAppContactShareModal.tsx
+          components/whatsapp/WhatsAppForwardMessageModal.tsx
+          components/whatsapp/WhatsAppConversationActionModal.tsx
+          components/chat/WhatsAppConnectorCard.tsx
+          components/chat/WhatsAppProtectionPanel.tsx
+          components/settings/WhatsAppPermissionsPanel.tsx
+          components/settings/ConnectorsTab.tsx
+          components/settings/WhatsAppCarnetPanel.tsx
+          lib/whatsapp-ui-copy.ts
       - name: Verify Overview polling fallback
         run: node scripts/verify-whatsapp-overview-polling.mjs
       - name: Verify Overview realtime SSE
@@ -98,6 +113,8 @@ jobs:
         run: node scripts/verify-whatsapp-cache-races.mjs
       - name: Verify bounded WhatsApp media loading
         run: node scripts/verify-whatsapp-media-cache.mjs
+      - name: Verify WhatsApp customer copy and background refresh
+        run: node scripts/verify-whatsapp-product-copy.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
