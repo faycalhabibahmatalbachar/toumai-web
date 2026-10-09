@@ -188,6 +188,11 @@ export default function WhatsAppConversationsPage() {
   const messagesRef = useRef<WaLiveMessage[]>([]);
   const listCacheKeyRef = useRef("");
   const threadCacheKeyRef = useRef("");
+  // A late response must never replace the currently selected list or chat.
+  const listRequestIdRef = useRef(0);
+  const threadRequestIdRef = useRef(0);
+  const activeChatIdRef = useRef<string | null>(null);
+  activeChatIdRef.current = selected?.id ?? null;
 
   useCacheSeed<WaLiveConversations>(
     conversationListCacheKey("", "all", "all"),
@@ -309,6 +314,7 @@ export default function WhatsAppConversationsPage() {
     selectedFilter: Filter,
     options: { append?: boolean; offset?: number } = {},
   ) => {
+    const requestId = ++listRequestIdRef.current;
     const append = Boolean(options.append);
     const offset = options.offset ?? 0;
     const cacheKey = conversationListCacheKey(search, selectedFilter, kindFilter);
@@ -357,6 +363,8 @@ export default function WhatsAppConversationsPage() {
         "La liste WhatsApp met trop de temps à répondre. Réessayez.",
       );
 
+      if (requestId !== listRequestIdRef.current) return;
+
       const nextConversations = append
         ? Array.from(
             new Map(
@@ -392,6 +400,7 @@ export default function WhatsAppConversationsPage() {
         setSelected((current) => current || nextConversations[0]);
       }
     } catch (error) {
+      if (requestId !== listRequestIdRef.current) return;
       if (!append) {
         const fallback = cacheSeed<WaLiveConversations>(cacheKey);
         if (conversationsRef.current.length > 0 && !keyChanged) {
@@ -410,8 +419,10 @@ export default function WhatsAppConversationsPage() {
         }
       }
     } finally {
-      if (append) setLoadingMore(false);
-      else setLoadingList(false);
+      if (requestId === listRequestIdRef.current) {
+        if (append) setLoadingMore(false);
+        else setLoadingList(false);
+      }
     }
   }, [enrichConversationPictures, kindFilter]);
 
@@ -419,6 +430,8 @@ export default function WhatsAppConversationsPage() {
     conversation: WaLiveConversation,
     options: { silent?: boolean } = {},
   ) => {
+    if (activeChatIdRef.current !== conversation.id) return;
+    const requestId = ++threadRequestIdRef.current;
     const silent = Boolean(options.silent);
     const cacheKey = conversationThreadCacheKey(conversation.id);
     const cached = cacheSeed<WaConversationMessages>(cacheKey);
@@ -432,11 +445,14 @@ export default function WhatsAppConversationsPage() {
         setLoadingThread(false);
         setThreadError(null);
         void enrichMessagePictures(cached.messages);
-      } else if (!silent) {
+      } else {
+        // Never show messages from the previous chat, even during a silent refresh.
         messagesRef.current = [];
         setMessages([]);
-        setLoadingThread(true);
-        setThreadError(null);
+        if (!silent) {
+          setLoadingThread(true);
+          setThreadError(null);
+        }
       }
     } else if (!silent) {
       setLoadingThread(!(cached || messagesRef.current.length > 0));
@@ -449,12 +465,14 @@ export default function WhatsAppConversationsPage() {
         12_000,
         "Cette conversation met trop de temps à répondre. Réessayez.",
       );
+      if (requestId !== threadRequestIdRef.current || activeChatIdRef.current !== conversation.id) return;
       messagesRef.current = data.messages;
       setMessages(data.messages);
       cacheWrite<WaConversationMessages>(cacheKey, data);
       void enrichMessagePictures(data.messages);
       if (!silent) setThreadError(null);
     } catch (error) {
+      if (requestId !== threadRequestIdRef.current || activeChatIdRef.current !== conversation.id) return;
       const fallback = cacheSeed<WaConversationMessages>(cacheKey);
       if (messagesRef.current.length > 0 && !chatChanged) {
         // Même règle que pour la liste : ne jamais écraser un fil visible
@@ -469,13 +487,17 @@ export default function WhatsAppConversationsPage() {
         setThreadError(errorMessage(error, "history"));
       }
     } finally {
-      if (!silent) setLoadingThread(false);
+      if (!silent && requestId === threadRequestIdRef.current && activeChatIdRef.current === conversation.id) {
+        setLoadingThread(false);
+      }
     }
   }, [enrichMessagePictures]);
 
   const refreshRealtimeConversations = useCallback(async () => {
     await loadConversations(query, filter);
-    if (selected) await loadThread(selected, { silent: true });
+    if (selected && activeChatIdRef.current === selected.id) {
+      await loadThread(selected, { silent: true });
+    }
   }, [filter, loadConversations, loadThread, query, selected]);
 
   useWhatsAppRealtimeInvalidation({
@@ -686,6 +708,9 @@ export default function WhatsAppConversationsPage() {
   }, [filter, loadConversations, query, session, refreshRealtimeConversations]);
 
   function chooseConversation(conversation: WaLiveConversation) {
+    ++threadRequestIdRef.current;
+    activeChatIdRef.current = conversation.id;
+    messagesRef.current = [];
     setReplyDraft("");
     setMessages([]);
     setThreadSearchOpen(false);
@@ -734,6 +759,9 @@ export default function WhatsAppConversationsPage() {
   }
 
   function backToConversationList() {
+    ++threadRequestIdRef.current;
+    activeChatIdRef.current = null;
+    messagesRef.current = [];
     setSelected(null);
     setMessages([]);
     setThreadSearchOpen(false);
