@@ -884,8 +884,10 @@ export default function WhatsAppConversationsPage() {
       void loadConversations(query, filter);
       window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
+      // Le recorder attend cette promesse pour maintenir son état "envoi",
+      // mais l'erreur est déjà rendue dans le composeur : ne jamais produire
+      // une rejection non gérée côté navigateur.
       setAttachmentError(errorMessage(error, "generic"));
-      throw error;
     }
   }
 
