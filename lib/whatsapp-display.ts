@@ -43,6 +43,8 @@ export function isTechnicalWhatsAppIdentity(value: string | null | undefined) {
 export function whatsAppNumberFromIdentity(value: string | null | undefined) {
   const text = (value || "").trim();
   if (!text) return null;
+  // WhatsApp LIDs (and group JIDs) do not encode a real phone number.
+  if (text.includes("@") && !text.endsWith("@s.whatsapp.net")) return null;
   const local = text.includes("@") ? text.split("@", 1)[0] : text;
   const digits = local.replace(/\D/g, "");
   return digits.length >= 7 && digits.length <= 15 ? digits : null;
@@ -55,19 +57,21 @@ export function displayWhatsAppIdentity(input: {
   kind?: "contact" | "group" | string | null;
 }) {
   const candidate = (input.name || "").trim();
+  const privateJid = Boolean(input.id?.endsWith("@lid"));
   const generic = /^(contact|contact whatsapp|whatsapp contact)$/i.test(candidate);
   if (
     candidate &&
     !generic &&
     !isTechnicalWhatsAppIdentity(candidate) &&
-    candidate !== input.id
+    candidate !== input.id &&
+    !(privateJid && /^\+?\d{14,16}$/.test(candidate))
   ) {
     return candidate;
   }
 
-  const number =
-    whatsAppNumberFromIdentity(input.number) ||
-    whatsAppNumberFromIdentity(input.id);
+  const number = privateJid
+    ? null
+    : (whatsAppNumberFromIdentity(input.id) || whatsAppNumberFromIdentity(input.number));
   if (number && input.kind !== "group") return `+${number}`;
 
   return input.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
@@ -78,9 +82,9 @@ export function displayWhatsAppSecondary(input: {
   id?: string | null;
   kind?: "contact" | "group" | string | null;
 }) {
-  const number =
-    whatsAppNumberFromIdentity(input.number) ||
-    whatsAppNumberFromIdentity(input.id);
+  const number = input.id?.endsWith("@lid")
+    ? null
+    : (whatsAppNumberFromIdentity(input.id) || whatsAppNumberFromIdentity(input.number));
   if (number && input.kind !== "group") return `+${number}`;
   return input.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
 }
