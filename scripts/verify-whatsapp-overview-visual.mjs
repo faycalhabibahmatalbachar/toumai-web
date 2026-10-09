@@ -406,7 +406,11 @@ await workspaceSearch.waitFor();
 await page.keyboard.press("Control+k");
 assert(await workspaceSearch.evaluate((element) => document.activeElement === element), "Ctrl+K doit focaliser la recherche WhatsApp.");
 const notificationsLink = page.getByRole("link", { name: "Notifications" });
-assert((await notificationsLink.getAttribute("href")) === "/notifications", "Le bouton Notifications doit ouvrir la vraie page Notifications.");
+const notificationsHref = await notificationsLink.getAttribute("href");
+const notificationsPath = notificationsHref
+  ? new URL(notificationsHref, page.url()).pathname.replace(/\/$/, "")
+  : "";
+assert(notificationsPath === "/notifications", "Le bouton Notifications doit ouvrir la vraie page Notifications.");
 
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 assert(overflow <= 1, `Débordement horizontal détecté: ${overflow}px`);
@@ -437,7 +441,10 @@ await fs.writeFile(`${artifactDir}/layout-report.json`, JSON.stringify(report, n
 
 await workspaceSearch.fill("Mamadou");
 await workspaceSearch.press("Enter");
-await page.waitForURL(/\/whatsapp\/conversations\?q=Mamadou/);
+await page.waitForURL((url) =>
+  url.pathname.replace(/\/$/, "") === "/whatsapp/conversations" &&
+  url.searchParams.get("q") === "Mamadou"
+);
 const conversationSearch = page.getByPlaceholder("Rechercher une conversation…");
 await conversationSearch.waitFor({ state: "visible" });
 assert(
