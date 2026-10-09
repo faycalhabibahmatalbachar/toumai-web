@@ -168,6 +168,22 @@ const threadMessages = [
     status: null,
   },
   {
+    id: "t-voice-out",
+    chat_id: "23566111111@s.whatsapp.net",
+    text: "",
+    from_me: true,
+    sender: "",
+    sender_jid: "23568663737@s.whatsapp.net",
+    type: "voice",
+    mime_type: "audio/ogg; codecs=opus",
+    file_name: "vocal-1791544458618.ogg",
+    duration_seconds: 13,
+    waveform: [22, 43, 74, 108, 135, 98, 64, 39, 72, 118, 151, 103, 58, 31, 66, 120, 166, 123, 80, 45, 75, 129, 179, 128, 82, 50, 94, 148, 192, 142, 96, 59, 73, 117, 158, 122, 79, 48, 67, 109, 149, 114, 72, 42, 61, 96, 136, 101],
+    played: false,
+    timestamp_ms: now - 62_000,
+    status: "delivered",
+  },
+  {
     id: "t3",
     chat_id: "23566111111@s.whatsapp.net",
     text: "Tu peux me rappeler ?",
@@ -752,6 +768,18 @@ async function certifyConversations() {
     state.voicePlayed.at(-1).chat_id === "23566111111@s.whatsapp.net" &&
       state.voicePlayed.at(-1).msg_id === "t-voice",
     "L'accusé played doit viser le vrai chat et le vrai msg_id du vocal.",
+  );
+
+  const outboundVoice = page.locator('[data-message-id="t-voice-out"]');
+  await outboundVoice.getByLabel("Message vocal WhatsApp").waitFor();
+  await outboundVoice.getByRole("button", { name: "Infos", exact: true }).waitFor();
+  assert(
+    (await outboundVoice.getByRole("button", { name: "Corriger", exact: true }).count()) === 0,
+    "Un vocal envoyé doit garder Infos mais ne jamais proposer Corriger.",
+  );
+  assert(
+    (await outboundVoice.getByText("vocal-1791544458618.ogg", { exact: true }).count()) === 0,
+    "Le vocal envoyé ne doit pas exposer son nom technique.",
   );
 
   assert(
