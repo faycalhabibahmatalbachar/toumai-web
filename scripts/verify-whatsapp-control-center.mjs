@@ -760,6 +760,12 @@ async function certifyConversations() {
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
   const activeConversationRowForPhoto = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
   await activeConversationRowForPhoto.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
+  const privateConversationRow = page.locator('[data-conversation-id="255855597453404@lid"]');
+  await privateConversationRow.waitFor();
+  assert(
+    (await privateConversationRow.locator('[data-profile-avatar="fallback"]').count()) >= 1,
+    "Un profil privé/sans photo doit garder un avatar fallback propre.",
+  );
   assert(
     (await page.getByAltText("Photo de profil WhatsApp de Mahamat Ali").count()) >= 2,
     "La photo réelle de Mahamat doit apparaître dans la liste et le header.",
