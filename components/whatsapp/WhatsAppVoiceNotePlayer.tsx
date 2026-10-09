@@ -96,7 +96,7 @@ export function WhatsAppVoiceNotePlayer({
   return (
     <div
       data-testid="whatsapp-voice-note"
-      className="w-[430px] max-w-[calc(88vw-34px)]"
+      className="w-[433px] max-w-[calc(88vw-42px)]"
       aria-label="Message vocal WhatsApp"
     >
       <audio
@@ -120,7 +120,7 @@ export function WhatsAppVoiceNotePlayer({
         }}
       />
 
-      <div className="flex h-[72px] items-center gap-3">
+      <div className="flex h-[74px] items-center gap-[18px]">
         <VoiceAvatar
           outbound={message.from_me}
           initials={senderInitials}
@@ -145,7 +145,7 @@ export function WhatsAppVoiceNotePlayer({
           )}
         </button>
 
-        <div className="min-w-0 flex-1 self-stretch pt-[20px]">
+        <div className="mr-[12px] min-w-0 flex-1 self-stretch pt-[20px]">
           <div
             data-testid="voice-progress-track"
             className="relative h-[18px]"
