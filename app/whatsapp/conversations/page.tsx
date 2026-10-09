@@ -797,7 +797,9 @@ export default function WhatsAppConversationsPage() {
     setEmojiOpen(false);
     setAttachmentMenuOpen(false);
     try {
-      const uploaded = await uploadWaAttachment(file);
+      const uploaded = await uploadWaAttachment(file, {
+        requestedType: forcedType,
+      });
       const detectedType =
         uploaded.media_family && ["image", "video", "gif", "audio", "document"].includes(uploaded.media_family)
           ? uploaded.media_family
@@ -854,13 +856,15 @@ export default function WhatsAppConversationsPage() {
     setAttachmentError(null);
     setSendError(null);
     try {
-      const uploaded = await uploadWaAttachment(file);
+      const uploaded = await uploadWaAttachment(file, {
+        requestedType: "voice",
+      });
       await sendWaMedia({
         to: selected.id,
         type: "voice",
         url: uploaded.url,
         filename: uploaded.file_name || file.name,
-        mimetype: file.type || undefined,
+        mimetype: uploaded.content_type || file.type || undefined,
         reply_to_msg_id: replyTarget?.id || undefined,
         reply_to_text: replyTarget?.text || undefined,
         reply_to_type: replyTarget?.type || undefined,
