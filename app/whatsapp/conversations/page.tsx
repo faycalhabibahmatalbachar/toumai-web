@@ -581,7 +581,7 @@ export default function WhatsAppConversationsPage() {
       const data = await withUiDeadline(
         getWaConversationMessages(conversation.id, 120, 0, { revalidate: true }),
         12_000,
-        "Cette conversation met trop de temps à répondre. Réessayez.",
+        "Impossible d’actualiser les messages pour le moment. Réessayez.",
       );
       if (requestId !== threadRequestIdRef.current || activeChatIdRef.current !== conversation.id) return;
       messagesRef.current = data.messages;
@@ -1196,7 +1196,7 @@ export default function WhatsAppConversationsPage() {
       // Sensitive action: server truth only, never a stale message-status cache.
       const current = await getWaMessageStatus(target.id, target.chat_id);
       if (!current.known || current.failed) {
-        setDeleteMessageError("Le serveur ne confirme pas ce message. Suppression bloquée.");
+        setDeleteMessageError("Impossible de vérifier ce message. Aucun changement effectué.");
         return;
       }
       const deletion = await deleteWaOwnMessage({
@@ -1205,7 +1205,7 @@ export default function WhatsAppConversationsPage() {
         confirmed: true,
       });
       if (!deletion.delete_submitted || !deletion.accepted_by_gateway) {
-        setDeleteMessageError("La passerelle n’a pas accepté la suppression.");
+        setDeleteMessageError("La suppression n’a pas abouti. Réessayez.");
         return;
       }
       setDeleteTarget(null);
@@ -1371,7 +1371,7 @@ export default function WhatsAppConversationsPage() {
           reply_to_type: voice.replyTo?.type || undefined,
           reply_to_sender: voice.replyTo?.senderJid || undefined,
           confirmed: true,
-        }), 45_000, "Envoi WhatsApp non confirmé dans le délai imparti.");
+        }), 45_000, "Envoi en attente de confirmation.");
         if (voiceSessionRef.current !== account) return;
         update({
           phase: result.accepted_by_gateway && result.status === "accepted" ? "accepted" : "unconfirmed",
@@ -2366,7 +2366,7 @@ export default function WhatsAppConversationsPage() {
             <h2 id="wa-delete-msg-title" className="text-base font-semibold">{deleteTarget.from_me ? "Supprimer ce message pour tous ?" : "Masquer ce message dans Toumaï ?"}</h2>
             <p className="mt-2 text-[12px] leading-5 text-[#afbfc7]">
               {deleteTarget.from_me
-                ? "Toumaï demandera une suppression à WhatsApp. Son acceptation ne garantit pas qu’elle ait disparu des appareils des destinataires."
+                ? "La suppression sera demandée pour tous. Certains destinataires peuvent encore conserver une copie."
                 : "Ce message sera seulement masqué dans ce navigateur. Il restera présent sur WhatsApp et chez les autres participants."}
             </p>
             {deleteMessageError && <p role="alert" className="mt-3 text-xs text-[#ffb3b3]">{deleteMessageError}</p>}
