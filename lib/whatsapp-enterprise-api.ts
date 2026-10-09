@@ -166,7 +166,10 @@ export function getWaAutopilot(): Promise<WaAutopilotSettings> {
 export function updateWaAutopilot(
   patch: Partial<WaAutopilotSettings>,
 ): Promise<WaAutopilotSettings & { ok?: boolean }> {
-  return http.post("/whatsapp/autopilot", patch);
+  return waMutation(
+    http.post<WaAutopilotSettings & { ok?: boolean }>("/whatsapp/autopilot", patch),
+    ["wa:autopilot", "wa:overview", "wa:activity"],
+  );
 }
 
 export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics> {
