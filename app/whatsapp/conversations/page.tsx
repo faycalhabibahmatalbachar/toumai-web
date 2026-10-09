@@ -326,6 +326,8 @@ export default function WhatsAppConversationsPage() {
     if (append) {
       setLoadingMore(true);
     } else if (keyChanged) {
+      // Cancel any visual pagination spinner superseded by a full refresh.
+      setLoadingMore(false);
       listCacheKeyRef.current = cacheKey;
       if (cached) {
         conversationsRef.current = cached.conversations;
@@ -342,6 +344,8 @@ export default function WhatsAppConversationsPage() {
         setLoadingList(true);
       }
     } else {
+      // A background refresh can supersede a pending "load more" operation.
+      setLoadingMore(false);
       // Revalidation du même jeu de données : jamais de skeleton si une
       // valeur visible (mémoire ou localStorage) existe déjà.
       setLoadingList(!(cached || conversationsRef.current.length > 0));
@@ -489,7 +493,9 @@ export default function WhatsAppConversationsPage() {
         setThreadError(errorMessage(error, "history"));
       }
     } finally {
-      if (!silent && requestId === threadRequestIdRef.current && activeChatIdRef.current === conversation.id) {
+      // Even a silent refresh must settle the spinner if it superseded the
+      // initial foreground request for this conversation.
+      if (requestId === threadRequestIdRef.current && activeChatIdRef.current === conversation.id) {
         setLoadingThread(false);
       }
     }
