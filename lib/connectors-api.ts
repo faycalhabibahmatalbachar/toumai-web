@@ -1,4 +1,11 @@
 import { http } from "./http";
+import {
+  WA_CACHE,
+  readWhatsAppCache,
+  waCachedRead,
+  waMutation,
+  writeWhatsAppCache,
+} from "./whatsapp-cache";
 
 // ---- Google Agenda -------------------------------------------------------
 
@@ -151,7 +158,7 @@ export interface WaProtectionState {
 }
 
 export function getWaEtat(): Promise<WaEtat> {
-  return http.get("/whatsapp/etat");
+  return waCachedRead(WA_CACHE.etat, () => http.get("/whatsapp/etat"), { freshMs: 3_000 });
 }
 
 export interface WaCapacites {
@@ -169,29 +176,29 @@ export interface WaCapacites {
 }
 
 export function getWaCapacites(): Promise<WaCapacites> {
-  return http.get("/whatsapp/capacites");
+  return waCachedRead(WA_CACHE.capacites, () => http.get("/whatsapp/capacites"), { freshMs: 15_000 });
 }
 
 export function getWhatsAppStatus(): Promise<WhatsAppState> {
-  return http.get("/whatsapp/status");
+  return waCachedRead(WA_CACHE.status, () => http.get("/whatsapp/status"), { freshMs: 3_000 });
 }
 
 /** Liaison par code de jumelage (saisie du numéro). */
 export function linkWhatsApp(phone: string): Promise<WhatsAppState> {
-  return http.post("/whatsapp/link", { phone });
+  return waMutation(http.post("/whatsapp/link", { phone }));
 }
 
 /** Liaison par QR (sans numéro) — souvent plus fiable, comme sur mobile. */
 export function linkWhatsAppQr(): Promise<WhatsAppState> {
-  return http.post("/whatsapp/link", {});
+  return waMutation(http.post("/whatsapp/link", {}));
 }
 
 export function refreshWhatsAppCode(): Promise<{ pairingCode: string; codeExpiresAt: string }> {
-  return http.post("/whatsapp/refresh-code");
+  return waMutation(http.post("/whatsapp/refresh-code"), ["wa:status", "wa:etat"]);
 }
 
 export function disconnectWhatsApp(): Promise<{ status: "disconnected" }> {
-  return http.post("/whatsapp/logout");
+  return waMutation(http.post("/whatsapp/logout"));
 }
 
 /** Permissions de l'IA sur le compte WhatsApp — appliquées côté backend
@@ -224,11 +231,11 @@ export interface WaSettings {
 }
 
 export function getWaSettings(): Promise<WaSettings> {
-  return http.get("/whatsapp/settings");
+  return waCachedRead(WA_CACHE.settings, () => http.get("/whatsapp/settings"), { freshMs: 20_000 });
 }
 
 export function updateWaSettings(patch: Partial<WaSettings>): Promise<WaSettings> {
-  return http.put("/whatsapp/settings", patch);
+  return waMutation(http.put("/whatsapp/settings", patch), ["wa:settings", "wa:capacites", "wa:activity"]);
 }
 
 /** Journal des interactions de l'IA sur WhatsApp — numéros déjà masqués
@@ -260,7 +267,12 @@ export function getWaActivity(opts?: {
   if (opts?.days) p.set("days", String(opts.days));
   if (opts?.limit) p.set("limit", String(opts.limit));
   const qs = p.toString();
-  return http.get(`/whatsapp/activity${qs ? `?${qs}` : ""}`);
+  const key = WA_CACHE.activity(opts?.category || "", opts?.days || 0, opts?.limit || 0);
+  return waCachedRead(
+    key,
+    () => http.get(`/whatsapp/activity${qs ? `?${qs}` : ""}`),
+    { freshMs: 10_000 },
+  );
 }
 
 // ---- Carnet d'adresses WhatsApp -------------------------------------------
@@ -292,7 +304,11 @@ export interface WaCarnet {
 
 export function getWaCarnet(search?: string): Promise<WaCarnet> {
   const q = search ? `?search=${encodeURIComponent(search)}` : "";
-  return http.get(`/whatsapp/contacts${q}`);
+  return waCachedRead(
+    WA_CACHE.carnet(search || ""),
+    () => http.get(`/whatsapp/contacts${q}`),
+    { freshMs: search ? 8_000 : 30_000 },
+  );
 }
 
 export async function getWaProfilePictures(
@@ -301,11 +317,32 @@ export async function getWaProfilePictures(
 ): Promise<Record<string, string | null>> {
   const unique = Array.from(new Set(jids.map((jid) => jid.trim()).filter(Boolean))).slice(0, 120);
   if (!unique.length) return {};
-  const response = await http.post<{ pictures: Record<string, string | null>; count: number }>(
-    "/whatsapp/profile-pictures",
-    { jids: unique, force },
-  );
-  return response.pictures || {};
+
+  const pictures: Record<string, string | null> = {};
+  const missing: string[] = [];
+  for (const jid of unique) {
+    const cached = force
+      ? null
+      : readWhatsAppCache<{ url: string | null }>(WA_CACHE.profilePicture(jid), 30 * 60 * 1000);
+    if (cached) pictures[jid] = cached.url;
+    else missing.push(jid);
+  }
+  if (!missing.length) return pictures;
+
+  try {
+    const response = await http.post<{ pictures: Record<string, string | null>; count: number }>(
+      "/whatsapp/profile-pictures",
+      { jids: missing, force },
+    );
+    for (const jid of missing) {
+      const url = response.pictures?.[jid] ?? null;
+      pictures[jid] = url;
+      writeWhatsAppCache(WA_CACHE.profilePicture(jid), { url });
+    }
+  } catch (error) {
+    if (Object.keys(pictures).length === 0) throw error;
+  }
+  return pictures;
 }
 
 export interface WaSynchroCarnet {
@@ -321,7 +358,10 @@ export interface WaSynchroCarnet {
  * deja jumelee ca ne ramene qu'une poignee de contacts — WhatsApp ne livre le
  * carnet complet qu'au jumelage initial. Reserve a un geste explicite. */
 export function syncWaCarnet(forcer = false): Promise<WaSynchroCarnet> {
-  return http.post(`/whatsapp/contacts/sync${forcer ? "?forcer=true" : ""}`);
+  return waMutation(
+    http.post(`/whatsapp/contacts/sync${forcer ? "?forcer=true" : ""}`),
+    ["wa:carnet", "wa:profile-picture", "wa:overview"],
+  );
 }
 
 
@@ -373,7 +413,11 @@ export function getWhatsAppAutomations(params?: {
   if (params?.status) query.set("status", params.status);
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.size ? `?${query.toString()}` : "";
-  return http.get(`/whatsapp/automations${suffix}`);
+  return waCachedRead(
+    WA_CACHE.automations(params?.status || "", params?.limit || 0),
+    () => http.get(`/whatsapp/automations${suffix}`),
+    { freshMs: 5_000 },
+  );
 }
 
 export function updateWhatsAppAutomation(
@@ -385,28 +429,45 @@ export function updateWhatsAppAutomation(
     cron_expr?: string;
   },
 ): Promise<WhatsAppAutomation> {
-  return http.patch(`/whatsapp/automations/${encodeURIComponent(id)}`, patch);
+  return waMutation(
+    http.patch(`/whatsapp/automations/${encodeURIComponent(id)}`, patch),
+    ["wa:automations", "wa:automation-history", "wa:overview"],
+  );
 }
 
 export function pauseWhatsAppAutomation(id: string): Promise<WhatsAppAutomation> {
-  return http.post(`/whatsapp/automations/${encodeURIComponent(id)}/pause`);
+  return waMutation(
+    http.post(`/whatsapp/automations/${encodeURIComponent(id)}/pause`),
+    ["wa:automations", "wa:automation-history", "wa:overview"],
+  );
 }
 
 export function resumeWhatsAppAutomation(id: string): Promise<WhatsAppAutomation> {
-  return http.post(`/whatsapp/automations/${encodeURIComponent(id)}/resume`);
+  return waMutation(
+    http.post(`/whatsapp/automations/${encodeURIComponent(id)}/resume`),
+    ["wa:automations", "wa:automation-history", "wa:overview"],
+  );
 }
 
 export function cancelWhatsAppAutomation(id: string): Promise<WhatsAppAutomation> {
-  return http.post(`/whatsapp/automations/${encodeURIComponent(id)}/cancel`, {
-    confirmed: true,
-  });
+  return waMutation(
+    http.post(`/whatsapp/automations/${encodeURIComponent(id)}/cancel`, {
+      confirmed: true,
+    }),
+    ["wa:automations", "wa:automation-history", "wa:overview"],
+  );
 }
 
 export function getWhatsAppAutomationHistory(
   id: string,
   limit = 30,
 ): Promise<{ entries: WhatsAppAutomationHistoryEntry[]; count: number }> {
-  return http.get(
-    `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${limit}`,
+  return waCachedRead(
+    WA_CACHE.automationHistory(id, limit),
+    () =>
+      http.get(
+        `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${limit}`,
+      ),
+    { freshMs: 5_000 },
   );
 }
