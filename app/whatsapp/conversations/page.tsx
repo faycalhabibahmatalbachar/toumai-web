@@ -76,7 +76,9 @@ import {
   sendWaReply,
   uploadWaAttachment,
   type WaContactInfo,
+  type WaConversationMessages,
   type WaLiveConversation,
+  type WaLiveConversations,
   type WaLiveMessage,
   type WaMediaType,
   type WaMessageStatus,
@@ -199,7 +201,6 @@ export default function WhatsAppConversationsPage() {
       setNextOffset(cached.next_offset);
       setLoadingList(false);
       setListError(null);
-      void enrichConversationPictures(cached.conversations);
       if (
         cached.conversations.length &&
         typeof window !== "undefined" &&
@@ -2660,6 +2661,19 @@ function initials(value: string) {
   if (!parts.length) return "WA";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function conversationListCacheKey(
+  search: string,
+  filter: Filter,
+  kind: KindFilter,
+): string {
+  const normalizedSearch = search.trim().toLowerCase().slice(0, 160);
+  return `wa:conversations:list:v1:${filter}:${kind}:${encodeURIComponent(normalizedSearch || "_")}`;
+}
+
+function conversationThreadCacheKey(chatId: string): string {
+  return `wa:conversations:thread:v1:${encodeURIComponent(chatId)}`;
 }
 
 async function withUiDeadline<T>(
