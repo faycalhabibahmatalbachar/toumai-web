@@ -392,7 +392,7 @@ export function ChatMessage({
           </span>
         </div>
       )}
-      {message.reasoning && <ReasoningPanel reasoning={message.reasoning} durationMs={message.reasoningMs} streaming={message.streaming} />}
+      {message.reasoning && !message.codingRun ? <ReasoningPanel reasoning={message.reasoning} durationMs={message.reasoningMs} streaming={message.streaming} /> : null}
       {message.whatsappConnector && <WhatsAppConnectorCard intent={message.whatsappConnector.intent} />}
       {message.codingRun ? (
         <CodingRunCard
