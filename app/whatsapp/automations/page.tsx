@@ -22,7 +22,7 @@ import {
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
-import { errorMessage } from "@/lib/errors";
+
 import { whatsappHistoryEntryDetail, whatsappUiCopy, whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { cacheSeed, useCached } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
@@ -343,7 +343,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
       });
       await onSaved();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setSaving(false);
     }
