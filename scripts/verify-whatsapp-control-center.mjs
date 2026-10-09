@@ -1093,7 +1093,9 @@ async function certifyConversations() {
   });
   await page.getByRole("heading", { name: "Pièce jointe" }).waitFor();
   await page.getByText("Optimisé pour WhatsApp", { exact: true }).waitFor();
-  await page.getByText(/Vidéo convertie en MP4 H\.264\/AAC/).waitFor();
+  await page.getByText("Le fichier est prêt à être envoyé.", { exact: true }).waitFor();
+  assert((await page.getByText(/Vidéo convertie en MP4 H\.264\/AAC/).count()) === 0,
+    "Le diagnostic de conversion n’a pas sa place dans l’interface publique.");
   await page.getByRole("dialog").getByRole("button", { name: "Envoyer", exact: true }).click();
   await page.getByRole("heading", { name: "Pièce jointe" }).waitFor({ state: "hidden" });
 
