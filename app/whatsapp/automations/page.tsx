@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth-context";
 import { whatsappHistoryEntryDetail, whatsappUiCopy, whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { cacheSeed, useCached } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
+import { createWhatsAppTextAutomation, newRequestId } from "@/lib/automations-api";
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
@@ -70,6 +71,7 @@ export default function WhatsAppAutomationsPage() {
   const [historyTask, setHistoryTask] = useState<WhatsAppAutomation | null>(null);
   const [history, setHistory] = useState<WhatsAppAutomationHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const {
     data: tasksData,
@@ -149,7 +151,8 @@ export default function WhatsAppAutomationsPage() {
             <h1 className="text-[16px] font-semibold">Automatisations WhatsApp</h1>
             <p className="text-[11px]" style={{ color: MUTED }}>Gérez vos envois programmés.</p>
           </div>
-          <Link href="/automations" className="ml-auto rounded-xl border px-3 py-2 text-xs" style={{ borderColor: BORDER, color: MUTED }}>Workflows V2</Link>
+          <button type="button" onClick={() => setCreateOpen(true)} className="ml-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold" style={{ borderColor: BORDER, color: TEXT }}><CalendarClock size={16} /> <span className="hidden sm:inline">Nouvelle automatisation</span><span className="sm:hidden">Créer</span></button>
+          <Link href="/automations" className=" rounded-xl border px-3 py-2 text-xs" style={{ borderColor: BORDER, color: MUTED }}>Workflows V2</Link>
           <Link href="/chat" className=" flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white" style={{ background: GREEN }}>
             <Send size={16} /> <span className="hidden sm:inline">Créer via Toumaï</span>
           </Link>
@@ -197,8 +200,8 @@ export default function WhatsAppAutomationsPage() {
             <div className="px-6 py-14 text-center">
               <Workflow className="mx-auto" size={26} color={MUTED} />
               <p className="mt-3 text-sm font-semibold">Aucune automatisation</p>
-              <p className="mt-1 text-xs" style={{ color: MUTED }}>La création reste dans le chat Toumaï afin de résoudre le destinataire et demander votre confirmation avant de programmer un envoi.</p>
-              <Link href="/chat" className="mt-4 inline-flex h-10 items-center rounded-xl px-4 text-xs font-semibold text-white" style={{ background: GREEN }}>Créer une automatisation</Link>
+              <p className="mt-1 text-xs" style={{ color: MUTED }}>Créez un envoi texte depuis cette page, ou utilisez Toumaï pour les scénarios avancés.</p>
+              <button type="button" onClick={() => setCreateOpen(true)} className="mt-4 inline-flex h-10 items-center rounded-xl px-4 text-xs font-semibold text-white" style={{ background: GREEN }}>Nouvelle automatisation texte</button>
             </div>
           )}
 
@@ -223,6 +226,8 @@ export default function WhatsAppAutomationsPage() {
           </div>
         </section>
       </main>
+
+      {createOpen && <CreateTextAutomationModal onClose={() => setCreateOpen(false)} />}
 
       {editTask && (
         <EditAutomationModal
@@ -447,4 +452,116 @@ function toLocalInput(value?: string | null) {
   if (Number.isNaN(date.getTime())) return "";
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
+}
+
+
+function CreateTextAutomationModal({ onClose }: { onClose: () => void }) {
+  const [recipient, setRecipient] = useState("");
+  const [title, setTitle] = useState("Rappel WhatsApp");
+  const [message, setMessage] = useState("");
+  const [sendAt, setSendAt] = useState("");
+  const [timezone, setTimezone] = useState("UTC");
+  const [confirmed, setConfirmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const requestId = useRef("");
+
+  useEffect(() => {
+    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  }, []);
+
+  function localDateIsValid(value: string, date: Date): boolean {
+    if (Number.isNaN(date.getTime())) return false;
+    const two = (n: number) => String(n).padStart(2, "0");
+    const roundTrip = [
+      date.getFullYear(), "-", two(date.getMonth() + 1),
+      "-", two(date.getDate()), "T", two(date.getHours()),
+      ":", two(date.getMinutes()),
+    ].join("");
+    return roundTrip === value.slice(0, 16);
+  }
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || !confirmed) return;
+    setError("");
+    const date = new Date(sendAt);
+    if (!sendAt || !localDateIsValid(sendAt, date) || date.getTime() <= Date.now() + 60_000) {
+      setError("Choisissez une date future valide dans votre fuseau horaire.");
+      return;
+    }
+    if (!recipient.trim() || !message.trim()) {
+      setError("Le destinataire et le message sont obligatoires.");
+      return;
+    }
+    if (!requestId.current) requestId.current = newRequestId("wa-web");
+    setBusy(true);
+    try {
+      const result = await createWhatsAppTextAutomation({
+        to: recipient.trim(),
+        message: message.trim(),
+        name: title.trim() || "Rappel WhatsApp",
+        at: date.toISOString(),
+        timezone,
+        requestId: requestId.current,
+      });
+      if (!result.automation?.id) throw new Error("La création n'a pas retourné de référence.");
+      // Created automations belong to V2, not the legacy scheduled-message list.
+      window.location.assign("/automations?id=" + encodeURIComponent(result.automation.id));
+    } catch (exc) {
+      setError(whatsappUiError(exc) + " Vérifiez les workflows V2 avant de créer une autre tâche.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const locked = Boolean(requestId.current);
+  const setAndUnconfirm = (setter: (v: string) => void, value: string) => {
+    setter(value);
+    setConfirmed(false);
+  };
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-3">
+      <section role="dialog" aria-modal="true" aria-labelledby="wa-create-title" className="w-full max-w-lg overflow-y-auto rounded-2xl border p-5 sm:p-6" style={{ borderColor: BORDER, background: SURFACE, maxHeight: "90vh" }}>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 id="wa-create-title" className="text-lg font-semibold">Nouvelle automatisation texte</h2>
+            <p className="mt-1 text-xs" style={{ color: MUTED }}>Automation OS V2 · enregistrement après confirmation</p>
+          </div>
+          <button type="button" aria-label="Fermer" disabled={busy} onClick={onClose} className="rounded-lg p-2 disabled:opacity-50"><X size={19} /></button>
+        </div>
+        <form onSubmit={(e) => void submit(e)} className="mt-5 space-y-4">
+          <label className="block text-xs">Destinataire WhatsApp
+            <input required disabled={locked} value={recipient} maxLength={200} onChange={(e) => setAndUnconfirm(setRecipient, e.target.value)} placeholder="Nom exact ou numéro autorisé" className="mt-1 block h-11 w-full rounded-xl border bg-transparent px-3 text-sm disabled:opacity-60" style={{ borderColor: BORDER }} />
+          </label>
+          <label className="block text-xs">Titre
+            <input required disabled={locked} value={title} maxLength={200} onChange={(e) => setAndUnconfirm(setTitle, e.target.value)} className="mt-1 block h-11 w-full rounded-xl border bg-transparent px-3 text-sm disabled:opacity-60" style={{ borderColor: BORDER }} />
+          </label>
+          <label className="block text-xs">Message
+            <textarea required disabled={locked} value={message} maxLength={4096} rows={4} onChange={(e) => setAndUnconfirm(setMessage, e.target.value)} placeholder="Votre message..." className="mt-1 block w-full rounded-xl border bg-transparent px-3 py-2 text-sm disabled:opacity-60" style={{ borderColor: BORDER }} />
+          </label>
+          <label className="block text-xs">Date et heure de l'envoi
+            <input required disabled={locked} type="datetime-local" value={sendAt} onChange={(e) => setAndUnconfirm(setSendAt, e.target.value)} className="mt-1 block h-11 w-full rounded-xl border bg-transparent px-3 text-sm disabled:opacity-60" style={{ borderColor: BORDER }} />
+            <span className="mt-1 block text-[11px]" style={{ color: MUTED }}>Fuseau : {timezone} · envoi unique.</span>
+          </label>
+          <div className="rounded-xl border p-3 text-xs" style={{ borderColor: BORDER, background: RAISED }}>
+            <p className="font-semibold">Aperçu avant activation</p>
+            <p className="mt-2">À : {recipient.trim() || "Non défini"}</p>
+            <p className="mt-1">Quand : {sendAt || "Non défini"} ({timezone})</p>
+            <p className="mt-1 whitespace-pre-wrap break-words">{message.trim() || "Message non défini"}</p>
+            <p className="mt-2" style={{ color: MUTED }}>Aucun envoi immédiat. Le serveur vérifie le destinataire, les permissions et la planification.</p>
+          </div>
+          <label className="flex items-start gap-2 text-xs">
+            <input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5" />
+            <span>Je confirme ce destinataire, ce message, cet horaire et l'autorisation de l'envoyer.</span>
+          </label>
+          {error && <p role="alert" className="rounded-lg border border-red-500/30 px-3 py-2 text-xs text-red-200">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" disabled={busy} onClick={onClose} className="rounded-xl border px-4 py-2.5 text-sm disabled:opacity-50" style={{ borderColor: BORDER }}>Annuler</button>
+            <button type="submit" disabled={busy || !confirmed} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50" style={{ background: GREEN }}>{busy ? "Enregistrement..." : "Créer et activer"}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
