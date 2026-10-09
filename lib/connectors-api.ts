@@ -61,6 +61,7 @@ export interface WhatsAppState {
   pairingCode?: string | null;
   codeExpiresAt?: string | null;
   number?: string | null;
+  picture_url?: string | null;
   /** Message d'erreur éventuel renvoyé par la passerelle. */
   error?: string | null;
   /** Precision technique quand le service ne repond pas. Jamais affichee
@@ -93,6 +94,7 @@ export interface WaEtat {
   action_libelle?: string;
   numero?: string;
   nom_profil?: string;
+  photo_profil?: string;
   plateforme?: string;
   connecte_depuis_ms?: number;
   derniere_activite_ms?: number;
@@ -275,6 +277,7 @@ export interface WaContact {
   jid: string;
   number: string | null;
   name: string;
+  picture_url?: string | null;
 }
 
 export interface WaCarnet {
@@ -290,6 +293,19 @@ export interface WaCarnet {
 export function getWaCarnet(search?: string): Promise<WaCarnet> {
   const q = search ? `?search=${encodeURIComponent(search)}` : "";
   return http.get(`/whatsapp/contacts${q}`);
+}
+
+export async function getWaProfilePictures(
+  jids: string[],
+  force = false,
+): Promise<Record<string, string | null>> {
+  const unique = Array.from(new Set(jids.map((jid) => jid.trim()).filter(Boolean))).slice(0, 120);
+  if (!unique.length) return {};
+  const response = await http.post<{ pictures: Record<string, string | null>; count: number }>(
+    "/whatsapp/profile-pictures",
+    { jids: unique, force },
+  );
+  return response.pictures || {};
 }
 
 export interface WaSynchroCarnet {

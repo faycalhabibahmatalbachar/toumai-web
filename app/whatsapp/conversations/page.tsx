@@ -54,6 +54,7 @@ import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageI
 import { WhatsAppMediaEditResearchModal } from "@/components/whatsapp/WhatsAppMediaEditResearchModal";
 import { WhatsAppPollModal } from "@/components/whatsapp/WhatsAppPollModal";
 import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
+import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
@@ -1149,7 +1150,12 @@ export default function WhatsAppConversationsPage() {
                     <ArrowLeft size={18} />
                   </button>
 
-                  <Avatar name={displayConversationName(selected)} kind={selected.kind} size="lg" />
+                  <Avatar
+                    name={displayConversationName(selected)}
+                    kind={selected.kind}
+                    pictureUrl={selected.picture_url}
+                    size="lg"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
                       <h2 className="truncate text-[15px] font-semibold tracking-[-0.01em]">
@@ -1423,6 +1429,7 @@ export default function WhatsAppConversationsPage() {
                       <Avatar
                         name={contactInfo?.name || displayConversationName(selected)}
                         kind="contact"
+                        pictureUrl={contactInfo?.picture_url || selected.picture_url}
                         size="lg"
                       />
                       <div className="min-w-0 flex-1">
@@ -1985,7 +1992,7 @@ function ConversationListItem({
       }}
     >
       {active && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full" style={{ background: GREEN }} />}
-      <Avatar name={name} kind={conversation.kind} />
+      <Avatar name={name} kind={conversation.kind} pictureUrl={conversation.picture_url} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="min-w-0 flex-1 truncate text-[12px] font-semibold">{name}</p>
@@ -2081,24 +2088,22 @@ function FilterButton({
 function Avatar({
   name,
   kind,
+  pictureUrl,
   size = "md",
 }: {
   name: string;
   kind: "contact" | "group";
+  pictureUrl?: string | null;
   size?: "md" | "lg";
 }) {
-  const dimensions = size === "lg" ? "h-10 w-10" : "h-9 w-9";
   return (
-    <div
-      className={`${dimensions} flex shrink-0 items-center justify-center rounded-full bg-[#0f4735]`}
-      style={{ color: GREEN }}
-    >
-      {kind === "group" ? (
-        <Users size={size === "lg" ? 17 : 15} />
-      ) : (
-        <span className="text-[10px] font-bold">{initials(name)}</span>
-      )}
-    </div>
+    <WhatsAppProfileAvatar
+      name={name}
+      kind={kind}
+      pictureUrl={pictureUrl}
+      size={size === "lg" ? 40 : 36}
+      eager={size === "lg"}
+    />
   );
 }
 

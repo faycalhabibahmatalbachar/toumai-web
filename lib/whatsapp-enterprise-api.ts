@@ -109,6 +109,7 @@ export interface WhatsAppOverview {
     label: string;
     contacts?: number;
     profile_name?: string;
+    picture_url?: string | null;
   };
 }
 
@@ -214,6 +215,7 @@ export interface WaLiveMessage {
   from_me: boolean;
   sender: string;
   sender_jid?: string;
+  sender_picture_url?: string | null;
   type: string;
   timestamp_ms: number;
   status?: string | null;
@@ -231,6 +233,7 @@ export interface WaLiveConversation {
   name: string;
   number: string | null;
   kind: "contact" | "group";
+  picture_url?: string | null;
   unread_count: number;
   pending: boolean;
   last_message: WaLiveMessage;

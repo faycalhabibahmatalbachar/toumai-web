@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { getWaCarnet, syncWaCarnet, type WaCarnet } from "@/lib/connectors-api";
+import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
+import { getWaCarnet, getWaProfilePictures, syncWaCarnet, type WaCarnet } from "@/lib/connectors-api";
 import { WhatsAppIcon } from "./BrandIcons";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 
@@ -27,9 +28,18 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
   const [resultat, setResultat] = useState<string | null>(null);
 
   useEffect(() => {
-    getWaCarnet()
-      .then(setCarnet)
-      .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"));
+    let cancelled = false;
+    void getWaCarnet()
+      .then(enrichCarnetPictures)
+      .then((next) => {
+        if (!cancelled) setCarnet(next);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Chargement impossible");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // LE FILTRE EST LOCAL, ET C'EST DÉLIBÉRÉ. Le serveur sait filtrer, mais un
@@ -63,7 +73,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
               res.synchronises > 1 ? "s" : ""
             }${res.nouveaux ? `, dont ${res.nouveaux} nouveau${res.nouveaux > 1 ? "x" : ""}` : ""}.`,
       );
-      setCarnet(await getWaCarnet());
+      setCarnet(await enrichCarnetPictures(await getWaCarnet()));
     } catch (err) {
       setError(err instanceof Error ? err.message : "La synchronisation n'a pas abouti");
     } finally {
@@ -183,13 +193,13 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
           <ul className="mt-4 divide-y divide-[var(--cx-border-subtle)]">
             {visibles.slice(0, 300).map((c) => (
               <li key={c.jid} className="flex items-center gap-3 py-2.5">
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-[var(--cx-text-secondary)]"
-                  style={{ background: "var(--cx-hover)" }}
-                  aria-hidden="true"
-                >
-                  {(c.name || "#").charAt(0).toUpperCase()}
-                </span>
+                <WhatsAppProfileAvatar
+                  name={c.name}
+                  kind="contact"
+                  pictureUrl={c.picture_url}
+                  size={36}
+                  fallbackBackground="var(--cx-hover)"
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] text-[var(--cx-text-primary)]">
                     {c.name}
@@ -228,6 +238,29 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+async function enrichCarnetPictures(carnet: WaCarnet): Promise<WaCarnet> {
+  const contacts = carnet.contacts.slice(0, 300);
+  const pictures: Record<string, string | null> = {};
+  for (let offset = 0; offset < contacts.length; offset += 100) {
+    const chunk = contacts.slice(offset, offset + 100);
+    try {
+      Object.assign(
+        pictures,
+        await getWaProfilePictures(chunk.map((contact) => contact.jid)),
+      );
+    } catch {
+      // Le carnet reste lisible même si les photos sont privées ou indisponibles.
+    }
+  }
+  return {
+    ...carnet,
+    contacts: carnet.contacts.map((contact) => ({
+      ...contact,
+      picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
+    })),
+  };
 }
 
 function quand(iso: string): string {

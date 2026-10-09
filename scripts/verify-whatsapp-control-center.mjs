@@ -34,6 +34,7 @@ const conversations = [
     name: "Mahamat Ali",
     number: "23566111111",
     kind: "contact",
+    picture_url: "https://pps.whatsapp.test/mahamat.png",
     unread_count: 2,
     pending: true,
     last_message: {
@@ -52,6 +53,7 @@ const conversations = [
     name: "Amina Saleh",
     number: "23566222222",
     kind: "contact",
+    picture_url: "https://pps.whatsapp.test/amina.png",
     unread_count: 0,
     pending: false,
     last_message: {
@@ -158,6 +160,7 @@ const threadMessages = [
     from_me: false,
     sender: "Mahamat Ali",
     sender_jid: "23566111111@s.whatsapp.net",
+    sender_picture_url: "https://pps.whatsapp.test/mahamat.png",
     type: "voice",
     mime_type: "audio/ogg; codecs=opus",
     file_name: "vocal-1791544458618.ogg",
@@ -174,6 +177,7 @@ const threadMessages = [
     from_me: true,
     sender: "",
     sender_jid: "23568663737@s.whatsapp.net",
+    sender_picture_url: "https://pps.whatsapp.test/faycal.png",
     type: "voice",
     mime_type: "audio/ogg; codecs=opus",
     file_name: "vocal-1791544458618.ogg",
@@ -324,6 +328,7 @@ const overview = {
     label: "Connecté",
     contacts: 2,
     profile_name: "Fayçal A.",
+    picture_url: "https://pps.whatsapp.test/faycal.png",
   },
 };
 
@@ -393,6 +398,17 @@ const state = {
 
 let retiredFallbackMode = false;
 
+await context.route("https://pps.whatsapp.test/**", async (route) => {
+  await route.fulfill({
+    status: 200,
+    contentType: "image/png",
+    body: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+});
+
 await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
   const request = route.request();
   const url = new URL(request.url());
@@ -454,6 +470,7 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       action: "attendre",
       numero: "+235 68 66 37 37",
       nom_profil: "Fayçal A.",
+      photo_profil: "https://pps.whatsapp.test/faycal.png",
       plateforme: "Baileys",
       connecte_depuis_ms: now - 3_600_000,
       derniere_activite_ms: now,
@@ -479,6 +496,16 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       derniere_synchronisation: new Date(now).toISOString(),
       total_en_base: 2,
     };
+  } else if (path === "/whatsapp/profile-pictures" && method === "POST") {
+    const body = request.postDataJSON();
+    const pictures = {};
+    for (const jid of body.jids || []) {
+      if (jid === "23566111111@s.whatsapp.net") pictures[jid] = "https://pps.whatsapp.test/mahamat.png";
+      else if (jid === "23566222222@s.whatsapp.net") pictures[jid] = "https://pps.whatsapp.test/amina.png";
+      else if (jid === "23568663737@s.whatsapp.net") pictures[jid] = "https://pps.whatsapp.test/faycal.png";
+      else pictures[jid] = null;
+    }
+    data = { pictures, count: Object.keys(pictures).length };
   } else if (path === "/whatsapp/conversations") {
     const q = (url.searchParams.get("search") || "").toLowerCase();
     const pending = url.searchParams.get("pending") === "true";
@@ -511,7 +538,7 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       name: "Mahamat Ali",
       phone: "+23566111111",
       about: "Disponible pour un rappel",
-      picture_url: null,
+      picture_url: "https://pps.whatsapp.test/mahamat.png",
       on_whatsapp: true,
       is_business: false,
     };
@@ -691,6 +718,7 @@ async function certifyOverviewComposer() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "WhatsApp Overview" }).waitFor();
+  await page.getByAltText("Photo de profil WhatsApp de Fayçal A.").waitFor();
   await page.getByText("Données en cours de collecte", { exact: true }).waitFor();
   for (let attempt = 0; attempt < 20 && state.realtimeAuth.length === 0; attempt++) {
     await page.waitForTimeout(50);
@@ -707,6 +735,7 @@ async function certifyOverviewComposer() {
   await recipient.fill("Mahamat");
   const composeDialog = page.getByRole("dialog");
   await composeDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
+  await composeDialog.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
   await composeDialog.getByText("Mahamat Ali", { exact: true }).click();
   await page.getByPlaceholder("Écrivez votre message…").fill("Bonjour depuis le centre de pilotage.");
   assert(
@@ -729,6 +758,18 @@ async function certifyConversations() {
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
+  const activeConversationRowForPhoto = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
+  await activeConversationRowForPhoto.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
+  const privateConversationRow = page.locator('[data-conversation-id="255855597453404@lid"]');
+  await privateConversationRow.waitFor();
+  assert(
+    (await privateConversationRow.locator('[data-profile-avatar="fallback"]').count()) >= 1,
+    "Un profil privé/sans photo doit garder un avatar fallback propre.",
+  );
+  assert(
+    (await page.getByAltText("Photo de profil WhatsApp de Mahamat Ali").count()) >= 2,
+    "La photo réelle de Mahamat doit apparaître dans la liste et le header.",
+  );
   await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
   const mediaMessage = page.locator('[data-message-id="t-media"]');
@@ -740,6 +781,7 @@ async function certifyConversations() {
   const voiceMessage = page.locator('[data-message-id="t-voice"]');
   const voicePlayer = voiceMessage.getByLabel("Message vocal WhatsApp");
   await voicePlayer.waitFor();
+  await voiceMessage.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).waitFor();
   await voiceMessage.getByRole("slider", { name: "Position dans le message vocal" }).waitFor();
   assert(
@@ -814,6 +856,7 @@ async function certifyConversations() {
 
   const outboundVoice = page.locator('[data-message-id="t-voice-out"]');
   await outboundVoice.getByLabel("Message vocal WhatsApp").waitFor();
+  await outboundVoice.getByAltText("Photo de profil WhatsApp").waitFor();
   await outboundVoice.getByLabel("Écouté").waitFor();
   await outboundVoice.getByRole("button", { name: "Infos", exact: true }).click();
   const voiceInfo = page.getByRole("dialog", { name: "Infos du message" });
@@ -881,6 +924,7 @@ async function certifyConversations() {
 
   await page.getByRole("button", { name: "Informations du contact" }).click();
   await page.getByText("Disponible pour un rappel", { exact: true }).waitFor();
+  await page.getByAltText("Photo de profil WhatsApp de Mahamat Ali").last().waitFor();
   await page.getByText("+23566111111", { exact: true }).last().waitFor();
   await page.getByRole("button", { name: "Fermer les informations" }).click();
 
@@ -910,6 +954,7 @@ async function certifyConversations() {
   const contactDialog = page.getByRole("dialog", { name: "Partager un contact" });
   const aminaContact = contactDialog.getByRole("button", { name: /Amina Saleh/ });
   await aminaContact.waitFor();
+  await aminaContact.getByAltText("Photo de profil WhatsApp de Amina Saleh").waitFor();
   await aminaContact.click();
   await contactDialog.getByRole("button", { name: "Partager", exact: true }).click();
   await page.getByRole("heading", { name: "Partager un contact" }).waitFor({ state: "hidden" });

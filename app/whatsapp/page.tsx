@@ -32,6 +32,7 @@ import {
 
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { WhatsAppComposeModal } from "@/components/whatsapp/WhatsAppComposeModal";
+import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
@@ -181,7 +182,7 @@ export default function WhatsAppOverviewPage() {
   const overviewDataLoading = overviewLoading;
   const chartLoading = overviewLoading;
   const profileName = overview?.connection.profile_name?.trim() || etat?.nom_profil?.trim() || "Mon espace";
-  const initials = makeInitials(profileName);
+  const profilePictureUrl = overview?.connection.picture_url || etat?.photo_profil || null;
 
   async function handleContactSync() {
     if (contactSyncing) return;
@@ -297,7 +298,14 @@ export default function WhatsAppOverviewPage() {
             </Link>
 
             <div className="hidden items-center gap-3 sm:flex">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1687f8] text-sm font-bold text-white">{initials}</div>
+              <WhatsAppProfileAvatar
+                name={profileName}
+                kind="contact"
+                pictureUrl={profilePictureUrl}
+                size={44}
+                eager
+                fallbackBackground="#1687f8"
+              />
               <div className="hidden min-w-0 xl:block">
                 <p className="max-w-[130px] truncate text-[13px] font-semibold">{profileName}</p>
                 <p className="mt-0.5 text-[11px]" style={{ color: MUTED }}>Mon espace</p>
@@ -429,7 +437,7 @@ export default function WhatsAppOverviewPage() {
                   </div>
                   {conversationsLoading && [0, 1, 2, 3].map((index) => <div key={index} className="mt-1 h-[54px] animate-pulse rounded-lg bg-white/[0.025]" />)}
                   {!conversationsLoading && conversations.length === 0 && <div className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune conversation récente.</div>}
-                  {!conversationsLoading && conversations.map((conversation, index) => <ConversationRow key={conversation.id || `${conversation.last_message.timestamp_ms}-${index}`} conversation={conversation} index={index} />)}
+                  {!conversationsLoading && conversations.map((conversation, index) => <ConversationRow key={conversation.id || `${conversation.last_message.timestamp_ms}-${index}`} conversation={conversation} />)}
                 </div>
               </div>
             </Card>
@@ -653,20 +661,30 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   return <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: color }} />{label}</span>;
 }
 
-function ConversationRow({ conversation, index }: { conversation: WaLiveConversation; index: number }) {
+function ConversationRow({ conversation }: { conversation: WaLiveConversation }) {
   const name = displayWhatsAppIdentity(conversation);
   const secondary = displayWhatsAppSecondary(conversation);
   const preview = conversation.last_message.text || "Message WhatsApp";
   const status = conversation.pending ? "En attente" : conversation.last_message.from_me ? "Répondu" : "Nouveau";
   const statusColor = conversation.pending ? ORANGE : conversation.last_message.from_me ? BLUE : GREEN;
-  const avatarColors = ["#16b868", "#ff8d1a", "#2f8cff", "#8b4fd4"];
   return (
     <Link
       href={`/whatsapp/conversations?chat=${encodeURIComponent(conversation.id)}`}
       className="grid min-h-[47px] grid-cols-[1.2fr_1.45fr_.7fr_.55fr_28px] items-center gap-3 border-b px-2 py-1 transition hover:bg-white/[0.025] last:border-0"
       style={{ borderColor: BORDER }}
     >
-      <div className="flex min-w-0 items-center gap-2.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColors[index % avatarColors.length] }}>{makeInitials(name)}</div><div className="min-w-0"><p className="truncate text-[12px] font-semibold">{name}</p><p className="mt-0.5 truncate text-[10px] tabular-nums" style={{ color: MUTED }}>{secondary}</p></div></div>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <WhatsAppProfileAvatar
+          name={name}
+          kind={conversation.kind}
+          pictureUrl={conversation.picture_url}
+          size={36}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-semibold">{name}</p>
+          <p className="mt-0.5 truncate text-[10px] tabular-nums" style={{ color: MUTED }}>{secondary}</p>
+        </div>
+      </div>
       <p className="truncate text-[11px]" style={{ color: "#b7c2cb" }}>{preview}</p>
       <div><span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: `${statusColor}18`, color: statusColor }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor }} />{status}</span></div>
       <time className="text-[10px]" style={{ color: MUTED }} dateTime={conversation.last_message.timestamp_ms ? new Date(conversation.last_message.timestamp_ms).toISOString() : undefined}>{formatRelativeTimestamp(conversation.last_message.timestamp_ms)}</time>
@@ -789,13 +807,6 @@ function formatRelativeDate(value: string) {
   yesterday.setDate(now.getDate() - 1);
   if (date.toDateString() === yesterday.toDateString()) return "Hier";
   return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(date);
-}
-
-function makeInitials(value: string) {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "TA";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function isAutomationEnabled(task: WhatsAppAutomation) {
