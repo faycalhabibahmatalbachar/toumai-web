@@ -4,7 +4,9 @@ import { Loader2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
-import { getWaCarnet, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
+import { getWaCarnet, getWaProfilePictures, type WaCarnet, type WaContact } from "@/lib/connectors-api";
+import { cacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import { errorMessage } from "@/lib/errors";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { sendWaContactCard, type WaLiveConversation } from "@/lib/whatsapp-enterprise-api";
@@ -39,7 +41,14 @@ export function WhatsAppContactShareModal({
     if (!open) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
-      setLoading(true);
+      const cacheKey = WA_CACHE.carnet(query.trim());
+      const cached = cacheSeed<WaCarnet>(cacheKey);
+      if (cached && !cancelled) {
+        setContacts(cached.contacts.slice(0, 80));
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       try {
         const shortlist = (await getWaCarnet(query.trim() || undefined)).contacts.slice(0, 80);

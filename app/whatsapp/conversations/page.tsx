@@ -61,6 +61,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getWaProfilePictures } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
 import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   applyWaConversationAction,
   editWaMessage,
@@ -77,6 +78,7 @@ import {
   uploadWaAttachment,
   type WaContactInfo,
   type WaConversationMessages,
+  type WaConversationSearchResult,
   type WaLiveConversation,
   type WaLiveConversations,
   type WaLiveMessage,
@@ -340,14 +342,17 @@ export default function WhatsAppConversationsPage() {
 
     try {
       const data = await withUiDeadline(
-        getWaLiveConversations({
-          search: search.trim() || undefined,
-          pending: selectedFilter === "pending",
-          unread: selectedFilter === "unread",
-          kind: kindFilter === "all" ? undefined : kindFilter,
-          offset,
-          limit: 80,
-        }),
+        getWaLiveConversations(
+          {
+            search: search.trim() || undefined,
+            pending: selectedFilter === "pending",
+            unread: selectedFilter === "unread",
+            kind: kindFilter === "all" ? undefined : kindFilter,
+            offset,
+            limit: 80,
+          },
+          { revalidate: true },
+        ),
         12_000,
         "La liste WhatsApp met trop de temps à répondre. Réessayez.",
       );
@@ -440,7 +445,7 @@ export default function WhatsAppConversationsPage() {
 
     try {
       const data = await withUiDeadline(
-        getWaConversationMessages(conversation.id, 120),
+        getWaConversationMessages(conversation.id, 120, 0, { revalidate: true }),
         12_000,
         "Cette conversation met trop de temps à répondre. Réessayez.",
       );
@@ -487,13 +492,21 @@ export default function WhatsAppConversationsPage() {
       setThreadSearchError(null);
       return;
     }
-    setThreadSearchLoading(true);
+    const searchKey = WA_CACHE.conversationSearch(selected.id, threadSearchQuery.trim(), 60);
+    const cachedSearch = cacheSeed<WaConversationSearchResult>(searchKey);
+    if (cachedSearch) {
+      setThreadSearchResults(cachedSearch.messages);
+      setThreadSearchLoading(false);
+    } else {
+      setThreadSearchLoading(true);
+    }
     setThreadSearchError(null);
     try {
       const data = await searchWaConversation(
         selected.id,
         threadSearchQuery.trim(),
         60,
+        { revalidate: true },
       );
       setThreadSearchResults(data.messages);
     } catch (error) {
@@ -507,10 +520,16 @@ export default function WhatsAppConversationsPage() {
   const openContactInfo = useCallback(async () => {
     if (!selected || selected.kind !== "contact") return;
     setContactInfoOpen(true);
-    setContactInfoLoading(true);
+    const cachedInfo = cacheSeed<WaContactInfo>(WA_CACHE.contactInfo(selected.id));
+    if (cachedInfo) {
+      setContactInfo(cachedInfo);
+      setContactInfoLoading(false);
+    } else {
+      setContactInfoLoading(true);
+    }
     setContactInfoError(null);
     try {
-      const data = await getWaContactInfo(selected.id);
+      const data = await getWaContactInfo(selected.id, { revalidate: true });
       setContactInfo(data);
     } catch (error) {
       setContactInfo(null);

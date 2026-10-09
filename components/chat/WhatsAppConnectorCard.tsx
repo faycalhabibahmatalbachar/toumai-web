@@ -18,6 +18,8 @@ import {
   Wifi,
 } from "lucide-react";
 import type { WaEtat, WhatsAppState } from "@/lib/connectors-api";
+import { useCacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import type { StatusKey } from "@/lib/widgets/core";
 import {
   ActionBar,
@@ -128,6 +130,10 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
   const { whatsapp: wa } = useWidgetRuntime();
   const [etat, setEtat] = useState<WaEtat | null>(null);
   const [raw, setRaw] = useState<WhatsAppState | null>(null);
+
+  useCacheSeed<WaEtat>(WA_CACHE.etat, setEtat);
+  useCacheSeed<WhatsAppState>(WA_CACHE.status, setRaw);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);

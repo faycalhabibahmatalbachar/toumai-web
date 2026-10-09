@@ -34,6 +34,8 @@ import {
   type WaSettings,
 } from "@/lib/connectors-api";
 import { WhatsAppIcon } from "./BrandIcons";
+import { useCacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE, writeWhatsAppCache } from "@/lib/whatsapp-cache";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 import { Segmented } from "./Rows";
 
@@ -108,6 +110,9 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(0);
 
+  useCacheSeed<WaSettings>(WA_CACHE.settings, setSettings);
+  useCacheSeed<WaCapacites>(WA_CACHE.capacites, setCapacites);
+
   useEffect(() => {
     getWaSettings()
       .then(setSettings)
@@ -142,7 +147,9 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
     setSettings({ ...settings, ...p });
     setError(null);
     try {
-      await updateWaSettings(p);
+      const saved = await updateWaSettings(p);
+      setSettings(saved);
+      writeWhatsAppCache(WA_CACHE.settings, saved);
       setSavedAt(Date.now());
     } catch (err) {
       setSettings(prev);

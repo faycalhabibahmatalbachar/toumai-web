@@ -7,27 +7,41 @@ on:
     paths:
       - "app/whatsapp/**"
       - "components/settings/WhatsAppPermissionsPanel.tsx"
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - "components/chat/WhatsAppProtectionPanel.tsx"
+      - "components/settings/WhatsAppCarnetPanel.tsx"
+      - "components/settings/ConnectorsTab.tsx"
+      - "components/whatsapp/**"
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
       - "lib/whatsapp-realtime.ts"
       - "lib/whatsapp-enterprise-api.ts"
+      - "lib/whatsapp-cache.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
       - "scripts/verify-whatsapp-authoritative-client.mjs"
+      - "scripts/verify-whatsapp-cache-coverage.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
   pull_request:
     paths:
       - "app/whatsapp/**"
       - "components/settings/WhatsAppPermissionsPanel.tsx"
+      - "components/chat/WhatsAppConnectorCard.tsx"
+      - "components/chat/WhatsAppProtectionPanel.tsx"
+      - "components/settings/WhatsAppCarnetPanel.tsx"
+      - "components/settings/ConnectorsTab.tsx"
+      - "components/whatsapp/**"
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
       - "lib/whatsapp-realtime.ts"
       - "lib/whatsapp-enterprise-api.ts"
+      - "lib/whatsapp-cache.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
       - "scripts/verify-whatsapp-authoritative-client.mjs"
+      - "scripts/verify-whatsapp-cache-coverage.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
 
 concurrency:
@@ -46,13 +60,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Lint WhatsApp surface
-        run: npx eslint app/whatsapp/page.tsx app/whatsapp/conversations/page.tsx hooks/useWhatsAppRealtime.ts lib/whatsapp-realtime.ts
+        run: >-
+          npx eslint
+          app/whatsapp/page.tsx
+          app/whatsapp/conversations/page.tsx
+          app/whatsapp/automations/page.tsx
+          app/whatsapp/ai/page.tsx
+          components/settings/WhatsAppPermissionsPanel.tsx
+          components/chat/WhatsAppConnectorCard.tsx
+          components/chat/WhatsAppProtectionPanel.tsx
+          components/settings/WhatsAppCarnetPanel.tsx
+          components/settings/ConnectorsTab.tsx
+          components/whatsapp/WhatsAppComposeModal.tsx
+          components/whatsapp/WhatsAppContactShareModal.tsx
+          hooks/useWhatsAppRealtime.ts
+          lib/whatsapp-realtime.ts
+          lib/whatsapp-cache.ts
       - name: Verify Overview polling fallback
         run: node scripts/verify-whatsapp-overview-polling.mjs
       - name: Verify Overview realtime SSE
         run: node scripts/verify-whatsapp-overview-realtime.mjs
       - name: Verify authoritative WhatsApp client
         run: node scripts/verify-whatsapp-authoritative-client.mjs
+      - name: Verify global WhatsApp cache coverage
+        run: node scripts/verify-whatsapp-cache-coverage.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Production build

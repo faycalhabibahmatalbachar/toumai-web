@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 
 const cache = readFileSync("lib/swr-cache.ts", "utf8");
+const waCache = readFileSync("lib/whatsapp-cache.ts", "utf8");
 const page = readFileSync("app/whatsapp/page.tsx", "utf8");
 
 function exiger(condition, message) {
@@ -38,11 +39,14 @@ exiger(
 );
 
 const surfaces = [
-  '"wa:etat"',
-  "`wa:overview:v1:${days}`",
-  '"wa:overview:live-conversations"',
-  '"wa:overview:automations"',
+  "WA_CACHE.etat",
+  "WA_CACHE.overview(days)",
+  "WA_CACHE.conversations({ limit: 4 })",
+  'WA_CACHE.automations("", 20)',
 ];
+
+exiger(waCache.includes('etat: "wa:etat"'), "clé centrale wa:etat absente");
+exiger(waCache.includes('overview: (days = 30'), "clé centrale Overview absente");
 
 for (const marker of surfaces) {
   const index = page.indexOf(marker);

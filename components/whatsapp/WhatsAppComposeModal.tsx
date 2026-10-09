@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 
 import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
-import { getWaCarnet, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
+import { getWaCarnet, getWaProfilePictures, type WaCarnet, type WaContact } from "@/lib/connectors-api";
+import { cacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import { errorMessage } from "@/lib/errors";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import {
@@ -60,33 +62,45 @@ export function WhatsAppComposeModal({
 
   useEffect(() => {
     if (!open) return;
-    setStage("compose");
-    setMessage(initialMessage || "");
-    setError(null);
-    setResult(null);
-    setAccepted(null);
-    setQuery(initialName || initialRecipient || "");
-    setSelected(
-      initialRecipient
-        ? {
-            jid: initialRecipient,
-            number: initialRecipient.includes("@") ? initialRecipient.split("@", 1)[0] : initialRecipient,
-            name: initialName || initialRecipient,
-          }
-        : null,
-    );
+    const timer = window.setTimeout(() => {
+      setStage("compose");
+      setMessage(initialMessage || "");
+      setError(null);
+      setResult(null);
+      setAccepted(null);
+      setQuery(initialName || initialRecipient || "");
+      setSelected(
+        initialRecipient
+          ? {
+              jid: initialRecipient,
+              number: initialRecipient.includes("@") ? initialRecipient.split("@", 1)[0] : initialRecipient,
+              name: initialName || initialRecipient,
+            }
+          : null,
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [open, initialRecipient, initialName, initialMessage]);
 
   useEffect(() => {
     if (!open || selected) return;
     const value = query.trim();
     if (!value) {
-      setContacts([]);
-      return;
+      const clearTimer = window.setTimeout(() => {
+        setContacts([]);
+        setLoadingContacts(false);
+      }, 0);
+      return () => window.clearTimeout(clearTimer);
     }
     let cancelled = false;
     const timer = window.setTimeout(async () => {
-      setLoadingContacts(true);
+      const cached = cacheSeed<WaCarnet>(WA_CACHE.carnet(value));
+      if (cached && !cancelled) {
+        setContacts(cached.contacts.slice(0, 8));
+        setLoadingContacts(false);
+      } else {
+        setLoadingContacts(true);
+      }
       try {
         const shortlist = (await getWaCarnet(value)).contacts.slice(0, 8);
         if (!cancelled) setContacts(shortlist);
