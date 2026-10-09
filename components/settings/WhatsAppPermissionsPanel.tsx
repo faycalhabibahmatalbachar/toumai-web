@@ -35,6 +35,7 @@ import {
 } from "@/lib/connectors-api";
 import { WhatsAppIcon } from "./BrandIcons";
 import { useCacheSeed } from "@/lib/swr-cache";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { WA_CACHE, writeWhatsAppCache } from "@/lib/whatsapp-cache";
 import { cxScopeClass, cxScopeStyle, cxDisplayStyle } from "./cx-fonts";
 import { Segmented } from "./Rows";
@@ -116,7 +117,7 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     getWaSettings()
       .then(setSettings)
-      .catch((err) => setError(err instanceof Error ? err.message : "Chargement impossible"));
+      .catch((err) => setError(whatsappUiError(err, "settings")));
     // Les capacites sont un confort : si elles n'arrivent pas, le panneau reste
     // utilisable et se contente de ne rien griser. Une permission grisee a tort
     // serait pire qu'une permission qui echoue une fois.
@@ -138,7 +139,7 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
     if (capacites.capacites?.[p.capacite]) return null;
     const definitif = capacites.impossibles?.[p.capacite];
     if (definitif) return definitif;
-    return "La version du connecteur en service ne sait pas encore le faire.";
+    return "Cette fonction n’est pas disponible pour le moment.";
   }
 
   async function patch(p: Partial<WaSettings>) {
@@ -153,7 +154,7 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
       setSavedAt(Date.now());
     } catch (err) {
       setSettings(prev);
-      setError(err instanceof Error ? err.message : "Échec de l'enregistrement");
+      setError(whatsappUiError(err, "settings"));
     }
   }
 

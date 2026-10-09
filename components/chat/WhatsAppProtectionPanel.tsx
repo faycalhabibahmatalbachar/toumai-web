@@ -60,19 +60,19 @@ export function WhatsAppProtectionPanel({ protection, connected }: Props) {
   const prudence = protection.mode === "prudence" || protection.prudence?.active;
   const unavailable = !protection.available || protection.mode === "unknown";
   const sourceLabel = protection.shared === true
-    ? "Synchronisée entre serveurs"
+    ? "Protection active"
     : protection.shared === false
       ? "Protection locale"
-      : "État non vérifiable";
+      : "Vérification indisponible";
 
   const title = unavailable
-    ? "Protection non vérifiable"
+    ? "Protection à vérifier"
     : prudence
       ? "Mode prudence actif"
       : "Protection active";
 
   const description = unavailable
-    ? "L’état du régulateur n’a pas pu être lu. Les actions sensibles doivent rester bloquées côté serveur plutôt que partir sans contrôle."
+    ? "Les actions sensibles sont temporairement indisponibles. Réessayez plus tard."
     : prudence
       ? `Les écritures et modifications sont temporairement arrêtées${protection.prudence?.reste_s ? ` encore ${duration(protection.prudence.reste_s)}` : ""}. La lecture peut rester disponible.`
       : "Cadence, anti-doublon et preuve d’exécution sont appliqués avant et après chaque mutation WhatsApp.";

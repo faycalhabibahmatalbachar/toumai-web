@@ -41,6 +41,7 @@ import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
 import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import {
   enableWebNotifications,
   getWebNotifState,
@@ -1064,7 +1065,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
       apply(s);
       startPolling();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de la liaison");
+      setError(whatsappUiError(err, "settings"));
     } finally {
       setBusy(false);
     }
@@ -1079,7 +1080,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
       apply(s);
       startPolling();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de la liaison");
+      setError(whatsappUiError(err, "settings"));
     } finally {
       setBusy(false);
     }
@@ -1094,7 +1095,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
         prev ? { ...prev, pairingCode: res.pairingCode, codeExpiresAt: res.codeExpiresAt } : prev,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec du rafraîchissement");
+      setError(whatsappUiError(err, "settings"));
     } finally {
       setBusy(false);
     }
@@ -1110,7 +1111,7 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
       stopPolling();
       setConfirmOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de la déconnexion");
+      setError(whatsappUiError(err, "settings"));
     } finally {
       setBusy(false);
     }

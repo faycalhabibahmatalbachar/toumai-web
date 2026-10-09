@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CheckCheck, Info, Loader2, Pencil, X } from "lucide-react";
+import { Check, CheckCheck, Info, Pencil, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { WaLiveMessage, WaMessageStatus } from "@/lib/whatsapp-enterprise-api";
@@ -90,19 +90,13 @@ export function WhatsAppMessageInfoModal({
             </div>
           </div>
 
-          {loading && (
-            <div className="flex items-center justify-center gap-2 rounded-xl border py-8 text-sm" style={{ borderColor: BORDER, color: MUTED }}>
-              <Loader2 size={17} className="animate-spin" /> Chargement des accusés…
-            </div>
-          )}
-
           {!loading && error && (
             <p className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs leading-5 text-red-200">
               {error}
             </p>
           )}
 
-          {!loading && !error && status && (
+          {!error && status?.known && (
             <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: RAISED }}>
               {isVoice && (
                 <InfoRow
@@ -142,17 +136,13 @@ export function WhatsAppMessageInfoModal({
             </div>
           )}
 
-          {!loading && !error && !status && (
+          {!loading && !error && (!status || !status.known) && (
             <p className="rounded-xl border px-4 py-3 text-xs leading-5" style={{ borderColor: BORDER, color: MUTED }}>
-              Les informations de remise ne sont pas disponibles pour ce message.
+              {status && !status.known ? "Statut de livraison indisponible." : "Informations de livraison indisponibles."}
             </p>
           )}
 
-          {!loading && !error && status && !status.known && (
-            <p className="mt-3 text-[10px] leading-4" style={{ color: FAINT }}>
-              WhatsApp n’a pas fourni d’historique exploitable pour ce message, par exemple après un redémarrage de la passerelle.
-            </p>
-          )}
+
         </div>
       </section>
     </div>

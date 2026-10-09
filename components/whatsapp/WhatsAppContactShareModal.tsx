@@ -7,7 +7,7 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { getWaCarnet, getWaProfilePictures, type WaCarnet, type WaContact } from "@/lib/connectors-api";
 import { cacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
-import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { sendWaContactCard, type WaLiveConversation } from "@/lib/whatsapp-enterprise-api";
 
@@ -69,7 +69,7 @@ export function WhatsAppContactShareModal({
       } catch (exc) {
         if (!cancelled) {
           setContacts([]);
-          setError(errorMessage(exc, "history"));
+          setError(whatsappUiError(exc, "history"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -118,7 +118,7 @@ export function WhatsAppContactShareModal({
       onSent();
       onClose();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setBusy(false);
     }
@@ -171,17 +171,15 @@ export function WhatsAppContactShareModal({
         </div>
 
         <div className="min-h-[260px] flex-1 overflow-y-auto p-2">
-          {loading && (
-            <div className="flex h-40 items-center justify-center gap-2 text-xs" style={{ color: MUTED }}>
-              <Loader2 size={17} className="animate-spin" /> Chargement du carnet…
-            </div>
+          {loading && contacts.length === 0 && (
+            <div className="h-28" role="status" aria-label="Actualisation des contacts" />
           )}
           {!loading && contacts.length === 0 && (
             <div className="flex h-40 items-center justify-center text-center text-xs" style={{ color: FAINT }}>
               Aucun contact trouvé.
             </div>
           )}
-          {!loading && contacts.map((contact) => {
+          {contacts.map((contact) => {
             const active = selected?.jid === contact.jid;
             return (
               <button

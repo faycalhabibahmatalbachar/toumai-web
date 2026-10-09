@@ -1,9 +1,9 @@
 "use client";
 
-import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Maximize2, Music2, Play, RefreshCw, X } from "lucide-react";
+import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Maximize2, Music2, Play, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { WhatsAppVoiceNotePlayer } from "@/components/whatsapp/WhatsAppVoiceNotePlayer";
+import { WhatsAppVoiceNotePlayer, WhatsAppVoiceNotePlaceholder } from "@/components/whatsapp/WhatsAppVoiceNotePlayer";
 import { getWaMessageMediaBlob, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
 
 const BORDER = "#24323c";
@@ -99,15 +99,29 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
     );
   }
 
+  if (loading && mediaType === "voice") {
+    return <WhatsAppVoiceNotePlaceholder message={message} status="loading" />;
+  }
+
   if (loading) {
     return (
       <div data-testid="whatsapp-media-loading" className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
-        <Loader2 size={17} className="animate-spin" color={GREEN} />
+        <FileIcon type={mediaType} />
         <div>
           <p className="text-[11px] font-semibold">{visibleMediaName || typeLabel}</p>
-          <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Chargement de la pièce jointe…</p>
+          
         </div>
       </div>
+    );
+  }
+
+  if ((failed || !url) && mediaType === "voice") {
+    return (
+      <WhatsAppVoiceNotePlaceholder
+        message={message}
+        status="failed"
+        onRetry={!message.id.startsWith("local-") ? () => setRetryCount((value) => value + 1) : undefined}
+      />
     );
   }
 

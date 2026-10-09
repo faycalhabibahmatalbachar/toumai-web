@@ -14,7 +14,7 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { getWaCarnet, getWaProfilePictures, type WaCarnet, type WaContact } from "@/lib/connectors-api";
 import { cacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
-import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import {
   getWaMessageStatus,
@@ -187,7 +187,7 @@ export function WhatsAppComposeModal({
       setStage("result");
       onSent?.(response.chat_id);
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setSending(false);
     }
@@ -279,10 +279,10 @@ export function WhatsAppComposeModal({
                   <div className="mt-2 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: SURFACE_RAISED }}>
                     {loadingContacts && (
                       <div className="flex items-center gap-2 px-3 py-3 text-xs" style={{ color: MUTED }}>
-                        <Loader2 size={15} className="animate-spin" /> Recherche dans le carnet…
+                        <span className="sr-only">Recherche des contacts</span>
                       </div>
                     )}
-                    {!loadingContacts && contacts.map((contact) => (
+                    {contacts.map((contact) => (
                       <button
                         type="button"
                         key={contact.jid}

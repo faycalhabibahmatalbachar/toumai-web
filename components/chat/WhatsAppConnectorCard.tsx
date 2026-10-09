@@ -20,6 +20,7 @@ import {
 import type { WaEtat, WhatsAppState } from "@/lib/connectors-api";
 import { useCacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import type { StatusKey } from "@/lib/widgets/core";
 import {
   ActionBar,
@@ -172,7 +173,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       if (nextEtat) setEtat(nextEtat);
       setExpanded(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Échec de la liaison WhatsApp.");
+      setError(whatsappUiError(cause, "settings"));
     } finally {
       setBusy(false);
     }
@@ -188,7 +189,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       await refresh();
       setExpanded(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de générer le code de couplage.");
+      setError(whatsappUiError(cause, "settings"));
     } finally {
       setBusy(false);
     }
@@ -258,7 +259,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       setExpanded(true);
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de déconnecter WhatsApp.");
+      setError(whatsappUiError(cause, "settings"));
     } finally {
       setBusy(false);
     }
@@ -318,7 +319,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
     etat?.nom_profil ? { label: "Profil", value: etat.nom_profil, icon: UserRound } : null,
     connectedElapsed != null ? { label: "Connecté depuis", value: formatDuration(connectedElapsed), icon: Clock3 } : null,
     lastActivityLabel ? { label: "Dernière activité", value: lastActivityLabel, icon: Wifi } : null,
-    etat?.contacts != null ? { label: "Contacts synchronisés", value: `${etat.contacts}${etat.contacts === 0 ? " · pas le total" : ""}`, icon: ContactRound } : null,
+    etat?.contacts != null ? { label: "Contacts synchronisés", value: `${etat.contacts}${etat.contacts === 0 ? "" : ""}`, icon: ContactRound } : null,
   ].filter(Boolean) as MetaItem[] : [];
 
   return (
@@ -378,11 +379,11 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       {showCapabilities ? (
         <div className="mx-3.5 mb-3 rounded-xl border border-[var(--border)] p-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--text-primary)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />Capacités réelles</p>
-            {etat?.capacites_source && etat.capacites_source !== "inconnu" ? <span className="text-[11px] text-[var(--text-tertiary)]">{etat.capacites_source}</span> : null}
+            <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--text-primary)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />Fonctionnalités disponibles</p>
+            
           </div>
           {etat?.capacites_source === "inconnu" || !etat?.capacites
-            ? <p className="mt-2 text-[12px] leading-[18px] text-[var(--text-secondary)]">Le connecteur ne fournit pas actuellement un registre fiable. Aucune capacité n’est inventée.</p>
+            ? <p className="mt-2 text-[12px] leading-[18px] text-[var(--text-secondary)]">Certaines fonctionnalités ne peuvent pas être vérifiées pour le moment.</p>
             : capabilities.length
               ? <div className="mt-2 flex flex-wrap gap-1.5">{capabilities.map(([name]) => <span key={name} className="tmw-inset rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">{name}</span>)}</div>
               : <p className="mt-2 text-[12px] text-[var(--text-secondary)]">Aucune capacité active déclarée.</p>}

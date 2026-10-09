@@ -4,7 +4,7 @@ import { Check, Forward, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
-import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import {
   getWaMessageMediaBlob, sendWaManualMessage, sendWaMedia, uploadWaAttachment,
   type WaLiveMessage, type WaMediaType,
@@ -76,14 +76,14 @@ export function WhatsAppForwardMessageModal({
           caption: message.text?.trim() || undefined,
           confirmed: true,
         });
-        if (!result.accepted_by_gateway) throw new Error("La passerelle n’a pas accepté le partage.");
+        if (!result.accepted_by_gateway) throw new Error("Le transfert n’a pas abouti. Réessayez.");
       } else if (message.text?.trim()) {
         const result = await sendWaManualMessage({ to: target, message: message.text.trim() });
-        if (!result.accepted_by_gateway) throw new Error("La passerelle n’a pas accepté le partage.");
+        if (!result.accepted_by_gateway) throw new Error("Le transfert n’a pas abouti. Réessayez.");
       } else return;
       setAccepted(true);
     } catch (err) {
-      setError(errorMessage(err, "generic"));
+      setError(whatsappUiError(err, "generic"));
     } finally {
       setBusy(false);
     }
@@ -100,13 +100,13 @@ export function WhatsAppForwardMessageModal({
         </div>
         {accepted ? (
           <div role="status" className="space-y-3">
-            <p className="flex items-center gap-2 text-sm"><Check size={17} color="#08c875" /> Partage accepté par la passerelle.</p>
-            <p className="text-xs text-[#a8b9c2]">La livraison sur WhatsApp reste à confirmer.</p>
+            <p className="flex items-center gap-2 text-sm"><Check size={17} color="#08c875" /> Transfert demandé.</p>
+            <p className="text-xs text-[#a8b9c2]">En attente de livraison.</p>
             <button type="button" onClick={onClose} className="rounded-lg bg-[#08c875] px-5 py-2 text-sm text-[#052017]">Fermer</button>
           </div>
         ) : (
           <>
-            <p className="mb-3 text-[12px] text-[#a8b9c2]">Envoyez une nouvelle copie du {transportType(message.type) ? "média" : "texte"}. Cette action ne crée pas le marqueur officiel « Transféré » de WhatsApp.</p>
+            <p className="mb-3 text-[12px] text-[#a8b9c2]">Envoyez {transportType(message.type) ? "ce média" : "ce message"} à un autre contact. Il recevra une copie distincte.</p>
             <label htmlFor="wa-forward-recipient" className="text-[12px]">Contact ou numéro international</label>
             <input id="wa-forward-recipient" className="mt-1 h-11 w-full rounded-lg border border-[#31434d] bg-[#172632] px-3 text-sm outline-none focus:border-[#08c875]" value={query} onChange={(event) => { setQuery(event.target.value); setRecipient(event.target.value); }} placeholder="+235…" />
             {contacts.length > 0 && (

@@ -22,7 +22,8 @@ import {
 import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
-import { errorMessage } from "@/lib/errors";
+
+import { whatsappHistoryEntryDetail, whatsappUiCopy, whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { cacheSeed, useCached } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
@@ -73,7 +74,7 @@ export default function WhatsAppAutomationsPage() {
     { enabled: Boolean(session), ttlMs: 5_000, refreshIntervalMs: 30_000 },
   );
   const tasks = tasksData?.tasks ?? [];
-  const error = actionError || cacheError;
+  const error = whatsappUiCopy(actionError || cacheError, "");
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -108,7 +109,7 @@ export default function WhatsAppAutomationsPage() {
       else await cancelWhatsAppAutomation(task.id);
       await load();
     } catch (exc) {
-      setActionError(errorMessage(exc, "generic"));
+      setActionError(whatsappUiError(exc));
     } finally {
       setBusy((current) => ({ ...current, [task.id]: false }));
     }
@@ -342,7 +343,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
       });
       await onSaved();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setSaving(false);
     }
@@ -381,14 +382,14 @@ function HistoryModal({ task, entries, loading, onClose }: { task: WhatsAppAutom
   return (
     <Modal title={`Historique · ${task.title}`} onClose={onClose}>
       <div className="max-h-[62vh] overflow-y-auto p-5">
-        {loading && <div className="flex items-center justify-center py-10"><Loader2 className="animate-spin" size={20} /></div>}
-        {!loading && entries.length === 0 && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucun historique disponible.</p>}
-        {!loading && entries.map((entry, index) => (
+        {loading && entries.length === 0 && <div className="h-20" role="status" aria-label="Actualisation en cours" />}
+        {!loading && entries.length === 0 && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune activité enregistrée.</p>}
+        {entries.map((entry, index) => (
           <div key={`${entry.created_at}-${index}`} className="flex gap-3 border-b py-3 last:border-b-0" style={{ borderColor: BORDER }}>
             <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: entry.success ? GREEN : "#ff6b6b" }} />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold">{entry.action}</p>
-              <p className="mt-1 text-[11px]" style={{ color: MUTED }}>{entry.error || entry.source || "Action enregistrée"}</p>
+              <p className="mt-1 text-[11px]" style={{ color: MUTED }}>{whatsappHistoryEntryDetail(entry)}</p>
               <time className="mt-1 block text-[9px]" style={{ color: MUTED }}>{formatDate(entry.created_at)}</time>
             </div>
           </div>
