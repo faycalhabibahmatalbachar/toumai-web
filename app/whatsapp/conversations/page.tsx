@@ -858,7 +858,6 @@ export default function WhatsAppConversationsPage() {
   async function sendRecordedVoice(file: File) {
     if (!selected || attachmentUploading || sendingMessage) return;
     const replyTarget = replyingTo;
-    setAttachmentUploading(true);
     setAttachmentError(null);
     setSendError(null);
     try {
@@ -869,6 +868,8 @@ export default function WhatsAppConversationsPage() {
         to: selected.id,
         type: "voice",
         url: uploaded.url,
+        // Un PTT n'est pas présenté comme un fichier dans le fil. Le nom reste
+        // interne au transport/stocker, jamais une identité visuelle du vocal.
         filename: uploaded.file_name || file.name,
         mimetype: uploaded.content_type || file.type || undefined,
         reply_to_msg_id: replyTarget?.id || undefined,
@@ -884,8 +885,7 @@ export default function WhatsAppConversationsPage() {
       window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
       setAttachmentError(errorMessage(error, "generic"));
-    } finally {
-      setAttachmentUploading(false);
+      throw error;
     }
   }
 
@@ -2292,13 +2292,16 @@ function MessageBubble({
               onClick={onEdit}
             />
           )}
-          {message.from_me && isMediaMessageType(message.type) && !message.id.startsWith("local-") && (
-            <MessageActionButton
-              label="Corriger"
-              icon={<Pencil size={13} />}
-              onClick={onEdit}
-            />
-          )}
+          {message.from_me &&
+            isMediaMessageType(message.type) &&
+            !["voice", "voix", "audio"].includes(message.type) &&
+            !message.id.startsWith("local-") && (
+              <MessageActionButton
+                label="Corriger"
+                icon={<Pencil size={13} />}
+                onClick={onEdit}
+              />
+            )}
           {researchEnabled &&
             message.from_me &&
             !message.id.startsWith("local-") &&
