@@ -279,10 +279,10 @@ export function WhatsAppComposeModal({
                   <div className="mt-2 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: SURFACE_RAISED }}>
                     {loadingContacts && (
                       <div className="flex items-center gap-2 px-3 py-3 text-xs" style={{ color: MUTED }}>
-                        <Loader2 size={15} className="animate-spin" /> Recherche dans le carnet…
+                        <span className="sr-only">Recherche des contacts</span>
                       </div>
                     )}
-                    {!loadingContacts && contacts.map((contact) => (
+                    {contacts.map((contact) => (
                       <button
                         type="button"
                         key={contact.jid}
