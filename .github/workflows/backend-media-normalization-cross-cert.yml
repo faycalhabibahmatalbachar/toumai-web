@@ -1,0 +1,57 @@
+name: Backend media normalization cross-cert
+
+on:
+  push:
+    branches:
+      - audit/backend-media-normalization-cert-20261009
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout audit host
+        uses: actions/checkout@v4
+
+      - name: Checkout backend branch under test
+        uses: actions/checkout@v4
+        with:
+          repository: faycalhabibahmatalbachar/sayibiai_backend
+          ref: feat/whatsapp-media-normalization-20261009
+          path: backend
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system media tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg libmagic1
+
+      - name: Install targeted Python dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest httpx pillow python-magic boto3 pydantic pydantic-settings
+
+      - name: Compile changed backend modules
+        working-directory: backend
+        run: |
+          python -m compileall -q             services/whatsapp_media_normalizer.py             services/media_resolver.py             services/storage_service.py             services/tools/whatsapp_tool.py             routers/files.py
+
+      - name: Run targeted regression tests
+        working-directory: backend
+        run: |
+          pytest -q             tests/test_whatsapp_media_normalizer.py             tests/test_media_resolver.py             tests/test_storage_local.py             tests/test_files_upload_media_detection.py             tests/test_whatsapp_media_mimetype_v4.py
+
+      - name: Verify gateway guardrails
+        working-directory: backend
+        run: node wa-gateway/test-taille.mjs
