@@ -198,6 +198,7 @@ export default function WhatsAppConversationsPage() {
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
   const [contextTarget, setContextTarget] = useState<ContextTarget | null>(null);
   const [forwardTarget, setForwardTarget] = useState<WaLiveMessage | null>(null);
+  const [emojiMessageTarget, setEmojiMessageTarget] = useState<WaLiveMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WaLiveMessage | null>(null);
   const [deletingMessage, setDeletingMessage] = useState(false);
   const [deleteMessageError, setDeleteMessageError] = useState("");
@@ -1081,7 +1082,129 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
-  async function openMessageInfo(message: WaLiveMessage) {
+  function toggleMessageMark(message: WaLiveMessage, field: "pinned" | "starred") {
+    if (!activeMarkKey || message.id.startsWith("local-")) return;
+    const before = getStoredMarks(activeMarkKey);
+    const next: Record<string, Mark> = {
+      ...before,
+      [message.id]: { ...before[message.id], [field]: !before[message.id]?.[field] },
+    };
+    try {
+      window.localStorage.setItem(activeMarkKey, JSON.stringify(next));
+      setMarkSnapshot({ key: activeMarkKey, values: next });
+    } catch {
+      setSendError("Impossible d’enregistrer ce repère sur cet appareil.");
+    }
+  }
+
+  function hideMessageLocally(message: WaLiveMessage) {
+    if (!activeMarkKey) return;
+    const before = getStoredMarks(activeMarkKey);
+    const next = { ...before, [message.id]: { ...before[message.id], hidden: true } };
+    try {
+      window.localStorage.setItem(activeMarkKey, JSON.stringify(next));
+      setMarkSnapshot({ key: activeMarkKey, values: next });
+    } catch {
+      setDeleteMessageError("Impossible de masquer ce message sur cet appareil.");
+      return;
+    }
+    setDeleteTarget(null);
+  }
+
+  async function downloadMessage(message: WaLiveMessage) {
+    setSendError(null);
+    try {
+      const blob = await getWaMessageMediaBlob(message.id);
+      const fallback = (message.type === "voice" || message.type === "voix") ? "vocal.ogg" : "media";
+      const filename = (message.file_name || fallback).split(/[\\/]/).pop()?.replace(/[\x00-\x1f]/g, "") || fallback;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) {
+      setSendError(errorMessage(error, "generic"));
+    }
+  }
+
+  function downloadPendingVoice(voice: PendingWhatsAppVoice) {
+    const link = document.createElement("a");
+    link.href = voice.localUrl;
+    link.download = voice.file.name || "vocal.webm";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function confirmMessageDeletion() {
+    if (!deleteTarget || deletingMessage) return;
+    const target = deleteTarget;
+    if (!target.from_me) {
+      hideMessageLocally(target);
+      return;
+    }
+    if (target.id.startsWith("local-")) return;
+    setDeletingMessage(true);
+    setDeleteMessageError("");
+    try {
+      // Sensitive action: server truth only, never a stale message-status cache.
+      const current = await getWaMessageStatus(target.id, target.chat_id);
+      if (!current.known || current.failed) {
+        setDeleteMessageError("Le serveur ne confirme pas ce message. Suppression bloquée.");
+        return;
+      }
+      const deletion = await deleteWaOwnMessage({
+        chat_id: target.chat_id,
+        msg_id: target.id,
+        confirmed: true,
+      });
+      if (!deletion.delete_submitted || !deletion.accepted_by_gateway) {
+        setDeleteMessageError("La passerelle n’a pas accepté la suppression.");
+        return;
+      }
+      setDeleteTarget(null);
+      void loadConversations(query, filter);
+      if (selected?.id === target.chat_id) {
+        window.setTimeout(() => void loadThread(selected, { silent: true }), 500);
+      }
+    } catch (error) {
+      setDeleteMessageError(errorMessage(error, "generic"));
+    } finally {
+      setDeletingMessage(false);
+    }
+  }
+
+  function chooseContextAction(action: MessageContextAction) {
+    const target = contextTarget;
+    setContextTarget(null);
+    if (!target) return;
+    if (target.kind === "pending") {
+      const voice = pendingVoices.find((item) => item.id === target.id);
+      if (!voice) return;
+      if (action === "download") downloadPendingVoice(voice);
+      if (action === "retry" && voice.phase === "upload_failed") retryPendingVoice(voice.id);
+      if (action === "dismiss" && !["uploading", "sending"].includes(voice.phase)) {
+        setPendingVoices((current) => current.filter((item) => item.id !== voice.id));
+      }
+      return;
+    }
+    const message = target.message;
+    if (action === "info") void openMessageInfo(message);
+    if (action === "reply") startReply(message);
+    if (action === "react") setEmojiMessageTarget(message);
+    if (action === "download") void downloadMessage(message);
+    if (action === "forward" && canForwardWhatsAppMessage(message)) setForwardTarget(message);
+    if (action === "copy") void copyMessage(message);
+    if (action === "pin") toggleMessageMark(message, "pinned");
+    if (action === "star") toggleMessageMark(message, "starred");
+    if (action === "edit") startEdit(message);
+    if (action === "delete") { setDeleteMessageError(""); setDeleteTarget(message); }
+  }
+
+    async function openMessageInfo(message: WaLiveMessage) {
     if (!message.from_me || !message.id || message.id.startsWith("local-")) return;
     setMessageInfoTarget(message);
     setMessageInfo(null);
