@@ -32,3 +32,55 @@ export function safeWhatsAppVisibleText(
   if (isLikelyInternalReasoning(text)) return null;
   return text;
 }
+
+
+export function isTechnicalWhatsAppIdentity(value: string | null | undefined) {
+  const text = (value || "").trim();
+  if (!text) return false;
+  return /@(lid|s\.whatsapp\.net|g\.us)$/i.test(text) || /^\d{16,}$/.test(text);
+}
+
+export function whatsAppNumberFromIdentity(value: string | null | undefined) {
+  const text = (value || "").trim();
+  if (!text) return null;
+  const local = text.includes("@") ? text.split("@", 1)[0] : text;
+  const digits = local.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 ? digits : null;
+}
+
+export function displayWhatsAppIdentity(input: {
+  name?: string | null;
+  number?: string | null;
+  id?: string | null;
+  kind?: "contact" | "group" | string | null;
+}) {
+  const candidate = (input.name || "").trim();
+  const generic = /^(contact|contact whatsapp|whatsapp contact)$/i.test(candidate);
+  if (
+    candidate &&
+    !generic &&
+    !isTechnicalWhatsAppIdentity(candidate) &&
+    candidate !== input.id
+  ) {
+    return candidate;
+  }
+
+  const number =
+    whatsAppNumberFromIdentity(input.number) ||
+    whatsAppNumberFromIdentity(input.id);
+  if (number && input.kind !== "group") return `+${number}`;
+
+  return input.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
+}
+
+export function displayWhatsAppSecondary(input: {
+  number?: string | null;
+  id?: string | null;
+  kind?: "contact" | "group" | string | null;
+}) {
+  const number =
+    whatsAppNumberFromIdentity(input.number) ||
+    whatsAppNumberFromIdentity(input.id);
+  if (number && input.kind !== "group") return `+${number}`;
+  return input.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
+}
