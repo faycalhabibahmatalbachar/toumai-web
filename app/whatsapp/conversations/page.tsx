@@ -2185,6 +2185,7 @@ function MessageBubble({
       }).format(new Date(message.timestamp_ms))
     : "";
   const hasMedia = isMediaMessageType(message.type);
+  const isVoice = message.type === "voice" || message.type === "voix";
 
   return (
     <div
@@ -2194,19 +2195,45 @@ function MessageBubble({
     >
       <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
         <div
-          className="rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)]"
+          data-voice-bubble={isVoice ? "true" : undefined}
+          className={
+            isVoice
+              ? "relative rounded-[9px] px-[14px] py-[8px] shadow-[0_2px_6px_rgba(0,0,0,.12)]"
+              : "rounded-[14px] px-3.5 py-2.5 shadow-[0_6px_20px_rgba(0,0,0,.10)]"
+          }
           style={{
-            background: message.from_me
-              ? "linear-gradient(145deg,#0b6447,#0a533d)"
-              : "linear-gradient(145deg,#182631,#14212b)",
-            border: `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
+            background: isVoice
+              ? message.from_me
+                ? "#144d37"
+                : "#202c33"
+              : message.from_me
+                ? "linear-gradient(145deg,#0b6447,#0a533d)"
+                : "linear-gradient(145deg,#182631,#14212b)",
+            border: isVoice
+              ? "none"
+              : `1px solid ${message.from_me ? "rgba(8,200,117,.18)" : "rgba(255,255,255,.05)"}`,
           }}
         >
-          {!message.from_me && message.sender && !isTechnicalWhatsAppIdentity(message.sender) && (
-            <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
-              {message.sender}
-            </p>
+          {isVoice && (
+            <span
+              aria-hidden="true"
+              className={`absolute top-0 h-[13px] w-[9px] ${message.from_me ? "-right-[7px]" : "-left-[7px]"}`}
+              style={{
+                background: message.from_me ? "#144d37" : "#202c33",
+                clipPath: message.from_me
+                  ? "polygon(0 0, 100% 0, 0 100%)"
+                  : "polygon(0 0, 100% 0, 100% 100%)",
+              }}
+            />
           )}
+          {!message.from_me &&
+            message.chat_id.endsWith("@g.us") &&
+            message.sender &&
+            !isTechnicalWhatsAppIdentity(message.sender) && (
+              <p className="mb-1 text-[9px] font-semibold" style={{ color: GREEN }}>
+                {message.sender}
+              </p>
+            )}
 
           {message.quoted && (message.quoted.text || message.quoted.id) && (
             <div
@@ -2232,8 +2259,17 @@ function MessageBubble({
             </p>
           )}
 
-          <div className="mt-1 flex items-center justify-end gap-1.5">
-            <span className="text-[8px]" style={{ color: "#9eacb7" }}>
+          <div
+            className={
+              isVoice
+                ? "absolute bottom-[10px] right-[16px] z-10 flex items-center justify-end gap-1"
+                : "mt-1 flex items-center justify-end gap-1.5"
+            }
+          >
+            <span
+              className={isVoice ? "text-[11px] leading-none" : "text-[8px]"}
+              style={{ color: isVoice ? "#aebac1" : "#9eacb7" }}
+            >
               {when}
             </span>
             {message.from_me && <DeliveryMark status={message.status} type={message.type} />}
@@ -2358,17 +2394,18 @@ function DeliveryMark({
   if (status === "failed") {
     return <CircleAlert size={12} color="#ff7d7d" aria-label="Échec" />;
   }
+  const isVoice = type === "voice" || type === "voix";
+  const markSize = isVoice ? 15 : 12;
   if (status === "played") {
-    const isVoice = type === "voice" || type === "voix";
-    return <CheckCheck size={12} color="#53bdeb" aria-label={isVoice ? "Écouté" : "Lu"} />;
+    return <CheckCheck size={markSize} color="#53bdeb" aria-label={isVoice ? "Écouté" : "Lu"} />;
   }
   if (status === "read") {
-    return <CheckCheck size={12} color="#53bdeb" aria-label="Lu" />;
+    return <CheckCheck size={markSize} color="#53bdeb" aria-label="Lu" />;
   }
   if (status === "delivered") {
-    return <CheckCheck size={12} color="#afbdc7" aria-label="Livré" />;
+    return <CheckCheck size={markSize} color="#afbdc7" aria-label="Livré" />;
   }
-  return <Check size={12} color="#afbdc7" aria-label="Envoyé" />;
+  return <Check size={markSize} color="#afbdc7" aria-label="Envoyé" />;
 }
 
 function displayConversationName(conversation: WaLiveConversation) {

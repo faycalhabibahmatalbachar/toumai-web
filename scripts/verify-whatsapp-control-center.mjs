@@ -738,11 +738,14 @@ async function certifyConversations() {
   await page.getByRole("dialog", { name: "Aperçu de l’image" }).waitFor({ state: "hidden" });
 
   const voiceMessage = page.locator('[data-message-id="t-voice"]');
-  await voiceMessage.getByLabel("Message vocal WhatsApp").waitFor();
+  const voicePlayer = voiceMessage.getByLabel("Message vocal WhatsApp");
+  await voicePlayer.waitFor();
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).waitFor();
   await voiceMessage.getByRole("slider", { name: "Position dans le message vocal" }).waitFor();
-  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
-  await voiceSpeed.waitFor();
+  assert(
+    (await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" }).count()) === 0,
+    "La vitesse ne doit pas polluer le vocal au repos : WhatsApp la révèle pendant la lecture.",
+  );
   assert(
     (await voiceMessage.getByText("vocal-1791544458618.ogg", { exact: true }).count()) === 0,
     "Un message vocal ne doit jamais exposer son nom de fichier technique.",
@@ -755,10 +758,34 @@ async function certifyConversations() {
     (await voiceMessage.getByRole("button", { name: "Corriger", exact: true }).count()) === 0,
     "L'action Corriger ne doit pas être proposée sur un message vocal.",
   );
-  await voiceSpeed.click();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
-  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
+
+  const voicePlayerBox = await voicePlayer.boundingBox();
+  const voiceAvatarBox = await voiceMessage.locator('[data-testid="voice-avatar"]').boundingBox();
+  const voiceBubbleBox = await voiceMessage.locator('[data-voice-bubble="true"]').boundingBox();
+  assert(Boolean(voicePlayerBox && voiceAvatarBox && voiceBubbleBox), "Géométrie du vocal introuvable.");
+  assert(
+    voicePlayerBox.height >= 72 && voicePlayerBox.height <= 76,
+    `Le lecteur vocal doit rester compact (~74px), obtenu ${voicePlayerBox.height}px.`,
+  );
+  assert(
+    voiceAvatarBox.width >= 72 && voiceAvatarBox.width <= 76 &&
+      voiceAvatarBox.height >= 72 && voiceAvatarBox.height <= 76,
+    `Avatar vocal attendu ~74px, obtenu ${voiceAvatarBox.width}x${voiceAvatarBox.height}px.`,
+  );
+  const voiceTrackBox = await voiceMessage.locator('[data-testid="voice-progress-track"]').boundingBox();
+  assert(Boolean(voiceTrackBox), "Rail de progression vocal introuvable.");
+  assert(
+    voiceTrackBox.width >= 255 && voiceTrackBox.width <= 285,
+    `Rail vocal attendu ~270px, obtenu ${voiceTrackBox.width}px.`,
+  );
+  assert(
+    voiceBubbleBox.height >= 88 && voiceBubbleBox.height <= 92,
+    `Bulle vocale attendue ~90px comme WhatsApp, obtenue ${voiceBubbleBox.height}px.`,
+  );
+  assert(
+    voiceBubbleBox.width >= 455 && voiceBubbleBox.width <= 467,
+    `Largeur vocale attendue ~461px comme la référence, obtenue ${voiceBubbleBox.width}px.`,
+  );
 
   const playedBefore = state.voicePlayed.length;
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).click();
@@ -772,6 +799,18 @@ async function certifyConversations() {
       state.voicePlayed.at(-1).msg_id === "t-voice",
     "L'accusé played doit viser le vrai chat et le vrai msg_id du vocal.",
   );
+
+  // Le mock audio n'est pas toujours décodable par Chromium CI. Cet événement
+  // natif certifie uniquement l'état visuel qui révèle la vitesse en lecture.
+  await voiceMessage.locator("audio").evaluate((audio) => {
+    audio.dispatchEvent(new Event("play"));
+  });
+  const voiceSpeed = voiceMessage.getByRole("button", { name: "Vitesse de lecture 1×" });
+  await voiceSpeed.waitFor();
+  await voiceSpeed.click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).waitFor();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 1.5×" }).click();
+  await voiceMessage.getByRole("button", { name: "Vitesse de lecture 2×" }).waitFor();
 
   const outboundVoice = page.locator('[data-message-id="t-voice-out"]');
   await outboundVoice.getByLabel("Message vocal WhatsApp").waitFor();
