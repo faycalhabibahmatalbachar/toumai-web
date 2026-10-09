@@ -104,33 +104,27 @@ export function getWhatsAppMediaBlob(
   let timer: ReturnType<typeof setTimeout> | undefined;
   const request = async () => {
     try {
-      const response = await Promise.race([
-        authFetch(`/whatsapp/media/${encodeURIComponent(messageId)}`, {
+      // One absolute deadline covers authentication, gateway response AND
+      // streaming the binary body. Never allow two consecutive 18s waits.
+      const fetchBinary = async (): Promise<Blob> => {
+        const response = await authFetch(`/whatsapp/media/${encodeURIComponent(messageId)}`, {
           signal: current.controller!.signal,
           cache: "no-store",
-        }),
+        });
+        if (!response.ok) throw mediaError(response.status);
+        const type = (response.headers.get("content-type") || "").toLowerCase();
+        if (type.includes("text/html") || type.includes("application/json")) {
+          throw new WhatsAppMediaError("Le serveur n’a pas renvoyé un fichier média.", "invalid");
+        }
+        return response.blob();
+      };
+      const blob = await Promise.race([
+        fetchBinary(),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
             current.controller?.abort();
             reject(new WhatsAppMediaError("Le média met trop de temps à répondre. Réessayez.", "timeout"));
           }, REQUEST_TIMEOUT_MS);
-        }),
-      ]);
-      if (!response.ok) throw mediaError(response.status);
-      const type = (response.headers.get("content-type") || "").toLowerCase();
-      if (type.includes("text/html") || type.includes("application/json")) {
-        throw new WhatsAppMediaError("Le serveur n’a pas renvoyé un fichier média.", "invalid");
-      }
-      // Cap slow/unending binary streams with the same deadline.
-      const blob = await Promise.race([
-        response.blob(),
-        new Promise<never>((_, reject) => {
-          const deadline = setTimeout(() => {
-            current.controller?.abort();
-            reject(new WhatsAppMediaError("Le téléchargement du média a expiré.", "timeout"));
-          }, REQUEST_TIMEOUT_MS);
-          // response.blob() owns the timer; this watchdog is cleared on exit.
-          bodyTimers.add(deadline);
         }),
       ]);
       if (!blob.size || blob.type.includes("text/html") || blob.type.includes("application/json")) {
@@ -164,11 +158,8 @@ export function getWhatsAppMediaBlob(
       throw error;
     } finally {
       if (timer) clearTimeout(timer);
-      for (const t of bodyTimers) clearTimeout(t);
-      bodyTimers.clear();
     }
   };
-  const bodyTimers = new Set<ReturnType<typeof setTimeout>>();
   current.promise = request();
   return current.promise;
 }
