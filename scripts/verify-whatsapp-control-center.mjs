@@ -771,7 +771,7 @@ async function certifyConversations() {
     "La liste doit s'afficher avant la réponse des photos de profil.",
   );
   assert(
-    (await page.locator(".animate-pulse").count()) === 0,
+    (await page.getByTestId("conversation-list-skeleton").count()) === 0,
     "Les skeletons de conversations ne doivent pas attendre les photos.",
   );
 
