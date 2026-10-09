@@ -1433,6 +1433,36 @@ async function certifyVoiceInstantQueue() {
   await page.close();
 }
 
+async function certifyMediaFailover() {
+  const page = await context.newPage();
+  let calls = 0;
+  await page.route("**/api/v1/whatsapp/media/t-voice", async (route) => {
+    calls++;
+    if (calls === 1) {
+      await route.fulfill({ status: 404, contentType: "application/json", body: '{"success":false}' });
+    } else {
+      await route.fulfill({
+        status: 200, contentType: "audio/ogg",
+        body: Buffer.from([0x4f, 0x67, 0x67, 0x53, 0x00, 0x02, 0x00, 0x00]),
+      });
+    }
+  });
+  await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
+  const media = page.locator('[data-message-id="t-voice"]');
+  await media.getByTestId("whatsapp-media-failed").waitFor({ timeout: 7000 });
+  assert(calls === 1, "A 404 must produce a terminal error, not repeated gateway calls.");
+  await page.waitForTimeout(500);
+  assert(calls === 1, "Polling and refresh must not auto-retry a failed media file.");
+  assert((await media.getByTestId("whatsapp-media-loading").count()) === 0,
+    "A failed media must leave its spinner state.");
+  await media.getByRole("button", { name: /Réessayer le média/ }).click();
+  await media.getByTestId("whatsapp-voice-note").waitFor({ timeout: 7000 });
+  assert(calls === 2, "A deliberate manual retry should fetch exactly once.");
+  await page.screenshot({ path: `${artifacts}/media-bounded-retry.png`, fullPage: false });
+  await page.close();
+}
+
 async function certifyVerifiedContactNames() {
   // Isolated browser storage: intentionally wrong identity fixtures must NEVER
   // leak into the other E2E scenarios or persistent WhatsApp account cache.
@@ -1622,6 +1652,7 @@ async function certifyRetired404Fallbacks() {
 await certifyOverviewComposer();
 await certifyConversations();
 await certifyVoiceInstantQueue();
+await certifyMediaFailover();
 await certifyVerifiedContactNames();
 await certifyAutomations();
 await certifyMobile();
@@ -1633,7 +1664,7 @@ await fs.writeFile(
     pass: true,
     sends: state.sends.length,
     pauseCalls: state.pauses.length,
-    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "voice-instant-queue", "verified-contact-names", "retired-fallbacks-404"],
+    pages: ["overview-compose", "conversations-strict-mockup", "automations", "mobile-overview", "mobile-conversations", "mobile-automations", "voice-instant-queue", "media-bounded-retry", "verified-contact-names", "retired-fallbacks-404"],
   }, null, 2),
 );
 
