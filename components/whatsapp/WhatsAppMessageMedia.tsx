@@ -1,6 +1,6 @@
 "use client";
 
-import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Loader2, Maximize2, Music2, Play, RefreshCw, X } from "lucide-react";
+import { ContactRound, Download, FileText, Image as ImageIcon, ListChecks, Maximize2, Music2, Play, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { WhatsAppVoiceNotePlayer } from "@/components/whatsapp/WhatsAppVoiceNotePlayer";
@@ -102,10 +102,10 @@ export function WhatsAppMessageMedia({ message }: { message: WaLiveMessage }) {
   if (loading) {
     return (
       <div data-testid="whatsapp-media-loading" className="mb-2 flex min-w-[220px] items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: "rgba(0,0,0,.12)" }}>
-        <Loader2 size={17} className="animate-spin" color={GREEN} />
+        <FileIcon type={mediaType} />
         <div>
           <p className="text-[11px] font-semibold">{visibleMediaName || typeLabel}</p>
-          <p className="mt-0.5 text-[9px]" style={{ color: FAINT }}>Chargement de la pièce jointe…</p>
+          
         </div>
       </div>
     );
