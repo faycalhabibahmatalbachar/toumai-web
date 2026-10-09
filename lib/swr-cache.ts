@@ -55,6 +55,11 @@ function owner(): string {
   return loadSession()?.user_id || "anon";
 }
 
+/** Identité du cache au moment d'une lecture asynchrone (protection cross-account). */
+export function cacheSessionOwner(): string {
+  return owner();
+}
+
 function fullKey(key: string): string {
   return `${PREFIX}${owner()}:${key}`;
 }
