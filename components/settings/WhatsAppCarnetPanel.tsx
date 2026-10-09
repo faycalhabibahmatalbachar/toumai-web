@@ -178,7 +178,7 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
             </div>
             <p className="mt-1.5 text-[13px] text-[var(--cx-text-secondary)]">
               {!carnet
-                ? "Chargement…"
+                ? "Contacts"
                 : carnet.derniere_synchronisation
                   ? `Dernière synchronisation : ${quand(carnet.derniere_synchronisation)}.`
                   : "Synchronisez vos contacts pour retrouver vos correspondants par nom."}
