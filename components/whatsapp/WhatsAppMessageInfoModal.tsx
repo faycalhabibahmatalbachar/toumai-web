@@ -30,7 +30,10 @@ export function WhatsAppMessageInfoModal({
   if (!message) return null;
 
   const timeline = status?.timeline || {};
-  const readAt = timeline.played || timeline.read || null;
+  const isVoice = message.type === "voice" || message.type === "voix";
+  const playedAt = timeline.played || null;
+  const readAt = timeline.read || null;
+  const voicePlayed = Boolean(playedAt) || status?.status === "played";
   const deliveredAt = timeline.delivered || null;
   const sentAt = timeline.sent || status?.sent_at || timeline.queued || message.timestamp_ms || null;
   const editedAt = status?.edited_at || null;
@@ -101,10 +104,18 @@ export function WhatsAppMessageInfoModal({
 
           {!loading && !error && status && (
             <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: RAISED }}>
+              {isVoice && (
+                <InfoRow
+                  icon={<CheckCheck size={18} color={BLUE} />}
+                  label="Écouté"
+                  value={voicePlayed ? formatMoment(playedAt) || "Confirmé" : "Pas encore écouté"}
+                  active={voicePlayed}
+                />
+              )}
               <InfoRow
                 icon={<CheckCheck size={18} color={BLUE} />}
                 label="Lu"
-                value={status.read_confirmed ? formatMoment(readAt) || "Confirmé" : "Pas encore lu"}
+                value={status.read_confirmed ? formatMoment(readAt || playedAt) || "Confirmé" : "Pas encore lu"}
                 active={status.read_confirmed}
               />
               <InfoRow
