@@ -86,7 +86,7 @@ function PendingVoiceBubble({
     <div
       data-testid="whatsapp-pending-voice"
       data-voice-phase={voice.phase}
-      className="flex justify-end"
+      className="group flex justify-end"
       onContextMenu={(event) => {
         event.preventDefault();
         onMenu(event.clientX, event.clientY);
