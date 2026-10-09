@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -23,6 +23,9 @@ import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
+import { cacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
+import { useCached } from "@/lib/swr-cache";
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
@@ -51,20 +54,27 @@ export default function WhatsAppAutomationsPage() {
   const { session } = useAuth();
   useExigerCompte();
 
-  const [tasks, setTasks] = useState<WhatsAppAutomation[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editTask, setEditTask] = useState<WhatsAppAutomation | null>(null);
   const [historyTask, setHistoryTask] = useState<WhatsAppAutomation | null>(null);
   const [history, setHistory] = useState<WhatsAppAutomationHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  useEffect(() => {
-    if (session) void load();
-  }, [session]);
+  const {
+    data: tasksData,
+    loading,
+    error: cacheError,
+    refresh: load,
+  } = useCached<{ tasks: WhatsAppAutomation[]; count: number }>(
+    WA_CACHE.automations("", 100),
+    () => getWhatsAppAutomations({ limit: 100 }),
+    { enabled: Boolean(session), ttlMs: 5_000, refreshIntervalMs: 30_000 },
+  );
+  const tasks = tasksData?.tasks ?? [];
+  const error = actionError || cacheError;
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -88,31 +98,18 @@ export default function WhatsAppAutomationsPage() {
     failed: tasks.filter((task) => task.status === "failed").length,
   }), [tasks]);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getWhatsAppAutomations({ limit: 100 });
-      setTasks(data.tasks);
-    } catch (exc) {
-      setError(errorMessage(exc, "generic"));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function runAction(task: WhatsAppAutomation, action: "pause" | "resume" | "cancel") {
     if (busy[task.id]) return;
     if (action === "cancel" && !window.confirm(`Annuler définitivement « ${task.title} » ?`)) return;
     setBusy((current) => ({ ...current, [task.id]: true }));
-    setError(null);
+    setActionError(null);
     try {
       if (action === "pause") await pauseWhatsAppAutomation(task.id);
       else if (action === "resume") await resumeWhatsAppAutomation(task.id);
       else await cancelWhatsAppAutomation(task.id);
       await load();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setActionError(errorMessage(exc, "generic"));
     } finally {
       setBusy((current) => ({ ...current, [task.id]: false }));
     }
@@ -120,13 +117,16 @@ export default function WhatsAppAutomationsPage() {
 
   async function openHistory(task: WhatsAppAutomation) {
     setHistoryTask(task);
-    setHistory([]);
-    setHistoryLoading(true);
+    const cached = cacheSeed<{ entries: WhatsAppAutomationHistoryEntry[]; count: number }>(
+      WA_CACHE.automationHistory(task.id, 50),
+    );
+    setHistory(cached?.entries ?? []);
+    setHistoryLoading(!cached);
     try {
       const data = await getWhatsAppAutomationHistory(task.id, 50);
       setHistory(data.entries);
     } catch {
-      setHistory([]);
+      if (!cached) setHistory([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -332,7 +332,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
   async function save() {
     if (saving || !message.trim() || !sendAt) return;
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       const iso = new Date(sendAt).toISOString();
       await updateWhatsAppAutomation(task.id, {
@@ -343,7 +343,7 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
       });
       await onSaved();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setActionError(errorMessage(exc, "generic"));
     } finally {
       setSaving(false);
     }
