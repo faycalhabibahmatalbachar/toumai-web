@@ -23,9 +23,8 @@ import { WhatsAppIcon } from "@/components/settings/BrandIcons";
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { errorMessage } from "@/lib/errors";
-import { cacheSeed } from "@/lib/swr-cache";
+import { cacheSeed, useCached } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
-import { useCached } from "@/lib/swr-cache";
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
