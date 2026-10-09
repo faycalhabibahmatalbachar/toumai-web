@@ -80,7 +80,10 @@ export default function WhatsAppAiAgentPage() {
   }, [session]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const dirty = useMemo(() => JSON.stringify(settings) !== JSON.stringify(draft), [settings, draft]);
