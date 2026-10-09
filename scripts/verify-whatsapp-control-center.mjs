@@ -1326,14 +1326,14 @@ async function certifyVoiceInstantQueue() {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
+      body: JSON.stringify({ success: true, data: {
         url: "https://storage.toumai.test/user_files/control-center-user/vocal.ogg",
         file_name: "vocal.ogg",
         content_type: "audio/ogg; codecs=opus",
         media_family: "audio",
         size: 20,
         converted: true,
-      }),
+      } }),
     });
   });
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
