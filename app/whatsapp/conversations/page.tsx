@@ -1899,6 +1899,8 @@ export default function WhatsAppConversationsPage() {
                       <ThreadMessages
                         messages={displayedMessages}
                         reactions={localReactions}
+                        marks={marks}
+                        onMenu={(message, x, y) => setContextTarget({ kind: "message", message, anchor: { x, y } })}
                         onReply={startReply}
                         onEdit={startEdit}
                         onReact={(message, emoji) => void reactToMessage(message, emoji)}
@@ -1911,6 +1913,7 @@ export default function WhatsAppConversationsPage() {
                   )}
                   <WhatsAppPendingVoiceList
                     voices={visiblePendingVoices}
+                    onMenu={(id, x, y) => setContextTarget({ kind: "pending", id, anchor: { x, y } })}
                     onRetry={retryPendingVoice}
                     onDismiss={(id) => setPendingVoices((current) => current.filter((item) => item.id !== id))}
                   />
@@ -2620,6 +2623,8 @@ function Avatar({
 function ThreadMessages({
   messages,
   reactions,
+  marks,
+  onMenu,
   onReply,
   onEdit,
   onReact,
@@ -2630,6 +2635,8 @@ function ThreadMessages({
 }: {
   messages: WaLiveMessage[];
   reactions: Record<string, string>;
+  marks: Record<string, Mark>;
+  onMenu: (message: WaLiveMessage, x: number, y: number) => void;
   onReply: (message: WaLiveMessage) => void;
   onEdit: (message: WaLiveMessage) => void;
   onReact: (message: WaLiveMessage, emoji: string) => void;
@@ -2656,6 +2663,8 @@ function ThreadMessages({
               key={message.id || `${message.timestamp_ms}-${index}`}
               message={message}
               reaction={message.id ? reactions[message.id] : undefined}
+              mark={marks[message.id]}
+              onMenu={(x, y) => onMenu(message, x, y)}
               onReply={() => onReply(message)}
               onEdit={() => onEdit(message)}
               onReact={(emoji) => onReact(message, emoji)}
@@ -2674,6 +2683,8 @@ function ThreadMessages({
 function MessageBubble({
   message,
   reaction,
+  mark,
+  onMenu,
   onReply,
   onEdit,
   onReact,
@@ -2684,6 +2695,8 @@ function MessageBubble({
 }: {
   message: WaLiveMessage;
   reaction?: string;
+  mark?: Mark;
+  onMenu: (x: number, y: number) => void;
   onReply: () => void;
   onEdit: () => void;
   onReact: (emoji: string) => void;
@@ -2707,6 +2720,10 @@ function MessageBubble({
       className={`group flex ${message.from_me ? "justify-end" : "justify-start"}`}
       data-message-id={message.id || undefined}
       data-message-direction={message.from_me ? "outbound" : "inbound"}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu(event.clientX, event.clientY);
+      }}
     >
       <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
         <div
@@ -2767,6 +2784,12 @@ function MessageBubble({
           )}
 
           {hasMedia && <WhatsAppMessageMedia message={message} />}
+          {(mark?.starred || mark?.pinned) && (
+            <div className="mb-1 flex items-center gap-1.5" data-testid="whatsapp-message-marks">
+              {mark.pinned && <Pin size={12} color="#ecce76" aria-label="Épinglé dans Toumaï" />}
+              {mark.starred && <Star size={12} color="#ecce76" fill="#ecce76" aria-label="Favori Toumaï" />}
+            </div>
+          )}
 
           {message.text && (
             <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
@@ -2803,6 +2826,11 @@ function MessageBubble({
         <div
           className={`mt-1 flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 ${message.from_me ? "justify-end" : "justify-start"}`}
         >
+          <MessageActionButton label="Actions" icon={<MoreVertical size={13} />} onClick={() => {
+            const node = document.querySelector(`[data-message-id="${CSS.escape(message.id)}"]`);
+            const rect = node?.getBoundingClientRect();
+            onMenu(rect?.right || window.innerWidth / 2, rect?.bottom || window.innerHeight / 2);
+          }} />
           <MessageActionButton label="Répondre" icon={<Reply size={13} />} onClick={onReply} />
           <div className="relative">
             <MessageActionButton
