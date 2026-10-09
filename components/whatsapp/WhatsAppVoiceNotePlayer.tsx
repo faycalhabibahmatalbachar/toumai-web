@@ -35,9 +35,9 @@ export function WhatsAppVoiceNotePlayer({
     const provider = normalizeProviderWaveform(message.waveform);
     if (provider.length >= 8) return resample(provider, 48);
     if (decodedWaveform?.length) return resample(decodedWaveform, 48);
-    return Array.from({ length: 48 }, (_, index) =>
-      0.22 + ((index * 17 + message.id.length * 11) % 7) * 0.025,
-    );
+    // Pas de fausse waveform : tant que Baileys ou le décodage local n'a
+    // pas fourni de niveaux réels, afficher une ligne neutre et uniforme.
+    return Array.from({ length: 48 }, () => 0.28);
   }, [decodedWaveform, message.id, message.waveform]);
 
   const progress = duration > 0 ? Math.min(1, Math.max(0, current / duration)) : 0;
