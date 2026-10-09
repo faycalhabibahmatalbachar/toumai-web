@@ -135,13 +135,36 @@ export default function WhatsAppConversationsPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   // Voice files are kept only in memory. The composer is never tied to upload/conversion latency.
   const [pendingVoices, setPendingVoices] = useState<PendingWhatsAppVoice[]>([]);
+  const [voiceOwner, setVoiceOwner] = useState(session?.user_id || "");
   const voiceSequenceRef = useRef(0);
   const voiceRequestsRef = useRef(new Set<string>());
+  const voiceUrlsRef = useRef(new Map<string, string>());
   const voiceSessionRef = useRef(session?.user_id || "");
-  useEffect(() => {
-    voiceSessionRef.current = session?.user_id || "";
+  const currentVoiceOwner = session?.user_id || "";
+  // Account identity is part of the state, not a post-render cleanup effect.
+  if (voiceOwner !== currentVoiceOwner) {
+    setVoiceOwner(currentVoiceOwner);
     setPendingVoices([]);
-  }, [session?.user_id]);
+  }
+  useEffect(() => {
+    voiceSessionRef.current = currentVoiceOwner;
+  }, [currentVoiceOwner]);
+  useEffect(() => {
+    const activeIds = new Set(pendingVoices.map((item) => item.id));
+    for (const [id, url] of voiceUrlsRef.current) {
+      if (!activeIds.has(id)) {
+        URL.revokeObjectURL(url);
+        voiceUrlsRef.current.delete(id);
+      }
+    }
+  }, [pendingVoices]);
+  useEffect(() => {
+    const urls = voiceUrlsRef.current;
+    return () => {
+      for (const url of urls.values()) URL.revokeObjectURL(url);
+      urls.clear();
+    };
+  }, []);
   const [sendError, setSendError] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<WaLiveMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<WaLiveMessage | null>(null);
@@ -1166,10 +1189,14 @@ export default function WhatsAppConversationsPage() {
   function sendRecordedVoice(file: File) {
     if (!selected || !session || attachmentUploading || sendingMessage) return;
     const account = session.user_id || "";
+    const localId = `local-voice-${Date.now()}-${++voiceSequenceRef.current}`;
+    const localUrl = URL.createObjectURL(file);
+    voiceUrlsRef.current.set(localId, localUrl);
     const voice: PendingWhatsAppVoice = {
-      id: `local-voice-${Date.now()}-${++voiceSequenceRef.current}`,
+      id: localId,
       chatId: selected.id,
       file,
+      localUrl,
       createdAt: Date.now(),
       phase: "uploading",
       replyTo: replyingTo ? {
