@@ -392,6 +392,10 @@ const state = {
   nextUploadConversionNote: null,
   blockProfilePictures: false,
   profilePictureResolvers: [],
+  blockConversationReads: false,
+  conversationReadResolvers: [],
+  blockThreadReads: false,
+  threadReadResolvers: [],
 };
 
 let retiredFallbackMode = false;
@@ -510,6 +514,11 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     }
     data = { pictures, count: Object.keys(pictures).length };
   } else if (path === "/whatsapp/conversations") {
+    if (state.blockConversationReads) {
+      await new Promise((resolve) => {
+        state.conversationReadResolvers.push(resolve);
+      });
+    }
     const q = (url.searchParams.get("search") || "").toLowerCase();
     const pending = url.searchParams.get("pending") === "true";
     const kind = url.searchParams.get("kind") || "all";
@@ -527,6 +536,11 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       source: "baileys",
     };
   } else if (path === "/whatsapp/conversation/messages") {
+    if (state.blockThreadReads) {
+      await new Promise((resolve) => {
+        state.threadReadResolvers.push(resolve);
+      });
+    }
     data = { chat_id: url.searchParams.get("chat_id"), messages: threadMessages, count: threadMessages.length, source: "baileys" };
   } else if (path === "/whatsapp/conversation/search") {
     const q = (url.searchParams.get("q") || "").toLowerCase();
@@ -793,6 +807,36 @@ async function certifyConversations() {
   );
   await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
+
+  // Preuve SWR réelle : après un premier chargement réussi, on coupe
+  // totalement les lectures liste + fil puis on recharge la page. Le cache
+  // persistant doit restaurer les deux surfaces avant toute réponse réseau.
+  state.blockConversationReads = true;
+  state.blockThreadReads = true;
+  state.conversationReadResolvers = [];
+  state.threadReadResolvers = [];
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  const cachedConversationRow = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
+  await cachedConversationRow.waitFor({ timeout: 4000 });
+  await page.getByText("Bonjour Mahamat", { exact: true }).waitFor({ timeout: 4000 });
+  assert(
+    (await page.getByTestId("conversation-list-skeleton").count()) === 0,
+    "Le cache liste doit empêcher tout skeleton pendant une revalidation bloquée.",
+  );
+  assert(
+    (await page.getByTestId("conversation-thread-skeleton").count()) === 0,
+    "Le cache du fil doit empêcher tout skeleton pendant une revalidation bloquée.",
+  );
+  assert(
+    (await page.getByText("Cette conversation met trop de temps à répondre. Réessayez.", { exact: true }).count()) === 0,
+    "Un timeout de revalidation ne doit jamais remplacer un fil déjà en cache.",
+  );
+
+  state.blockConversationReads = false;
+  state.blockThreadReads = false;
+  for (const release of state.conversationReadResolvers.splice(0)) release();
+  for (const release of state.threadReadResolvers.splice(0)) release();
   const mediaMessage = page.locator('[data-message-id="t-media"]');
   await mediaMessage.getByRole("button", { name: "Agrandir l’image" }).click();
   await page.getByRole("dialog", { name: "Aperçu de l’image" }).waitFor();
