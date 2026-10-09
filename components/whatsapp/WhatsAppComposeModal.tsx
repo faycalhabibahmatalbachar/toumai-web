@@ -7,11 +7,11 @@ import {
   Loader2,
   Search,
   Send,
-  UserRound,
   X,
 } from "lucide-react";
 
-import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
+import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
+import { getWaCarnet, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import {
@@ -88,8 +88,21 @@ export function WhatsAppComposeModal({
     const timer = window.setTimeout(async () => {
       setLoadingContacts(true);
       try {
-        const carnet = await getWaCarnet(value);
-        if (!cancelled) setContacts(carnet.contacts.slice(0, 8));
+        const shortlist = (await getWaCarnet(value)).contacts.slice(0, 8);
+        let pictures: Record<string, string | null> = {};
+        try {
+          pictures = await getWaProfilePictures(shortlist.map((contact) => contact.jid));
+        } catch {
+          // La recherche de contact reste utilisable si WhatsApp masque les photos.
+        }
+        if (!cancelled) {
+          setContacts(
+            shortlist.map((contact) => ({
+              ...contact,
+              picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
+            })),
+          );
+        }
       } catch {
         if (!cancelled) setContacts([]);
       } finally {
@@ -209,9 +222,13 @@ export function WhatsAppComposeModal({
             <label className="text-[12px] font-semibold">Destinataire</label>
             {selected ? (
               <div className="mt-2 flex items-center gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE_RAISED }}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#123b2c]" style={{ color: GREEN }}>
-                  <UserRound size={19} />
-                </div>
+                <WhatsAppProfileAvatar
+                  name={displayWhatsAppIdentity({ name: selected.name, number: selected.number, id: selected.jid, kind: "contact" })}
+                  kind="contact"
+                  pictureUrl={selected.picture_url}
+                  size={40}
+                  eager
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">
                     {displayWhatsAppIdentity({ name: selected.name, number: selected.number, id: selected.jid, kind: "contact" })}
@@ -262,9 +279,12 @@ export function WhatsAppComposeModal({
                         className="flex w-full items-center gap-3 border-b px-3 py-3 text-left last:border-b-0 hover:bg-white/[0.035]"
                         style={{ borderColor: BORDER }}
                       >
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#123b2c]" style={{ color: GREEN }}>
-                          <UserRound size={17} />
-                        </div>
+                        <WhatsAppProfileAvatar
+                          name={displayWhatsAppIdentity({ name: contact.name, number: contact.number, id: contact.jid, kind: "contact" })}
+                          kind="contact"
+                          pictureUrl={contact.picture_url}
+                          size={36}
+                        />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-semibold">
                             {displayWhatsAppIdentity({ name: contact.name, number: contact.number, id: contact.jid, kind: "contact" })}
