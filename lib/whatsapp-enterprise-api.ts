@@ -221,6 +221,8 @@ export interface WaLiveMessage {
   file_name?: string | null;
   media_label?: string | null;
   duration_seconds?: number | null;
+  waveform?: number[] | null;
+  played?: boolean;
   quoted?: WaQuotedMessage | null;
 }
 
@@ -522,6 +524,19 @@ export function editWaMessage(input: {
   new_text: string;
 }): Promise<{ chat_id: string; msg_id: string; edited: boolean; new_msg_id?: string | null }> {
   return http.post("/whatsapp/message/edit", input);
+}
+
+export function markWaVoicePlayed(input: {
+  chat_id: string;
+  msg_id: string;
+}): Promise<{
+  chat_id: string;
+  msg_id: string;
+  played: boolean;
+  receipt_sent: boolean;
+  skipped?: string | null;
+}> {
+  return http.post("/whatsapp/message/played", input);
 }
 
 export function deleteWaOwnMessage(input: {
