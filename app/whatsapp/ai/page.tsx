@@ -23,6 +23,7 @@ import { cxDisplayStyle, cxScopeClass, cxScopeStyle } from "@/components/setting
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useAuth } from "@/lib/auth-context";
 import { cacheSeed, useCacheSeed } from "@/lib/swr-cache";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   getWaAutopilot,
@@ -62,7 +63,7 @@ export default function WhatsAppAiAgentPage() {
 
   const load = useCallback(async () => {
     if (!session) return;
-    setLoading(cacheSeed<WaAutopilotSettings>(WA_CACHE.autopilot) === null);
+    setLoading(settings === null && cacheSeed<WaAutopilotSettings>(WA_CACHE.autopilot) === null);
     setError(null);
     try {
       const [nextSettings, nextAnalytics] = await Promise.all([
@@ -71,9 +72,9 @@ export default function WhatsAppAiAgentPage() {
       ]);
       setSettings(nextSettings);
       setDraft(nextSettings);
-      setAnalytics(nextAnalytics);
+      if (nextAnalytics) setAnalytics(nextAnalytics);
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Impossible de charger l’agent WhatsApp.");
+      if (!settings) setError(whatsappUiError(exc, "history"));
     } finally {
       setLoading(false);
     }
@@ -108,7 +109,7 @@ export default function WhatsAppAiAgentPage() {
       setSaved(true);
       window.setTimeout(() => setSaved(false), 1800);
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Échec de l’enregistrement.");
+      setError(whatsappUiError(exc, "settings"));
     } finally {
       setSaving(false);
     }
@@ -147,7 +148,7 @@ export default function WhatsAppAiAgentPage() {
 
             {error && <div className="mt-7 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"><CircleAlert size={17} />{error}</div>}
 
-            {loading || !draft ? (
+            {!draft ? (
               <div className="mt-10 space-y-3" aria-hidden="true">{[0, 1, 2].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-[var(--cx-surface)]" />)}</div>
             ) : (
               <>
