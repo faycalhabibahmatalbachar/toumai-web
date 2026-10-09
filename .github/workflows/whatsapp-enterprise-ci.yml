@@ -25,14 +25,19 @@ on:
     paths:
       - "app/whatsapp/**"
       - "components/settings/WhatsAppPermissionsPanel.tsx"
+      - "components/settings/WhatsAppCarnetPanel.tsx"
+      - "components/settings/ConnectorsTab.tsx"
+      - "components/whatsapp/**"
       - "lib/connectors-api.ts"
       - "lib/swr-cache.ts"
       - "lib/whatsapp-realtime.ts"
       - "lib/whatsapp-enterprise-api.ts"
+      - "lib/whatsapp-cache.ts"
       - "hooks/useWhatsAppRealtime.ts"
       - "scripts/verify-whatsapp-overview-polling.mjs"
       - "scripts/verify-whatsapp-overview-realtime.mjs"
       - "scripts/verify-whatsapp-authoritative-client.mjs"
+      - "scripts/verify-whatsapp-cache-coverage.mjs"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
 
 concurrency:
