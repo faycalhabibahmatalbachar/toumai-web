@@ -1,5 +1,5 @@
 import { authFetch, http, postForm } from "./http";
-import { WA_CACHE, waCachedRead, waMutation } from "./whatsapp-cache";
+import { WA_CACHE, waCachedRead, waMutation, type WhatsAppReadOptions } from "./whatsapp-cache";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -159,8 +159,11 @@ export interface WaAutopilotConversations {
   period_days: number;
 }
 
-export function getWaAutopilot(): Promise<WaAutopilotSettings> {
-  return waCachedRead(WA_CACHE.autopilot, () => http.get("/whatsapp/autopilot"), { freshMs: 5_000 });
+export function getWaAutopilot(readOptions: WhatsAppReadOptions = {}): Promise<WaAutopilotSettings> {
+  return waCachedRead(WA_CACHE.autopilot, () => http.get("/whatsapp/autopilot"), {
+    freshMs: 5_000,
+    revalidate: readOptions.revalidate,
+  });
 }
 
 export function updateWaAutopilot(
@@ -172,17 +175,21 @@ export function updateWaAutopilot(
   );
 }
 
-export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics> {
+export function getWaAutopilotAnalytics(
+  days = 7,
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WaAutopilotAnalytics> {
   return waCachedRead(
     WA_CACHE.autopilotAnalytics(days),
     () => http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`),
-    { freshMs: 15_000 },
+    { freshMs: 15_000, revalidate: readOptions.revalidate },
   );
 }
 
 export function getWhatsAppOverview(
   days = 30,
   timezone = "Africa/Ndjamena",
+  readOptions: WhatsAppReadOptions = {},
 ): Promise<WhatsAppOverview> {
   const query = new URLSearchParams({
     days: String(days),
@@ -191,13 +198,14 @@ export function getWhatsAppOverview(
   return waCachedRead(
     WA_CACHE.overview(days, timezone),
     () => http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`),
-    { freshMs: 10_000 },
+    { freshMs: 10_000, revalidate: readOptions.revalidate },
   );
 }
 
 export function getWaAutopilotLogs(
   page = 1,
   pageSize = 100,
+  readOptions: WhatsAppReadOptions = {},
 ): Promise<WaAutopilotLogsPage> {
   return waCachedRead(
     WA_CACHE.autopilotLogs(page, pageSize),
@@ -205,13 +213,14 @@ export function getWaAutopilotLogs(
       http.get(
         `/whatsapp/autopilot/logs?page=${encodeURIComponent(page)}&page_size=${encodeURIComponent(pageSize)}`,
       ),
-    { freshMs: 10_000 },
+    { freshMs: 10_000, revalidate: readOptions.revalidate },
   );
 }
 
 export function getWaAutopilotConversations(
   days = 30,
   limit = 4,
+  readOptions: WhatsAppReadOptions = {},
 ): Promise<WaAutopilotConversations> {
   return waCachedRead(
     WA_CACHE.autopilotConversations(days, limit),
@@ -219,7 +228,7 @@ export function getWaAutopilotConversations(
       http.get(
         `/whatsapp/autopilot/conversations?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`,
       ),
-    { freshMs: 10_000 },
+    { freshMs: 10_000, revalidate: readOptions.revalidate },
   );
 }
 
@@ -367,14 +376,17 @@ export interface WaMessageStatus {
   timeline?: Partial<Record<"queued" | "sent" | "delivered" | "read" | "played" | "failed", number>>;
 }
 
-export function getWaLiveConversations(params?: {
-  search?: string;
-  pending?: boolean;
-  unread?: boolean;
-  kind?: "contact" | "group";
-  offset?: number;
-  limit?: number;
-}): Promise<WaLiveConversations> {
+export function getWaLiveConversations(
+  params?: {
+    search?: string;
+    pending?: boolean;
+    unread?: boolean;
+    kind?: "contact" | "group";
+    offset?: number;
+    limit?: number;
+  },
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WaLiveConversations> {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.pending) query.set("pending", "true");
@@ -386,7 +398,7 @@ export function getWaLiveConversations(params?: {
   return waCachedRead(
     WA_CACHE.conversations(params || {}),
     () => http.get<WaLiveConversations>(`/whatsapp/conversations${suffix}`),
-    { freshMs: 3_000 },
+    { freshMs: 3_000, revalidate: readOptions.revalidate },
   );
 }
 
@@ -394,6 +406,7 @@ export function getWaConversationMessages(
   chatId: string,
   limit = 80,
   sinceMs = 0,
+  readOptions: WhatsAppReadOptions = {},
 ): Promise<WaConversationMessages> {
   const query = new URLSearchParams({
     chat_id: chatId,
@@ -403,7 +416,7 @@ export function getWaConversationMessages(
   return waCachedRead(
     WA_CACHE.thread(chatId, limit, sinceMs),
     () => http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`),
-    { freshMs: 3_000 },
+    { freshMs: 3_000, revalidate: readOptions.revalidate },
   );
 }
 
@@ -411,6 +424,7 @@ export function searchWaConversation(
   chatId: string,
   queryText: string,
   limit = 40,
+  readOptions: WhatsAppReadOptions = {},
 ): Promise<WaConversationSearchResult> {
   const query = new URLSearchParams({
     chat_id: chatId,
@@ -423,16 +437,19 @@ export function searchWaConversation(
       http.get<WaConversationSearchResult>(
         `/whatsapp/conversation/search?${query.toString()}`,
       ),
-    { freshMs: 5_000 },
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
   );
 }
 
-export function getWaContactInfo(chatId: string): Promise<WaContactInfo> {
+export function getWaContactInfo(
+  chatId: string,
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WaContactInfo> {
   const query = new URLSearchParams({ chat_id: chatId });
   return waCachedRead(
     WA_CACHE.contactInfo(chatId),
     () => http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`),
-    { freshMs: 30_000 },
+    { freshMs: 30_000, revalidate: readOptions.revalidate },
   );
 }
 
