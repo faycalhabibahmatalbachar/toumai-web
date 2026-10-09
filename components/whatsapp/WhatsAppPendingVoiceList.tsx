@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, Clock3, Loader2, RefreshCw, X } from "lucide-react";
+import { CircleAlert, Clock3, Loader2, MoreHorizontal, RefreshCw, X } from "lucide-react";
 import { WhatsAppVoiceNotePlayer } from "./WhatsAppVoiceNotePlayer";
 import type { WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
 
@@ -29,10 +29,12 @@ export function WhatsAppPendingVoiceList({
   voices,
   onRetry,
   onDismiss,
+  onMenu,
 }: {
   voices: PendingWhatsAppVoice[];
   onRetry: (id: string) => void;
   onDismiss: (id: string) => void;
+  onMenu: (id: string, x: number, y: number) => void;
 }) {
   if (!voices.length) return null;
   return (
@@ -43,6 +45,7 @@ export function WhatsAppPendingVoiceList({
           voice={voice}
           onRetry={() => onRetry(voice.id)}
           onDismiss={() => onDismiss(voice.id)}
+          onMenu={(x, y) => onMenu(voice.id, x, y)}
         />
       ))}
     </div>
@@ -53,10 +56,12 @@ function PendingVoiceBubble({
   voice,
   onRetry,
   onDismiss,
+  onMenu,
 }: {
   voice: PendingWhatsAppVoice;
   onRetry: () => void;
   onDismiss: () => void;
+  onMenu: (x: number, y: number) => void;
 }) {
   const message: WaLiveMessage = {
     id: voice.id,
@@ -71,32 +76,34 @@ function PendingVoiceBubble({
   };
   const pending = voice.phase === "uploading" || voice.phase === "sending";
   const canDismiss = !pending;
-  const label =
-    voice.phase === "uploading"
-      ? "Préparation et transfert du vocal…"
-      : voice.phase === "sending"
-        ? "Envoi à la passerelle WhatsApp…"
-        : voice.phase === "accepted"
-          ? "Accepté par la passerelle · livraison non confirmée"
-          : voice.phase === "upload_failed"
-            ? "Préparation du vocal échouée · aucun envoi lancé"
-            : "Envoi non confirmé · vérifiez WhatsApp avant de renvoyer";
+  const statusLabel = voice.phase === "uploading" || voice.phase === "sending"
+    ? "Envoi en cours"
+    : voice.phase === "accepted" ? "Envoi accepté, livraison en attente"
+      : voice.phase === "upload_failed" ? "Erreur de préparation"
+        : "Envoi non confirmé";
 
   return (
-    <div data-testid="whatsapp-pending-voice" data-voice-phase={voice.phase} className="flex justify-end">
-      <div className="max-w-[92%] rounded-[10px] bg-[#144d37] px-3 py-2 text-[#f4f7f9] shadow-sm">
+    <div
+      data-testid="whatsapp-pending-voice"
+      data-voice-phase={voice.phase}
+      className="group flex justify-end"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu(event.clientX, event.clientY);
+      }}
+    >
+      <div className="relative max-w-[92%] rounded-[10px] bg-[#144d37] px-3 py-2 text-[#f4f7f9] shadow-sm">
+        <button type="button" aria-label="Options du vocal" title="Options du vocal" className="absolute right-2 top-1 z-20 rounded-md bg-black/25 p-1 text-[#dceee5] opacity-0 hover:bg-black/40 focus:opacity-100 group-hover:opacity-100" onClick={(event) => { const box = event.currentTarget.getBoundingClientRect(); onMenu(box.right, box.bottom); }}><MoreHorizontal size={16} /></button>
         <WhatsAppVoiceNotePlayer message={message} url={voice.localUrl} />
-        <div role="status" aria-live="polite" className="mt-1 flex items-start gap-1.5 text-[11px] text-[#c4d6d0]">
-          {pending ? <Loader2 size={13} className="mt-0.5 shrink-0 animate-spin" /> : voice.phase === "accepted" ? (
-            <Clock3 size={13} className="mt-0.5 shrink-0" />
+        <div role="status" aria-live="polite" aria-label={statusLabel} title={statusLabel} className="mt-1 flex min-h-[13px] items-center justify-end gap-1 text-[#c4d6d0]">
+          {pending ? <Loader2 size={12} className="animate-spin" /> : voice.phase === "accepted" ? (
+            <Clock3 size={12} />
           ) : (
-            <CircleAlert size={13} className="mt-0.5 shrink-0 text-[#ffc0bf]" />
+            <CircleAlert size={13} className="text-[#ffc0bf]" />
           )}
-          <div className="min-w-0 flex-1">
-            <span>{label}</span>
-            {voice.detail && <p className="mt-1 text-[#ffd5d5]">{voice.detail}</p>}
-          </div>
+          <span className="sr-only">{statusLabel}</span>
         </div>
+        {voice.detail && !pending && <p className="mt-1 text-[11px] text-[#ffd5d5]">{voice.detail}</p>}
         {canDismiss && (
           <div className="mt-2 flex items-center justify-end gap-3 text-[11px]">
             {voice.phase === "upload_failed" && (

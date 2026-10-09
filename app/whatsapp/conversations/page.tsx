@@ -25,6 +25,8 @@ import {
   Copy,
   CircleAlert,
   Info,
+  Star,
+  Download,
   LayoutDashboard,
   Menu,
   MessageCircle,
@@ -52,6 +54,8 @@ import { WhatsAppConversationActionModal, type ConversationActionRequest } from 
 import { WhatsAppContactShareModal } from "@/components/whatsapp/WhatsAppContactShareModal";
 import { WhatsAppEmojiPicker } from "@/components/whatsapp/WhatsAppEmojiPicker";
 import { WhatsAppMessageInfoModal } from "@/components/whatsapp/WhatsAppMessageInfoModal";
+import { WhatsAppMessageContextMenu, type MessageContextAction, type MessageMenuAnchor } from "@/components/whatsapp/WhatsAppMessageContextMenu";
+import { WhatsAppForwardMessageModal, canForwardWhatsAppMessage } from "@/components/whatsapp/WhatsAppForwardMessageModal";
 import { WhatsAppMediaEditResearchModal } from "@/components/whatsapp/WhatsAppMediaEditResearchModal";
 import { WhatsAppPollModal } from "@/components/whatsapp/WhatsAppPollModal";
 import { WhatsAppMessageMedia } from "@/components/whatsapp/WhatsAppMessageMedia";
@@ -70,6 +74,8 @@ import {
   getWaConversationMessages,
   getWaLiveConversations,
   getWaMessageStatus,
+  getWaMessageMediaBlob,
+  deleteWaOwnMessage,
   inferWaMediaType,
   reactWaMessage,
   searchWaConversation,
@@ -139,6 +145,21 @@ const LOWER_NAV = [
 
 type Filter = "all" | "pending" | "unread";
 type KindFilter = "all" | "contact" | "group";
+type Mark = { pinned?: boolean; starred?: boolean; hidden?: boolean };
+type ContextTarget = { kind: "message"; message: WaLiveMessage; anchor: MessageMenuAnchor } | { kind: "pending"; id: string; anchor: MessageMenuAnchor };
+const EMPTY_MARKS: Record<string, Mark> = {};
+function marksStorageKey(owner: string, chatId: string) {
+  return `toumai:wa:message-marks:v1:${encodeURIComponent(owner)}:${encodeURIComponent(chatId)}`;
+}
+function getStoredMarks(key: string): Record<string, Mark> {
+  if (typeof window === "undefined" || !key) return {};
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) || "{}");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value as Record<string, Mark>;
+  } catch { return {}; }
+}
+
 
 export default function WhatsAppConversationsPage() {
   const { session } = useAuth();
@@ -198,6 +219,13 @@ export default function WhatsAppConversationsPage() {
   const [messageInfoLoading, setMessageInfoLoading] = useState(false);
   const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
   const [localReactions, setLocalReactions] = useState<Record<string, string>>({});
+  const [contextTarget, setContextTarget] = useState<ContextTarget | null>(null);
+  const [forwardTarget, setForwardTarget] = useState<WaLiveMessage | null>(null);
+  const [emojiMessageTarget, setEmojiMessageTarget] = useState<WaLiveMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WaLiveMessage | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+  const [deleteMessageError, setDeleteMessageError] = useState("");
+  const [markSnapshot, setMarkSnapshot] = useState<{ key: string; values: Record<string, Mark> }>({ key: "", values: {} });
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const listSearchInputRef = useRef<HTMLInputElement>(null);
   const threadScrollRef = useRef<HTMLDivElement>(null);
@@ -291,20 +319,27 @@ export default function WhatsAppConversationsPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  const activeMarkKey = session?.user_id && selected?.id ? marksStorageKey(session.user_id, selected.id) : "";
+  const marks = markSnapshot.key === activeMarkKey ? markSnapshot.values : EMPTY_MARKS;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMarkSnapshot({ key: activeMarkKey, values: getStoredMarks(activeMarkKey) }), 0);
+    return () => window.clearTimeout(timer);
+  }, [activeMarkKey]);
+
   const visibleMessages = useMemo(
     () =>
       messages
         .map((message) => ({ ...message, text: safeWhatsAppVisibleText(message.text) || "" }))
-        .filter((message) => Boolean(message.text) || message.type !== "text"),
-    [messages],
+        .filter((message) => (Boolean(message.text) || message.type !== "text") && !marks[message.id]?.hidden),
+    [messages, marks],
   );
 
   const visibleSearchResults = useMemo(
     () =>
       threadSearchResults
         .map((message) => ({ ...message, text: safeWhatsAppVisibleText(message.text) || "" }))
-        .filter((message) => Boolean(message.text) || message.type !== "text"),
-    [threadSearchResults],
+        .filter((message) => (Boolean(message.text) || message.type !== "text") && !marks[message.id]?.hidden),
+    [threadSearchResults, marks],
   );
 
   const displayedMessages =
@@ -805,6 +840,9 @@ export default function WhatsAppConversationsPage() {
   }, [filter, loadConversations, query, session, refreshRealtimeConversations]);
 
   function chooseConversation(conversation: WaLiveConversation) {
+    setContextTarget(null);
+    setForwardTarget(null);
+    setDeleteTarget(null);
     ++threadRequestIdRef.current;
     activeChatIdRef.current = conversation.id;
     threadCacheKeyRef.current = "";
@@ -857,6 +895,9 @@ export default function WhatsAppConversationsPage() {
   }
 
   function backToConversationList() {
+    setContextTarget(null);
+    setForwardTarget(null);
+    setDeleteTarget(null);
     ++threadRequestIdRef.current;
     activeChatIdRef.current = null;
     threadCacheKeyRef.current = "";
@@ -1084,7 +1125,129 @@ export default function WhatsAppConversationsPage() {
     }
   }
 
-  async function openMessageInfo(message: WaLiveMessage) {
+  function toggleMessageMark(message: WaLiveMessage, field: "pinned" | "starred") {
+    if (!activeMarkKey || message.id.startsWith("local-")) return;
+    const before = getStoredMarks(activeMarkKey);
+    const next: Record<string, Mark> = {
+      ...before,
+      [message.id]: { ...before[message.id], [field]: !before[message.id]?.[field] },
+    };
+    try {
+      window.localStorage.setItem(activeMarkKey, JSON.stringify(next));
+      setMarkSnapshot({ key: activeMarkKey, values: next });
+    } catch {
+      setSendError("Impossible d’enregistrer ce repère sur cet appareil.");
+    }
+  }
+
+  function hideMessageLocally(message: WaLiveMessage) {
+    if (!activeMarkKey) return;
+    const before = getStoredMarks(activeMarkKey);
+    const next = { ...before, [message.id]: { ...before[message.id], hidden: true } };
+    try {
+      window.localStorage.setItem(activeMarkKey, JSON.stringify(next));
+      setMarkSnapshot({ key: activeMarkKey, values: next });
+    } catch {
+      setDeleteMessageError("Impossible de masquer ce message sur cet appareil.");
+      return;
+    }
+    setDeleteTarget(null);
+  }
+
+  async function downloadMessage(message: WaLiveMessage) {
+    setSendError(null);
+    try {
+      const blob = await getWaMessageMediaBlob(message.id);
+      const fallback = (message.type === "voice" || message.type === "voix") ? "vocal.ogg" : "media";
+      const filename = (message.file_name || fallback).split(/[\\/]/).pop()?.replace(/[\x00-\x1f]/g, "") || fallback;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) {
+      setSendError(errorMessage(error, "generic"));
+    }
+  }
+
+  function downloadPendingVoice(voice: PendingWhatsAppVoice) {
+    const link = document.createElement("a");
+    link.href = voice.localUrl;
+    link.download = voice.file.name || "vocal.webm";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function confirmMessageDeletion() {
+    if (!deleteTarget || deletingMessage) return;
+    const target = deleteTarget;
+    if (!target.from_me) {
+      hideMessageLocally(target);
+      return;
+    }
+    if (target.id.startsWith("local-")) return;
+    setDeletingMessage(true);
+    setDeleteMessageError("");
+    try {
+      // Sensitive action: server truth only, never a stale message-status cache.
+      const current = await getWaMessageStatus(target.id, target.chat_id);
+      if (!current.known || current.failed) {
+        setDeleteMessageError("Le serveur ne confirme pas ce message. Suppression bloquée.");
+        return;
+      }
+      const deletion = await deleteWaOwnMessage({
+        chat_id: target.chat_id,
+        msg_id: target.id,
+        confirmed: true,
+      });
+      if (!deletion.delete_submitted || !deletion.accepted_by_gateway) {
+        setDeleteMessageError("La passerelle n’a pas accepté la suppression.");
+        return;
+      }
+      setDeleteTarget(null);
+      void loadConversations(query, filter);
+      if (selected?.id === target.chat_id) {
+        window.setTimeout(() => void loadThread(selected, { silent: true }), 500);
+      }
+    } catch (error) {
+      setDeleteMessageError(errorMessage(error, "generic"));
+    } finally {
+      setDeletingMessage(false);
+    }
+  }
+
+  function chooseContextAction(action: MessageContextAction) {
+    const target = contextTarget;
+    setContextTarget(null);
+    if (!target) return;
+    if (target.kind === "pending") {
+      const voice = pendingVoices.find((item) => item.id === target.id);
+      if (!voice) return;
+      if (action === "download") downloadPendingVoice(voice);
+      if (action === "retry" && voice.phase === "upload_failed") retryPendingVoice(voice.id);
+      if (action === "dismiss" && !["uploading", "sending"].includes(voice.phase)) {
+        setPendingVoices((current) => current.filter((item) => item.id !== voice.id));
+      }
+      return;
+    }
+    const message = target.message;
+    if (action === "info") void openMessageInfo(message);
+    if (action === "reply") startReply(message);
+    if (action === "react") setEmojiMessageTarget(message);
+    if (action === "download") void downloadMessage(message);
+    if (action === "forward" && canForwardWhatsAppMessage(message)) setForwardTarget(message);
+    if (action === "copy") void copyMessage(message);
+    if (action === "pin") toggleMessageMark(message, "pinned");
+    if (action === "star") toggleMessageMark(message, "starred");
+    if (action === "edit") startEdit(message);
+    if (action === "delete") { setDeleteMessageError(""); setDeleteTarget(message); }
+  }
+
+    async function openMessageInfo(message: WaLiveMessage) {
     if (!message.from_me || !message.id || message.id.startsWith("local-")) return;
     setMessageInfoTarget(message);
     setMessageInfo(null);
@@ -1776,9 +1939,23 @@ export default function WhatsAppConversationsPage() {
 
                   {!loadingThread && !threadError && displayedMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
+                      {displayedMessages.some((message) => marks[message.id]?.pinned) && (
+                        <div data-testid="whatsapp-local-pins" className="mb-3 flex flex-wrap gap-2">
+                          {displayedMessages.filter((message) => marks[message.id]?.pinned).map((message) => (
+                            <button type="button" key={message.id} className="flex max-w-[280px] items-center gap-1.5 rounded-lg border border-amber-300/20 bg-amber-300/5 px-2.5 py-1.5 text-[11px] text-[#e9ce8f]" onClick={() => {
+                              const node = Array.from(document.querySelectorAll("[data-message-id]")).find((entry) => (entry as HTMLElement).dataset.messageId === message.id);
+                              node?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }}>
+                              <Pin size={12} /> <span className="truncate">{message.text || messageTypeLabel(message.type)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <ThreadMessages
                         messages={displayedMessages}
                         reactions={localReactions}
+                        marks={marks}
+                        onMenu={(message, x, y) => setContextTarget({ kind: "message", message, anchor: { x, y } })}
                         onReply={startReply}
                         onEdit={startEdit}
                         onReact={(message, emoji) => void reactToMessage(message, emoji)}
@@ -1791,6 +1968,7 @@ export default function WhatsAppConversationsPage() {
                   )}
                   <WhatsAppPendingVoiceList
                     voices={visiblePendingVoices}
+                    onMenu={(id, x, y) => setContextTarget({ kind: "pending", id, anchor: { x, y } })}
                     onRetry={retryPendingVoice}
                     onDismiss={(id) => setPendingVoices((current) => current.filter((item) => item.id !== id))}
                   />
@@ -2131,6 +2309,76 @@ export default function WhatsAppConversationsPage() {
           </section>
         </main>
       </div>
+
+      {contextTarget && (
+        <WhatsAppMessageContextMenu
+          anchor={contextTarget.anchor}
+          options={contextTarget.kind === "pending"
+            ? (() => {
+                const voice = pendingVoices.find((item) => item.id === contextTarget.id);
+                return {
+                  pending: true,
+                  media: true,
+                  retryable: voice?.phase === "upload_failed",
+                  removable: Boolean(voice && !["uploading", "sending"].includes(voice.phase)),
+                };
+              })()
+            : {
+                own: contextTarget.message.from_me,
+                media: isMediaMessageType(contextTarget.message.type) && !["contact", "poll"].includes(contextTarget.message.type),
+                text: Boolean(contextTarget.message.text?.trim()),
+                canEdit: contextTarget.message.from_me && !contextTarget.message.id.startsWith("local-") &&
+                  (isTextMessageType(contextTarget.message.type) || ["image", "video", "gif", "document"].includes(contextTarget.message.type)),
+                pinned: Boolean(marks[contextTarget.message.id]?.pinned),
+                starred: Boolean(marks[contextTarget.message.id]?.starred),
+              }}
+          onClose={() => setContextTarget(null)}
+          onAction={chooseContextAction}
+          onReact={(emoji) => {
+            if (contextTarget.kind === "message") void reactToMessage(contextTarget.message, emoji);
+            setContextTarget(null);
+          }}
+        />
+      )}
+
+      {emojiMessageTarget && (
+        <div className="fixed inset-0 z-[126] flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer les réactions" onClick={() => setEmojiMessageTarget(null)} />
+          <div className="relative z-10 w-full max-w-[370px] overflow-hidden rounded-2xl border border-[#2d3940] bg-[#111f2a] p-3">
+            <div className="mb-2 flex items-center justify-between text-sm font-semibold">
+              <span>Réagir au message</span>
+              <button type="button" onClick={() => setEmojiMessageTarget(null)} aria-label="Fermer les réactions"><X size={18} /></button>
+            </div>
+            <WhatsAppEmojiPicker onPick={(emoji) => {
+              void reactToMessage(emojiMessageTarget, emoji);
+              setEmojiMessageTarget(null);
+            }} />
+          </div>
+        </div>
+      )}
+
+      <WhatsAppForwardMessageModal key={forwardTarget?.id || "closed"} message={forwardTarget} onClose={() => setForwardTarget(null)} />
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center px-4">
+          <button type="button" aria-label="Annuler la suppression" className="absolute inset-0 bg-black/75" onClick={() => { if (!deletingMessage) setDeleteTarget(null); }} />
+          <section role="dialog" aria-modal="true" aria-labelledby="wa-delete-msg-title" className="relative z-10 w-full max-w-[410px] rounded-2xl border border-[#354049] bg-[#101e28] p-5 text-[#eff4f6] shadow-2xl">
+            <h2 id="wa-delete-msg-title" className="text-base font-semibold">{deleteTarget.from_me ? "Supprimer ce message pour tous ?" : "Masquer ce message dans Toumaï ?"}</h2>
+            <p className="mt-2 text-[12px] leading-5 text-[#afbfc7]">
+              {deleteTarget.from_me
+                ? "Toumaï demandera une suppression à WhatsApp. Son acceptation ne garantit pas qu’elle ait disparu des appareils des destinataires."
+                : "Ce message sera seulement masqué dans ce navigateur. Il restera présent sur WhatsApp et chez les autres participants."}
+            </p>
+            {deleteMessageError && <p role="alert" className="mt-3 text-xs text-[#ffb3b3]">{deleteMessageError}</p>}
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" disabled={deletingMessage} onClick={() => setDeleteTarget(null)} className="rounded-lg border border-white/15 px-4 py-2 text-xs">Annuler</button>
+              <button type="button" disabled={deletingMessage} onClick={() => void confirmMessageDeletion()} className="flex items-center gap-2 rounded-lg bg-[#9e3030] px-4 py-2 text-xs font-semibold">
+                {deletingMessage && <Loader2 size={14} className="animate-spin" />} Confirmer
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <WhatsAppMessageInfoModal
         message={messageInfoTarget}
@@ -2500,6 +2748,8 @@ function Avatar({
 function ThreadMessages({
   messages,
   reactions,
+  marks,
+  onMenu,
   onReply,
   onEdit,
   onReact,
@@ -2510,6 +2760,8 @@ function ThreadMessages({
 }: {
   messages: WaLiveMessage[];
   reactions: Record<string, string>;
+  marks: Record<string, Mark>;
+  onMenu: (message: WaLiveMessage, x: number, y: number) => void;
   onReply: (message: WaLiveMessage) => void;
   onEdit: (message: WaLiveMessage) => void;
   onReact: (message: WaLiveMessage, emoji: string) => void;
@@ -2536,6 +2788,8 @@ function ThreadMessages({
               key={message.id || `${message.timestamp_ms}-${index}`}
               message={message}
               reaction={message.id ? reactions[message.id] : undefined}
+              mark={marks[message.id]}
+              onMenu={(x, y) => onMenu(message, x, y)}
               onReply={() => onReply(message)}
               onEdit={() => onEdit(message)}
               onReact={(emoji) => onReact(message, emoji)}
@@ -2554,6 +2808,8 @@ function ThreadMessages({
 function MessageBubble({
   message,
   reaction,
+  mark,
+  onMenu,
   onReply,
   onEdit,
   onReact,
@@ -2564,6 +2820,8 @@ function MessageBubble({
 }: {
   message: WaLiveMessage;
   reaction?: string;
+  mark?: Mark;
+  onMenu: (x: number, y: number) => void;
   onReply: () => void;
   onEdit: () => void;
   onReact: (emoji: string) => void;
@@ -2587,6 +2845,10 @@ function MessageBubble({
       className={`group flex ${message.from_me ? "justify-end" : "justify-start"}`}
       data-message-id={message.id || undefined}
       data-message-direction={message.from_me ? "outbound" : "inbound"}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu(event.clientX, event.clientY);
+      }}
     >
       <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
         <div
@@ -2647,6 +2909,12 @@ function MessageBubble({
           )}
 
           {hasMedia && <WhatsAppMessageMedia message={message} />}
+          {(mark?.starred || mark?.pinned) && (
+            <div className="mb-1 flex items-center gap-1.5" data-testid="whatsapp-message-marks">
+              {mark.pinned && <Pin size={12} color="#ecce76" aria-label="Épinglé dans Toumaï" />}
+              {mark.starred && <Star size={12} color="#ecce76" fill="#ecce76" aria-label="Favori Toumaï" />}
+            </div>
+          )}
 
           {message.text && (
             <p className="whitespace-pre-wrap break-words text-[12px] leading-[1.65]">
@@ -2683,6 +2951,11 @@ function MessageBubble({
         <div
           className={`mt-1 flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 ${message.from_me ? "justify-end" : "justify-start"}`}
         >
+          <MessageActionButton label="Actions" icon={<MoreVertical size={13} />} onClick={() => {
+            const node = document.querySelector(`[data-message-id="${CSS.escape(message.id)}"]`);
+            const rect = node?.getBoundingClientRect();
+            onMenu(rect?.right || window.innerWidth / 2, rect?.bottom || window.innerHeight / 2);
+          }} />
           <MessageActionButton label="Répondre" icon={<Reply size={13} />} onClick={onReply} />
           <div className="relative">
             <MessageActionButton
