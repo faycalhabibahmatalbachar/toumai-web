@@ -20,6 +20,7 @@ import {
 import type { WaEtat, WhatsAppState } from "@/lib/connectors-api";
 import { useCacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import type { StatusKey } from "@/lib/widgets/core";
 import {
   ActionBar,
@@ -172,7 +173,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       if (nextEtat) setEtat(nextEtat);
       setExpanded(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Échec de la liaison WhatsApp.");
+      setError(whatsappUiError(cause, "settings"));
     } finally {
       setBusy(false);
     }
@@ -188,7 +189,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       await refresh();
       setExpanded(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de générer le code de couplage.");
+      setError(whatsappUiError(cause, "settings"));
     } finally {
       setBusy(false);
     }
@@ -258,7 +259,7 @@ export function WhatsAppConnectorCard({ intent = "status" }: Props) {
       setExpanded(true);
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Impossible de déconnecter WhatsApp.");
+      setError(whatsappUiError(cause, "settings"));
     } finally {
       setBusy(false);
     }
