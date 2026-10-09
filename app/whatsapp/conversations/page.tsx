@@ -1896,6 +1896,18 @@ export default function WhatsAppConversationsPage() {
 
                   {!loadingThread && !threadError && displayedMessages.length > 0 && (
                     <div className="mx-auto w-full max-w-[980px]">
+                      {displayedMessages.some((message) => marks[message.id]?.pinned) && (
+                        <div data-testid="whatsapp-local-pins" className="mb-3 flex flex-wrap gap-2">
+                          {displayedMessages.filter((message) => marks[message.id]?.pinned).map((message) => (
+                            <button type="button" key={message.id} className="flex max-w-[280px] items-center gap-1.5 rounded-lg border border-amber-300/20 bg-amber-300/5 px-2.5 py-1.5 text-[11px] text-[#e9ce8f]" onClick={() => {
+                              const node = Array.from(document.querySelectorAll("[data-message-id]")).find((entry) => (entry as HTMLElement).dataset.messageId === message.id);
+                              node?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }}>
+                              <Pin size={12} /> <span className="truncate">{message.text || messageTypeLabel(message.type)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       <ThreadMessages
                         messages={displayedMessages}
                         reactions={localReactions}
@@ -2254,6 +2266,76 @@ export default function WhatsAppConversationsPage() {
           </section>
         </main>
       </div>
+
+      {contextTarget && (
+        <WhatsAppMessageContextMenu
+          anchor={contextTarget.anchor}
+          options={contextTarget.kind === "pending"
+            ? (() => {
+                const voice = pendingVoices.find((item) => item.id === contextTarget.id);
+                return {
+                  pending: true,
+                  media: true,
+                  retryable: voice?.phase === "upload_failed",
+                  removable: Boolean(voice && !["uploading", "sending"].includes(voice.phase)),
+                };
+              })()
+            : {
+                own: contextTarget.message.from_me,
+                media: isMediaMessageType(contextTarget.message.type) && !["contact", "poll"].includes(contextTarget.message.type),
+                text: Boolean(contextTarget.message.text?.trim()),
+                canEdit: contextTarget.message.from_me && !contextTarget.message.id.startsWith("local-") &&
+                  (isTextMessageType(contextTarget.message.type) || ["image", "video", "gif", "document"].includes(contextTarget.message.type)),
+                pinned: Boolean(marks[contextTarget.message.id]?.pinned),
+                starred: Boolean(marks[contextTarget.message.id]?.starred),
+              }}
+          onClose={() => setContextTarget(null)}
+          onAction={chooseContextAction}
+          onReact={(emoji) => {
+            if (contextTarget.kind === "message") void reactToMessage(contextTarget.message, emoji);
+            setContextTarget(null);
+          }}
+        />
+      )}
+
+      {emojiMessageTarget && (
+        <div className="fixed inset-0 z-[126] flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/50" aria-label="Fermer les réactions" onClick={() => setEmojiMessageTarget(null)} />
+          <div className="relative z-10 w-full max-w-[370px] overflow-hidden rounded-2xl border border-[#2d3940] bg-[#111f2a] p-3">
+            <div className="mb-2 flex items-center justify-between text-sm font-semibold">
+              <span>Réagir au message</span>
+              <button type="button" onClick={() => setEmojiMessageTarget(null)} aria-label="Fermer les réactions"><X size={18} /></button>
+            </div>
+            <WhatsAppEmojiPicker onPick={(emoji) => {
+              void reactToMessage(emojiMessageTarget, emoji);
+              setEmojiMessageTarget(null);
+            }} />
+          </div>
+        </div>
+      )}
+
+      <WhatsAppForwardMessageModal key={forwardTarget?.id || "closed"} message={forwardTarget} onClose={() => setForwardTarget(null)} />
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center px-4">
+          <button type="button" aria-label="Annuler la suppression" className="absolute inset-0 bg-black/75" onClick={() => { if (!deletingMessage) setDeleteTarget(null); }} />
+          <section role="dialog" aria-modal="true" aria-labelledby="wa-delete-msg-title" className="relative z-10 w-full max-w-[410px] rounded-2xl border border-[#354049] bg-[#101e28] p-5 text-[#eff4f6] shadow-2xl">
+            <h2 id="wa-delete-msg-title" className="text-base font-semibold">{deleteTarget.from_me ? "Supprimer ce message pour tous ?" : "Masquer ce message dans Toumaï ?"}</h2>
+            <p className="mt-2 text-[12px] leading-5 text-[#afbfc7]">
+              {deleteTarget.from_me
+                ? "Toumaï demandera une suppression à WhatsApp. Son acceptation ne garantit pas qu’elle ait disparu des appareils des destinataires."
+                : "Ce message sera seulement masqué dans ce navigateur. Il restera présent sur WhatsApp et chez les autres participants."}
+            </p>
+            {deleteMessageError && <p role="alert" className="mt-3 text-xs text-[#ffb3b3]">{deleteMessageError}</p>}
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" disabled={deletingMessage} onClick={() => setDeleteTarget(null)} className="rounded-lg border border-white/15 px-4 py-2 text-xs">Annuler</button>
+              <button type="button" disabled={deletingMessage} onClick={() => void confirmMessageDeletion()} className="flex items-center gap-2 rounded-lg bg-[#9e3030] px-4 py-2 text-xs font-semibold">
+                {deletingMessage && <Loader2 size={14} className="animate-spin" />} Confirmer
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <WhatsAppMessageInfoModal
         message={messageInfoTarget}
