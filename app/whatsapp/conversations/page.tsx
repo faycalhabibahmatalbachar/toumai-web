@@ -64,7 +64,7 @@ import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import { getWaContactNameBook, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
-import { errorMessage } from "@/lib/errors";
+
 import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { cacheSeed, cacheSessionOwner, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
@@ -534,7 +534,7 @@ export default function WhatsAppConversationsPage() {
           setListError(null);
           void enrichConversationPictures(fallback.conversations);
         } else {
-          setListError(errorMessage(error, "history"));
+          setListError(whatsappUiError(error, "history"));
         }
       }
     } finally {
@@ -609,7 +609,7 @@ export default function WhatsAppConversationsPage() {
         if (!silent) setThreadError(null);
         void enrichMessagePictures(fallback.messages);
       } else if (!silent) {
-        setThreadError(errorMessage(error, "history"));
+        setThreadError(whatsappUiError(error, "history"));
       }
     } finally {
       // Even a silent refresh must settle the spinner if it superseded the
@@ -662,7 +662,7 @@ export default function WhatsAppConversationsPage() {
       // Preserve a cached search result during transient gateway failures.
       if (!cachedSearch) {
         setThreadSearchResults([]);
-        setThreadSearchError(errorMessage(error, "history"));
+        setThreadSearchError(whatsappUiError(error, "history"));
       }
     } finally {
       setThreadSearchLoading(false);
@@ -687,7 +687,7 @@ export default function WhatsAppConversationsPage() {
       // Contact details already on screen remain readable while offline.
       if (!cachedInfo) {
         setContactInfo(null);
-        setContactInfoError(errorMessage(error, "history"));
+        setContactInfoError(whatsappUiError(error, "history"));
       }
     } finally {
       setContactInfoLoading(false);
@@ -976,7 +976,7 @@ export default function WhatsAppConversationsPage() {
             "La fenêtre d’édition native WhatsApp est terminée. Votre texte est prêt à partir comme correction liée au message original.",
           );
         } else {
-          setSendError(errorMessage(error, "generic"));
+          setSendError(whatsappUiError(error, "generic"));
         }
       } finally {
         setSendingMessage(false);
@@ -1045,7 +1045,7 @@ export default function WhatsAppConversationsPage() {
       );
       setReplyDraft(text);
       setReplyingTo(replyTarget);
-      setSendError(errorMessage(error, "generic"));
+      setSendError(whatsappUiError(error, "generic"));
     } finally {
       setSendingMessage(false);
     }
@@ -1113,7 +1113,7 @@ export default function WhatsAppConversationsPage() {
         delete next[message.id];
         return next;
       });
-      setSendError(errorMessage(error, "generic"));
+      setSendError(whatsappUiError(error, "generic"));
     }
   }
 
@@ -1170,7 +1170,7 @@ export default function WhatsAppConversationsPage() {
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch (error) {
-      setSendError(errorMessage(error, "generic"));
+      setSendError(whatsappUiError(error, "generic"));
     }
   }
 
@@ -1215,7 +1215,7 @@ export default function WhatsAppConversationsPage() {
         window.setTimeout(() => void loadThread(selected, { silent: true }), 500);
       }
     } catch (error) {
-      setDeleteMessageError(errorMessage(error, "generic"));
+      setDeleteMessageError(whatsappUiError(error, "generic"));
     } finally {
       setDeletingMessage(false);
     }
@@ -1258,7 +1258,7 @@ export default function WhatsAppConversationsPage() {
       const status = await getWaMessageStatus(message.id, message.chat_id);
       setMessageInfo(status);
     } catch (error) {
-      setMessageInfoError(errorMessage(error, "history"));
+      setMessageInfoError(whatsappUiError(error, "history"));
     } finally {
       setMessageInfoLoading(false);
     }
@@ -1301,7 +1301,7 @@ export default function WhatsAppConversationsPage() {
       setAttachmentType(semanticHint || detectedType);
       setAttachmentOpen(true);
     } catch (error) {
-      setAttachmentError(errorMessage(error, "generic"));
+      setAttachmentError(whatsappUiError(error, "generic"));
     } finally {
       setAttachmentUploading(false);
     }
@@ -1355,7 +1355,7 @@ export default function WhatsAppConversationsPage() {
           "Préparation du vocal trop longue. Vous pouvez réessayer.",
         );
       } catch (error) {
-        update({ phase: "upload_failed", detail: errorMessage(error, "generic") });
+        update({ phase: "upload_failed", detail: whatsappUiError(error, "generic") });
         return; // No WhatsApp send was attempted: safe to retry upload.
       }
       if (voiceSessionRef.current !== account) return; // Account switched.
@@ -1386,7 +1386,7 @@ export default function WhatsAppConversationsPage() {
       } catch (error) {
         // Network timeout after a send request is ambiguous. NEVER retry
         // automatically: the gateway may have sent the voice already.
-        update({ phase: "unconfirmed", detail: errorMessage(error, "generic") });
+        update({ phase: "unconfirmed", detail: whatsappUiError(error, "generic") });
       }
     } finally {
       voiceRequestsRef.current.delete(voice.id);
