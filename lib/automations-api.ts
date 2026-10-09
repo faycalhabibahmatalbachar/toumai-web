@@ -124,7 +124,7 @@ export function createWhatsAppTextAutomation(input: {
   timezone: string;
   requestId: string;
 }): Promise<{ automation: Automation; replayed: boolean; recipient_label?: string | null }> {
-  return http.post("/automations/v2/whatsapp", {
+  return http.post<{ automation: Automation; replayed: boolean; recipient_label?: string | null }>("/automations/v2/whatsapp", {
     client: "web",
     client_request_id: input.requestId,
     to: input.to,
