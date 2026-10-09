@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -84,6 +85,8 @@ const LOWER_NAV = [
 
 export default function WhatsAppOverviewPage() {
   const { session } = useAuth();
+  const router = useRouter();
+  const searchRef = useRef<HTMLInputElement>(null);
   useExigerCompte();
 
   const [days, setDays] = useState<PeriodDays>(30);
@@ -94,6 +97,7 @@ export default function WhatsAppOverviewPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [automationBusy, setAutomationBusy] = useState<Record<string, boolean>>({});
   const [automationOverride, setAutomationOverride] = useState<Record<string, boolean>>({});
+  const [workspaceSearch, setWorkspaceSearch] = useState("");
 
   const {
     data: etat,
@@ -193,6 +197,22 @@ export default function WhatsAppOverviewPage() {
     }
   }
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  function submitWorkspaceSearch() {
+    const value = workspaceSearch.trim();
+    router.push(value ? `/whatsapp/conversations?q=${encodeURIComponent(value)}` : "/whatsapp/conversations");
+  }
+
   async function toggleAutomation(task: WhatsAppAutomation) {
     if (automationBusy[task.id]) return;
     const current = automationOverride[task.id] ?? isAutomationEnabled(task);
@@ -217,8 +237,8 @@ export default function WhatsAppOverviewPage() {
 
   return (
     <div className="min-h-dvh text-[#f4f7f9]" style={{ background: PAGE_BG }}>
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[253px] border-r lg:block" style={{ background: SIDEBAR_BG, borderColor: BORDER }}>
-        <SidebarContent />
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[76px] border-r lg:block" style={{ background: SIDEBAR_BG, borderColor: BORDER }}>
+        <SidebarContent compact />
       </aside>
 
       {mobileNavOpen && (
@@ -233,7 +253,7 @@ export default function WhatsAppOverviewPage() {
         </div>
       )}
 
-      <div className="lg:pl-[253px]">
+      <div className="lg:pl-[76px]">
         <header className="sticky top-0 z-40 flex h-[70px] items-center border-b px-4 md:px-7" style={{ background: "rgba(6,17,26,.96)", borderColor: BORDER, backdropFilter: "blur(16px)" }}>
           <button type="button" aria-label="Ouvrir la navigation" onClick={() => setMobileNavOpen(true)} className="mr-3 flex h-9 w-9 items-center justify-center rounded-lg text-[#9ba8b3] hover:bg-white/5 lg:hidden">
             <Menu size={20} />
@@ -247,16 +267,34 @@ export default function WhatsAppOverviewPage() {
           </div>
 
           <div className="ml-auto flex items-center gap-3 md:gap-5">
-            <button type="button" className="hidden h-11 w-[435px] max-w-[34vw] items-center gap-3 rounded-xl border px-4 text-left xl:flex" style={{ background: SURFACE_RAISED, borderColor: BORDER, color: MUTED }}>
+            <form
+              className="hidden h-11 w-[435px] max-w-[34vw] items-center gap-3 rounded-xl border px-4 xl:flex"
+              style={{ background: SURFACE_RAISED, borderColor: BORDER, color: MUTED }}
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitWorkspaceSearch();
+              }}
+            >
               <Search size={18} />
-              <span className="min-w-0 flex-1 truncate text-[13px]">Rechercher un contact, une conversation, une action...</span>
+              <input
+                ref={searchRef}
+                value={workspaceSearch}
+                onChange={(event) => setWorkspaceSearch(event.target.value)}
+                placeholder="Rechercher un contact ou une conversation…"
+                aria-label="Rechercher dans WhatsApp"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[#f4f7f9] outline-none placeholder:text-[#9ba8b3]"
+              />
               <kbd className="rounded-md border px-2 py-1 text-[11px]" style={{ borderColor: BORDER, color: FAINT }}>Ctrl K</kbd>
-            </button>
+            </form>
 
-            <button type="button" aria-label="Notifications" className="relative flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/5" style={{ color: MUTED }}>
+            <Link
+              href="/notifications"
+              aria-label="Notifications"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl hover:bg-white/5"
+              style={{ color: MUTED }}
+            >
               <Bell size={20} strokeWidth={1.8} />
-              <span className="absolute right-[7px] top-[6px] h-2.5 w-2.5 rounded-full border-2" style={{ background: ORANGE, borderColor: PAGE_BG }} />
-            </button>
+            </Link>
 
             <div className="hidden items-center gap-3 sm:flex">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1687f8] text-sm font-bold text-white">{initials}</div>
@@ -503,10 +541,29 @@ function ActivityChart({ data }: { data: ActivityPoint[] }) {
   );
 }
 
-function SidebarContent() {
+function SidebarContent({ compact = false }: { compact?: boolean }) {
+  const itemClass = compact
+    ? "group relative flex h-11 items-center justify-center rounded-xl transition hover:bg-white/[0.05]"
+    : "flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] transition hover:bg-white/[0.04]";
+
+  const tooltip = (label: string) =>
+    compact ? (
+      <span
+        className="pointer-events-none absolute left-full z-[80] ml-3 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[11px] font-medium opacity-0 shadow-xl transition group-hover:opacity-100"
+        style={{ borderColor: BORDER, background: "#17242d", color: TEXT }}
+      >
+        {label}
+      </span>
+    ) : null;
+
   return (
-    <div className="flex h-full flex-col px-3 pb-5 pt-4">
-      <Link href="/chat" className="flex h-12 items-center gap-3 px-3" aria-label="Toumaï AI">
+    <div className={`flex h-full flex-col ${compact ? "px-3 py-4" : "px-3 pb-5 pt-4"}`}>
+      <Link
+        href="/chat"
+        className={compact ? "group relative flex h-12 items-center justify-center" : "flex h-12 items-center gap-3 px-3"}
+        aria-label="Toumaï AI"
+        title={compact ? "Toumaï AI" : undefined}
+      >
         <Image
           src="/logo.png"
           alt=""
@@ -515,24 +572,39 @@ function SidebarContent() {
           priority
           className="h-[38px] w-[38px] shrink-0 object-contain"
         />
-        <span className="text-[23px] font-bold tracking-[-0.03em]">Toumaï AI</span>
+        {!compact && <span className="text-[23px] font-bold tracking-[-0.03em]">Toumaï AI</span>}
+        {tooltip("Toumaï AI")}
       </Link>
-      <nav className="mt-5 space-y-1">
-        {NAV_ITEMS.map((item) => <SidebarLink key={item.href} {...item} />)}
-        <Link href="/whatsapp" className="flex h-[54px] items-center gap-3 rounded-xl border px-4 text-[14px] font-semibold shadow-[0_0_28px_rgba(255,149,24,.12)]" style={{ background: "linear-gradient(90deg, rgba(255,149,24,.23), rgba(255,149,24,.10))", borderColor: "rgba(255,149,24,.72)", color: TEXT }}>
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0ac86d]"><WhatsAppIcon size={18} /></span>
-          WhatsApp
+      <nav className={`${compact ? "mt-7" : "mt-5"} space-y-1`}>
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} aria-label={label} title={compact ? label : undefined} className={itemClass} style={{ color: "#bdc7cf" }}>
+            <Icon size={21} strokeWidth={1.75} />
+            {compact ? tooltip(label) : <span>{label}</span>}
+          </Link>
+        ))}
+        <Link
+          href="/whatsapp"
+          aria-label="WhatsApp"
+          title={compact ? "WhatsApp" : undefined}
+          className={compact ? "group relative mt-2 flex h-11 items-center justify-center rounded-xl border" : "flex h-[54px] items-center gap-3 rounded-xl border px-4 text-[14px] font-semibold shadow-[0_0_28px_rgba(255,149,24,.12)]"}
+          style={{ background: "linear-gradient(90deg, rgba(255,149,24,.23), rgba(255,149,24,.10))", borderColor: "rgba(255,149,24,.72)", color: TEXT }}
+        >
+          <span className={compact ? "flex h-7 w-7 items-center justify-center rounded-lg bg-[#0ac86d]" : "flex h-7 w-7 items-center justify-center rounded-lg bg-[#0ac86d]"}>
+            <WhatsAppIcon size={18} />
+          </span>
+          {compact ? tooltip("WhatsApp") : "WhatsApp"}
         </Link>
       </nav>
-      <div className="mt-2 space-y-1 border-t pt-2" style={{ borderColor: "rgba(255,255,255,.035)" }}>
-        {LOWER_NAV.map((item) => <SidebarLink key={item.href} {...item} />)}
+      <div className={compact ? "mt-auto space-y-1" : "mt-2 space-y-1 border-t pt-2"} style={compact ? undefined : { borderColor: "rgba(255,255,255,.035)" }}>
+        {LOWER_NAV.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} aria-label={label} title={compact ? label : undefined} className={itemClass} style={{ color: "#bdc7cf" }}>
+            <Icon size={21} strokeWidth={1.75} />
+            {compact ? tooltip(label) : <span>{label}</span>}
+          </Link>
+        ))}
       </div>
     </div>
   );
-}
-
-function SidebarLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof LayoutDashboard }) {
-  return <Link href={href} className="flex h-[48px] items-center gap-4 rounded-xl px-4 text-[14px] transition hover:bg-white/[0.04]" style={{ color: "#bdc7cf" }}><Icon size={21} strokeWidth={1.75} /><span>{label}</span></Link>;
 }
 
 function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
