@@ -1,4 +1,4 @@
-import { cachePurge, cacheSeed, cacheWrite } from "./swr-cache";
+import { cachePurge, cacheSeed, cacheSessionOwner, cacheWrite } from "./swr-cache";
 
 export const WA_CACHE = {
   etat: "wa:etat",
@@ -54,6 +54,25 @@ export const WA_CACHE = {
     `wa:media-research:${encodeURIComponent(experimentId)}`,
 } as const;
 
+/** Reads already launched must not repopulate an invalidated cache namespace.
+ * Track only outstanding requests, not every key ever visited. */
+interface PendingRead { invalidated: boolean }
+const pendingReads = new Map<string, Set<PendingRead>>();
+
+function registerRead(owner: string, key: string, ticket: PendingRead): () => void {
+  const identity = `${owner}:${key}`;
+  let group = pendingReads.get(identity);
+  if (!group) {
+    group = new Set<PendingRead>();
+    pendingReads.set(identity, group);
+  }
+  group.add(ticket);
+  return () => {
+    group!.delete(ticket);
+    if (group!.size === 0) pendingReads.delete(identity);
+  };
+}
+
 export interface WhatsAppReadOptions {
   /** Ignore la fraîcheur locale et consulte réellement le serveur. */
   revalidate?: boolean;
@@ -79,14 +98,29 @@ export async function waCachedRead<T>(
     if (fresh !== null) return fresh;
   }
 
+  const requestOwner = cacheSessionOwner();
   const stale = staleIfError ? cacheSeed<T>(key) : null;
+  const ticket: PendingRead = { invalidated: false };
+  const unregister = registerRead(requestOwner, key, ticket);
   try {
     const value = await fetcher();
+    // A late response from account A, or from before a successful mutation,
+    // must never poison the active account or resurrect invalidated data.
+    if (requestOwner !== cacheSessionOwner()) {
+      throw new Error("La session WhatsApp a changé pendant le chargement.");
+    }
+    if (ticket.invalidated) {
+      throw new Error("Les données WhatsApp ont changé pendant le chargement.");
+    }
     cacheWrite(key, value);
     return value;
   } catch (error) {
-    if (stale !== null) return stale;
+    if (!ticket.invalidated && requestOwner === cacheSessionOwner() && stale !== null) {
+      return stale;
+    }
     throw error;
+  } finally {
+    unregister();
   }
 }
 
@@ -94,13 +128,21 @@ export async function waMutation<T>(
   request: Promise<T>,
   prefixes: string[] = ["wa:"],
 ): Promise<T> {
+  const requestOwner = cacheSessionOwner();
   const result = await request;
-  for (const prefix of prefixes) cachePurge(prefix);
+  // Never purge B's cache when A's mutation resolves after an account switch.
+  if (requestOwner === cacheSessionOwner()) invalidateWhatsAppCache(...prefixes);
   return result;
 }
 
 export function invalidateWhatsAppCache(...prefixes: string[]): void {
   const targets = prefixes.length ? prefixes : ["wa:"];
+  const ownerPrefix = `${cacheSessionOwner()}:`;
+  for (const [identity, group] of pendingReads) {
+    if (targets.some((prefix) => identity.startsWith(ownerPrefix + prefix))) {
+      for (const ticket of group) ticket.invalidated = true;
+    }
+  }
   for (const prefix of targets) cachePurge(prefix);
 }
 
