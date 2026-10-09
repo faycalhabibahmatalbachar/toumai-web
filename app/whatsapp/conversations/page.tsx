@@ -803,8 +803,14 @@ export default function WhatsAppConversationsPage() {
     setEmojiOpen(false);
     setAttachmentMenuOpen(false);
     try {
+      const browserMime = (file.type || "").toLowerCase();
+      const semanticHint: WaMediaType | undefined =
+        forcedType ||
+        (browserMime.startsWith("audio/") || browserMime === "application/ogg"
+          ? "audio"
+          : undefined);
       const uploaded = await uploadWaAttachment(file, {
-        requestedType: forcedType,
+        requestedType: semanticHint,
       });
       const detectedType =
         uploaded.media_family && ["image", "video", "gif", "audio", "document"].includes(uploaded.media_family)
@@ -812,7 +818,7 @@ export default function WhatsAppConversationsPage() {
           : inferWaMediaType(file);
       setAttachmentFile(file);
       setAttachmentUploaded(uploaded);
-      setAttachmentType(forcedType || detectedType);
+      setAttachmentType(semanticHint || detectedType);
       setAttachmentOpen(true);
     } catch (error) {
       setAttachmentError(errorMessage(error, "generic"));
