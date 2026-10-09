@@ -11,6 +11,7 @@ const files = [
   "app/whatsapp/ai/page.tsx",
   "components/whatsapp/WhatsAppMessageInfoModal.tsx",
   "components/whatsapp/WhatsAppMessageMedia.tsx",
+  "components/whatsapp/WhatsAppVoiceNotePlayer.tsx",
   "components/whatsapp/WhatsAppAttachmentModal.tsx",
   "components/whatsapp/WhatsAppComposeModal.tsx",
   "components/whatsapp/WhatsAppContactShareModal.tsx",
@@ -55,6 +56,15 @@ assert.match(sources["components/whatsapp/WhatsAppContactShareModal.tsx"],
 assert.match(sources["components/whatsapp/WhatsAppMessageInfoModal.tsx"],
   /\{!error && status\?\.known && \(/,
   "Message receipts should render as available without being blocked by a refresh");
+assert.match(sources["components/whatsapp/WhatsAppMessageMedia.tsx"],
+  /mediaType === "voice"\) \{/,
+  "Voice notes must keep the same waveform shape in every state");
+assert.match(sources["components/whatsapp/WhatsAppMessageMedia.tsx"],
+  /<WhatsAppVoiceNotePlaceholder/,
+  "Voice loading and failures must use the same player shell");
+assert.match(sources["components/whatsapp/WhatsAppVoiceNotePlayer.tsx"],
+  /export function WhatsAppVoiceNotePlaceholder/,
+  "The non-blocking voice shell must exist");
 assert.match(sources["components/whatsapp/WhatsAppMessageMedia.tsx"],
   /data-testid="whatsapp-media-loading"/,
   "Media keeps a compact placeholder before the first binary is ready");
