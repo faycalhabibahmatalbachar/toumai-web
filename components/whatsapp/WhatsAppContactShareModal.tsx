@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, Search, UserRound, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
+import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
+import { getWaCarnet, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { sendWaContactCard, type WaLiveConversation } from "@/lib/whatsapp-enterprise-api";
@@ -41,8 +42,21 @@ export function WhatsAppContactShareModal({
       setLoading(true);
       setError(null);
       try {
-        const carnet = await getWaCarnet(query.trim() || undefined);
-        if (!cancelled) setContacts(carnet.contacts.slice(0, 80));
+        const shortlist = (await getWaCarnet(query.trim() || undefined)).contacts.slice(0, 80);
+        let pictures: Record<string, string | null> = {};
+        try {
+          pictures = await getWaProfilePictures(shortlist.map((contact) => contact.jid));
+        } catch {
+          // Le partage reste disponible si WhatsApp ne donne pas certaines photos.
+        }
+        if (!cancelled) {
+          setContacts(
+            shortlist.map((contact) => ({
+              ...contact,
+              picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
+            })),
+          );
+        }
       } catch (exc) {
         if (!cancelled) {
           setContacts([]);
@@ -168,9 +182,12 @@ export function WhatsAppContactShareModal({
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.04]"
                 style={{ background: active ? "rgba(8,200,117,.08)" : "transparent" }}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.05]" style={{ color: active ? GREEN : MUTED }}>
-                  <UserRound size={18} />
-                </span>
+                <WhatsAppProfileAvatar
+                  name={displayWhatsAppIdentity({ name: contact.name, number: contact.number, id: contact.jid, kind: "contact" })}
+                  kind="contact"
+                  pictureUrl={contact.picture_url}
+                  size={40}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[12px] font-semibold">
                     {displayWhatsAppIdentity({ name: contact.name, number: contact.number, id: contact.jid, kind: "contact" })}
