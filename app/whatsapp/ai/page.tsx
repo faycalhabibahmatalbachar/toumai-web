@@ -142,7 +142,7 @@ export default function WhatsAppAiAgentPage() {
             <div className="max-w-3xl">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--cx-accent-text)]">Toumaï sur WhatsApp</p>
               <h1 className="text-[36px] font-medium leading-[1.04] tracking-[-0.035em] sm:text-[48px]" style={cxDisplayStyle}>Contrôlez la manière dont l’IA répond.</h1>
-              <p className="mt-5 max-w-2xl text-[15px] leading-7 text-[var(--cx-text-muted)] sm:text-base">Cette page pilote directement l’auto-pilote WhatsApp existant. Aucun mode, chiffre ou permission n’est simulé.</p>
+              <p className="mt-5 max-w-2xl text-[15px] leading-7 text-[var(--cx-text-muted)] sm:text-base">Personnalisez vos réponses automatiques, vos préférences et les autorisations de votre agent WhatsApp.</p>
             </div>
 
             {error && <div className="mt-7 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400"><CircleAlert size={17} />{error}</div>}
@@ -176,7 +176,7 @@ export default function WhatsAppAiAgentPage() {
 
                 <section className="mt-5 divide-y divide-[var(--cx-border-subtle)] rounded-2xl border border-[var(--cx-border-subtle)] bg-[var(--cx-surface)]">
                   <FieldRow label="Persona" description="Nom ou rôle utilisé pour guider le comportement de l’agent."><input value={draft.persona ?? ""} onChange={(e) => setDraft({ ...draft, persona: e.target.value })} className="w-full rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-sm outline-none focus:border-[var(--cx-accent-border)] sm:w-[320px]" placeholder="Support clients" /></FieldRow>
-                  <FieldRow label="Langue de réponse" description="Valeur transmise au moteur actuel de l’auto-pilote."><input value={draft.reply_language ?? ""} onChange={(e) => setDraft({ ...draft, reply_language: e.target.value })} className="w-full rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-sm outline-none focus:border-[var(--cx-accent-border)] sm:w-[320px]" placeholder="auto" /></FieldRow>
+                  <FieldRow label="Langue de réponse" description="Langue préférée pour les réponses de l’agent."><input value={draft.reply_language ?? ""} onChange={(e) => setDraft({ ...draft, reply_language: e.target.value })} className="w-full rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-sm outline-none focus:border-[var(--cx-accent-border)] sm:w-[320px]" placeholder="auto" /></FieldRow>
                   <FieldRow label="Signature" description="Ajoutée aux réponses lorsque votre configuration l’utilise."><input value={draft.signature ?? ""} onChange={(e) => setDraft({ ...draft, signature: e.target.value })} className="w-full rounded-xl border border-[var(--cx-border-default)] bg-[var(--cx-input)] px-3 py-2 text-sm outline-none focus:border-[var(--cx-accent-border)] sm:w-[320px]" placeholder="" /></FieldRow>
                   <FieldRow label="Répondre dans les groupes" description="Autorise l’auto-pilote à intervenir dans les groupes WhatsApp."><button type="button" role="switch" aria-checked={!!draft.allow_groups} onClick={() => setDraft({ ...draft, allow_groups: !draft.allow_groups })} className={`relative h-7 w-12 rounded-full transition ${draft.allow_groups ? "bg-emerald-500" : "bg-[var(--cx-input)]"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${draft.allow_groups ? "left-6" : "left-1"}`} /></button></FieldRow>
                 </section>
@@ -192,7 +192,7 @@ export default function WhatsAppAiAgentPage() {
           </div>
 
           <aside className="space-y-4 xl:pt-20">
-            <SideCard icon={<Sparkles size={18} />} title="Activité réelle · 7 jours">
+            <SideCard icon={<Sparkles size={18} />} title="Activité · 7 jours">
               <Metric label="Réponses" value={analytics ? String(analytics.responses_total) : "—"} icon={<MessageSquareText size={15} />} />
               <Metric label="Conversations" value={analytics ? String(analytics.active_conversations) : "—"} icon={<UsersRound size={15} />} />
               <Metric label="Temps moyen" value={analytics?.avg_response_time_ms == null ? "—" : formatMs(analytics.avg_response_time_ms)} icon={<Clock3 size={15} />} />
