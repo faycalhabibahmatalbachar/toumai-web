@@ -51,17 +51,17 @@ export function WhatsAppAttachmentModal({
   const [previewUrl, setPreviewUrl] = useState("");
 
   useEffect(() => {
-    if (!open || !file) {
-      setPreviewUrl("");
-      return;
+    let localObjectUrl: string | null = null;
+    if (open && file && !(uploaded?.converted && uploaded.url)) {
+      localObjectUrl = URL.createObjectURL(file);
     }
-    if (uploaded?.converted && uploaded.url) {
-      setPreviewUrl(uploaded.url);
-      return;
-    }
-    const next = URL.createObjectURL(file);
-    setPreviewUrl(next);
-    return () => URL.revokeObjectURL(next);
+    const next = !open || !file ? "" : uploaded?.converted && uploaded.url ? uploaded.url : localObjectUrl || "";
+    // Schedule the preview update outside the effect's synchronous phase.
+    const timer = window.setTimeout(() => setPreviewUrl(next), 0);
+    return () => {
+      window.clearTimeout(timer);
+      if (localObjectUrl) URL.revokeObjectURL(localObjectUrl);
+    };
   }, [open, file, uploaded]);
 
   if (!open || !conversation || !file || !uploaded || !mediaType) return null;
