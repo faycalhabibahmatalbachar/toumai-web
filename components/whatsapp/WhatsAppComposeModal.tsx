@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 
 import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
-import { getWaCarnet, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
+import { getWaCarnet, getWaProfilePictures, type WaCarnet, type WaContact } from "@/lib/connectors-api";
+import { cacheSeed } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import { errorMessage } from "@/lib/errors";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import {
@@ -86,7 +88,13 @@ export function WhatsAppComposeModal({
     }
     let cancelled = false;
     const timer = window.setTimeout(async () => {
-      setLoadingContacts(true);
+      const cached = cacheSeed<WaCarnet>(WA_CACHE.carnet(value));
+      if (cached && !cancelled) {
+        setContacts(cached.contacts.slice(0, 8));
+        setLoadingContacts(false);
+      } else {
+        setLoadingContacts(true);
+      }
       try {
         const shortlist = (await getWaCarnet(value)).contacts.slice(0, 8);
         if (!cancelled) setContacts(shortlist);
