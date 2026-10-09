@@ -58,6 +58,7 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
+import { getWaProfilePictures } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
 import {
   applyWaConversationAction,
@@ -223,6 +224,52 @@ export default function WhatsAppConversationsPage() {
     [conversations],
   );
 
+  const enrichConversationPictures = useCallback(async (
+    items: WaLiveConversation[],
+  ) => {
+    const jids = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+    if (!jids.length) return;
+    try {
+      const pictures = await getWaProfilePictures(jids);
+      setConversations((current) =>
+        current.map((item) => {
+          const next = pictures[item.id];
+          return next && next !== item.picture_url ? { ...item, picture_url: next } : item;
+        }),
+      );
+      setSelected((current) => {
+        if (!current) return current;
+        const next = pictures[current.id];
+        return next && next !== current.picture_url ? { ...current, picture_url: next } : current;
+      });
+    } catch {
+      // Une photo est décorative : son échec ne doit jamais bloquer les chats.
+    }
+  }, []);
+
+  const enrichMessagePictures = useCallback(async (
+    items: WaLiveMessage[],
+  ) => {
+    const jids = Array.from(
+      new Set(items.map((item) => (item.sender_jid || "").trim()).filter(Boolean)),
+    );
+    if (!jids.length) return;
+    try {
+      const pictures = await getWaProfilePictures(jids);
+      setMessages((current) =>
+        current.map((item) => {
+          const jid = (item.sender_jid || "").trim();
+          const next = jid ? pictures[jid] : null;
+          return next && next !== item.sender_picture_url
+            ? { ...item, sender_picture_url: next }
+            : item;
+        }),
+      );
+    } catch {
+      // Même règle : le fil reste utilisable avec avatar fallback.
+    }
+  }, []);
+
   const loadConversations = useCallback(async (
     search: string,
     selectedFilter: Filter,
@@ -250,6 +297,7 @@ export default function WhatsAppConversationsPage() {
       });
       setHasMore(data.has_more);
       setNextOffset(data.next_offset);
+      void enrichConversationPictures(data.conversations);
 
       const requested =
         typeof window === "undefined"
@@ -272,7 +320,7 @@ export default function WhatsAppConversationsPage() {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
     }
-  }, [kindFilter]);
+  }, [enrichConversationPictures, kindFilter]);
 
   const loadThread = useCallback(async (
     conversation: WaLiveConversation,
@@ -286,6 +334,7 @@ export default function WhatsAppConversationsPage() {
     try {
       const data = await getWaConversationMessages(conversation.id, 120);
       setMessages(data.messages);
+      void enrichMessagePictures(data.messages);
       if (!silent) setThreadError(null);
     } catch (error) {
       // Une resynchronisation de fond ne doit jamais faire disparaître un fil
@@ -297,7 +346,7 @@ export default function WhatsAppConversationsPage() {
     } finally {
       if (!silent) setLoadingThread(false);
     }
-  }, []);
+  }, [enrichMessagePictures]);
 
   const refreshRealtimeConversations = useCallback(async () => {
     await loadConversations(query, filter);
