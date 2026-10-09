@@ -1,0 +1,19 @@
+FULL CERTIFICATION REQUEST
+
+reason=Phase 11 same-SHA recertification after pre-canary auth diagnostics and real-send gate hardening
+backend_main_sha=ae3ad36e608b38e5384ac52ebcb5e0bd00300500
+sender_chain=send_whatsapp->_send->whatsapp_gateway.send_message->POST_/session/{user_id}/send
+precanary_read_only=REQUIRED
+precanary_allowed_methods=GET_ONLY
+precanary_required_checks=secrets_present,api_live,access_token_auth,whatsapp_connected,send_text_permission,no_provider_mutation
+precanary_safe_auth_diagnostics=REQUIRED
+real_provider_requires_same_sha=FAST_PASS,FULL_PASS,PRECANARY_PASS
+real_provider_execution=FROZEN_NOT_AUTHORIZED_BY_THIS_MARKER
+real_provider_trigger=WORKFLOW_DISPATCH_ONLY
+real_phone_provider_e2e=NOT_RUN
+requested_at=2026-09-30T01:38:00Z
+
+This marker intentionally triggers WhatsApp Experience V2 FAST and FULL CERTIFICATION on this exact commit SHA.
+The separate PRE-CANARY READ-ONLY workflow also runs on this branch push and performs only authenticated GET checks; it does not create a pending action, confirm anything, call the provider mutation path, or send WhatsApp.
+The protected REAL PROVIDER CANARY remains workflow_dispatch-only and now fails closed unless FAST, FULL, and PRE-CANARY READ-ONLY all succeeded on this exact SHA before any provider action.
+No merge to main is authorized by this marker.
