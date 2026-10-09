@@ -9,6 +9,8 @@ on:
       - "lib/chat-*.ts"
       - "lib/documents-api.ts"
       - "lib/prechargement-conversations.ts"
+      - "scripts/verify-coding-debug-repair-contract.mjs"
+      - "package.json"
       - ".github/workflows/chat-rich-response-ci.yml"
 
 permissions:
@@ -39,6 +41,8 @@ jobs:
           lib/chat-api.ts
           lib/documents-api.ts
           lib/prechargement-conversations.ts
+      - name: Coding Debugger/Repair contract
+        run: npm run test:coding-debug-repair
       - name: Typecheck
         run: npm run typecheck
       - name: Production build
