@@ -137,7 +137,7 @@ export default function WhatsAppAiAgentPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1380px] px-4 pb-24 pt-10 md:px-7 md:pt-14">
+      <main aria-busy={loading && !draft} className="mx-auto w-full max-w-[1380px] px-4 pb-24 pt-10 md:px-7 md:pt-14">
         <div className="grid gap-12 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-16">
           <div className="min-w-0">
             <div className="max-w-3xl">
