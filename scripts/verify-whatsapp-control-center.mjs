@@ -1374,7 +1374,18 @@ async function certifyVoiceInstantQueue() {
 }
 
 async function certifyVerifiedContactNames() {
-  const page = await context.newPage();
+  // Isolated browser storage: intentionally wrong identity fixtures must NEVER
+  // leak into the other E2E scenarios or persistent WhatsApp account cache.
+  const isolated = await browser.newContext({ viewport: { width: 1440, height: 960 }, colorScheme: "dark", serviceWorkers: "block" });
+  await isolated.addInitScript(() => {
+    sessionStorage.setItem("toumai:signature-vue", "1");
+    localStorage.setItem("chadgpt_web_session_v1", JSON.stringify({
+      access_token: "control-center-test", refresh_token: "control-center-refresh",
+      token_type: "bearer", expires_in: 3600, expires_at: Date.now() + 3_600_000,
+      user_id: "control-center-user",
+    }));
+  });
+  const page = await isolated.newPage();
   await page.addInitScript(() => {
     for (let i = localStorage.length - 1; i >= 0; i -= 1) {
       const key = localStorage.key(i) || "";
@@ -1418,6 +1429,7 @@ async function certifyVerifiedContactNames() {
   assert(visible.includes("WhatsApp"), "Identifiant privé sans nom : fallback neutre.");
   await page.screenshot({ path: `${artifacts}/verified-contact-names.png`, fullPage: false });
   await page.close();
+  await isolated.close();
 }
 
 async function certifyAutomations() {
