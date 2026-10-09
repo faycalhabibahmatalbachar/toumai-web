@@ -764,21 +764,27 @@ async function certifyConversations() {
   const voiceBubbleBox = await voiceMessage.locator('[data-voice-bubble="true"]').boundingBox();
   assert(Boolean(voicePlayerBox && voiceAvatarBox && voiceBubbleBox), "Géométrie du vocal introuvable.");
   assert(
-    voicePlayerBox.height >= 70 && voicePlayerBox.height <= 74,
-    `Le lecteur vocal doit rester compact (~72px), obtenu ${voicePlayerBox.height}px.`,
+    voicePlayerBox.height >= 72 && voicePlayerBox.height <= 76,
+    `Le lecteur vocal doit rester compact (~74px), obtenu ${voicePlayerBox.height}px.`,
   );
   assert(
     voiceAvatarBox.width >= 72 && voiceAvatarBox.width <= 76 &&
       voiceAvatarBox.height >= 72 && voiceAvatarBox.height <= 76,
     `Avatar vocal attendu ~74px, obtenu ${voiceAvatarBox.width}x${voiceAvatarBox.height}px.`,
   );
+  const voiceTrackBox = await voiceMessage.locator('[data-testid="voice-progress-track"]').boundingBox();
+  assert(Boolean(voiceTrackBox), "Rail de progression vocal introuvable.");
   assert(
-    voiceBubbleBox.height >= 84 && voiceBubbleBox.height <= 94,
+    voiceTrackBox.width >= 255 && voiceTrackBox.width <= 285,
+    `Rail vocal attendu ~270px, obtenu ${voiceTrackBox.width}px.`,
+  );
+  assert(
+    voiceBubbleBox.height >= 88 && voiceBubbleBox.height <= 92,
     `Bulle vocale attendue ~90px comme WhatsApp, obtenue ${voiceBubbleBox.height}px.`,
   );
   assert(
-    voiceBubbleBox.width >= 430 && voiceBubbleBox.width <= 470,
-    `Largeur vocale attendue 430-470px, obtenue ${voiceBubbleBox.width}px.`,
+    voiceBubbleBox.width >= 455 && voiceBubbleBox.width <= 467,
+    `Largeur vocale attendue ~461px comme la référence, obtenue ${voiceBubbleBox.width}px.`,
   );
 
   const playedBefore = state.voicePlayed.length;
