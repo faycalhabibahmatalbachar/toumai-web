@@ -79,7 +79,7 @@ import {
   type WaMessageStatus,
   type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
-import { displayWhatsAppIdentity, displayWhatsAppSecondary, safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
+import { displayWhatsAppIdentity, displayWhatsAppSecondary, isTechnicalWhatsAppIdentity, safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
 
 const PAGE_BG = "#06111a";
 const SIDEBAR_BG = "#0a151e";
