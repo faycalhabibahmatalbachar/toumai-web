@@ -2195,6 +2195,7 @@ function MessageBubble({
     >
       <div className="relative max-w-[88%] sm:max-w-[76%] lg:max-w-[66%]">
         <div
+          data-voice-bubble={isVoice ? "true" : undefined}
           className={
             isVoice
               ? "relative rounded-[9px] px-[10px] py-[7px] shadow-[0_2px_6px_rgba(0,0,0,.12)]"
