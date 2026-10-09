@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -29,7 +29,8 @@ import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
-  getWhatsAppAutomations,
+  getWhatsAppAutomationStats,
+  getWhatsAppAutomationsPage,
   pauseWhatsAppAutomation,
   resumeWhatsAppAutomation,
   updateWhatsAppAutomation,
@@ -49,6 +50,7 @@ const BLUE = "#2f8cff";
 const ORANGE = "#ff9518";
 
 type Filter = "all" | "active" | "paused" | "failed" | "done";
+const PAGE_SIZE = 25;
 
 export default function WhatsAppAutomationsPage() {
   const { session } = useAuth();
@@ -56,6 +58,12 @@ export default function WhatsAppAutomationsPage() {
 
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [serverSearch, setServerSearch] = useState("");
+  const [offset, setOffset] = useState(0);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setServerSearch(query.trim()); setOffset(0); }, 350);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [actionError, setActionError] = useState<string | null>(null);
   const [editTask, setEditTask] = useState<WhatsAppAutomation | null>(null);
@@ -65,38 +73,35 @@ export default function WhatsAppAutomationsPage() {
 
   const {
     data: tasksData,
+    fromCache,
     loading,
     error: cacheError,
     refresh: load,
-  } = useCached<{ tasks: WhatsAppAutomation[]; count: number }>(
-    WA_CACHE.automations("", 100),
-    () => getWhatsAppAutomations({ limit: 100 }),
+  } = useCached<{ tasks: WhatsAppAutomation[]; count: number; offset: number; limit: number }>(
+    WA_CACHE.automationsPage(filter, serverSearch, offset, PAGE_SIZE),
+    () => getWhatsAppAutomationsPage(
+      { status: filter, search: serverSearch, offset, limit: PAGE_SIZE },
+      { revalidate: true },
+    ),
+    { enabled: Boolean(session), ttlMs: 5_000, refreshIntervalMs: 30_000 },
+  );
+  const {
+    data: stats,
+    fromCache: statsFromCache,
+    error: statsError,
+    refresh: refreshStats,
+  } = useCached(
+    WA_CACHE.automationStats,
+    () => getWhatsAppAutomationStats({ revalidate: true }),
     { enabled: Boolean(session), ttlMs: 5_000, refreshIntervalMs: 30_000 },
   );
   const tasks = tasksData?.tasks ?? [];
+  const total = tasksData?.count ?? 0;
   const error = whatsappUiCopy(actionError || cacheError, "");
-
-  const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return tasks.filter((task) => {
-      if (filter === "active" && !["pending", "processing"].includes(task.status)) return false;
-      if (filter === "paused" && task.status !== "paused") return false;
-      if (filter === "failed" && task.status !== "failed") return false;
-      if (filter === "done" && !["sent", "cancelled"].includes(task.status)) return false;
-      if (!term) return true;
-      return (
-        task.title.toLowerCase().includes(term) ||
-        task.recipient.toLowerCase().includes(term) ||
-        task.message_preview.toLowerCase().includes(term)
-      );
-    });
-  }, [tasks, filter, query]);
-
-  const counts = useMemo(() => ({
-    active: tasks.filter((task) => ["pending", "processing"].includes(task.status)).length,
-    paused: tasks.filter((task) => task.status === "paused").length,
-    failed: tasks.filter((task) => task.status === "failed").length,
-  }), [tasks]);
+  const counts = stats?.by_status;
+  const exactCounts = statsError ? null : counts;
+  const active = exactCounts ? (exactCounts.pending ?? 0) + (exactCounts.processing ?? 0) : null;
+  const selectFilter = (next: Filter) => { setFilter(next); setOffset(0); };
 
   async function runAction(task: WhatsAppAutomation, action: "pause" | "resume" | "cancel") {
     if (busy[task.id]) return;
@@ -107,7 +112,7 @@ export default function WhatsAppAutomationsPage() {
       if (action === "pause") await pauseWhatsAppAutomation(task.id);
       else if (action === "resume") await resumeWhatsAppAutomation(task.id);
       else await cancelWhatsAppAutomation(task.id);
-      await load();
+      await Promise.all([load(), refreshStats()]);
     } catch (exc) {
       setActionError(whatsappUiError(exc));
     } finally {
@@ -144,7 +149,8 @@ export default function WhatsAppAutomationsPage() {
             <h1 className="text-[16px] font-semibold">Automatisations WhatsApp</h1>
             <p className="text-[11px]" style={{ color: MUTED }}>Gérez vos envois programmés.</p>
           </div>
-          <Link href="/chat" className="ml-auto flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white" style={{ background: GREEN }}>
+          <Link href="/automations" className="ml-auto rounded-xl border px-3 py-2 text-xs" style={{ borderColor: BORDER, color: MUTED }}>Workflows V2</Link>
+          <Link href="/chat" className=" flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white" style={{ background: GREEN }}>
             <Send size={16} /> <span className="hidden sm:inline">Créer via Toumaï</span>
           </Link>
         </div>
@@ -152,11 +158,12 @@ export default function WhatsAppAutomationsPage() {
 
       <main className="mx-auto w-full max-w-[1480px] px-4 pb-10 pt-6 md:px-7">
         <div className="grid gap-3 sm:grid-cols-3">
-          <StatCard label="Actives" value={counts.active} icon={<Workflow size={20} />} color={GREEN} />
-          <StatCard label="En pause" value={counts.paused} icon={<Pause size={20} />} color={ORANGE} />
-          <StatCard label="Échecs" value={counts.failed} icon={<CircleAlert size={20} />} color="#ff6b6b" />
+          <StatCard label="Actives" value={active ?? "—"} icon={<Workflow size={20} />} color={GREEN} />
+          <StatCard label="En pause" value={exactCounts?.paused ?? "—"} icon={<Pause size={20} />} color={ORANGE} />
+          <StatCard label="Échecs" value={exactCounts?.failed ?? "—"} icon={<CircleAlert size={20} />} color="#ff6b6b" />
         </div>
 
+        <p className="mt-3 text-xs" style={{ color: MUTED }}>Envois programmés historiques seulement · {stats ? `${stats.total} au total` : "Total indisponible"}{(fromCache || statsFromCache) ? " · Données mises en cache" : ""}. Les workflows du moteur V2 sont accessibles séparément.</p>
         <section className="mt-4 overflow-hidden rounded-[16px] border" style={{ borderColor: BORDER, background: SURFACE }}>
           <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center" style={{ borderColor: BORDER }}>
             <div className="relative min-w-0 flex-1">
@@ -170,11 +177,11 @@ export default function WhatsAppAutomationsPage() {
               />
             </div>
             <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: RAISED }}>
-              <FilterButton active={filter === "all"} onClick={() => setFilter("all")} label="Toutes" />
-              <FilterButton active={filter === "active"} onClick={() => setFilter("active")} label="Actives" />
-              <FilterButton active={filter === "paused"} onClick={() => setFilter("paused")} label="Pause" />
-              <FilterButton active={filter === "failed"} onClick={() => setFilter("failed")} label="Échecs" />
-              <FilterButton active={filter === "done"} onClick={() => setFilter("done")} label="Terminées" />
+              <FilterButton active={filter === "all"} onClick={() => selectFilter("all")} label="Toutes" />
+              <FilterButton active={filter === "active"} onClick={() => selectFilter("active")} label="Actives" />
+              <FilterButton active={filter === "paused"} onClick={() => selectFilter("paused")} label="Pause" />
+              <FilterButton active={filter === "failed"} onClick={() => selectFilter("failed")} label="Échecs" />
+              <FilterButton active={filter === "done"} onClick={() => selectFilter("done")} label="Terminées" />
             </div>
           </div>
 
@@ -186,7 +193,7 @@ export default function WhatsAppAutomationsPage() {
 
           {loading && <div className="space-y-2 p-4">{[0, 1, 2, 3].map((index) => <div key={index} className="h-[82px] animate-pulse rounded-xl bg-white/[0.025]" />)}</div>}
 
-          {!loading && filtered.length === 0 && (
+          {!loading && !error && tasks.length === 0 && (
             <div className="px-6 py-14 text-center">
               <Workflow className="mx-auto" size={26} color={MUTED} />
               <p className="mt-3 text-sm font-semibold">Aucune automatisation</p>
@@ -195,7 +202,7 @@ export default function WhatsAppAutomationsPage() {
             </div>
           )}
 
-          {!loading && filtered.map((task) => (
+          {!loading && tasks.map((task) => (
             <AutomationRow
               key={task.id}
               task={task}
@@ -207,6 +214,13 @@ export default function WhatsAppAutomationsPage() {
               onHistory={() => void openHistory(task)}
             />
           ))}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs" style={{ borderColor: BORDER, color: MUTED }}>
+            <span>{tasksData ? `${Math.min(offset + 1, total)}–${Math.min(offset + tasks.length, total)} sur ${total} résultats` : "Résultats indisponibles"}</span>
+            <div className="flex items-center gap-2">
+              <button type="button" disabled={offset === 0 || loading} onClick={() => setOffset((p) => Math.max(0, p - PAGE_SIZE))} className="rounded-lg border px-3 py-2 disabled:opacity-40" style={{ borderColor: BORDER }}>Précédent</button>
+              <button type="button" disabled={loading || offset + PAGE_SIZE >= total} onClick={() => setOffset((p) => p + PAGE_SIZE)} className="rounded-lg border px-3 py-2 disabled:opacity-40" style={{ borderColor: BORDER }}>Suivant</button>
+            </div>
+          </div>
         </section>
       </main>
 
@@ -233,7 +247,7 @@ export default function WhatsAppAutomationsPage() {
   );
 }
 
-function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
+function StatCard({ label, value, icon, color }: { label: string; value: number | string; icon: React.ReactNode; color: string }) {
   return (
     <div className="flex min-h-[96px] items-center gap-3 rounded-[14px] border p-4" style={{ borderColor: BORDER, background: SURFACE }}>
       <div className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: `${color}18`, color }}>{icon}</div>
