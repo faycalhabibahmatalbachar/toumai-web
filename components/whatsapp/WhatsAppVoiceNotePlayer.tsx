@@ -3,6 +3,7 @@
 import { Mic, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvatar";
 import { markWaVoicePlayed, type WaLiveMessage } from "@/lib/whatsapp-enterprise-api";
 
 const GREEN = "#21c063";
@@ -123,7 +124,8 @@ export function WhatsAppVoiceNotePlayer({
       <div className="flex h-[74px] items-center gap-[18px]">
         <VoiceAvatar
           outbound={message.from_me}
-          initials={senderInitials}
+          name={message.sender || senderInitials}
+          pictureUrl={message.sender_picture_url}
           color={voiceColor}
           playing={playing || current > 0}
           rate={rate}
@@ -194,14 +196,16 @@ export function WhatsAppVoiceNotePlayer({
 
 function VoiceAvatar({
   outbound,
-  initials,
+  name,
+  pictureUrl,
   color,
   playing,
   rate,
   onRate,
 }: {
   outbound: boolean;
-  initials: string;
+  name: string;
+  pictureUrl?: string | null;
   color: string;
   playing: boolean;
   rate: number;
@@ -210,15 +214,16 @@ function VoiceAvatar({
   return (
     <div
       data-testid="voice-avatar"
-      className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center rounded-full"
-      style={{
-        background: outbound ? "#ffffff" : "#dfe5e7",
-        color: "#54656f",
-      }}
+      className="relative h-[74px] w-[74px] shrink-0"
     >
-      {!outbound && initials ? (
-        <span className="text-[18px] font-semibold">{initials}</span>
-      ) : null}
+      <WhatsAppProfileAvatar
+        name={name}
+        kind="contact"
+        pictureUrl={pictureUrl}
+        size={74}
+        eager
+        fallbackBackground={outbound ? "#ffffff" : "#dfe5e7"}
+      />
 
       {playing ? (
         <button
@@ -226,15 +231,14 @@ function VoiceAvatar({
           onClick={onRate}
           aria-label={`Vitesse de lecture ${formatRate(rate)}`}
           title="Changer la vitesse de lecture"
-          className="absolute inset-0 flex items-center justify-center rounded-full bg-black/[0.06] text-[12px] font-bold transition hover:bg-black/[0.10]"
-          style={{ color: "#42525b" }}
+          className="absolute inset-0 flex items-center justify-center rounded-full bg-black/20 text-[12px] font-bold text-white transition hover:bg-black/30"
         >
           {formatRate(rate)}
         </button>
       ) : null}
 
       <span
-        className="absolute bottom-[2px] right-[3px] flex h-[24px] w-[24px] items-center justify-center rounded-full"
+        className="absolute bottom-[2px] right-[3px] flex h-[24px] w-[24px] items-center justify-center rounded-full shadow-sm"
         style={{ background: outbound ? "#ffffff" : "#dfe5e7" }}
       >
         <Mic size={20} strokeWidth={2.6} color={color} />
