@@ -261,9 +261,13 @@ export function WhatsAppAttachmentModal({
             </div>
           )}
 
-          {previewUrl && mediaType === "image" && (
+          {previewUrl && (mediaType === "image" || mediaType === "sticker") && (
             <div className="mb-4 overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: "#08131c" }}>
-              <img src={previewUrl} alt={file.name} className="max-h-[320px] w-full object-contain" />
+              <img
+                src={previewUrl}
+                alt={uploaded.file_name || file.name}
+                className={mediaType === "sticker" ? "mx-auto max-h-[260px] max-w-[260px] object-contain p-4" : "max-h-[320px] w-full object-contain"}
+              />
             </div>
           )}
           {previewUrl && (mediaType === "video" || mediaType === "gif") && (
