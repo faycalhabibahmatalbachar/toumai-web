@@ -34,7 +34,6 @@ const conversations = [
     name: "Mahamat Ali",
     number: "23566111111",
     kind: "contact",
-    picture_url: "https://pps.whatsapp.test/mahamat.png",
     unread_count: 2,
     pending: true,
     last_message: {
@@ -53,7 +52,6 @@ const conversations = [
     name: "Amina Saleh",
     number: "23566222222",
     kind: "contact",
-    picture_url: "https://pps.whatsapp.test/amina.png",
     unread_count: 0,
     pending: false,
     last_message: {
@@ -160,7 +158,6 @@ const threadMessages = [
     from_me: false,
     sender: "Mahamat Ali",
     sender_jid: "23566111111@s.whatsapp.net",
-    sender_picture_url: "https://pps.whatsapp.test/mahamat.png",
     type: "voice",
     mime_type: "audio/ogg; codecs=opus",
     file_name: "vocal-1791544458618.ogg",
@@ -177,7 +174,6 @@ const threadMessages = [
     from_me: true,
     sender: "",
     sender_jid: "23568663737@s.whatsapp.net",
-    sender_picture_url: "https://pps.whatsapp.test/faycal.png",
     type: "voice",
     mime_type: "audio/ogg; codecs=opus",
     file_name: "vocal-1791544458618.ogg",
@@ -394,6 +390,8 @@ const state = {
   nextUploadConverted: false,
   nextUploadFileName: null,
   nextUploadConversionNote: null,
+  blockProfilePictures: false,
+  profilePictureResolvers: [],
 };
 
 let retiredFallbackMode = false;
@@ -497,6 +495,11 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       total_en_base: 2,
     };
   } else if (path === "/whatsapp/profile-pictures" && method === "POST") {
+    if (state.blockProfilePictures) {
+      await new Promise((resolve) => {
+        state.profilePictureResolvers.push(resolve);
+      });
+    }
     const body = request.postDataJSON();
     const pictures = {};
     for (const jid of body.jids || []) {
@@ -755,9 +758,26 @@ async function certifyOverviewComposer() {
 
 async function certifyConversations() {
   const page = await context.newPage();
+  state.blockProfilePictures = true;
+  state.profilePictureResolvers = [];
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
-  await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
+  await page.getByText("Mahamat Ali", { exact: true }).first().waitFor({ timeout: 5000 });
+
+  // Reproduction de la régression production : les photos restent bloquées,
+  // mais les conversations DOIVENT déjà être visibles et le skeleton disparu.
+  assert(
+    (await page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]').count()) === 1,
+    "La liste doit s'afficher avant la réponse des photos de profil.",
+  );
+  assert(
+    (await page.locator(".animate-pulse").count()) === 0,
+    "Les skeletons de conversations ne doivent pas attendre les photos.",
+  );
+
+  state.blockProfilePictures = false;
+  for (const release of state.profilePictureResolvers.splice(0)) release();
+
   const activeConversationRowForPhoto = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
   await activeConversationRowForPhoto.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
   const privateConversationRow = page.locator('[data-conversation-id="255855597453404@lid"]');
