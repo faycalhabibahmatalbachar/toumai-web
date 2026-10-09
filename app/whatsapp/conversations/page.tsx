@@ -1534,7 +1534,11 @@ export default function WhatsAppConversationsPage() {
                   {loadingThread && (
                     <div className="mx-auto max-w-[920px] space-y-3">
                       {[0, 1, 2, 3].map((index) => (
-                        <div key={index} className="h-16 animate-pulse rounded-2xl bg-white/[0.025]" />
+                        <div
+                          key={index}
+                          data-testid="conversation-thread-skeleton"
+                          className="h-16 animate-pulse rounded-2xl bg-white/[0.025]"
+                        />
                       ))}
                     </div>
                   )}
