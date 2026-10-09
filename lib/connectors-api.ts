@@ -463,6 +463,42 @@ export function getWhatsAppAutomations(
   );
 }
 
+
+/** Exact totals for historical WhatsApp scheduled deliveries (not Automation OS v2). */
+export interface WhatsAppLegacyAutomationStats {
+  total: number;
+  by_status: Record<WhatsAppAutomationStatus, number>;
+}
+
+export type WhatsAppLegacyAutomationFilter = "all" | "active" | "paused" | "failed" | "done";
+
+export function getWhatsAppAutomationStats(
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WhatsAppLegacyAutomationStats> {
+  return waCachedRead(
+    WA_CACHE.automationStats,
+    () => http.get<WhatsAppLegacyAutomationStats>("/whatsapp/automations/stats"),
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
+  );
+}
+
+export function getWhatsAppAutomationsPage(
+  params: { status: WhatsAppLegacyAutomationFilter; search?: string; limit?: number; offset?: number },
+  readOptions: WhatsAppReadOptions = {},
+): Promise<{ tasks: WhatsAppAutomation[]; count: number; limit: number; offset: number }> {
+  const query = new URLSearchParams({
+    status: params.status,
+    search: params.search?.trim() || "",
+    limit: String(params.limit ?? 25),
+    offset: String(params.offset ?? 0),
+  });
+  return waCachedRead(
+    WA_CACHE.automationsPage(params.status, params.search || "", params.offset || 0, params.limit || 25),
+    () => http.get("/whatsapp/automations/paged?" + query.toString()),
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
+  );
+}
+
 export function updateWhatsAppAutomation(
   id: string,
   patch: {
