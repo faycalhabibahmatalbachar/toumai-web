@@ -38,6 +38,7 @@ import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import {
   getWaEtat,
+  getWaProfilePictures,
   getWhatsAppAutomations,
   pauseWhatsAppAutomation,
   resumeWhatsAppAutomation,
@@ -99,6 +100,7 @@ export default function WhatsAppOverviewPage() {
   const [automationBusy, setAutomationBusy] = useState<Record<string, boolean>>({});
   const [automationOverride, setAutomationOverride] = useState<Record<string, boolean>>({});
   const [workspaceSearch, setWorkspaceSearch] = useState("");
+  const [conversationPictures, setConversationPictures] = useState<Record<string, string | null>>({});
 
   const {
     data: etat,
@@ -162,7 +164,15 @@ export default function WhatsAppOverviewPage() {
     () => overviewActivitySeries(overview?.activity ?? []),
     [overview],
   );
-  const conversations = conversationsData?.conversations ?? [];
+  const rawConversations = conversationsData?.conversations ?? [];
+  const conversations = useMemo(
+    () =>
+      rawConversations.map((conversation) => ({
+        ...conversation,
+        picture_url: conversationPictures[conversation.id] ?? conversation.picture_url ?? null,
+      })),
+    [conversationPictures, rawConversations],
+  );
   const activeAutomations = useMemo(
     () =>
       (automationsData?.tasks ?? [])
@@ -197,6 +207,22 @@ export default function WhatsAppOverviewPage() {
       setContactSyncing(false);
     }
   }
+
+  useEffect(() => {
+    const jids = rawConversations.map((conversation) => conversation.id).filter(Boolean);
+    if (!jids.length) return;
+    let cancelled = false;
+    void getWaProfilePictures(jids)
+      .then((pictures) => {
+        if (!cancelled) setConversationPictures((current) => ({ ...current, ...pictures }));
+      })
+      .catch(() => {
+        // L'Overview reste immédiatement utilisable sans photos.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rawConversations]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

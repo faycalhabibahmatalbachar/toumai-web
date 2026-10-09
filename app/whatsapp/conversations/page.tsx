@@ -58,6 +58,7 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
+import { getWaProfilePictures } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
 import {
   applyWaConversationAction,
@@ -223,6 +224,52 @@ export default function WhatsAppConversationsPage() {
     [conversations],
   );
 
+  const enrichConversationPictures = useCallback(async (
+    items: WaLiveConversation[],
+  ) => {
+    const jids = Array.from(new Set(items.map((item) => item.id).filter(Boolean)));
+    if (!jids.length) return;
+    try {
+      const pictures = await getWaProfilePictures(jids);
+      setConversations((current) =>
+        current.map((item) => {
+          const next = pictures[item.id];
+          return next && next !== item.picture_url ? { ...item, picture_url: next } : item;
+        }),
+      );
+      setSelected((current) => {
+        if (!current) return current;
+        const next = pictures[current.id];
+        return next && next !== current.picture_url ? { ...current, picture_url: next } : current;
+      });
+    } catch {
+      // Une photo est décorative : son échec ne doit jamais bloquer les chats.
+    }
+  }, []);
+
+  const enrichMessagePictures = useCallback(async (
+    items: WaLiveMessage[],
+  ) => {
+    const jids = Array.from(
+      new Set(items.map((item) => (item.sender_jid || "").trim()).filter(Boolean)),
+    );
+    if (!jids.length) return;
+    try {
+      const pictures = await getWaProfilePictures(jids);
+      setMessages((current) =>
+        current.map((item) => {
+          const jid = (item.sender_jid || "").trim();
+          const next = jid ? pictures[jid] : null;
+          return next && next !== item.sender_picture_url
+            ? { ...item, sender_picture_url: next }
+            : item;
+        }),
+      );
+    } catch {
+      // Même règle : le fil reste utilisable avec avatar fallback.
+    }
+  }, []);
+
   const loadConversations = useCallback(async (
     search: string,
     selectedFilter: Filter,
@@ -235,14 +282,18 @@ export default function WhatsAppConversationsPage() {
     setListError(null);
 
     try {
-      const data = await getWaLiveConversations({
-        search: search.trim() || undefined,
-        pending: selectedFilter === "pending",
-        unread: selectedFilter === "unread",
-        kind: kindFilter === "all" ? undefined : kindFilter,
-        offset,
-        limit: 80,
-      });
+      const data = await withUiDeadline(
+        getWaLiveConversations({
+          search: search.trim() || undefined,
+          pending: selectedFilter === "pending",
+          unread: selectedFilter === "unread",
+          kind: kindFilter === "all" ? undefined : kindFilter,
+          offset,
+          limit: 80,
+        }),
+        12_000,
+        "La liste WhatsApp met trop de temps à répondre. Réessayez.",
+      );
       setConversations((current) => {
         if (!append) return data.conversations;
         const merged = [...current, ...data.conversations];
@@ -250,6 +301,7 @@ export default function WhatsAppConversationsPage() {
       });
       setHasMore(data.has_more);
       setNextOffset(data.next_offset);
+      void enrichConversationPictures(data.conversations);
 
       const requested =
         typeof window === "undefined"
@@ -272,7 +324,7 @@ export default function WhatsAppConversationsPage() {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
     }
-  }, [kindFilter]);
+  }, [enrichConversationPictures, kindFilter]);
 
   const loadThread = useCallback(async (
     conversation: WaLiveConversation,
@@ -284,8 +336,13 @@ export default function WhatsAppConversationsPage() {
       setThreadError(null);
     }
     try {
-      const data = await getWaConversationMessages(conversation.id, 120);
+      const data = await withUiDeadline(
+        getWaConversationMessages(conversation.id, 120),
+        12_000,
+        "Cette conversation met trop de temps à répondre. Réessayez.",
+      );
       setMessages(data.messages);
+      void enrichMessagePictures(data.messages);
       if (!silent) setThreadError(null);
     } catch (error) {
       // Une resynchronisation de fond ne doit jamais faire disparaître un fil
@@ -297,7 +354,7 @@ export default function WhatsAppConversationsPage() {
     } finally {
       if (!silent) setLoadingThread(false);
     }
-  }, []);
+  }, [enrichMessagePictures]);
 
   const refreshRealtimeConversations = useCallback(async () => {
     await loadConversations(query, filter);
@@ -1068,7 +1125,11 @@ export default function WhatsAppConversationsPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {loadingList && [0, 1, 2, 3, 4, 5, 6].map((index) => (
-                <div key={index} className="mx-3 my-2 h-[72px] animate-pulse rounded-xl bg-white/[0.025]" />
+                <div
+                  key={index}
+                  data-testid="conversation-list-skeleton"
+                  className="mx-3 my-2 h-[72px] animate-pulse rounded-xl bg-white/[0.025]"
+                />
               ))}
 
               {!loadingList && listError && (
@@ -2493,6 +2554,22 @@ function initials(value: string) {
   if (!parts.length) return "WA";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+async function withUiDeadline<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function formatTime(timestampMs: number) {

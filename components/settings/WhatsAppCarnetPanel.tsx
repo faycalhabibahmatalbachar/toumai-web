@@ -30,9 +30,12 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let cancelled = false;
     void getWaCarnet()
-      .then(enrichCarnetPictures)
       .then((next) => {
-        if (!cancelled) setCarnet(next);
+        if (cancelled) return;
+        setCarnet(next);
+        void enrichCarnetPictures(next).then((enriched) => {
+          if (!cancelled) setCarnet(enriched);
+        });
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Chargement impossible");
@@ -73,7 +76,9 @@ export function WhatsAppCarnetPanel({ onClose }: { onClose: () => void }) {
               res.synchronises > 1 ? "s" : ""
             }${res.nouveaux ? `, dont ${res.nouveaux} nouveau${res.nouveaux > 1 ? "x" : ""}` : ""}.`,
       );
-      setCarnet(await enrichCarnetPictures(await getWaCarnet()));
+      const nextCarnet = await getWaCarnet();
+      setCarnet(nextCarnet);
+      void enrichCarnetPictures(nextCarnet).then(setCarnet);
     } catch (err) {
       setError(err instanceof Error ? err.message : "La synchronisation n'a pas abouti");
     } finally {

@@ -43,20 +43,20 @@ export function WhatsAppContactShareModal({
       setError(null);
       try {
         const shortlist = (await getWaCarnet(query.trim() || undefined)).contacts.slice(0, 80);
-        let pictures: Record<string, string | null> = {};
-        try {
-          pictures = await getWaProfilePictures(shortlist.map((contact) => contact.jid));
-        } catch {
-          // Le partage reste disponible si WhatsApp ne donne pas certaines photos.
-        }
-        if (!cancelled) {
-          setContacts(
-            shortlist.map((contact) => ({
-              ...contact,
-              picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
-            })),
-          );
-        }
+        if (!cancelled) setContacts(shortlist);
+        void getWaProfilePictures(shortlist.map((contact) => contact.jid))
+          .then((pictures) => {
+            if (cancelled) return;
+            setContacts((current) =>
+              current.map((contact) => ({
+                ...contact,
+                picture_url: pictures[contact.jid] ?? contact.picture_url ?? null,
+              })),
+            );
+          })
+          .catch(() => {
+            // Le partage reste disponible même si les photos sont lentes.
+          });
       } catch (exc) {
         if (!cancelled) {
           setContacts([]);
