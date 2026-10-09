@@ -435,6 +435,16 @@ const report = {
 };
 await fs.writeFile(`${artifactDir}/layout-report.json`, JSON.stringify(report, null, 2));
 
+await workspaceSearch.fill("Mamadou");
+await workspaceSearch.press("Enter");
+await page.waitForURL(/\/whatsapp\/conversations\?q=Mamadou/);
+const conversationSearch = page.getByPlaceholder("Rechercher une conversation…");
+await conversationSearch.waitFor({ state: "visible" });
+assert(
+  (await conversationSearch.inputValue()) === "Mamadou",
+  "La recherche Overview doit hydrater le filtre Conversations après navigation.",
+);
+
 if (consoleErrors.length) {
   console.warn("Console/page errors captured during visual certification:");
   for (const error of consoleErrors) console.warn(`- ${error}`);
