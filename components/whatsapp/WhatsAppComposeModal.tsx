@@ -13,6 +13,7 @@ import {
 
 import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
+import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import {
   getWaMessageStatus,
   sendWaManualMessage,
@@ -212,9 +213,11 @@ export function WhatsAppComposeModal({
                   <UserRound size={19} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{selected.name}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {displayWhatsAppIdentity({ name: selected.name, number: selected.number, id: selected.jid, kind: "contact" })}
+                  </p>
                   <p className="mt-0.5 truncate text-[11px]" style={{ color: MUTED }}>
-                    {selected.number ? `+${selected.number}` : "Contact WhatsApp"}
+                    {displayWhatsAppSecondary({ number: selected.number, id: selected.jid, kind: "contact" })}
                   </p>
                 </div>
                 <button
@@ -263,9 +266,11 @@ export function WhatsAppComposeModal({
                           <UserRound size={17} />
                         </div>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-semibold">{contact.name}</span>
+                          <span className="block truncate text-[13px] font-semibold">
+                            {displayWhatsAppIdentity({ name: contact.name, number: contact.number, id: contact.jid, kind: "contact" })}
+                          </span>
                           <span className="mt-0.5 block truncate text-[11px]" style={{ color: MUTED }}>
-                            {contact.number ? `+${contact.number}` : "Contact WhatsApp"}
+                            {displayWhatsAppSecondary({ number: contact.number, id: contact.jid, kind: "contact" })}
                           </span>
                         </span>
                       </button>
