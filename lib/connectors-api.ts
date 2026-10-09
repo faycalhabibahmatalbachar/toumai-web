@@ -494,7 +494,7 @@ export function getWhatsAppAutomationsPage(
   });
   return waCachedRead(
     WA_CACHE.automationsPage(params.status, params.search || "", params.offset || 0, params.limit || 25),
-    () => http.get("/whatsapp/automations/paged?" + query.toString()),
+    () => http.get<{ tasks: WhatsAppAutomation[]; count: number; limit: number; offset: number }>("/whatsapp/automations/paged?" + query.toString()),
     { freshMs: 5_000, revalidate: readOptions.revalidate },
   );
 }
