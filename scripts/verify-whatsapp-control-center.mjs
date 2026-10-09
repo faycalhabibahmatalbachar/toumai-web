@@ -762,12 +762,13 @@ async function certifyConversations() {
   state.profilePictureResolvers = [];
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
-  await page.getByText("Mahamat Ali", { exact: true }).first().waitFor({ timeout: 5000 });
+  const activeConversationBeforePhotos = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
+  await activeConversationBeforePhotos.waitFor({ timeout: 5000 });
 
   // Reproduction de la régression production : les photos restent bloquées,
   // mais les conversations DOIVENT déjà être visibles et le skeleton disparu.
   assert(
-    (await page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]').count()) === 1,
+    (await activeConversationBeforePhotos.count()) === 1,
     "La liste doit s'afficher avant la réponse des photos de profil.",
   );
   assert(
