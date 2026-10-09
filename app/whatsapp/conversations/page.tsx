@@ -389,18 +389,19 @@ export default function WhatsAppConversationsPage() {
     } catch (error) {
       if (!append) {
         const fallback = cacheSeed<WaLiveConversations>(cacheKey);
-        if (fallback) {
+        if (conversationsRef.current.length > 0 && !keyChanged) {
+          // La mémoire visible peut contenir des actions plus récentes que le
+          // cache (lu/non-lu, envoi optimiste). Ne jamais revenir en arrière.
+          setListError(null);
+        } else if (fallback) {
           conversationsRef.current = fallback.conversations;
           setConversations(fallback.conversations);
           setHasMore(fallback.has_more);
           setNextOffset(fallback.next_offset);
           setListError(null);
           void enrichConversationPictures(fallback.conversations);
-        } else if (conversationsRef.current.length === 0) {
-          setListError(errorMessage(error, "history"));
         } else {
-          // Une revalidation ratée ne remplace jamais des données déjà visibles.
-          setListError(null);
+          setListError(errorMessage(error, "history"));
         }
       }
     } finally {
@@ -450,12 +451,16 @@ export default function WhatsAppConversationsPage() {
       if (!silent) setThreadError(null);
     } catch (error) {
       const fallback = cacheSeed<WaConversationMessages>(cacheKey);
-      if (fallback) {
+      if (messagesRef.current.length > 0 && !chatChanged) {
+        // Même règle que pour la liste : ne jamais écraser un fil visible
+        // potentiellement plus récent par un cache plus ancien.
+        if (!silent) setThreadError(null);
+      } else if (fallback) {
         messagesRef.current = fallback.messages;
         setMessages(fallback.messages);
         if (!silent) setThreadError(null);
         void enrichMessagePictures(fallback.messages);
-      } else if (!silent && messagesRef.current.length === 0) {
+      } else if (!silent) {
         setThreadError(errorMessage(error, "history"));
       }
     } finally {
