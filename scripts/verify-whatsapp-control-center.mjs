@@ -1350,6 +1350,21 @@ async function certifyRetired404Fallbacks() {
   const legacySendsBefore = state.legacySends.length;
 
   const page = await context.newPage();
+  // Ce scénario certifie volontairement le comportement réseau quand la route
+  // moderne a disparu. Le cache global est testé séparément plus haut : ici,
+  // on retire uniquement les snapshots conversations avant le premier rendu
+  // afin de forcer une vraie requête GET /whatsapp/conversations.
+  await page.addInitScript(() => {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (
+        key?.startsWith("toumai:cache:") &&
+        key.includes(":wa:conversations")
+      ) {
+        localStorage.removeItem(key);
+      }
+    }
+  });
   await page.goto(`${BASE}/whatsapp/conversations/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
   await page.waitForTimeout(500);
