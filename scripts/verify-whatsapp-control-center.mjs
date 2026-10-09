@@ -1265,14 +1265,14 @@ async function certifyConversations() {
   );
 
   await page.getByRole("dialog").getByRole("button", { name: "Vérifier le nouveau message", exact: true }).click();
-  await page.getByText(/confirmé par le serveur WhatsApp/i).waitFor();
+  await page.getByText("Nouveau message confirmé. Vous pouvez maintenant supprimer l’ancien.", { exact: true }).waitFor();
   assert(
     state.deletedOwnMessages.length === deletedBeforeCorrection,
     "Vérifier le nouveau message ne doit pas supprimer l'ancien.",
   );
 
   await page.getByRole("dialog").getByRole("button", { name: "Supprimer l’ancien message", exact: true }).click();
-  await page.getByText(/suppression de l’ancien message a été soumise/i).waitFor();
+  await page.getByText("Suppression demandée. Son résultat reste à confirmer.", { exact: true }).waitFor();
   assert(
     state.deletedOwnMessages.length === deletedBeforeCorrection + 1,
     "La suppression de l'ancien doit être une seconde action explicite.",
