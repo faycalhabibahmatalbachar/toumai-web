@@ -192,7 +192,9 @@ export default function WhatsAppConversationsPage() {
   const listRequestIdRef = useRef(0);
   const threadRequestIdRef = useRef(0);
   const activeChatIdRef = useRef<string | null>(null);
-  activeChatIdRef.current = selected?.id ?? null;
+  useEffect(() => {
+    activeChatIdRef.current = selected?.id ?? null;
+  }, [selected?.id]);
 
   useCacheSeed<WaLiveConversations>(
     conversationListCacheKey("", "all", "all"),
