@@ -12,6 +12,7 @@ const carnet = readFileSync("components/settings/WhatsAppCarnetPanel.tsx", "utf8
 const connectorsTab = readFileSync("components/settings/ConnectorsTab.tsx", "utf8");
 const compose = readFileSync("components/whatsapp/WhatsAppComposeModal.tsx", "utf8");
 const share = readFileSync("components/whatsapp/WhatsAppContactShareModal.tsx", "utf8");
+const connectorCard = readFileSync("components/chat/WhatsAppConnectorCard.tsx", "utf8");
 
 function assert(condition, message) {
   if (!condition) {
@@ -134,6 +135,8 @@ assert(carnet.includes("useCacheSeed<WaCarnet>"), "Carnet non cache-first");
 assert(connectorsTab.includes("WA_CACHE.status"), "statut connecteur WhatsApp non cache-first");
 assert(compose.includes("WA_CACHE.carnet"), "Nouveau message non cache-first");
 assert(share.includes("WA_CACHE.carnet"), "Partage contact non cache-first");
+assert(connectorCard.includes("useCacheSeed<WaEtat>(WA_CACHE.etat"), "Carte WhatsApp Chat non cache-first pour état");
+assert(connectorCard.includes("useCacheSeed<WhatsAppState>(WA_CACHE.status"), "Carte WhatsApp Chat non cache-first pour statut");
 
 // Les médias binaires restent hors localStorage : le cache HTTP/CDN du navigateur
 // est l'endroit adapté. On interdit seulement les lectures JSON WhatsApp directes
