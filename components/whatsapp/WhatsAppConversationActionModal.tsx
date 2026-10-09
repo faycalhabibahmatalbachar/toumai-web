@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import {
   applyWaConversationAction,
   type WaConversationAction,
@@ -70,7 +70,7 @@ export function WhatsAppConversationActionModal({
       onApplied(activeRequest.action);
       onClose();
     } catch (exc) {
-      setError(errorMessage(exc, "generic"));
+      setError(whatsappUiError(exc, "generic"));
     } finally {
       setBusy(false);
     }
