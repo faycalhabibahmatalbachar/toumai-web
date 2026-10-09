@@ -1,4 +1,5 @@
 import { authFetch, http, postForm } from "./http";
+import { WA_CACHE, waCachedRead, waMutation } from "./whatsapp-cache";
 
 export type WaAutopilotMode = "off" | "suggest" | "auto";
 
@@ -159,7 +160,7 @@ export interface WaAutopilotConversations {
 }
 
 export function getWaAutopilot(): Promise<WaAutopilotSettings> {
-  return http.get("/whatsapp/autopilot");
+  return waCachedRead(WA_CACHE.autopilot, () => http.get("/whatsapp/autopilot"), { freshMs: 5_000 });
 }
 
 export function updateWaAutopilot(
@@ -169,7 +170,11 @@ export function updateWaAutopilot(
 }
 
 export function getWaAutopilotAnalytics(days = 7): Promise<WaAutopilotAnalytics> {
-  return http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`);
+  return waCachedRead(
+    WA_CACHE.autopilotAnalytics(days),
+    () => http.get(`/whatsapp/autopilot/analytics?days=${encodeURIComponent(days)}`),
+    { freshMs: 15_000 },
+  );
 }
 
 export function getWhatsAppOverview(
@@ -180,15 +185,24 @@ export function getWhatsAppOverview(
     days: String(days),
     timezone,
   });
-  return http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`);
+  return waCachedRead(
+    WA_CACHE.overview(days, timezone),
+    () => http.get<WhatsAppOverview>(`/whatsapp/overview?${query.toString()}`),
+    { freshMs: 10_000 },
+  );
 }
 
 export function getWaAutopilotLogs(
   page = 1,
   pageSize = 100,
 ): Promise<WaAutopilotLogsPage> {
-  return http.get(
-    `/whatsapp/autopilot/logs?page=${encodeURIComponent(page)}&page_size=${encodeURIComponent(pageSize)}`,
+  return waCachedRead(
+    WA_CACHE.autopilotLogs(page, pageSize),
+    () =>
+      http.get(
+        `/whatsapp/autopilot/logs?page=${encodeURIComponent(page)}&page_size=${encodeURIComponent(pageSize)}`,
+      ),
+    { freshMs: 10_000 },
   );
 }
 
@@ -196,8 +210,13 @@ export function getWaAutopilotConversations(
   days = 30,
   limit = 4,
 ): Promise<WaAutopilotConversations> {
-  return http.get(
-    `/whatsapp/autopilot/conversations?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`,
+  return waCachedRead(
+    WA_CACHE.autopilotConversations(days, limit),
+    () =>
+      http.get(
+        `/whatsapp/autopilot/conversations?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`,
+      ),
+    { freshMs: 10_000 },
   );
 }
 
@@ -361,7 +380,11 @@ export function getWaLiveConversations(params?: {
   if (typeof params?.offset === "number") query.set("offset", String(params.offset));
   if (params?.limit) query.set("limit", String(params.limit));
   const suffix = query.size ? `?${query.toString()}` : "";
-  return http.get<WaLiveConversations>(`/whatsapp/conversations${suffix}`);
+  return waCachedRead(
+    WA_CACHE.conversations(params || {}),
+    () => http.get<WaLiveConversations>(`/whatsapp/conversations${suffix}`),
+    { freshMs: 3_000 },
+  );
 }
 
 export function getWaConversationMessages(
@@ -374,7 +397,11 @@ export function getWaConversationMessages(
     limit: String(limit),
     since_ms: String(sinceMs),
   });
-  return http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`);
+  return waCachedRead(
+    WA_CACHE.thread(chatId, limit, sinceMs),
+    () => http.get<WaConversationMessages>(`/whatsapp/conversation/messages?${query.toString()}`),
+    { freshMs: 3_000 },
+  );
 }
 
 export function searchWaConversation(
@@ -387,14 +414,23 @@ export function searchWaConversation(
     q: queryText,
     limit: String(limit),
   });
-  return http.get<WaConversationSearchResult>(
-    `/whatsapp/conversation/search?${query.toString()}`,
+  return waCachedRead(
+    WA_CACHE.conversationSearch(chatId, queryText, limit),
+    () =>
+      http.get<WaConversationSearchResult>(
+        `/whatsapp/conversation/search?${query.toString()}`,
+      ),
+    { freshMs: 5_000 },
   );
 }
 
 export function getWaContactInfo(chatId: string): Promise<WaContactInfo> {
   const query = new URLSearchParams({ chat_id: chatId });
-  return http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`);
+  return waCachedRead(
+    WA_CACHE.contactInfo(chatId),
+    () => http.get<WaContactInfo>(`/whatsapp/contact/info?${query.toString()}`),
+    { freshMs: 30_000 },
+  );
 }
 
 export async function uploadWaAttachment(
@@ -451,7 +487,7 @@ export function sendWaMedia(input: {
   reply_to_sender?: string;
   confirmed: true;
 }): Promise<WaMediaSendResult> {
-  return http.post<WaMediaSendResult>("/whatsapp/media/send", input);
+  return waMutation(http.post<WaMediaSendResult>("/whatsapp/media/send", input), ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"]);
 }
 
 export function sendWaPoll(input: {
@@ -461,14 +497,17 @@ export function sendWaPoll(input: {
   selectable_count?: number;
   confirmed: true;
 }): Promise<WaMediaSendResult> {
-  return http.post<WaMediaSendResult>("/whatsapp/media/send", {
-    to: input.to,
-    type: "poll",
-    poll_name: input.question,
-    poll_options: input.options,
-    selectable_count: input.selectable_count ?? 1,
-    confirmed: input.confirmed,
-  });
+  return waMutation(
+    http.post<WaMediaSendResult>("/whatsapp/media/send", {
+      to: input.to,
+      type: "poll",
+      poll_name: input.question,
+      poll_options: input.options,
+      selectable_count: input.selectable_count ?? 1,
+      confirmed: input.confirmed,
+    }),
+    ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"],
+  );
 }
 
 export function sendWaContactCard(input: {
@@ -477,13 +516,16 @@ export function sendWaContactCard(input: {
   display_name?: string;
   confirmed: true;
 }): Promise<WaMediaSendResult> {
-  return http.post<WaMediaSendResult>("/whatsapp/media/send", {
-    to: input.to,
-    type: "contact",
-    contact_to_share: input.contact_to_share,
-    display_name: input.display_name,
-    confirmed: input.confirmed,
-  });
+  return waMutation(
+    http.post<WaMediaSendResult>("/whatsapp/media/send", {
+      to: input.to,
+      type: "contact",
+      contact_to_share: input.contact_to_share,
+      display_name: input.display_name,
+      confirmed: input.confirmed,
+    }),
+    ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"],
+  );
 }
 
 export function applyWaConversationAction(input: {
@@ -492,7 +534,10 @@ export function applyWaConversationAction(input: {
   duration?: "8h" | "1j" | "7j" | "always";
   confirmed: true;
 }): Promise<WaConversationActionResult> {
-  return http.post<WaConversationActionResult>("/whatsapp/conversation/action", input);
+  return waMutation(
+    http.post<WaConversationActionResult>("/whatsapp/conversation/action", input),
+    ["wa:conversations", "wa:overview"],
+  );
 }
 
 export function sendWaManualMessage(input: {
@@ -500,7 +545,7 @@ export function sendWaManualMessage(input: {
   message: string;
   chat_name?: string;
 }): Promise<WaManualSendResult> {
-  return http.post<WaManualSendResult>("/whatsapp/message/send", input);
+  return waMutation(http.post<WaManualSendResult>("/whatsapp/message/send", input), ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"]);
 }
 
 export function sendWaReply(input: {
@@ -510,7 +555,7 @@ export function sendWaReply(input: {
   original_text?: string;
   original_sender?: string;
 }): Promise<{ chat_id: string; msg_id: string | null; reply_to: string; status: string }> {
-  return http.post("/whatsapp/message/reply", input);
+  return waMutation(http.post("/whatsapp/message/reply", input), ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"]);
 }
 
 export function reactWaMessage(input: {
@@ -518,7 +563,10 @@ export function reactWaMessage(input: {
   msg_id: string;
   emoji: string;
 }): Promise<{ chat_id: string; msg_id: string; emoji: string; reacted: boolean }> {
-  return http.post("/whatsapp/message/react", input);
+  return waMutation(
+    http.post("/whatsapp/message/react", input),
+    ["wa:conversations", "wa:conversation-search", "wa:activity"],
+  );
 }
 
 export function editWaMessage(input: {
@@ -526,7 +574,7 @@ export function editWaMessage(input: {
   msg_id: string;
   new_text: string;
 }): Promise<{ chat_id: string; msg_id: string; edited: boolean; new_msg_id?: string | null }> {
-  return http.post("/whatsapp/message/edit", input);
+  return waMutation(http.post("/whatsapp/message/edit", input), ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"]);
 }
 
 export function markWaVoicePlayed(input: {
@@ -539,7 +587,10 @@ export function markWaVoicePlayed(input: {
   receipt_sent: boolean;
   skipped?: string | null;
 }> {
-  return http.post("/whatsapp/message/played", input);
+  return waMutation(
+    http.post("/whatsapp/message/played", input),
+    ["wa:conversations", "wa:message-status", "wa:activity"],
+  );
 }
 
 export function deleteWaOwnMessage(input: {
@@ -552,7 +603,7 @@ export function deleteWaOwnMessage(input: {
   delete_submitted: boolean;
   accepted_by_gateway: boolean;
 }> {
-  return http.post("/whatsapp/message/delete-own", input);
+  return waMutation(http.post("/whatsapp/message/delete-own", input), ["wa:conversations", "wa:conversation-search", "wa:overview", "wa:activity", "wa:message-status"]);
 }
 
 export type WaMediaEditResearchMode =
@@ -643,15 +694,23 @@ export function runWaMediaEditResearch(input: {
   mimetype?: string;
   confirmed: true;
 }): Promise<WaMediaEditResearchResult> {
-  return http.post<WaMediaEditResearchResult>("/whatsapp/research/media-edit", input);
+  return waMutation(
+    http.post<WaMediaEditResearchResult>("/whatsapp/research/media-edit", input),
+    ["wa:media-research", "wa:conversations"],
+  );
 }
 
 export function getWaMediaEditResearchResult(
   experimentId: string,
 ): Promise<WaMediaEditResearchResult> {
   const query = new URLSearchParams({ experiment_id: experimentId });
-  return http.get<WaMediaEditResearchResult>(
-    `/whatsapp/research/media-edit/result?${query.toString()}`,
+  return waCachedRead(
+    WA_CACHE.mediaResearch(experimentId),
+    () =>
+      http.get<WaMediaEditResearchResult>(
+        `/whatsapp/research/media-edit/result?${query.toString()}`,
+      ),
+    { freshMs: 1_000 },
   );
 }
 
@@ -661,7 +720,14 @@ export function getWaMessageStatus(
 ): Promise<WaMessageStatus> {
   const query = new URLSearchParams({ msg_id: msgId });
   if (chatId) query.set("chat_id", chatId);
-  return http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`);
+  // Confirmation sensible : toujours lire le réseau. Le résultat est mis en
+  // cache pour l'UI/observabilité, mais une valeur stale n'autorise jamais une
+  // suppression ou une validation.
+  return waCachedRead(
+    WA_CACHE.messageStatus(msgId, chatId),
+    () => http.get<WaMessageStatus>(`/whatsapp/message/status?${query.toString()}`),
+    { freshMs: 0, staleIfError: false },
+  );
 }
 
 
