@@ -55,6 +55,7 @@ import {
 } from "@/lib/whatsapp-enterprise-api";
 import { displayWhatsAppIdentity, displayWhatsAppSecondary } from "@/lib/whatsapp-display";
 import { useCached } from "@/lib/swr-cache";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
 
 const PAGE_BG = "#06111a";
@@ -203,7 +204,7 @@ export default function WhatsAppOverviewPage() {
       await syncWaCarnet(false);
       setContactSyncMessage("Contacts synchronisés.");
     } catch (error) {
-      setContactSyncMessage(error instanceof Error ? error.message : "Synchronisation impossible.");
+      setContactSyncMessage(whatsappUiError(error, "settings"));
     } finally {
       setContactSyncing(false);
     }
