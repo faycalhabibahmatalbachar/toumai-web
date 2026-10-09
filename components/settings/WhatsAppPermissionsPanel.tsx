@@ -138,7 +138,7 @@ export function WhatsAppPermissionsPanel({ onClose }: { onClose: () => void }) {
     if (capacites.capacites?.[p.capacite]) return null;
     const definitif = capacites.impossibles?.[p.capacite];
     if (definitif) return definitif;
-    return "La version du connecteur en service ne sait pas encore le faire.";
+    return "Cette fonction n’est pas disponible pour le moment.";
   }
 
   async function patch(p: Partial<WaSettings>) {
