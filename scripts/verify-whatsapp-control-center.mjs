@@ -1487,7 +1487,12 @@ async function certifyVerifiedContactNames() {
     }
   });
   await page.route("**/api/v1/whatsapp/conversations?*", async (route) => {
-    const rows = conversations.map((item) => {
+    const rows = [...conversations, {
+      id: "120363002222222@g.us", name: "Groupe WhatsApp", name_source: "group",
+      number: null, kind: "group", unread_count: 0, pending: false,
+      last_message: { id: "grp-1", chat_id: "120363002222222@g.us", text: "Salut", from_me: false,
+        sender: "", type: "text", timestamp_ms: Date.now() - 90000, status: null },
+    }].map((item) => {
       if (item.id === "23566111111@s.whatsapp.net") return { ...item, name: "Nom erroné du chat", name_source: "profile" };
       if (item.id === "23566222222@s.whatsapp.net") return { ...item, name: "Nom périmé", name_source: "phone" };
       if (item.id.endsWith("@lid")) return { ...item, name: "255855597453404", number: "255855597453404", name_source: "phone" };
@@ -1510,9 +1515,18 @@ async function certifyVerifiedContactNames() {
       },
     }) });
   });
+  await page.route("**/api/v1/whatsapp/conversation/group-names*", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      success: true, data: { identities: [
+        { id: "120363002222222@g.us", name: "Famille Mahamat", name_source: "group" },
+      ], count: 1 },
+    }) });
+  });
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
   await page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]').getByText("Mahamat du carnet").waitFor({ timeout: 8000 });
   await page.locator('[data-conversation-id="23566222222@s.whatsapp.net"]').getByText("Profil Amina vérifié").waitFor({ timeout: 8000 });
+  await page.locator('[data-conversation-id="120363002222222@g.us"]')
+    .getByText("Famille Mahamat").waitFor({ timeout: 8000 });
   const privateChat = page.locator('[data-conversation-id="255855597453404@lid"]');
   await privateChat.waitFor();
   const visible = await privateChat.innerText();
@@ -1624,8 +1638,20 @@ async function certifyRetired404Fallbacks() {
   await page.getByRole("heading", { name: "Nouveau message" }).waitFor();
   const recipient = page.getByPlaceholder("Nom du contact ou numéro international");
   await recipient.fill("+91912191");
-  await page.getByPlaceholder("Écrivez votre message…").fill("salut");
-  await page.getByRole("button", { name: "Envoyer", exact: true }).click();
+  const textInput = page.getByPlaceholder("Écrivez votre message…");
+  await textInput.fill("salut");
+  const send = page.getByRole("button", { name: "Envoyer", exact: true });
+  const composerDiagnostics = {
+    recipient: await recipient.inputValue(),
+    message: await textInput.inputValue(),
+    canSend: await send.isEnabled(),
+  };
+  if (!composerDiagnostics.canSend) {
+    console.log("FALLBACK_COMPOSER_DIAGNOSTICS", JSON.stringify(composerDiagnostics));
+    await page.screenshot({ path: `${artifacts}/fallback-compose-disabled.png`, fullPage: false });
+  }
+  assert(composerDiagnostics.canSend, "Le composeur ne doit jamais bloquer un message et un numéro valides.");
+  await send.click();
   await page.waitForTimeout(500);
 
   assert(

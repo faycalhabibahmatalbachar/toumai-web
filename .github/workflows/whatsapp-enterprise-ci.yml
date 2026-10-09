@@ -26,6 +26,8 @@ on:
       - "scripts/verify-whatsapp-cache-races.mjs"
       - "scripts/verify-whatsapp-media-cache.mjs"
       - "scripts/verify-whatsapp-product-copy.mjs"
+      - "scripts/verify-whatsapp-contact-names.mjs"
+      - "lib/whatsapp-identity.ts"
       - "lib/whatsapp-ui-copy.ts"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
   pull_request:
@@ -51,6 +53,8 @@ on:
       - "scripts/verify-whatsapp-cache-races.mjs"
       - "scripts/verify-whatsapp-media-cache.mjs"
       - "scripts/verify-whatsapp-product-copy.mjs"
+      - "scripts/verify-whatsapp-contact-names.mjs"
+      - "lib/whatsapp-identity.ts"
       - "lib/whatsapp-ui-copy.ts"
       - ".github/workflows/whatsapp-enterprise-ci.yml"
 
@@ -101,6 +105,8 @@ jobs:
           components/settings/ConnectorsTab.tsx
           components/settings/WhatsAppCarnetPanel.tsx
           lib/whatsapp-ui-copy.ts
+          lib/whatsapp-identity.ts
+          lib/whatsapp-display.ts
       - name: Verify Overview polling fallback
         run: node scripts/verify-whatsapp-overview-polling.mjs
       - name: Verify Overview realtime SSE
@@ -115,6 +121,8 @@ jobs:
         run: node scripts/verify-whatsapp-media-cache.mjs
       - name: Verify WhatsApp customer copy and background refresh
         run: node scripts/verify-whatsapp-product-copy.mjs
+      - name: Verify real WhatsApp identities across refreshes
+        run: node scripts/verify-whatsapp-contact-names.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Production build

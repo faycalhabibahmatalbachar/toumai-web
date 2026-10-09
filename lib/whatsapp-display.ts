@@ -58,7 +58,7 @@ export function displayWhatsAppIdentity(input: {
 }) {
   const candidate = (input.name || "").trim();
   const privateJid = Boolean(input.id?.endsWith("@lid"));
-  const generic = /^(contact|contact whatsapp|whatsapp contact)$/i.test(candidate);
+  const generic = /^(whatsapp|groupe whatsapp|whatsapp group|group whatsapp|group|groupe|contact|contact whatsapp|whatsapp contact|unknown|undefined|null)$/i.test(candidate);
   if (
     candidate &&
     !generic &&

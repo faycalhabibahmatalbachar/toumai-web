@@ -332,6 +332,18 @@ export function getWaCarnet(
   );
 }
 
+/** Background group-title discovery. Tolerates older backend versions (404). */
+export function getWaGroupNameBook(): Promise<{
+  identities: { id: string; name: string; name_source: "group" }[];
+  count: number;
+}> {
+  return waCachedRead(
+    "wa:conversation-group-names:v1",
+    () => http.get("/whatsapp/conversation/group-names"),
+    { freshMs: 45_000, revalidate: false, staleIfError: true },
+  );
+}
+
 /** Full, owner-scoped address book for the conversations screen.
  * One request per cache lifetime, never per visible row. */
 export function getWaContactNameBook(
