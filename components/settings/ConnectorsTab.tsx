@@ -40,6 +40,7 @@ import { WhatsAppCarnetPanel } from "./WhatsAppCarnetPanel";
 import { WhatsAppPermissionsPanel } from "./WhatsAppPermissionsPanel";
 import { GoogleCalendarIcon, GmailIcon, WhatsAppIcon, MeteoIcon } from "./BrandIcons";
 import { cacheSeed, cacheWrite } from "@/lib/swr-cache";
+import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
   enableWebNotifications,
   getWebNotifState,
@@ -994,8 +995,11 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
   // dit ce que le produit en conclut, y compris les étapes de la liaison. On
   // ne remplace pas le premier : il porte le code de jumelage et le QR, que
   // cet écran affiche déjà. On l'accompagne.
-  const [etat, setEtat] = useState<WaEtat | null>(null);
+  const [etat, setEtat] = useState<WaEtat | null>(() =>
+    cacheSeed<WaEtat>(WA_CACHE.etat),
+  );
   const [state, setState] = useState<WhatsAppState | null>(() =>
+    cacheSeed<WhatsAppState>(WA_CACHE.status) ??
     cacheSeed<WhatsAppState>("cx:whatsapp"),
   );
   const [permissionsOpen, setPermissionsOpen] = useState(false);
@@ -1027,6 +1031,8 @@ function WhatsAppRow({ onStatus }: { onStatus: OnStatus }) {
 
   function apply(s: WhatsAppState) {
     setState(s);
+    cacheWrite(WA_CACHE.status, s);
+    // Compatibilité avec l'ancienne clé pendant la migration.
     cacheWrite("cx:whatsapp", s);
   }
 
