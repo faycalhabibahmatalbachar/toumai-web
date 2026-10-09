@@ -636,7 +636,7 @@ function ConnectionCard({ connection, number, connected, loading }: { connection
       <div className="flex items-start gap-3">
         <span className="mt-1 h-3 w-3 shrink-0 rounded-full shadow-[0_0_15px_currentColor]" style={{ background: connection.color, color: connection.color }} />
         <div className="min-w-0 flex-1"><p className="truncate text-[14px] font-semibold">{loading ? "Vérification..." : connection.label}</p><p className="mt-1 truncate text-[12px] tabular-nums" style={{ color: MUTED }}>{number}</p></div>
-        <button type="button" aria-label="Options de connexion" className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{ borderColor: BORDER, background: SURFACE_RAISED, color: MUTED }}><MoreHorizontal size={18} /></button>
+        <Link href="/settings?tab=connectors" aria-label="Options de connexion" className="flex h-9 w-9 items-center justify-center rounded-lg border" style={{ borderColor: BORDER, background: SURFACE_RAISED, color: MUTED }}><MoreHorizontal size={18} /></Link>
       </div>
       <Link href="/settings?tab=connectors" className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg border text-[12px] font-medium transition hover:bg-white/[0.035]" style={{ borderColor: BORDER, background: SURFACE_RAISED, color: TEXT }}>
         {connected ? <ExternalLink size={15} /> : <RefreshCw size={15} />} Gérer la connexion
