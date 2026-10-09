@@ -118,7 +118,7 @@ export function WhatsAppAudioRecorder({
       !navigator.mediaDevices?.getUserMedia ||
       typeof MediaRecorder === "undefined"
     ) {
-      onError("L’enregistrement audio n’est pas disponible dans ce navigateur.");
+      onError("L’enregistrement d’un message vocal n’est pas disponible dans ce navigateur.");
       return;
     }
 
@@ -157,7 +157,7 @@ export function WhatsAppAudioRecorder({
       const name = error instanceof DOMException ? error.name : "";
       onError(
         name === "NotAllowedError"
-          ? "Autorisez l’accès au microphone pour enregistrer un audio."
+          ? "Autorisez l’accès au microphone pour enregistrer un message vocal."
           : "Impossible d’ouvrir le microphone.",
       );
     }
@@ -211,7 +211,7 @@ export function WhatsAppAudioRecorder({
     try {
       const file = await stopAsFile();
       if (!file) {
-        onError("L’enregistrement audio est vide.");
+        onError("Le message vocal enregistré est vide.");
         return;
       }
       await onRecorded(file);
@@ -229,8 +229,8 @@ export function WhatsAppAudioRecorder({
     return (
       <button
         type="button"
-        aria-label="Enregistrer un audio"
-        title="Enregistrer un audio"
+        aria-label={preparing ? "Envoi du message vocal en cours" : "Enregistrer un message vocal"}
+        title={preparing ? "Envoi du message vocal…" : "Enregistrer un message vocal"}
         disabled={disabled || preparing}
         onClick={() => void start()}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-white/[0.06] disabled:opacity-40"
@@ -287,7 +287,7 @@ export function WhatsAppAudioRecorder({
 
       <button
         type="button"
-        aria-label="Envoyer l’audio"
+        aria-label="Envoyer le message vocal"
         title="Envoyer"
         disabled={preparing}
         onClick={() => void send()}

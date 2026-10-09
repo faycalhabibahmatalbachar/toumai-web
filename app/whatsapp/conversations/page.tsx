@@ -858,7 +858,6 @@ export default function WhatsAppConversationsPage() {
   async function sendRecordedVoice(file: File) {
     if (!selected || attachmentUploading || sendingMessage) return;
     const replyTarget = replyingTo;
-    setAttachmentUploading(true);
     setAttachmentError(null);
     setSendError(null);
     try {
@@ -869,6 +868,8 @@ export default function WhatsAppConversationsPage() {
         to: selected.id,
         type: "voice",
         url: uploaded.url,
+        // Un PTT n'est pas présenté comme un fichier dans le fil. Le nom reste
+        // interne au transport/stocker, jamais une identité visuelle du vocal.
         filename: uploaded.file_name || file.name,
         mimetype: uploaded.content_type || file.type || undefined,
         reply_to_msg_id: replyTarget?.id || undefined,
@@ -883,9 +884,10 @@ export default function WhatsAppConversationsPage() {
       void loadConversations(query, filter);
       window.setTimeout(() => void loadThread(selected, { silent: true }), 450);
     } catch (error) {
+      // Le recorder attend cette promesse pour maintenir son état "envoi",
+      // mais l'erreur est déjà rendue dans le composeur : ne jamais produire
+      // une rejection non gérée côté navigateur.
       setAttachmentError(errorMessage(error, "generic"));
-    } finally {
-      setAttachmentUploading(false);
     }
   }
 
@@ -2234,7 +2236,7 @@ function MessageBubble({
             <span className="text-[8px]" style={{ color: "#9eacb7" }}>
               {when}
             </span>
-            {message.from_me && <DeliveryMark status={message.status} />}
+            {message.from_me && <DeliveryMark status={message.status} type={message.type} />}
           </div>
         </div>
 
@@ -2292,13 +2294,16 @@ function MessageBubble({
               onClick={onEdit}
             />
           )}
-          {message.from_me && isMediaMessageType(message.type) && !message.id.startsWith("local-") && (
-            <MessageActionButton
-              label="Corriger"
-              icon={<Pencil size={13} />}
-              onClick={onEdit}
-            />
-          )}
+          {message.from_me &&
+            isMediaMessageType(message.type) &&
+            !["voice", "voix", "audio"].includes(message.type) &&
+            !message.id.startsWith("local-") && (
+              <MessageActionButton
+                label="Corriger"
+                icon={<Pencil size={13} />}
+                onClick={onEdit}
+              />
+            )}
           {researchEnabled &&
             message.from_me &&
             !message.id.startsWith("local-") &&
@@ -2340,14 +2345,24 @@ function MessageActionButton({
   );
 }
 
-function DeliveryMark({ status }: { status?: string | null }) {
+function DeliveryMark({
+  status,
+  type,
+}: {
+  status?: string | null;
+  type?: string | null;
+}) {
   if (status === "sending") {
     return <Loader2 size={11} className="animate-spin" color="#afbdc7" aria-label="Envoi en cours" />;
   }
   if (status === "failed") {
     return <CircleAlert size={12} color="#ff7d7d" aria-label="Échec" />;
   }
-  if (status === "read" || status === "played") {
+  if (status === "played") {
+    const isVoice = type === "voice" || type === "voix";
+    return <CheckCheck size={12} color="#53bdeb" aria-label={isVoice ? "Écouté" : "Lu"} />;
+  }
+  if (status === "read") {
     return <CheckCheck size={12} color="#53bdeb" aria-label="Lu" />;
   }
   if (status === "delivered") {
