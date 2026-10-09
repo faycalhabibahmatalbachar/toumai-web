@@ -62,29 +62,35 @@ export function WhatsAppComposeModal({
 
   useEffect(() => {
     if (!open) return;
-    setStage("compose");
-    setMessage(initialMessage || "");
-    setError(null);
-    setResult(null);
-    setAccepted(null);
-    setQuery(initialName || initialRecipient || "");
-    setSelected(
-      initialRecipient
-        ? {
-            jid: initialRecipient,
-            number: initialRecipient.includes("@") ? initialRecipient.split("@", 1)[0] : initialRecipient,
-            name: initialName || initialRecipient,
-          }
-        : null,
-    );
+    const timer = window.setTimeout(() => {
+      setStage("compose");
+      setMessage(initialMessage || "");
+      setError(null);
+      setResult(null);
+      setAccepted(null);
+      setQuery(initialName || initialRecipient || "");
+      setSelected(
+        initialRecipient
+          ? {
+              jid: initialRecipient,
+              number: initialRecipient.includes("@") ? initialRecipient.split("@", 1)[0] : initialRecipient,
+              name: initialName || initialRecipient,
+            }
+          : null,
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [open, initialRecipient, initialName, initialMessage]);
 
   useEffect(() => {
     if (!open || selected) return;
     const value = query.trim();
     if (!value) {
-      setContacts([]);
-      return;
+      const clearTimer = window.setTimeout(() => {
+        setContacts([]);
+        setLoadingContacts(false);
+      }, 0);
+      return () => window.clearTimeout(clearTimer);
     }
     let cancelled = false;
     const timer = window.setTimeout(async () => {
