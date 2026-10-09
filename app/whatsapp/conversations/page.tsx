@@ -63,7 +63,8 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
-import { getWaContactNameBook, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
+import { getWaContactNameBook, getWaGroupNameBook, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
+import { applyVerifiedContactName, applyVerifiedGroupName, reconcileWhatsAppConversation } from "@/lib/whatsapp-identity";
 
 import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { cacheSeed, cacheSessionOwner, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
@@ -109,25 +110,9 @@ const ORANGE = "#ff9518";
 const WHATSAPP_NATIVE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 function enrichWithVerifiedContact(
-  conversation: WaLiveConversation,
-  contact: WaContact | undefined,
+  conversation: WaLiveConversation, contact: WaContact | undefined,
 ): WaLiveConversation {
-  // Never infer identity from a display name, phone-number similarity or an
-  // opaque @lid: the verified contact must have the EXACT same JID.
-  if (!contact || contact.jid !== conversation.id || conversation.kind === "group") return conversation;
-  const supplied = displayWhatsAppIdentity({
-    id: contact.jid,
-    name: contact.name,
-    number: contact.number,
-    kind: "contact",
-  });
-  if (supplied === "WhatsApp" || supplied.startsWith("+")) return conversation;
-  if (!contact.name?.trim() || isTechnicalWhatsAppIdentity(contact.name)) return conversation;
-  const from = contact.name_source || "saved_contact"; // Legacy contact route: saved or notify.
-  if (from !== "saved_contact" && from !== "profile") return conversation;
-  if (conversation.name_source === "saved_contact" && from !== "saved_contact") return conversation;
-  if (conversation.name === supplied && conversation.name_source === from) return conversation;
-  return { ...conversation, name: supplied, name_source: from };
+  return applyVerifiedContactName(conversation, contact);
 }
 
 
@@ -382,6 +367,24 @@ export default function WhatsAppConversationsPage() {
     }).catch(() => {
       // Keep the last truthful identity visible if the carnet is offline.
     });
+    if (items.some((item) => item.kind === "group")) {
+      void getWaGroupNameBook().then((book) => {
+        if (requestOwner !== cacheSessionOwner()) return;
+        const byJid = new Map(book.identities.map((group) => [group.id, group]));
+        setConversations((current) => {
+          const enhanced = current.map((conversation) =>
+            applyVerifiedGroupName(conversation, byJid.get(conversation.id)),
+          );
+          conversationsRef.current = enhanced;
+          return enhanced;
+        });
+        setSelected((current) => current
+          ? applyVerifiedGroupName(current, byJid.get(current.id))
+          : current);
+      }).catch(() => {
+        // Optional group metadata is unavailable on some backend revisions.
+      });
+    }
     try {
       const pictures = await getWaProfilePictures(jids);
       if (requestOwner !== cacheSessionOwner()) return;
@@ -484,13 +487,16 @@ export default function WhatsAppConversationsPage() {
 
       if (requestId !== listRequestIdRef.current) return;
 
-      const nextConversations = append
-        ? Array.from(
-            new Map(
-              [...conversationsRef.current, ...data.conversations].map((item) => [item.id, item]),
-            ).values(),
-          )
+      // Keep an authenticated, exact-JID enriched name across gateway polling.
+      const previous = new Map(conversationsRef.current.map((item) => [item.id, item]));
+      const incoming = append
+        ? Array.from(new Map(
+            [...conversationsRef.current, ...data.conversations].map((item) => [item.id, item]),
+          ).values())
         : data.conversations;
+      const nextConversations = incoming.map((item) =>
+        reconcileWhatsAppConversation(previous.get(item.id), item),
+      );
 
       conversationsRef.current = nextConversations;
       setConversations(nextConversations);
@@ -510,7 +516,7 @@ export default function WhatsAppConversationsPage() {
           : new URLSearchParams(window.location.search).get("chat") || "";
       if (requested) {
         const exact = nextConversations.find((item) => item.id === requested);
-        if (exact) setSelected((current) => ({ ...(current || exact), ...exact }));
+        if (exact) setSelected((current) => reconcileWhatsAppConversation(current || undefined, exact));
       } else if (
         nextConversations.length &&
         typeof window !== "undefined" &&
@@ -3165,7 +3171,7 @@ function conversationListCacheKey(
   kind: KindFilter,
 ): string {
   const normalizedSearch = search.trim().toLowerCase().slice(0, 160);
-  return `wa:conversations:list:v2:${filter}:${kind}:${encodeURIComponent(normalizedSearch || "_")}`;
+  return `wa:conversations:list:v3:${filter}:${kind}:${encodeURIComponent(normalizedSearch || "_")}`;
 }
 
 function conversationThreadCacheKey(chatId: string): string {
