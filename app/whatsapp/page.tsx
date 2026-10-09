@@ -107,7 +107,7 @@ export default function WhatsAppOverviewPage() {
     data: etat,
     loading: etatLoading,
     refresh: refreshEtat,
-  } = useCached<WaEtat>(WA_CACHE.etat, getWaEtat, {
+  } = useCached<WaEtat>(WA_CACHE.etat, () => getWaEtat({ revalidate: true }), {
     enabled: !!session,
     ttlMs: 5_000,
     refreshIntervalMs: 30_000,
@@ -120,7 +120,7 @@ export default function WhatsAppOverviewPage() {
     refresh: refreshOverview,
   } = useCached<WhatsAppOverview>(
     WA_CACHE.overview(days),
-    () => getWhatsAppOverview(days),
+    () => getWhatsAppOverview(days, "Africa/Ndjamena", { revalidate: true }),
     { enabled: !!session, ttlMs: 15_000, refreshIntervalMs: 30_000 },
   );
 
@@ -132,7 +132,7 @@ export default function WhatsAppOverviewPage() {
     refresh: refreshConversations,
   } = useCached(
     WA_CACHE.conversations({ limit: 4 }),
-    () => getWaLiveConversations({ limit: 4 }),
+    () => getWaLiveConversations({ limit: 4 }, { revalidate: true }),
     { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
 
@@ -142,7 +142,7 @@ export default function WhatsAppOverviewPage() {
     refresh: refreshAutomations,
   } = useCached<{ tasks: WhatsAppAutomation[]; count: number }>(
     WA_CACHE.automations("", 20),
-    () => getWhatsAppAutomations({ limit: 20 }),
+    () => getWhatsAppAutomations({ limit: 20 }, { revalidate: true }),
     { enabled: !!session, ttlMs: 10_000, refreshIntervalMs: 30_000 },
   );
 
