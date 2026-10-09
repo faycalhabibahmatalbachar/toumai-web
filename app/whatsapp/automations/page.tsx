@@ -121,7 +121,7 @@ export default function WhatsAppAutomationsPage() {
       WA_CACHE.automationHistory(task.id, 50),
     );
     setHistory(cached?.entries ?? []);
-    setHistoryLoading(false);
+    setHistoryLoading(!cached);
     try {
       const data = await getWhatsAppAutomationHistory(task.id, 50);
       setHistory(data.entries);
@@ -382,7 +382,7 @@ function HistoryModal({ task, entries, loading, onClose }: { task: WhatsAppAutom
   return (
     <Modal title={`Historique · ${task.title}`} onClose={onClose}>
       <div className="max-h-[62vh] overflow-y-auto p-5">
-        {loading && entries.length === 0 && <div className="py-6" role="status" aria-label="Mise à jour de l’historique" />}
+        {loading && entries.length === 0 && <div className="h-20" role="status" aria-label="Actualisation en cours" />}
         {!loading && entries.length === 0 && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune activité enregistrée.</p>}
         {entries.map((entry, index) => (
           <div key={`${entry.created_at}-${index}`} className="flex gap-3 border-b py-3 last:border-b-0" style={{ borderColor: BORDER }}>
