@@ -79,7 +79,7 @@ import {
   type WaMessageStatus,
   type WaUploadedFile,
 } from "@/lib/whatsapp-enterprise-api";
-import { safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
+import { displayWhatsAppIdentity, displayWhatsAppSecondary, safeWhatsAppVisibleText } from "@/lib/whatsapp-display";
 
 const PAGE_BG = "#06111a";
 const SIDEBAR_BG = "#0a151e";
@@ -2344,35 +2344,11 @@ function DeliveryMark({ status }: { status?: string | null }) {
 }
 
 function displayConversationName(conversation: WaLiveConversation) {
-  const candidate = (conversation.name || "").trim();
-  const genericContact = candidate.toLowerCase() === "contact whatsapp";
-  if (
-    candidate &&
-    !genericContact &&
-    !isTechnicalWhatsAppIdentity(candidate) &&
-    candidate !== conversation.id
-  ) {
-    return candidate;
-  }
-  const number =
-    validWhatsAppNumber(conversation.number) ||
-    waNumberFromId(conversation.id);
-  if (number) return `+${number}`;
-  return conversation.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
+  return displayWhatsAppIdentity(conversation);
 }
 
 function displayConversationSecondary(conversation: WaLiveConversation) {
-  const number =
-    validWhatsAppNumber(conversation.number) ||
-    waNumberFromId(conversation.id);
-  if (number) return `+${number}`;
-  return conversation.kind === "group" ? "Groupe WhatsApp" : "WhatsApp";
-}
-
-function isTechnicalWhatsAppIdentity(value: string | null | undefined) {
-  const text = (value || "").trim();
-  if (!text) return false;
-  return /@(lid|s\.whatsapp\.net|g\.us)$/i.test(text) || /^\d{16,}$/.test(text);
+  return displayWhatsAppSecondary(conversation);
 }
 
 function validWhatsAppNumber(value: string | null | undefined) {
