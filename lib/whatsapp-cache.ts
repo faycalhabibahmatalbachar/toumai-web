@@ -56,20 +56,30 @@ export const WA_CACHE = {
 
 /** Reads already launched must not repopulate an invalidated cache namespace.
  * Track only outstanding requests, not every key ever visited. */
-interface PendingRead { invalidated: boolean }
-const pendingReads = new Map<string, Set<PendingRead>>();
+interface PendingRead { invalidated: boolean; sequence: number }
+interface PendingGroup { active: Set<PendingRead>; lastCommitted: number }
+const pendingReads = new Map<string, PendingGroup>();
+let readSequence = 0;
 
-function registerRead(owner: string, key: string, ticket: PendingRead): () => void {
+function registerRead(owner: string, key: string, ticket: PendingRead): {
+  isSuperseded: () => boolean;
+  markCommitted: () => void;
+  unregister: () => void;
+} {
   const identity = `${owner}:${key}`;
   let group = pendingReads.get(identity);
   if (!group) {
-    group = new Set<PendingRead>();
+    group = { active: new Set<PendingRead>(), lastCommitted: 0 };
     pendingReads.set(identity, group);
   }
-  group.add(ticket);
-  return () => {
-    group!.delete(ticket);
-    if (group!.size === 0) pendingReads.delete(identity);
+  group.active.add(ticket);
+  return {
+    isSuperseded: () => ticket.sequence < group!.lastCommitted,
+    markCommitted: () => { group!.lastCommitted = ticket.sequence; },
+    unregister: () => {
+      group!.active.delete(ticket);
+      if (group!.active.size === 0) pendingReads.delete(identity);
+    },
   };
 }
 
@@ -100,8 +110,8 @@ export async function waCachedRead<T>(
 
   const requestOwner = cacheSessionOwner();
   const stale = staleIfError ? cacheSeed<T>(key) : null;
-  const ticket: PendingRead = { invalidated: false };
-  const unregister = registerRead(requestOwner, key, ticket);
+  const ticket: PendingRead = { invalidated: false, sequence: ++readSequence };
+  const pending = registerRead(requestOwner, key, ticket);
   try {
     const value = await fetcher();
     // A late response from account A, or from before a successful mutation,
@@ -112,15 +122,19 @@ export async function waCachedRead<T>(
     if (ticket.invalidated) {
       throw new Error("Les données WhatsApp ont changé pendant le chargement.");
     }
+    if (pending.isSuperseded()) {
+      throw new Error("Une réponse WhatsApp plus récente est déjà disponible.");
+    }
     cacheWrite(key, value);
+    pending.markCommitted();
     return value;
   } catch (error) {
-    if (!ticket.invalidated && requestOwner === cacheSessionOwner() && stale !== null) {
+    if (!ticket.invalidated && !pending.isSuperseded() && requestOwner === cacheSessionOwner() && stale !== null) {
       return stale;
     }
     throw error;
   } finally {
-    unregister();
+    pending.unregister();
   }
 }
 
@@ -140,7 +154,7 @@ export function invalidateWhatsAppCache(...prefixes: string[]): void {
   const ownerPrefix = `${cacheSessionOwner()}:`;
   for (const [identity, group] of pendingReads) {
     if (targets.some((prefix) => identity.startsWith(ownerPrefix + prefix))) {
-      for (const ticket of group) ticket.invalidated = true;
+      for (const ticket of group.active) ticket.invalidated = true;
     }
   }
   for (const prefix of targets) cachePurge(prefix);
