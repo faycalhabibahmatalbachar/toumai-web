@@ -86,6 +86,21 @@ await completion;
 assert.equal(readWhatsAppCache("wa:overview").account, "B",
   "a late account-A mutation must not purge account-B data");
 
+const older = deferred();
+const newer = deferred();
+const olderResult = waCachedRead("wa:conversations:race", () => older.promise, {
+  revalidate: true, staleIfError: false,
+});
+const newerResult = waCachedRead("wa:conversations:race", () => newer.promise, {
+  revalidate: true, staleIfError: false,
+});
+newer.resolve({ version: 2 });
+assert.equal((await newerResult).version, 2);
+older.resolve({ version: 1 });
+await assert.rejects(olderResult, /plus récente est déjà disponible/);
+assert.equal(readWhatsAppCache("wa:conversations:race").version, 2,
+  "older concurrent response must not replace newer same-key data");
+
 const fallback = deferred();
 writeWhatsAppCache("wa:carnet", { contacts: ["safe"] });
 const fallbackRead = waCachedRead("wa:carnet", () => fallback.promise, {
