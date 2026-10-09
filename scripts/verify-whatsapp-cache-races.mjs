@@ -104,7 +104,7 @@ assert.equal(readWhatsAppCache("wa:conversations:race").version, 2,
 const fallback = deferred();
 writeWhatsAppCache("wa:carnet", { contacts: ["safe"] });
 const fallbackRead = waCachedRead("wa:carnet", () => fallback.promise, {
-  revalidate: true,
+  revalidate: true, staleIfError: true,
 });
 fallback.reject(new Error("gateway timeout"));
 assert.equal((await fallbackRead).contacts[0], "safe",
