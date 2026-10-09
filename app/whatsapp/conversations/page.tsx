@@ -65,6 +65,7 @@ import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import { getWaContactNameBook, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import { cacheSeed, cacheSessionOwner, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import { WA_CACHE } from "@/lib/whatsapp-cache";
 import {
@@ -309,7 +310,7 @@ export default function WhatsAppConversationsPage() {
     if (typeof window === "undefined") return;
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
-      setResearchEnabled(params.get("research") === "media-edit-v1");
+      setResearchEnabled(process.env.NODE_ENV === "development" && params.get("research") === "media-edit-v1");
       const initialQuery = (params.get("q") || "").trim().slice(0, 160);
       if (initialQuery) setQuery(initialQuery);
       if (params.get("focus") === "search") {
