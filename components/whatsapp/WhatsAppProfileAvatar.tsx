@@ -1,7 +1,7 @@
 "use client";
 
 import { Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function WhatsAppProfileAvatar({
   name,
@@ -27,10 +27,6 @@ export function WhatsAppProfileAvatar({
       : null;
   const showPicture = Boolean(safeUrl && failedUrl !== safeUrl);
   const initials = makeInitials(name);
-
-  useEffect(() => {
-    if (failedUrl && failedUrl !== safeUrl) setFailedUrl(null);
-  }, [failedUrl, safeUrl]);
 
   return (
     <span
