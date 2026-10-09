@@ -60,6 +60,7 @@ import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
 import { getWaProfilePictures } from "@/lib/connectors-api";
 import { errorMessage } from "@/lib/errors";
+import { cacheSeed, cacheWrite, useCacheSeed } from "@/lib/swr-cache";
 import {
   applyWaConversationAction,
   editWaMessage,
@@ -179,6 +180,36 @@ export default function WhatsAppConversationsPage() {
   const [actionRequest, setActionRequest] = useState<ConversationActionRequest | null>(null);
   const [researchEnabled, setResearchEnabled] = useState(false);
   const [researchTarget, setResearchTarget] = useState<WaLiveMessage | null>(null);
+  const conversationsRef = useRef<WaLiveConversation[]>([]);
+  const messagesRef = useRef<WaLiveMessage[]>([]);
+  const listCacheKeyRef = useRef("");
+  const threadCacheKeyRef = useRef("");
+
+  useCacheSeed<WaLiveConversations>(
+    conversationListCacheKey("", "all", "all"),
+    (cached) => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if ((params.get("q") || "").trim()) return;
+      }
+      listCacheKeyRef.current = conversationListCacheKey("", "all", "all");
+      conversationsRef.current = cached.conversations;
+      setConversations(cached.conversations);
+      setHasMore(cached.has_more);
+      setNextOffset(cached.next_offset);
+      setLoadingList(false);
+      setListError(null);
+      void enrichConversationPictures(cached.conversations);
+      if (
+        cached.conversations.length &&
+        typeof window !== "undefined" &&
+        window.innerWidth >= 1024 &&
+        !new URLSearchParams(window.location.search).get("chat")
+      ) {
+        setSelected((current) => current || cached.conversations[0]);
+      }
+    },
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -277,8 +308,33 @@ export default function WhatsAppConversationsPage() {
   ) => {
     const append = Boolean(options.append);
     const offset = options.offset ?? 0;
-    if (append) setLoadingMore(true);
-    else setLoadingList(true);
+    const cacheKey = conversationListCacheKey(search, selectedFilter, kindFilter);
+    const keyChanged = listCacheKeyRef.current !== cacheKey;
+    const cached = append ? null : cacheSeed<WaLiveConversations>(cacheKey);
+
+    if (append) {
+      setLoadingMore(true);
+    } else if (keyChanged) {
+      listCacheKeyRef.current = cacheKey;
+      if (cached) {
+        conversationsRef.current = cached.conversations;
+        setConversations(cached.conversations);
+        setHasMore(cached.has_more);
+        setNextOffset(cached.next_offset);
+        setLoadingList(false);
+        void enrichConversationPictures(cached.conversations);
+      } else {
+        conversationsRef.current = [];
+        setConversations([]);
+        setHasMore(false);
+        setNextOffset(null);
+        setLoadingList(true);
+      }
+    } else {
+      // Revalidation du même jeu de données : jamais de skeleton si une
+      // valeur visible (mémoire ou localStorage) existe déjà.
+      setLoadingList(!(cached || conversationsRef.current.length > 0));
+    }
     setListError(null);
 
     try {
@@ -294,32 +350,58 @@ export default function WhatsAppConversationsPage() {
         12_000,
         "La liste WhatsApp met trop de temps à répondre. Réessayez.",
       );
-      setConversations((current) => {
-        if (!append) return data.conversations;
-        const merged = [...current, ...data.conversations];
-        return Array.from(new Map(merged.map((item) => [item.id, item])).values());
-      });
+
+      const nextConversations = append
+        ? Array.from(
+            new Map(
+              [...conversationsRef.current, ...data.conversations].map((item) => [item.id, item]),
+            ).values(),
+          )
+        : data.conversations;
+
+      conversationsRef.current = nextConversations;
+      setConversations(nextConversations);
       setHasMore(data.has_more);
       setNextOffset(data.next_offset);
-      void enrichConversationPictures(data.conversations);
+      cacheWrite<WaLiveConversations>(cacheKey, {
+        ...data,
+        conversations: nextConversations,
+        offset: 0,
+        limit: Math.max(data.limit || 0, nextConversations.length),
+      });
+      void enrichConversationPictures(nextConversations);
 
       const requested =
         typeof window === "undefined"
           ? ""
           : new URLSearchParams(window.location.search).get("chat") || "";
       if (requested) {
-        const exact = data.conversations.find((item) => item.id === requested);
-        if (exact) setSelected(exact);
+        const exact = nextConversations.find((item) => item.id === requested);
+        if (exact) setSelected((current) => ({ ...(current || exact), ...exact }));
       } else if (
-        data.conversations.length &&
+        nextConversations.length &&
         typeof window !== "undefined" &&
         window.innerWidth >= 1024
       ) {
-        setSelected((current) => current || data.conversations[0]);
+        setSelected((current) => current || nextConversations[0]);
       }
     } catch (error) {
-      if (!append) setConversations([]);
-      setListError(errorMessage(error, "history"));
+      if (!append) {
+        const fallback = cacheSeed<WaLiveConversations>(cacheKey);
+        if (fallback) {
+          conversationsRef.current = fallback.conversations;
+          setConversations(fallback.conversations);
+          setHasMore(fallback.has_more);
+          setNextOffset(fallback.next_offset);
+          setListError(null);
+          void enrichConversationPictures(fallback.conversations);
+        } else if (conversationsRef.current.length === 0) {
+          setListError(errorMessage(error, "history"));
+        } else {
+          // Une revalidation ratée ne remplace jamais des données déjà visibles.
+          setListError(null);
+        }
+      }
     } finally {
       if (append) setLoadingMore(false);
       else setLoadingList(false);
@@ -331,24 +413,48 @@ export default function WhatsAppConversationsPage() {
     options: { silent?: boolean } = {},
   ) => {
     const silent = Boolean(options.silent);
-    if (!silent) {
-      setLoadingThread(true);
+    const cacheKey = conversationThreadCacheKey(conversation.id);
+    const cached = cacheSeed<WaConversationMessages>(cacheKey);
+    const chatChanged = threadCacheKeyRef.current !== cacheKey;
+
+    if (chatChanged) {
+      threadCacheKeyRef.current = cacheKey;
+      if (cached) {
+        messagesRef.current = cached.messages;
+        setMessages(cached.messages);
+        setLoadingThread(false);
+        setThreadError(null);
+        void enrichMessagePictures(cached.messages);
+      } else if (!silent) {
+        messagesRef.current = [];
+        setMessages([]);
+        setLoadingThread(true);
+        setThreadError(null);
+      }
+    } else if (!silent) {
+      setLoadingThread(!(cached || messagesRef.current.length > 0));
       setThreadError(null);
     }
+
     try {
       const data = await withUiDeadline(
         getWaConversationMessages(conversation.id, 120),
         12_000,
         "Cette conversation met trop de temps à répondre. Réessayez.",
       );
+      messagesRef.current = data.messages;
       setMessages(data.messages);
+      cacheWrite<WaConversationMessages>(cacheKey, data);
       void enrichMessagePictures(data.messages);
       if (!silent) setThreadError(null);
     } catch (error) {
-      // Une resynchronisation de fond ne doit jamais faire disparaître un fil
-      // déjà visible ni démonter ses contrôles pendant une interaction.
-      if (!silent) {
-        setMessages([]);
+      const fallback = cacheSeed<WaConversationMessages>(cacheKey);
+      if (fallback) {
+        messagesRef.current = fallback.messages;
+        setMessages(fallback.messages);
+        if (!silent) setThreadError(null);
+        void enrichMessagePictures(fallback.messages);
+      } else if (!silent && messagesRef.current.length === 0) {
         setThreadError(errorMessage(error, "history"));
       }
     } finally {
