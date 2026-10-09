@@ -718,6 +718,7 @@ async function certifyOverviewComposer() {
   const page = await context.newPage();
   await page.goto(`${BASE}/whatsapp/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "WhatsApp Overview" }).waitFor();
+  await page.getByAltText("Photo de profil WhatsApp de Fayçal A.").waitFor();
   await page.getByText("Données en cours de collecte", { exact: true }).waitFor();
   for (let attempt = 0; attempt < 20 && state.realtimeAuth.length === 0; attempt++) {
     await page.waitForTimeout(50);
@@ -734,6 +735,7 @@ async function certifyOverviewComposer() {
   await recipient.fill("Mahamat");
   const composeDialog = page.getByRole("dialog");
   await composeDialog.getByText("Mahamat Ali", { exact: true }).waitFor();
+  await composeDialog.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
   await composeDialog.getByText("Mahamat Ali", { exact: true }).click();
   await page.getByPlaceholder("Écrivez votre message…").fill("Bonjour depuis le centre de pilotage.");
   assert(
@@ -756,6 +758,12 @@ async function certifyConversations() {
   await page.goto(`${BASE}/whatsapp/conversations/?chat=23566111111%40s.whatsapp.net`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Conversations", exact: true }).waitFor();
   await page.getByText("Mahamat Ali", { exact: true }).first().waitFor();
+  const activeConversationRowForPhoto = page.locator('[data-conversation-id="23566111111@s.whatsapp.net"]');
+  await activeConversationRowForPhoto.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
+  assert(
+    (await page.getByAltText("Photo de profil WhatsApp de Mahamat Ali").count()) >= 2,
+    "La photo réelle de Mahamat doit apparaître dans la liste et le header.",
+  );
   await page.getByText("Tu peux me rappeler ?", { exact: true }).last().waitFor();
   await page.getByText("Bonjour Mahamat", { exact: true }).waitFor();
   const mediaMessage = page.locator('[data-message-id="t-media"]');
@@ -767,6 +775,7 @@ async function certifyConversations() {
   const voiceMessage = page.locator('[data-message-id="t-voice"]');
   const voicePlayer = voiceMessage.getByLabel("Message vocal WhatsApp");
   await voicePlayer.waitFor();
+  await voiceMessage.getByAltText("Photo de profil WhatsApp de Mahamat Ali").waitFor();
   await voiceMessage.getByRole("button", { name: "Lire le message vocal" }).waitFor();
   await voiceMessage.getByRole("slider", { name: "Position dans le message vocal" }).waitFor();
   assert(
@@ -841,6 +850,7 @@ async function certifyConversations() {
 
   const outboundVoice = page.locator('[data-message-id="t-voice-out"]');
   await outboundVoice.getByLabel("Message vocal WhatsApp").waitFor();
+  await outboundVoice.getByAltText("Photo de profil WhatsApp").waitFor();
   await outboundVoice.getByLabel("Écouté").waitFor();
   await outboundVoice.getByRole("button", { name: "Infos", exact: true }).click();
   const voiceInfo = page.getByRole("dialog", { name: "Infos du message" });
@@ -908,6 +918,7 @@ async function certifyConversations() {
 
   await page.getByRole("button", { name: "Informations du contact" }).click();
   await page.getByText("Disponible pour un rappel", { exact: true }).waitFor();
+  await page.getByAltText("Photo de profil WhatsApp de Mahamat Ali").last().waitFor();
   await page.getByText("+23566111111", { exact: true }).last().waitFor();
   await page.getByRole("button", { name: "Fermer les informations" }).click();
 
