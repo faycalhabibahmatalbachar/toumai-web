@@ -4,7 +4,7 @@ import { Check, Forward, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getWaCarnet, type WaContact } from "@/lib/connectors-api";
-import { errorMessage } from "@/lib/errors";
+import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
 import {
   getWaMessageMediaBlob, sendWaManualMessage, sendWaMedia, uploadWaAttachment,
   type WaLiveMessage, type WaMediaType,
@@ -83,7 +83,7 @@ export function WhatsAppForwardMessageModal({
       } else return;
       setAccepted(true);
     } catch (err) {
-      setError(errorMessage(err, "generic"));
+      setError(whatsappUiError(err, "generic"));
     } finally {
       setBusy(false);
     }
