@@ -205,13 +205,15 @@ const threadMessages = [
   },
 ];
 
+const LONG_WA_MESSAGE = "Début du message original. " + "Ce texte complet doit être conservé après changement de date. ".repeat(9);
+
 const tasks = [
   {
     id: "task-1",
     title: "Relance Mahamat",
     recipient: "Mahamat Ali",
     action_type: "send_text",
-    message_preview: "Je reviens vers toi demain.",
+    message_preview: LONG_WA_MESSAGE.slice(0, 160),
     send_at: new Date(now + 86_400_000).toISOString(),
     timezone: "Africa/Ndjamena",
     recurrence: "none",
@@ -383,6 +385,8 @@ const state = {
   modern404s: [],
   pauses: [],
   nativeCreations: [],
+  automationPatches: [],
+  automationDetailReads: [],
   pagedReads: [],
   resumes: [],
   cancels: [],
@@ -725,6 +729,11 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     const body = request.postDataJSON();
     state.nativeCreations.push(body);
     data = { automation: {id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", status: "active"}, replayed: false };
+  } else if (/\/whatsapp\/automations\/[^/]+$/.test(path) && method === "GET") {
+    const taskId = decodeURIComponent(path.split("/").at(-1));
+    state.automationDetailReads.push(taskId);
+    const task = tasks.find((t) => t.id === taskId);
+    data = task ? { ...task, message_full: taskId === "task-1" ? LONG_WA_MESSAGE : "Point quotidien" } : {};
   } else if (/\/whatsapp\/automations\/[^/]+\/pause$/.test(path)) {
     state.pauses.push(path);
     data = { ...tasks[0], status: "paused" };
@@ -740,7 +749,9 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
       count: 1,
     };
   } else if (/\/whatsapp\/automations\/[^/]+$/.test(path) && method === "PATCH") {
-    data = { ...tasks[0], ...request.postDataJSON() };
+    const update = request.postDataJSON();
+    state.automationPatches.push(update);
+    data = { ...tasks[0], ...update };
   } else {
     data = {};
   }
@@ -1561,7 +1572,45 @@ async function certifyAutomations() {
   await page.getByText("Relance Mahamat", { exact: true }).waitFor();
   await noHorizontalOverflow(page, "automations-workspace");
   await page.screenshot({ path: `${artifacts}/automations-workspace.png`, fullPage: false });
-  await page.getByRole("button", { name: "Mettre en pause" }).first().click();
+  // The server list returns only 160 characters. Date-only edits MUST fetch
+  // the complete owner-scoped body and NEVER PATCH a truncated preview.
+  await page.getByRole("button", { name: "Modifier" }).first().click();
+  const editor = page.getByRole("dialog", { name: "Modifier l’automatisation" });
+  await editor.waitFor();
+  const fullMessage = editor.locator("textarea");
+  await fullMessage.waitFor({ state: "visible" });
+  await page.waitForFunction((value) => {
+    const field = document.querySelector('[role="dialog"] textarea');
+    return field instanceof HTMLTextAreaElement && field.value === value;
+  }, LONG_WA_MESSAGE);
+  assert((await fullMessage.inputValue()) === LONG_WA_MESSAGE,
+    "L'éditeur doit charger le contenu intégral depuis GET par identifiant propriétaire.");
+  assert(state.automationDetailReads.includes("task-1"),
+    "Lecture propriétaire dédiée exigée avant modification.");
+  await editor.locator('input[type="datetime-local"]').fill("2030-01-16T10:30");
+  await editor.getByRole("button", { name: "Enregistrer" }).click();
+  await page.getByRole("dialog", { name: "Modifier l’automatisation" }).waitFor({ state: "detached" });
+  assert(state.automationPatches.length === 1,
+    "Une modification d'horaire doit émettre exactement un PATCH.");
+  assert(!Object.prototype.hasOwnProperty.call(state.automationPatches[0], "message"),
+    "Modification d'horaire : ne jamais écraser le texte complet par un aperçu.");
+
+  // The full text remains editable when the user intentionally changes it.
+  await page.getByRole("button", { name: "Modifier" }).first().click();
+  const editorAgain = page.getByRole("dialog", { name: "Modifier l’automatisation" });
+  const fullMessageAgain = editorAgain.locator("textarea");
+  await page.waitForFunction((value) => {
+    const field = document.querySelector('[role="dialog"] textarea');
+    return field instanceof HTMLTextAreaElement && field.value === value;
+  }, LONG_WA_MESSAGE);
+  await fullMessageAgain.fill(LONG_WA_MESSAGE + " Corrigé.");
+  await editorAgain.getByRole("button", { name: "Enregistrer" }).click();
+  await editorAgain.waitFor({ state: "detached" });
+  assert(state.automationPatches.length === 2 &&
+    state.automationPatches[1].message === LONG_WA_MESSAGE + " Corrigé.",
+    "Modification de texte explicite : préserver tout le contenu hors aperçu.");
+
+    await page.getByRole("button", { name: "Mettre en pause" }).first().click();
   await page.waitForTimeout(250);
   assert(state.pauses.length === 1, "Le bouton pause doit appeler l'endpoint de pause exactement une fois.");
   await page.getByRole("button", { name: "Historique" }).first().click();
