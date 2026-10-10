@@ -63,7 +63,7 @@ import { WhatsAppProfileAvatar } from "@/components/whatsapp/WhatsAppProfileAvat
 import { useExigerCompte } from "@/hooks/useExigerCompte";
 import { useWhatsAppRealtimeInvalidation } from "@/hooks/useWhatsAppRealtime";
 import { useAuth } from "@/lib/auth-context";
-import { getWaContactNameBook, getWaGroupNameBook, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
+import { getWaContactNameBook, getWaGroupNameBook, getWaResolvedPrivateNames, getWaProfilePictures, type WaContact } from "@/lib/connectors-api";
 import { applyVerifiedContactName, applyVerifiedGroupName, reconcileWhatsAppConversation } from "@/lib/whatsapp-identity";
 
 import { whatsappUiError } from "@/lib/whatsapp-ui-copy";
@@ -383,6 +383,29 @@ export default function WhatsAppConversationsPage() {
           : current);
       }).catch(() => {
         // Optional group metadata is unavailable on some backend revisions.
+      });
+    }
+    const unnamedPrivate = items.filter((item) =>
+      item.kind === "contact" && item.id.endsWith("@lid"),
+    ).map((item) => item.id);
+    if (unnamedPrivate.length) {
+      void getWaResolvedPrivateNames(unnamedPrivate).then((book) => {
+        if (requestOwner !== cacheSessionOwner()) return;
+        const byJid = new Map(book.identities.map((item) =>
+          [item.id, { jid: item.id, name: item.name, name_source: item.name_source }],
+        ));
+        setConversations((current) => {
+          const enhanced = current.map((conversation) =>
+            enrichWithVerifiedContact(conversation, byJid.get(conversation.id)),
+          );
+          conversationsRef.current = enhanced;
+          return enhanced;
+        });
+        setSelected((current) => current
+          ? enrichWithVerifiedContact(current, byJid.get(current.id))
+          : current);
+      }).catch(() => {
+        // Live UI and saved names stay usable during an offline reconnect.
       });
     }
     try {
