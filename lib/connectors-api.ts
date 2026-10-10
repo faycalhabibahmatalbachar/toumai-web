@@ -436,6 +436,17 @@ export interface WhatsAppAutomation {
   updated_at?: string | null;
 }
 
+/** Full text is delivered only by an exact owner-scoped GET, never a list. */
+export type WhatsAppAutomationDetail = WhatsAppAutomation & { message_full?: string };
+
+export function getWhatsAppAutomationDetail(id: string): Promise<WhatsAppAutomationDetail> {
+  // Deliberately bypass the list cache: truncated previews must never become
+  // editable message bodies, and a stale cached owner must not leak details.
+  return http.get<WhatsAppAutomationDetail>(
+    `/whatsapp/automations/${encodeURIComponent(id)}`,
+  );
+}
+
 export interface WhatsAppAutomationHistoryEntry {
   action: string;
   success: boolean;
