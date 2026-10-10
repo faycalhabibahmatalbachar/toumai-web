@@ -112,6 +112,29 @@ export function newRequestId(client: string) {
   return `${client}-${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
+
+/** Native text-only WhatsApp creation uses the same server-side resolver,
+ * permission checks, idempotency ledger and Automation OS v2 worker as chat.
+ * A confirmed user action is REQUIRED before this request is made. */
+export function createWhatsAppTextAutomation(input: {
+  to: string;
+  message: string;
+  name: string;
+  at: string;
+  timezone: string;
+  requestId: string;
+}): Promise<{ automation: Automation; replayed: boolean; recipient_label?: string | null }> {
+  return http.post<{ automation: Automation; replayed: boolean; recipient_label?: string | null }>("/automations/v2/whatsapp", {
+    client: "web",
+    client_request_id: input.requestId,
+    to: input.to,
+    message: input.message,
+    name: input.name,
+    media_type: "text",
+    trigger: { kind: "exact_time", at: input.at, timezone: input.timezone },
+  });
+}
+
 // ── Lecture partagée avec le mobile ─────────────────────────────────────────
 
 export type Filter = "upcoming" | "attention" | "paused" | "done" | "failed" | "all";

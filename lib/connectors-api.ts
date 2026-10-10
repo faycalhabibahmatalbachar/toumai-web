@@ -448,6 +448,17 @@ export interface WhatsAppAutomation {
   updated_at?: string | null;
 }
 
+/** Full text is delivered only by an exact owner-scoped GET, never a list. */
+export type WhatsAppAutomationDetail = WhatsAppAutomation & { message_full?: string };
+
+export function getWhatsAppAutomationDetail(id: string): Promise<WhatsAppAutomationDetail> {
+  // Deliberately bypass the list cache: truncated previews must never become
+  // editable message bodies, and a stale cached owner must not leak details.
+  return http.get<WhatsAppAutomationDetail>(
+    `/whatsapp/automations/${encodeURIComponent(id)}`,
+  );
+}
+
 export interface WhatsAppAutomationHistoryEntry {
   action: string;
   success: boolean;
@@ -471,6 +482,42 @@ export function getWhatsAppAutomations(
   return waCachedRead(
     WA_CACHE.automations(params?.status || "", params?.limit || 0),
     () => http.get(`/whatsapp/automations${suffix}`),
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
+  );
+}
+
+
+/** Exact totals for historical WhatsApp scheduled deliveries (not Automation OS v2). */
+export interface WhatsAppLegacyAutomationStats {
+  total: number;
+  by_status: Record<WhatsAppAutomationStatus, number>;
+}
+
+export type WhatsAppLegacyAutomationFilter = "all" | "active" | "paused" | "failed" | "done";
+
+export function getWhatsAppAutomationStats(
+  readOptions: WhatsAppReadOptions = {},
+): Promise<WhatsAppLegacyAutomationStats> {
+  return waCachedRead(
+    WA_CACHE.automationStats,
+    () => http.get<WhatsAppLegacyAutomationStats>("/whatsapp/automations/stats"),
+    { freshMs: 5_000, revalidate: readOptions.revalidate },
+  );
+}
+
+export function getWhatsAppAutomationsPage(
+  params: { status: WhatsAppLegacyAutomationFilter; search?: string; limit?: number; offset?: number },
+  readOptions: WhatsAppReadOptions = {},
+): Promise<{ tasks: WhatsAppAutomation[]; count: number; limit: number; offset: number }> {
+  const query = new URLSearchParams({
+    status: params.status,
+    search: params.search?.trim() || "",
+    limit: String(params.limit ?? 25),
+    offset: String(params.offset ?? 0),
+  });
+  return waCachedRead(
+    WA_CACHE.automationsPage(params.status, params.search || "", params.offset || 0, params.limit || 25),
+    () => http.get<{ tasks: WhatsAppAutomation[]; count: number; limit: number; offset: number }>("/whatsapp/automations/paged?" + query.toString()),
     { freshMs: 5_000, revalidate: readOptions.revalidate },
   );
 }
@@ -510,6 +557,19 @@ export function cancelWhatsAppAutomation(id: string): Promise<WhatsAppAutomation
       confirmed: true,
     }),
     ["wa:automations", "wa:automation-history", "wa:overview"],
+  );
+}
+
+/** Read historical action logs past the first page; no cross-account cache. */
+export function fetchWhatsAppAutomationHistoryPage(
+  id: string,
+  limit = 50,
+  offset = 0,
+): Promise<{ entries: WhatsAppAutomationHistoryEntry[]; count: number; limit: number; offset: number }> {
+  const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const safeOffset = Math.max(0, Math.trunc(offset));
+  return http.get<{ entries: WhatsAppAutomationHistoryEntry[]; count: number; limit: number; offset: number }>(
+    `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${safeLimit}&offset=${safeOffset}`,
   );
 }
 

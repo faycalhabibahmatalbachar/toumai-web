@@ -205,13 +205,15 @@ const threadMessages = [
   },
 ];
 
+const LONG_WA_MESSAGE = "Début du message original. " + "Ce texte complet doit être conservé après changement de date. ".repeat(9);
+
 const tasks = [
   {
     id: "task-1",
     title: "Relance Mahamat",
     recipient: "Mahamat Ali",
     action_type: "send_text",
-    message_preview: "Je reviens vers toi demain.",
+    message_preview: LONG_WA_MESSAGE.slice(0, 160),
     send_at: new Date(now + 86_400_000).toISOString(),
     timezone: "Africa/Ndjamena",
     recurrence: "none",
@@ -382,6 +384,11 @@ const state = {
   legacyConversationReads: 0,
   modern404s: [],
   pauses: [],
+  nativeCreations: [],
+  automationPatches: [],
+  automationDetailReads: [],
+  historyReads: [],
+  pagedReads: [],
   resumes: [],
   cancels: [],
   realtimeAuth: [],
@@ -695,6 +702,39 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     };
   } else if (path === "/whatsapp/automations" && method === "GET") {
     data = { tasks, count: tasks.length };
+  } else if (path === "/whatsapp/automations/paged" && method === "GET") {
+    const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
+    const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 25)));
+    const status = url.searchParams.get("status") || "all";
+    const search = (url.searchParams.get("search") || "").toLowerCase();
+    const matching = tasks.filter((t) => {
+      if (status === "active" && !["pending", "processing"].includes(t.status)) return false;
+      if (status === "paused" && t.status !== "paused") return false;
+      if (status === "failed" && t.status !== "failed") return false;
+      if (status === "done" && !["sent", "cancelled"].includes(t.status)) return false;
+      return !search || [t.title, t.recipient, t.message_preview].some((v) => String(v).toLowerCase().includes(search));
+    });
+    state.pagedReads.push({status, search, offset, limit});
+    data = {tasks: matching.slice(offset, offset + limit), count: matching.length, offset, limit};
+  } else if (path === "/whatsapp/automations/stats" && method === "GET") {
+    const count = (status) => tasks.filter((task) => task.status === status).length;
+    data = {
+      total: tasks.length,
+      by_status: {
+        pending: count("pending"), processing: count("processing"),
+        paused: count("paused"), sent: count("sent"),
+        failed: count("failed"), cancelled: count("cancelled"),
+      },
+    };
+  } else if (path === "/automations/v2/whatsapp" && method === "POST") {
+    const body = request.postDataJSON();
+    state.nativeCreations.push(body);
+    data = { automation: {id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", status: "active"}, replayed: false };
+  } else if (/\/whatsapp\/automations\/[^/]+$/.test(path) && method === "GET") {
+    const taskId = decodeURIComponent(path.split("/").at(-1));
+    state.automationDetailReads.push(taskId);
+    const task = tasks.find((t) => t.id === taskId);
+    data = task ? { ...task, message_full: taskId === "task-1" ? LONG_WA_MESSAGE : "Point quotidien" } : {};
   } else if (/\/whatsapp\/automations\/[^/]+\/pause$/.test(path)) {
     state.pauses.push(path);
     data = { ...tasks[0], status: "paused" };
@@ -705,12 +745,23 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     state.cancels.push(path);
     data = { ...tasks[0], status: "cancelled" };
   } else if (/\/whatsapp\/automations\/[^/]+\/history$/.test(path)) {
+    const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
+    const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
+    state.historyReads.push({offset, limit});
+    const total = 51;
+    const size = Math.min(limit, Math.max(0, total - offset));
     data = {
-      entries: [{ action: "scheduled", success: true, error: "", source: "user", result: {}, created_at: new Date(now).toISOString() }],
-      count: 1,
+      entries: Array.from({length: size}, (_, i) => ({
+        action: offset + i === 0 ? "scheduled" : `scheduled_next_${offset + i}`,
+        success: true, error: "", source: "user", result: {},
+        created_at: new Date(now - (offset + i) * 60_000).toISOString(),
+      })),
+      count: total, limit, offset,
     };
   } else if (/\/whatsapp\/automations\/[^/]+$/.test(path) && method === "PATCH") {
-    data = { ...tasks[0], ...request.postDataJSON() };
+    const update = request.postDataJSON();
+    state.automationPatches.push(update);
+    data = { ...tasks[0], ...update };
   } else {
     data = {};
   }
@@ -1545,14 +1596,78 @@ async function certifyAutomations() {
   await page.getByText("Relance Mahamat", { exact: true }).waitFor();
   await noHorizontalOverflow(page, "automations-workspace");
   await page.screenshot({ path: `${artifacts}/automations-workspace.png`, fullPage: false });
-  await page.getByRole("button", { name: "Mettre en pause" }).first().click();
+  // The server list returns only 160 characters. Date-only edits MUST fetch
+  // the complete owner-scoped body and NEVER PATCH a truncated preview.
+  await page.getByRole("button", { name: "Modifier" }).first().click();
+  const editor = page.getByRole("dialog", { name: "Modifier l’automatisation" });
+  await editor.waitFor();
+  const fullMessage = editor.locator("textarea");
+  await fullMessage.waitFor({ state: "visible" });
+  await page.waitForFunction((value) => {
+    const field = document.querySelector('[role="dialog"] textarea');
+    return field instanceof HTMLTextAreaElement && field.value === value;
+  }, LONG_WA_MESSAGE);
+  assert((await fullMessage.inputValue()) === LONG_WA_MESSAGE,
+    "L'éditeur doit charger le contenu intégral depuis GET par identifiant propriétaire.");
+  assert(state.automationDetailReads.includes("task-1"),
+    "Lecture propriétaire dédiée exigée avant modification.");
+  await editor.locator('input[type="datetime-local"]').fill("2030-01-16T10:30");
+  await editor.getByRole("button", { name: "Enregistrer" }).click();
+  await page.getByRole("dialog", { name: "Modifier l’automatisation" }).waitFor({ state: "detached" });
+  assert(state.automationPatches.length === 1,
+    "Une modification d'horaire doit émettre exactement un PATCH.");
+  assert(!Object.prototype.hasOwnProperty.call(state.automationPatches[0], "message"),
+    "Modification d'horaire : ne jamais écraser le texte complet par un aperçu.");
+
+  // The full text remains editable when the user intentionally changes it.
+  await page.getByRole("button", { name: "Modifier" }).first().click();
+  const editorAgain = page.getByRole("dialog", { name: "Modifier l’automatisation" });
+  const fullMessageAgain = editorAgain.locator("textarea");
+  await page.waitForFunction((value) => {
+    const field = document.querySelector('[role="dialog"] textarea');
+    return field instanceof HTMLTextAreaElement && field.value === value;
+  }, LONG_WA_MESSAGE);
+  await fullMessageAgain.fill(LONG_WA_MESSAGE + " Corrigé.");
+  await editorAgain.getByRole("button", { name: "Enregistrer" }).click();
+  await editorAgain.waitFor({ state: "detached" });
+  assert(state.automationPatches.length === 2 &&
+    state.automationPatches[1].message === LONG_WA_MESSAGE + " Corrigé.",
+    "Modification de texte explicite : préserver tout le contenu hors aperçu.");
+
+    await page.getByRole("button", { name: "Mettre en pause" }).first().click();
   await page.waitForTimeout(250);
   assert(state.pauses.length === 1, "Le bouton pause doit appeler l'endpoint de pause exactement une fois.");
   await page.getByRole("button", { name: "Historique" }).first().click();
   await page.getByText("scheduled", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Charger plus" }).click();
+  await page.getByText("scheduled_next_50", { exact: true }).waitFor();
+  assert(state.historyReads.some((p) => p.offset === 50 && p.limit === 50),
+    "Le journal doit réellement charger la page suivante, sans tronquer à 50.");
   await noHorizontalOverflow(page, "automations");
   await page.screenshot({ path: `${artifacts}/automations.png`, fullPage: false });
+  assert(state.pagedReads.some((r) => r.status === "all" && r.limit === 25 && r.offset === 0),
+    "Le tableau historique doit consulter réellement l’API paginée.");
   await page.close();
+
+  // Isolated fixture validates UI -> V2 API, not provider delivery.
+  const creator = await context.newPage();
+  await creator.goto(`${BASE}/whatsapp/automations/`, { waitUntil: "domcontentloaded" });
+  await creator.getByRole("button", { name: "Nouvelle automatisation", exact: true }).click();
+  await creator.getByRole("dialog", { name: "Nouvelle automatisation texte" }).waitFor();
+  await creator.getByPlaceholder("Nom exact ou numéro autorisé").fill("Mahamat Ali");
+  await creator.getByPlaceholder("Votre message...").fill("Rappel de test autorisé");
+  await creator.locator('input[type="datetime-local"]').fill("2030-01-15T09:00");
+  const createButton = creator.getByRole("button", { name: "Créer et activer" });
+  assert(await createButton.isDisabled(), "La création doit exiger une confirmation explicite.");
+  await creator.getByRole("checkbox").check();
+  await createButton.click();
+  await creator.waitForURL(/\/automations\/?\?id=/, { timeout: 12000 });
+  assert(state.nativeCreations.length === 1, "Une seule création doit appeler Automation OS V2.");
+  const created = state.nativeCreations[0];
+  assert(created.client === "web" && created.media_type === "text", "Le contrat doit être WhatsApp V2 texte.");
+  assert(created.to === "Mahamat Ali" && created.message === "Rappel de test autorisé", "Préserver le contenu confirmé.");
+  assert(created.trigger.kind === "exact_time" && Boolean(created.client_request_id), "Horaire et idempotence obligatoires.");
+  await creator.close();
 }
 
 async function certifyMobile() {
