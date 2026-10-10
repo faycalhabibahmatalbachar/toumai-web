@@ -392,7 +392,7 @@ export default function WhatsAppConversationsPage() {
       void getWaResolvedPrivateNames(unnamedPrivate).then((book) => {
         if (requestOwner !== cacheSessionOwner()) return;
         const byJid = new Map(book.identities.map((item) =>
-          [item.id, { jid: item.id, name: item.name, name_source: item.name_source }],
+          [item.id, { jid: item.id, number: null, name: item.name, name_source: item.name_source }],
         ));
         setConversations((current) => {
           const enhanced = current.map((conversation) =>
