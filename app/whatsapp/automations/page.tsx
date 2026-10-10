@@ -487,7 +487,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6">
       <button type="button" aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-[3px]" />
-      <section role="dialog" aria-modal="true" className="relative z-10 w-full max-w-[620px] overflow-hidden rounded-[20px] border shadow-2xl" style={{ background: SURFACE, borderColor: BORDER }}>
+      <section role="dialog" aria-modal="true" aria-label={title} className="relative z-10 w-full max-w-[620px] overflow-hidden rounded-[20px] border shadow-2xl" style={{ background: SURFACE, borderColor: BORDER }}>
         <header className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: BORDER }}><h2 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h2><button type="button" aria-label="Fermer" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/5" style={{ color: MUTED }}><X size={18} /></button></header>
         {children}
       </section>
