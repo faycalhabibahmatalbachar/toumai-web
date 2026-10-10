@@ -548,6 +548,19 @@ export function cancelWhatsAppAutomation(id: string): Promise<WhatsAppAutomation
   );
 }
 
+/** Read historical action logs past the first page; no cross-account cache. */
+export function getWhatsAppAutomationHistoryPage(
+  id: string,
+  limit = 50,
+  offset = 0,
+): Promise<{ entries: WhatsAppAutomationHistoryEntry[]; count: number; limit: number; offset: number }> {
+  const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const safeOffset = Math.max(0, Math.trunc(offset));
+  return http.get(
+    `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${safeLimit}&offset=${safeOffset}`,
+  );
+}
+
 export function getWhatsAppAutomationHistory(
   id: string,
   limit = 30,
