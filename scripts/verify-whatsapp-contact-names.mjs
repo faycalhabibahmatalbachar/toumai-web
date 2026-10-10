@@ -49,4 +49,14 @@ assert.match(page, /reconcileWhatsAppConversation\(previous\.get\(item\.id\), it
 assert.match(page, /wa:conversations:list:v3/, "Older generic-name snapshots must be retired");
 assert.match(display, /groupe whatsapp\|whatsapp group/, "Generic group labels are not valid names");
 
+const connector = readFileSync("lib/connectors-api.ts", "utf8");
+assert.match(connector, /getWaResolvedPrivateNames\(jids: string\[\]\)/,
+  "LID name recovery must be explicit, bounded and in the user-scoped cache");
+assert.match(connector, /\/whatsapp\/conversation\/resolve-names/,
+  "The separate API must recover private names instead of guessing numbers");
+assert.match(page, /getWaResolvedPrivateNames\(unnamedPrivate\)/,
+  "Private identifiers must resolve silently after the conversation list renders");
+assert.match(page, /requestOwner !== cacheSessionOwner\(\)/,
+  "Async identity hydration must never cross authenticated users");
+
 console.log("WhatsApp exact-JID real contact + group identities, poll-safe reconciliation: PASS");
