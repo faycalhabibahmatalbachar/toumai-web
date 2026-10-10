@@ -387,6 +387,7 @@ const state = {
   nativeCreations: [],
   automationPatches: [],
   automationDetailReads: [],
+  historyReads: [],
   pagedReads: [],
   resumes: [],
   cancels: [],
@@ -744,9 +745,18 @@ await context.route("https://api.toumaiai.com/api/v1/**", async (route) => {
     state.cancels.push(path);
     data = { ...tasks[0], status: "cancelled" };
   } else if (/\/whatsapp\/automations\/[^/]+\/history$/.test(path)) {
+    const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
+    const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
+    state.historyReads.push({offset, limit});
+    const total = 51;
+    const size = Math.min(limit, Math.max(0, total - offset));
     data = {
-      entries: [{ action: "scheduled", success: true, error: "", source: "user", result: {}, created_at: new Date(now).toISOString() }],
-      count: 1,
+      entries: Array.from({length: size}, (_, i) => ({
+        action: offset + i === 0 ? "scheduled" : `scheduled_next_${offset + i}`,
+        success: true, error: "", source: "user", result: {},
+        created_at: new Date(now - (offset + i) * 60_000).toISOString(),
+      })),
+      count: total, limit, offset,
     };
   } else if (/\/whatsapp\/automations\/[^/]+$/.test(path) && method === "PATCH") {
     const update = request.postDataJSON();
@@ -1615,6 +1625,10 @@ async function certifyAutomations() {
   assert(state.pauses.length === 1, "Le bouton pause doit appeler l'endpoint de pause exactement une fois.");
   await page.getByRole("button", { name: "Historique" }).first().click();
   await page.getByText("scheduled", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Charger plus" }).click();
+  await page.getByText("scheduled_next_50", { exact: true }).waitFor();
+  assert(state.historyReads.some((p) => p.offset === 50 && p.limit === 50),
+    "Le journal doit réellement charger la page suivante, sans tronquer à 50.");
   await noHorizontalOverflow(page, "automations");
   await page.screenshot({ path: `${artifacts}/automations.png`, fullPage: false });
   assert(state.pagedReads.some((r) => r.status === "all" && r.limit === 25 && r.offset === 0),
