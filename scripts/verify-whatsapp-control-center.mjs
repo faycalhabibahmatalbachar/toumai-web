@@ -1515,6 +1515,16 @@ async function certifyVerifiedContactNames() {
       },
     }) });
   });
+  await page.route("**/api/v1/whatsapp/conversation/resolve-names", async (route) => {
+    const body = route.request().postDataJSON();
+    assert(body.jids.includes("255855597453404@lid"),
+      "Private identity enrichment must use the original exact JID");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      success: true, data: { identities: [
+        { id: "255855597453404@lid", name: "Nom du carnet privé", name_source: "profile" },
+      ], count: 1 },
+    }) });
+  });
   await page.route("**/api/v1/whatsapp/conversation/group-names*", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       success: true, data: { identities: [
@@ -1532,7 +1542,8 @@ async function certifyVerifiedContactNames() {
   const visible = await privateChat.innerText();
   assert(!visible.includes("255855597453404"),
     "Un JID privé ne doit jamais être affiché comme numéro de téléphone.");
-  assert(visible.includes("WhatsApp"), "Identifiant privé sans nom : fallback neutre.");
+  assert(visible.includes("Nom du carnet privé"),
+    "Private LID must hydrate the real gateway-verified contact name.");
   await page.screenshot({ path: `${artifacts}/verified-contact-names.png`, fullPage: false });
   await page.close();
   await isolated.close();
