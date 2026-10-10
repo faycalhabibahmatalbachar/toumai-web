@@ -556,7 +556,7 @@ export function getWhatsAppAutomationHistoryPage(
 ): Promise<{ entries: WhatsAppAutomationHistoryEntry[]; count: number; limit: number; offset: number }> {
   const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
   const safeOffset = Math.max(0, Math.trunc(offset));
-  return http.get(
+  return http.get<{ entries: WhatsAppAutomationHistoryEntry[]; count: number; limit: number; offset: number }>(
     `/whatsapp/automations/${encodeURIComponent(id)}/history?limit=${safeLimit}&offset=${safeOffset}`,
   );
 }
