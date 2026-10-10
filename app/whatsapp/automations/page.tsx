@@ -31,6 +31,7 @@ import { createWhatsAppTextAutomation, newRequestId } from "@/lib/automations-ap
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
+  getWhatsAppAutomationHistoryPage,
   getWhatsAppAutomationDetail,
   getWhatsAppAutomationStats,
   getWhatsAppAutomationsPage,
@@ -72,7 +73,11 @@ export default function WhatsAppAutomationsPage() {
   const [editTask, setEditTask] = useState<WhatsAppAutomation | null>(null);
   const [historyTask, setHistoryTask] = useState<WhatsAppAutomation | null>(null);
   const [history, setHistory] = useState<WhatsAppAutomationHistoryEntry[]>([]);
+  const [historyTotal, setHistoryTotal] = useState<number | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyMoreLoading, setHistoryMoreLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const historyGeneration = useRef(0);
   const [createOpen, setCreateOpen] = useState(false);
 
   const {
@@ -125,19 +130,54 @@ export default function WhatsAppAutomationsPage() {
   }
 
   async function openHistory(task: WhatsAppAutomation) {
+    const generation = ++historyGeneration.current;
     setHistoryTask(task);
     const cached = cacheSeed<{ entries: WhatsAppAutomationHistoryEntry[]; count: number }>(
       WA_CACHE.automationHistory(task.id, 50),
     );
     setHistory(cached?.entries ?? []);
+    setHistoryTotal(cached?.count ?? null);
+    setHistoryError(null);
     setHistoryLoading(!cached);
     try {
       const data = await getWhatsAppAutomationHistory(task.id, 50);
+      if (generation !== historyGeneration.current) return;
       setHistory(data.entries);
-    } catch {
-      if (!cached) setHistory([]);
+      setHistoryTotal(data.count);
+    } catch (exc) {
+      if (generation !== historyGeneration.current) return;
+      setHistoryError(whatsappUiError(exc, "generic"));
     } finally {
-      setHistoryLoading(false);
+      if (generation === historyGeneration.current) setHistoryLoading(false);
+    }
+  }
+
+  function closeHistory() {
+    historyGeneration.current += 1;
+    setHistoryTask(null);
+  }
+
+  async function loadMoreHistory(task: WhatsAppAutomation) {
+    if (historyMoreLoading || historyLoading || historyTotal === null || history.length >= historyTotal) return;
+    const generation = historyGeneration.current;
+    const nextOffset = history.length;
+    setHistoryMoreLoading(true);
+    setHistoryError(null);
+    try {
+      const result = await getWhatsAppAutomationHistoryPage(task.id, 50, nextOffset);
+      if (generation !== historyGeneration.current) return;
+      if (result.entries.length === 0) {
+        // A concurrently deleted entry can reduce the exact count. Do not
+        // offer a broken repeat button when the next page is empty.
+        setHistoryTotal(nextOffset);
+      } else {
+        setHistory((old) => old.length === nextOffset ? [...old, ...result.entries] : old);
+        setHistoryTotal(result.count);
+      }
+    } catch (exc) {
+      if (generation === historyGeneration.current) setHistoryError(whatsappUiError(exc, "generic"));
+    } finally {
+      if (generation === historyGeneration.current) setHistoryMoreLoading(false);
     }
   }
 
@@ -246,8 +286,12 @@ export default function WhatsAppAutomationsPage() {
         <HistoryModal
           task={historyTask}
           entries={history}
+          count={historyTotal}
           loading={historyLoading}
-          onClose={() => setHistoryTask(null)}
+          loadingMore={historyMoreLoading}
+          error={historyError}
+          onMore={() => void loadMoreHistory(historyTask)}
+          onClose={closeHistory}
         />
       )}
     </div>
@@ -462,12 +506,23 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
   );
 }
 
-function HistoryModal({ task, entries, loading, onClose }: { task: WhatsAppAutomation; entries: WhatsAppAutomationHistoryEntry[]; loading: boolean; onClose: () => void }) {
+function HistoryModal({
+  task, entries, count, loading, loadingMore, error, onMore, onClose,
+}: {
+  task: WhatsAppAutomation;
+  entries: WhatsAppAutomationHistoryEntry[];
+  count: number | null;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
+  onMore: () => void;
+  onClose: () => void;
+}) {
   return (
     <Modal title={`Historique · ${task.title}`} onClose={onClose}>
       <div className="max-h-[62vh] overflow-y-auto p-5">
-        {loading && entries.length === 0 && <div className="h-20" role="status" aria-label="Actualisation en cours" />}
-        {!loading && entries.length === 0 && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune activité enregistrée.</p>}
+        {loading && entries.length === 0 && <p role="status" className="py-10 text-center text-sm" style={{ color: MUTED }}>Chargement de l’historique…</p>}
+        {!loading && entries.length === 0 && !error && <p className="py-10 text-center text-sm" style={{ color: MUTED }}>Aucune activité enregistrée.</p>}
         {entries.map((entry, index) => (
           <div key={`${entry.created_at}-${index}`} className="flex gap-3 border-b py-3 last:border-b-0" style={{ borderColor: BORDER }}>
             <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: entry.success ? GREEN : "#ff6b6b" }} />
@@ -478,6 +533,15 @@ function HistoryModal({ task, entries, loading, onClose }: { task: WhatsAppAutom
             </div>
           </div>
         ))}
+        {error && <p role="alert" className="my-3 rounded-lg border border-red-500/30 p-3 text-xs text-red-200">{error}</p>}
+        {count !== null && <p className="mt-3 text-xs" style={{ color: MUTED }}>{entries.length} sur {count} événements historiques</p>}
+        {count !== null && entries.length < count && (
+          <button type="button" disabled={loadingMore || loading} onClick={onMore}
+            className="mt-3 w-full rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50"
+            style={{ borderColor: BORDER, color: TEXT }}>
+            {loadingMore ? "Chargement…" : "Charger plus"}
+          </button>
+        )}
       </div>
     </Modal>
   );
