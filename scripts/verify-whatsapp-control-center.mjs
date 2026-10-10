@@ -1538,7 +1538,7 @@ async function certifyVerifiedContactNames() {
   await page.locator('[data-conversation-id="120363002222222@g.us"]')
     .getByText("Famille Mahamat").waitFor({ timeout: 8000 });
   const privateChat = page.locator('[data-conversation-id="255855597453404@lid"]');
-  await privateChat.waitFor();
+  await privateChat.getByText("Nom du carnet privé").waitFor({ timeout: 8000 });
   const visible = await privateChat.innerText();
   assert(!visible.includes("255855597453404"),
     "Un JID privé ne doit jamais être affiché comme numéro de téléphone.");
