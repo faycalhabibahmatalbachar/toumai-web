@@ -31,7 +31,7 @@ import { createWhatsAppTextAutomation, newRequestId } from "@/lib/automations-ap
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
-  getWhatsAppAutomationHistoryPage,
+  fetchWhatsAppAutomationHistoryPage,
   getWhatsAppAutomationDetail,
   getWhatsAppAutomationStats,
   getWhatsAppAutomationsPage,
@@ -164,7 +164,7 @@ export default function WhatsAppAutomationsPage() {
     setHistoryMoreLoading(true);
     setHistoryError(null);
     try {
-      const result = await getWhatsAppAutomationHistoryPage(task.id, 50, nextOffset);
+      const result = await fetchWhatsAppAutomationHistoryPage(task.id, 50, nextOffset);
       if (generation !== historyGeneration.current) return;
       if (result.entries.length === 0) {
         // A concurrently deleted entry can reduce the exact count. Do not
