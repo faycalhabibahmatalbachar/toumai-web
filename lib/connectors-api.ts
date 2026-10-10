@@ -344,6 +344,23 @@ export function getWaGroupNameBook(): Promise<{
   );
 }
 
+/** Exact private-JID identity names; asynchronous and never a phone guess.
+ * Server returns names only, no verified phone numbers to the browser. */
+export function getWaResolvedPrivateNames(jids: string[]): Promise<{
+  identities: { id: string; name: string; name_source: "profile" }[];
+  count: number;
+}> {
+  const privateJids = Array.from(new Set(
+    jids.filter((jid) => /^\d{7,20}@lid$/.test(jid)),
+  )).sort().slice(0, 120);
+  if (!privateJids.length) return Promise.resolve({ identities: [], count: 0 });
+  return waCachedRead(
+    `wa:conversation-lid-names:v1:${privateJids.join(",")}`,
+    () => http.post("/whatsapp/conversation/resolve-names", { jids: privateJids }),
+    { freshMs: 45_000, revalidate: false, staleIfError: true },
+  );
+}
+
 /** Full, owner-scoped address book for the conversations screen.
  * One request per cache lifetime, never per visible row. */
 export function getWaContactNameBook(
