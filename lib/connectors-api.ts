@@ -549,7 +549,7 @@ export function cancelWhatsAppAutomation(id: string): Promise<WhatsAppAutomation
 }
 
 /** Read historical action logs past the first page; no cross-account cache. */
-export function getWhatsAppAutomationHistoryPage(
+export function fetchWhatsAppAutomationHistoryPage(
   id: string,
   limit = 50,
   offset = 0,
