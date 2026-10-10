@@ -31,6 +31,7 @@ import { createWhatsAppTextAutomation, newRequestId } from "@/lib/automations-ap
 import {
   cancelWhatsAppAutomation,
   getWhatsAppAutomationHistory,
+  getWhatsAppAutomationDetail,
   getWhatsAppAutomationStats,
   getWhatsAppAutomationsPage,
   pauseWhatsAppAutomation,
@@ -283,8 +284,10 @@ function AutomationRow({
   onEdit: () => void;
   onHistory: () => void;
 }) {
-  const active = ["pending", "processing"].includes(task.status);
-  const editable = ["pending", "paused"].includes(task.status);
+  // Backend authorizes these state changes only from pending. Never show
+  // buttons that deterministically respond 409 for processing/paused tasks.
+  const canPause = task.status === "pending";
+  const editable = task.status === "pending";
   return (
     <div className="grid gap-4 border-b px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1.25fr)_minmax(180px,.9fr)_minmax(170px,.8fr)_auto] lg:items-center" style={{ borderColor: BORDER }}>
       <div className="flex min-w-0 items-start gap-3">
@@ -308,7 +311,7 @@ function AutomationRow({
           <span className="flex h-9 w-9 items-center justify-center"><Loader2 size={16} className="animate-spin" /></span>
         ) : (
           <>
-            {active && <IconButton label="Mettre en pause" onClick={onPause}><Pause size={16} /></IconButton>}
+            {canPause && <IconButton label="Mettre en pause" onClick={onPause}><Pause size={16} /></IconButton>}
             {task.status === "paused" && <IconButton label="Reprendre" onClick={onResume}><Play size={16} /></IconButton>}
             {editable && <IconButton label="Modifier" onClick={onEdit}><Pencil size={16} /></IconButton>}
             <IconButton label="Historique" onClick={onHistory}><History size={16} /></IconButton>
@@ -342,25 +345,75 @@ function IconButton({ label, onClick, danger, children }: { label: string; onCli
 }
 
 function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomation; onClose: () => void; onSaved: () => Promise<void> }) {
-  const [message, setMessage] = useState(task.message_preview || "");
+  // The listing only contains a 160-character preview. Editing MUST load the
+  // complete owner-scoped body, otherwise changing a date truncates messages.
+  const [message, setMessage] = useState("");
+  const [originalMessage, setOriginalMessage] = useState<string | null>(null);
+  const [detailReady, setDetailReady] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(true);
   const [recurrence, setRecurrence] = useState<WhatsAppAutomation["recurrence"]>(task.recurrence);
   const [cron, setCron] = useState(task.cron_expr || "");
   const [sendAt, setSendAt] = useState(toLocalInput(task.send_at));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isText = task.action_type === "send_text";
+
+  useEffect(() => {
+    let active = true;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const loadDetail = async () => {
+      try {
+        const detail = await Promise.race([
+          getWhatsAppAutomationDetail(task.id),
+          new Promise<never>((_, reject) => {
+            deadline = setTimeout(() => reject(new Error("La lecture du message a dépassé 12 secondes.")), 12_000);
+          }),
+        ]);
+        if (!active) return;
+        if (detail.id !== task.id || detail.status !== "pending") {
+          throw new Error("Cette automatisation n'est plus modifiable. Actualisez la liste.");
+        }
+        if (isText && typeof detail.message_full !== "string") {
+          throw new Error("Le contenu complet du message n'est pas disponible. La modification est bloquée.");
+        }
+        const full = detail.message_full ?? "";
+        setOriginalMessage(full);
+        setMessage(full);
+        setDetailReady(true);
+      } catch (exc) {
+        if (active) setError(whatsappUiError(exc, "generic"));
+      } finally {
+        if (deadline) clearTimeout(deadline);
+        if (active) setDetailLoading(false);
+      }
+    };
+    void loadDetail();
+    return () => { active = false; if (deadline) clearTimeout(deadline); };
+  }, [task.id, isText]);
+
+  const canSave = detailReady && !detailLoading && !saving && Boolean(sendAt) && (!isText || Boolean(message.trim()));
 
   async function save() {
-    if (saving || !message.trim() || !sendAt) return;
+    if (!canSave) return;
     setSaving(true);
     setError(null);
     try {
-      const iso = new Date(sendAt).toISOString();
-      await updateWhatsAppAutomation(task.id, {
-        message: message.trim(),
-        send_at: iso,
+      const date = new Date(sendAt);
+      if (Number.isNaN(date.getTime())) throw new Error("Date de planification invalide.");
+      const patch: {
+        message?: string; send_at: string;
+        recurrence: WhatsAppAutomation["recurrence"]; cron_expr: string;
+      } = {
+        send_at: date.toISOString(),
         recurrence,
         cron_expr: recurrence === "cron" ? cron.trim() : "",
-      });
+      };
+      // Preserve the full original body byte-for-byte when editing only
+      // schedule or recurrence. Never PATCH a list preview.
+      if (isText && originalMessage !== null && message !== originalMessage) {
+        patch.message = message.trim();
+      }
+      await updateWhatsAppAutomation(task.id, patch);
       await onSaved();
     } catch (exc) {
       setError(whatsappUiError(exc, "generic"));
@@ -372,24 +425,35 @@ function EditAutomationModal({ task, onClose, onSaved }: { task: WhatsAppAutomat
   return (
     <Modal title="Modifier l’automatisation" onClose={onClose}>
       <div className="space-y-4 p-5">
-        <Field label="Message">
-          <textarea value={message} onChange={(event) => setMessage(event.target.value.slice(0, 4096))} rows={5} className="w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#2f8cff]" style={{ background: RAISED, borderColor: BORDER }} />
-        </Field>
+        {detailLoading && <p role="status" className="text-xs" style={{ color: MUTED }}>Chargement du contenu complet et vérification des droits…</p>}
+        {isText && (
+          <Field label="Message complet">
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value.slice(0, 4096))}
+              rows={5}
+              disabled={!detailReady || saving}
+              className="w-full resize-none rounded-xl border px-3 py-2 text-sm outline-none disabled:opacity-60 focus:border-[#2f8cff]"
+              style={{ background: RAISED, borderColor: BORDER }}
+            />
+          </Field>
+        )}
+        {!isText && <p className="text-xs" style={{ color: MUTED }}>Média existant : vous pouvez modifier uniquement son horaire et sa récurrence. Le fichier et sa légende sont préservés.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Prochain envoi">
-            <input type="datetime-local" value={sendAt} onChange={(event) => setSendAt(event.target.value)} className="h-10 w-full rounded-xl border px-3 text-sm outline-none focus:border-[#2f8cff]" style={{ background: RAISED, borderColor: BORDER }} />
+            <input disabled={!detailReady || saving} type="datetime-local" value={sendAt} onChange={(event) => setSendAt(event.target.value)} className="h-10 w-full rounded-xl border px-3 text-sm outline-none disabled:opacity-60 focus:border-[#2f8cff]" style={{ background: RAISED, borderColor: BORDER }} />
           </Field>
           <Field label="Récurrence">
-            <select value={recurrence} onChange={(event) => setRecurrence(event.target.value as WhatsAppAutomation["recurrence"])} className="h-10 w-full rounded-xl border px-3 text-sm outline-none" style={{ background: RAISED, borderColor: BORDER }}>
+            <select disabled={!detailReady || saving} value={recurrence} onChange={(event) => setRecurrence(event.target.value as WhatsAppAutomation["recurrence"])} className="h-10 w-full rounded-xl border px-3 text-sm outline-none disabled:opacity-60" style={{ background: RAISED, borderColor: BORDER }}>
               <option value="none">Une fois</option><option value="daily">Chaque jour</option><option value="weekly">Chaque semaine</option><option value="monthly">Chaque mois</option><option value="cron">Personnalisée</option>
             </select>
           </Field>
         </div>
-        {recurrence === "cron" && <Field label="Planification avancée"><input value={cron} onChange={(event) => setCron(event.target.value)} placeholder="0 8 * * 1-5" className="h-10 w-full rounded-xl border px-3 text-sm outline-none" style={{ background: RAISED, borderColor: BORDER }} /></Field>}
-        {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200">{error}</div>}
+        {recurrence === "cron" && <Field label="Planification avancée"><input disabled={!detailReady || saving} value={cron} onChange={(event) => setCron(event.target.value)} placeholder="0 8 * * 1-5" className="h-10 w-full rounded-xl border px-3 text-sm outline-none disabled:opacity-60" style={{ background: RAISED, borderColor: BORDER }} /></Field>}
+        {error && <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200">{error}</div>}
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-xl border px-4 text-xs font-semibold" style={{ borderColor: BORDER }}>Annuler</button>
-          <button type="button" onClick={() => void save()} disabled={saving || !message.trim() || !sendAt} className="flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold text-white disabled:opacity-50" style={{ background: GREEN }}>
+          <button type="button" onClick={() => void save()} disabled={!canSave} className="flex h-10 items-center gap-2 rounded-xl px-4 text-xs font-semibold text-white disabled:opacity-50" style={{ background: GREEN }}>
             {saving ? <Loader2 size={15} className="animate-spin" /> : <CalendarClock size={15} />} Enregistrer
           </button>
         </div>
