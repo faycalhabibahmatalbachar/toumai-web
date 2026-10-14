@@ -30,9 +30,8 @@ export default function ContactPage() {
       </p>
       <h2>Entreprises et partenariats</h2>
       <p>
-        Pour un déploiement, une intégration, un besoin d&apos;équipe ou un partenariat, indiquez
-        l&apos;organisation, le contexte et le résultat attendu. Cela aide à orienter la demande sans
-        collecter plus de données que nécessaire.
+        Découvrez notre <a className="underline underline-offset-2" href="/entreprises">page Entreprises &amp; partenariats</a>.
+        Vous pouvez y décrire votre organisation, votre contexte et le résultat attendu, sans transmettre de données sensibles.
       </p>
       <h2>Presse et médias</h2>
       <p>

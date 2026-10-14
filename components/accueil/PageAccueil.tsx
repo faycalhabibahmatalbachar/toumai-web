@@ -291,6 +291,7 @@ const COLONNES_PIED = [
   {
     titre: "Entreprise & confiance",
     liens: [
+      { texte: "Entreprises & partenariats", href: "/entreprises" },
       { texte: "À propos de Toumaï AI", href: "/a-propos" },
       { texte: "Sécurité", href: "/security" },
       { texte: "Politique de confidentialité", href: "/privacy" },
@@ -1120,9 +1121,9 @@ export function PageAccueil() {
               Pour une équipe, une école ou une organisation, Toumaï peut servir à préparer des
               textes, explorer des informations et garder le contexte d’un travail en cours.
             </p>
-            <a className="button button-light" href="mailto:contact@toumaiai.com">
-              Parler à notre équipe
-            </a>
+            <Link className="button button-light" href="/entreprises">
+              Découvrir nos offres entreprises
+            </Link>
           </div>
           <div className="enterprise-principles" aria-label="Principes pour les organisations">
             <div>
