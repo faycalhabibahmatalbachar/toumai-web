@@ -1,0 +1,47 @@
+name: Toumai B2B monetisation MVP
+
+on:
+  pull_request:
+    paths:
+      - 'app/entreprises/**'
+      - 'app/contact/page.tsx'
+      - 'app/seo.ts'
+      - 'components/accueil/PageAccueil.tsx'
+      - 'scripts/verify-b2b-partenariats.mjs'
+      - 'package.json'
+      - '.github/workflows/b2b-monetisation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/entreprises/**'
+      - 'app/contact/page.tsx'
+      - 'app/seo.ts'
+      - 'components/accueil/PageAccueil.tsx'
+      - 'scripts/verify-b2b-partenariats.mjs'
+      - 'package.json'
+      - '.github/workflows/b2b-monetisation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Installer les dépendances
+        run: npm ci
+      - name: Régression B2B et absence de tracking publicitaire
+        run: npm run test:b2b
+      - name: TypeScript
+        run: npm run typecheck
+      - name: ESLint ciblé
+        run: npx eslint app/entreprises/page.tsx app/entreprises/DemandePartenariat.tsx
+      - name: Production build (sans déploiement)
+        run: npm run build
