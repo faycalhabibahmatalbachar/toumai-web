@@ -58,7 +58,7 @@ export function DemandePartenariat() {
         throw new Error(
           typeof texte === "string"
             ? texte
-            : "Impossible d'envoyer la demande. Contactez-nous directement par e-mail.",
+            : "Impossible d’envoyer la demande. Contactez-nous directement par e-mail.",
         );
       }
       setEtat("succes");
@@ -83,8 +83,8 @@ export function DemandePartenariat() {
       <div role="status" className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
         <h3 className="text-xl font-semibold">Votre demande a été transmise.</h3>
         <p className="mt-3 text-sm leading-7" style={{ color: "var(--text-secondary)" }}>
-          Merci de votre intérêt. Notre équipe pourra vous recontacter à l'adresse indiquée.
-          Aucun contrat ni paiement n'est engagé par ce formulaire.
+          Merci de votre intérêt. Notre équipe pourra vous recontacter à l’adresse indiquée.
+          Aucun contrat ni paiement n’est engagé par ce formulaire.
         </p>
         <button type="button" onClick={() => setEtat("repos")} className="mt-6 rounded-full border px-5 py-3 text-sm font-semibold" style={{ borderColor: "var(--border)" }}>
           Envoyer une autre demande
@@ -112,7 +112,7 @@ export function DemandePartenariat() {
         <label className="block text-sm font-medium">
           Organisation *
           <input className={champ} style={styleChamp} type="text" required minLength={2} maxLength={100}
-            autoComplete="organization" value={organisation} onChange={(event) => setOrganisation(event.target.value)} placeholder="Nom de l'organisation" />
+            autoComplete="organization" value={organisation} onChange={(event) => setOrganisation(event.target.value)} placeholder="Nom de l’organisation" />
         </label>
         <label className="block text-sm font-medium">
           Secteur *
@@ -132,17 +132,17 @@ export function DemandePartenariat() {
         Quel problème souhaitez-vous résoudre ? *
         <textarea className={champ} style={styleChamp} required minLength={5} maxLength={3000} rows={5}
           value={besoin} onChange={(event) => setBesoin(event.target.value)}
-          placeholder="Décrivez votre organisation, le besoin, votre public et l'objectif de la collaboration." />
+          placeholder="Décrivez votre organisation, le besoin, votre public et l’objectif de la collaboration." />
       </label>
 
-      {/* Champ honeypot de l'API de contact, invisible pour les visiteurs réels. */}
+      {/* Champ honeypot de l’API de contact, invisible pour les visiteurs réels. */}
       <div className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
         <label>Site web<input type="text" autoComplete="off" tabIndex={-1} value={siteWeb} onChange={(event) => setSiteWeb(event.target.value)} /></label>
       </div>
 
       <label className="flex items-start gap-3 text-sm leading-6" style={{ color: "var(--text-secondary)" }}>
         <input type="checkbox" required className="mt-1 h-4 w-4 shrink-0 accent-orange-600" />
-        <span>J'accepte d'être contacté au sujet de cette demande. Je n'envoie pas de conversation privée, de mot de passe ni de données sensibles. Voir la <Link href="/privacy" className="underline underline-offset-4">politique de confidentialité</Link>.</span>
+        <span>J’accepte d’être contacté au sujet de cette demande. Je n’envoie pas de conversation privée, de mot de passe ni de données sensibles. Voir la <Link href="/privacy" className="underline underline-offset-4">politique de confidentialité</Link>.</span>
       </label>
 
       {etat === "erreur" && <p role="alert" className="rounded-lg border p-3 text-sm" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>{erreur} Vous pouvez aussi écrire à <a href="mailto:contact@toumaiai.com" className="underline">contact@toumaiai.com</a>.</p>}
