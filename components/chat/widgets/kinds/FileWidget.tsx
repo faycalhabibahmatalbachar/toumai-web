@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { displayText, fileKind, formatBytes, pick, pickNum, safeHttpUrl, type FileKind, type Rec, type StatusKey } from "@/lib/widgets/core";
 import { useWidgetText } from "@/lib/widgets/i18n";
+import { http } from "@/lib/http";
 import { ActionBar, InlineNotice, WidgetButton, WidgetCard, WidgetHeader } from "../primitives";
 
 const ICONS: Record<FileKind, LucideIcon> = {
@@ -36,6 +37,25 @@ const KIND_LABEL: Record<FileKind, string> = {
 export function FileWidget({ data }: { data: Rec }) {
   const { t, locale } = useWidgetText();
   const [mediaFailed, setMediaFailed] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  const generatedId = pick(data, "id", "file_id");
+
+  async function downloadGenerated() {
+    if (!generatedId) return;
+    setDownloadBusy(true);
+    setDownloadError("");
+    try {
+      const response = await http.get<{ url: string }>(`/generate/link/${encodeURIComponent(generatedId)}`);
+      const secureUrl = safeHttpUrl(response.url);
+      if (!secureUrl) throw new Error("invalid document URL");
+      window.location.assign(secureUrl);
+    } catch {
+      setDownloadError("Téléchargement indisponible. Réessayez.");
+    } finally {
+      setDownloadBusy(false);
+    }
+  }
   const name = displayText(pick(data, "name", "filename", "title"), 120) || KIND_LABEL.unknown;
   const mime = pick(data, "mime_type", "mime", "content_type", "format");
   const kind = fileKind(name, mime.includes("/") ? mime : "") !== "unknown" ? fileKind(name, mime) : fileKind(`x.${mime}`);
@@ -79,9 +99,14 @@ export function FileWidget({ data }: { data: Rec }) {
         <div className="px-3.5 pb-3"><video controls preload="metadata" src={url} onError={() => setMediaFailed(true)} className="max-h-72 w-full rounded-xl bg-black" /></div>
       ) : null}
       {error ? <InlineNotice tone="error">{error}</InlineNotice> : mediaFailed ? <InlineNotice tone="warning">{t.files.error}</InlineNotice> : null}
-      {url && status !== "failed" ? (
+      {downloadError ? <InlineNotice tone="error">{downloadError}</InlineNotice> : null}
+      {(generatedId || url) && status !== "failed" ? (
         <ActionBar>
-          <WidgetButton href={url} external icon={ExternalLink} variant="secondary">{t.files.open}</WidgetButton>
+          {generatedId ? (
+            <WidgetButton onClick={() => void downloadGenerated()} loading={downloadBusy} icon={ExternalLink} variant="secondary">{t.files.open}</WidgetButton>
+          ) : (
+            <WidgetButton href={url || undefined} external icon={ExternalLink} variant="secondary">{t.files.open}</WidgetButton>
+          )}
         </ActionBar>
       ) : null}
     </WidgetCard>

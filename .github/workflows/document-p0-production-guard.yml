@@ -1,0 +1,65 @@
+name: Document P0 production backend guard
+
+on:
+  pull_request:
+    paths:
+      - "components/chat/widgets/kinds/FileWidget.tsx"
+      - ".github/workflows/document-p0-production-guard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-backend:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.number == 148
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify exact Northflank backend SHA and private file route
+        shell: bash
+        env:
+          EXPECTED_BACKEND_SHA: 892197b96755c59048f56df6f0f91ab9527e2274
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            body="$(curl --silent --show-error --fail --connect-timeout 8 --max-time 15 \
+              -H 'Cache-Control: no-cache' \
+              "https://api.toumaiai.com/api/v1/app/build?check=${GITHUB_RUN_ID}-${attempt}" || true)"
+            if [ -n "$body" ]; then
+              if printf '%s' "$body" | python -c '
+          import json,os,sys
+          try:
+              payload=json.load(sys.stdin)
+              data=payload.get("data") or {}
+              sha=str(data.get("commit_sha") or "")
+              attested=data.get("attested") is True
+              print(f"Observed deployed SHA: {sha or chr(45)}, attested={attested}")
+              sys.exit(0 if attested and sha.lower() == os.environ["EXPECTED_BACKEND_SHA"].lower() else 1)
+          except (ValueError,TypeError,AttributeError) as exc:
+              print(f"Invalid build attestation: {type(exc).__name__}")
+              sys.exit(2)
+          '
+              then
+                echo "PASS exact production backend SHA"
+                found=1
+                break
+              fi
+            else
+              echo "Attempt ${attempt}: build endpoint unavailable"
+            fi
+            if [ "$attempt" -lt 20 ]; then sleep 15; fi
+          done
+          if [ "${found:-}" != 1 ]; then
+            echo "::error::Backend build SHA not verified in active production; frontend release blocked"
+            exit 1
+          fi
+
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --connect-timeout 8 --max-time 15 \
+            'https://api.toumaiai.com/api/v1/generate/link/00000000-0000-4000-8000-000000000001')"
+          echo "Private document route unauthenticated status: ${status}"
+          case "$status" in
+            401|403|428) echo "PASS document endpoint authentication guard" ;;
+            *) echo "::error::Private document route not proven protected"; exit 1 ;;
+          esac
