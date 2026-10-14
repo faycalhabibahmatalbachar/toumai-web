@@ -15,7 +15,9 @@ assert.match(page, /export const metadata: Metadata/, "La page B2B doit avoir se
 assert.match(page, /DemandePartenariat/, "Le formulaire doit etre affiche.");
 assert.match(page, /href="#demande"/, "Les CTA doivent mener au formulaire.");
 assert.match(page, /Sponsor/, "Le sponsoring doit etre identifie comme offre explicite.");
-assert.match(formulaire, /API_BASE \+ "\/contact"/, "Le formulaire doit reutiliser l'API existante.");
+assert.match(formulaire, /API_BASE \+ "\/b2b\/inquiries"/, "Le formulaire doit utiliser l'API CRM.");
+assert.match(formulaire, /idempotency_key: submissionKey.current/, "Une clé anti-doublon doit être envoyée.");
+assert.match(formulaire, /consent: true/, "Le consentement doit être transmis.");
 assert.match(formulaire, /reponse\.ok/, "L'API doit confirmer une reussite reelle.");
 assert.match(formulaire, /setEtat\("erreur"\)/, "Un echec doit etre affiche.");
 assert.match(formulaire, /type="checkbox" required/, "Le consentement de contact doit etre demande.");
