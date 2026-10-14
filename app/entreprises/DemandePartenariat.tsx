@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/config";
 
 type Etat = "repos" | "envoi" | "succes" | "erreur";
-type Demande = "assistant" | "sponsor" | "partenariat";
+type Demande = "assistant" | "sponsor" | "partnership";
 
 const TYPES: { value: Demande; label: string }[] = [
   { value: "assistant", label: "Assistant IA pour mon entreprise" },
   { value: "sponsor", label: "Sponsoring / visibilité" },
-  { value: "partenariat", label: "Distribution / partenariat" },
+  { value: "partnership", label: "Distribution / partenariat" },
 ];
 
 export function DemandePartenariat() {
@@ -24,6 +24,8 @@ export function DemandePartenariat() {
   const [siteWeb, setSiteWeb] = useState("");
   const [etat, setEtat] = useState<Etat>("repos");
   const [erreur, setErreur] = useState("");
+  // La même clé accompagne toutes les reprises après un timeout : aucune double entrée CRM.
+  const submissionKey = useRef<string | null>(null);
 
   async function envoyer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,24 +33,20 @@ export function DemandePartenariat() {
     setEtat("envoi");
     setErreur("");
 
-    const message = [
-      "[TOUMAI B2B — prise de contact]",
-      "Offre : " + (TYPES.find((item) => item.value === type)?.label ?? type),
-      "Organisation : " + organisation.trim(),
-      "Secteur : " + secteur.trim(),
-      "",
-      "Projet / besoin :",
-      besoin.trim(),
-    ].join("\n");
-
     try {
-      const reponse = await fetch(API_BASE + "/contact", {
+      if (!submissionKey.current) submissionKey.current = crypto.randomUUID();
+      const reponse = await fetch(API_BASE + "/b2b/inquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          idempotency_key: submissionKey.current,
           nom: nom.trim(),
           email: email.trim(),
-          message,
+          organisation: organisation.trim(),
+          secteur: secteur.trim(),
+          type,
+          besoin: besoin.trim(),
+          consent: true,
           site_web: siteWeb || null,
         }),
       });
@@ -61,6 +59,7 @@ export function DemandePartenariat() {
             : "Impossible d’envoyer la demande. Contactez-nous directement par e-mail.",
         );
       }
+      submissionKey.current = null;
       setEtat("succes");
       setNom("");
       setEmail("");
@@ -81,7 +80,7 @@ export function DemandePartenariat() {
   if (etat === "succes") {
     return (
       <div role="status" className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-        <h3 className="text-xl font-semibold">Votre demande a été transmise.</h3>
+        <h3 className="text-xl font-semibold">Votre demande a été enregistrée.</h3>
         <p className="mt-3 text-sm leading-7" style={{ color: "var(--text-secondary)" }}>
           Merci de votre intérêt. Notre équipe pourra vous recontacter à l’adresse indiquée.
           Aucun contrat ni paiement n’est engagé par ce formulaire.
