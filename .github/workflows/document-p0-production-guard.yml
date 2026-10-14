@@ -12,14 +12,14 @@ permissions:
 
 jobs:
   verify-backend:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.number == 152
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'codex/doc-routing-prod-check-20261014'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
       - name: Verify exact Northflank backend SHA and private file route
         shell: bash
         env:
-          EXPECTED_BACKEND_SHA: 4e6915df01613f951993a042dba0abb5480923f6
+          EXPECTED_BACKEND_SHA: 8d3a1d4e4a07fe90b46dab907a6ddef366bc47ed
         run: |
           set -euo pipefail
           for attempt in $(seq 1 20); do
