@@ -13,6 +13,7 @@ export const PUBLIC_SEO_ROUTES = [
   { path: "/en/about", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/ar/about", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/contact", changeFrequency: "monthly" as const, priority: 0.6 },
+  { path: "/entreprises", changeFrequency: "monthly" as const, priority: 0.7 },
   { path: "/press", changeFrequency: "monthly" as const, priority: 0.6 },
   { path: "/security", changeFrequency: "monthly" as const, priority: 0.6 },
   { path: "/models", changeFrequency: "monthly" as const, priority: 0.7 },
