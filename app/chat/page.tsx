@@ -927,8 +927,10 @@ export default function ChatPage() {
               ),
             );
           }
-          if (evt.metadata?.blocks && !evt.done) {
-            const incomingBlocks = evt.metadata.blocks;
+          if ((evt.metadata?.blocks || evt.metadata?.generated_file) && !evt.done) {
+            // A file is emitted in its own SSE event before text completion.
+            // Normalize generated_file even if older APIs omit blocks.file.
+            const incomingBlocks = blocksFromMetadata(evt.metadata);
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId

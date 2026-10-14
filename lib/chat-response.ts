@@ -88,6 +88,16 @@ export interface LegacyRichMetadata {
   action_steps?: ActionStep[];
   blocks?: ResponseBlock[];
   widgets?: ResponseWidget[];
+  /** Real file returned by the authenticated document-generation tool. */
+  generated_file?: {
+    id?: string;
+    file_id?: string;
+    name?: string;
+    filename?: string;
+    url?: string;
+    format?: string;
+    status?: "ready" | "processing" | "error";
+  };
 }
 
 /**
@@ -97,9 +107,42 @@ export interface LegacyRichMetadata {
  * Les blocs envoyés explicitement par le backend sont prioritaires. Sinon on
  * traduit les métadonnées historiques sans rien inventer ni dupliquer.
  */
+
+/**
+ * A generated file is not inferred from an assistant's prose.
+ * Only the authenticated backend artifact metadata can create a file card.
+ * The file id allows refreshing a short-lived private download link.
+ */
+function generatedDocumentBlock(meta: LegacyRichMetadata): Extract<ResponseBlock, { type: "file" }> | null {
+  const artifact = meta.generated_file;
+  if (!artifact) return null;
+  const id = artifact.id || artifact.file_id;
+  const name = artifact.name || artifact.filename;
+  if (typeof id !== "string" || !id.trim() || typeof name !== "string" || !name.trim()) return null;
+  if (artifact.status === "error") return null;
+  return {
+    type: "file",
+    file: {
+      id,
+      name,
+      status: artifact.status === "processing" ? "processing" : "ready",
+      ...(typeof artifact.url === "string" && /^https?:\/\//.test(artifact.url) ? { url: artifact.url } : {}),
+    },
+  };
+}
+
 export function blocksFromMetadata(meta?: LegacyRichMetadata | null): ResponseBlock[] {
   if (!meta) return [];
-  if (Array.isArray(meta.blocks) && meta.blocks.length) return meta.blocks;
+  const generated = generatedDocumentBlock(meta);
+  if (Array.isArray(meta.blocks) && meta.blocks.length) {
+    // A previous backend version can provide activity blocks but omit
+    // generated_file from blocks; bridge it without duplicating file cards.
+    if (!generated || meta.blocks.some((b) => b.type === "file" &&
+      (b.file.id === generated.file.id || b.file.name === generated.file.name))) {
+      return meta.blocks;
+    }
+    return [...meta.blocks, generated];
+  }
 
   const blocks: ResponseBlock[] = [];
   if (meta.activity) {
@@ -131,6 +174,7 @@ export function blocksFromMetadata(meta?: LegacyRichMetadata | null): ResponseBl
   if (meta.tool_confirmation) {
     blocks.push({ type: "tool_confirmation", confirmation: meta.tool_confirmation });
   }
+  if (generated) blocks.push(generated);
   return blocks;
 }
 
