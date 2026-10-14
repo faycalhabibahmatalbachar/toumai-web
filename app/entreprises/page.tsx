@@ -27,7 +27,7 @@ const offres = [
     titre: "Toumaï Business",
     sousTitre: "Un assistant utile à vos clients et à vos équipes.",
     detail:
-      "Étudions ensemble un assistant pour l'accueil, les questions fréquentes, l'orientation ou la préparation de documents, avec un contrôle humain adapté au contexte.",
+      "Étudions ensemble un assistant pour l’accueil, les questions fréquentes, l’orientation ou la préparation de documents, avec un contrôle humain adapté au contexte.",
     exemples: "Écoles, centres de formation, services, PME",
     statut: "Étude de projet sur devis",
   },
@@ -37,7 +37,7 @@ const offres = [
     titre: "Sponsoring",
     sousTitre: "Soutenir un service accessible à tous.",
     detail:
-      "Associez votre marque à une initiative, un contenu éditorial ou un espace publicitaire clairement identifié. Les formats et l'audience seront présentés avant toute commande.",
+      "Associez votre marque à une initiative, un contenu éditorial ou un espace publicitaire clairement identifié. Les formats et l’audience seront présentés avant toute commande.",
     exemples: "Marques, opérateurs, établissements, événements",
     statut: "Propositions sur mesure",
   },
@@ -47,7 +47,7 @@ const offres = [
     titre: "Distribution & partenariats",
     sousTitre: "Créer de la valeur ensemble.",
     detail:
-      "Discutons d'une collaboration commerciale ou institutionnelle : déploiement, intégration, apport d'affaires ou accompagnement de publics spécifiques.",
+      "Discutons d’une collaboration commerciale ou institutionnelle : déploiement, intégration, apport d’affaires ou accompagnement de publics spécifiques.",
     exemples: "Organisations, réseaux professionnels, institutions",
     statut: "Partenariats à définir",
   },
@@ -81,7 +81,7 @@ export default function EntreprisesPage() {
             Toumaï AI · Entreprises & partenaires
           </span>
           <h1 className="landing-serif mt-8 max-w-4xl text-4xl leading-[1.12] font-semibold tracking-tight sm:text-6xl">
-            Mettre l'intelligence artificielle au service de votre organisation.
+            Mettre l’intelligence artificielle au service de votre organisation.
           </h1>
           <p className="mt-7 max-w-2xl text-lg leading-8" style={{ color: "var(--text-secondary)" }}>
             Toumaï AI, conçu au Tchad, étudie des collaborations avec les entreprises, écoles,
@@ -103,7 +103,7 @@ export default function EntreprisesPage() {
       <section id="offres" className="mx-auto max-w-6xl scroll-mt-12 px-5 py-20 sm:px-8">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--primary)" }}>Collaborations</p>
-          <h2 className="landing-serif mt-4 text-3xl font-semibold sm:text-4xl">Trois façons d'avancer ensemble.</h2>
+          <h2 className="landing-serif mt-4 text-3xl font-semibold sm:text-4xl">Trois façons d’avancer ensemble.</h2>
           <p className="mt-4 leading-7" style={{ color: "var(--text-secondary)" }}>Chaque collaboration est définie selon les capacités réellement disponibles, le besoin et les coûts.</p>
         </div>
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
@@ -128,7 +128,7 @@ export default function EntreprisesPage() {
 
       <section className="border-y" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
         <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
-          <h2 className="landing-serif max-w-3xl text-3xl font-semibold sm:text-4xl">Des cas d'usage concrets, pas des promesses vagues.</h2>
+          <h2 className="landing-serif max-w-3xl text-3xl font-semibold sm:text-4xl">Des cas d’usage concrets, pas des promesses vagues.</h2>
           <div className="mt-10 grid gap-8 md:grid-cols-2">
             {cas.map(({ Icon, titre, detail }) => (
               <div key={titre} className="flex items-start gap-4">
@@ -151,9 +151,9 @@ export default function EntreprisesPage() {
           <div className="mt-8 flex items-start gap-3 rounded-2xl border p-5" style={{ borderColor: "var(--border)" }}>
             <ShieldCheck className="mt-1 shrink-0" size={20} aria-hidden="true" />
             <p className="text-sm leading-7" style={{ color: "var(--text-secondary)" }}>
-              Vos échanges privés avec l'assistant ne sont pas vendus aux partenaires.
+              Vos échanges privés avec l’assistant ne sont pas vendus aux partenaires.
               Les contenus sponsorisés devront être explicitement signalés et ne modifieront
-              pas les réponses de l'IA. Les intégrations WhatsApp restent soumises aux règles applicables de Meta.
+              pas les réponses de l’IA. Les intégrations WhatsApp restent soumises aux règles applicables de Meta.
             </p>
           </div>
           <p className="mt-7 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -165,7 +165,7 @@ export default function EntreprisesPage() {
 
       <footer className="border-t" style={{ borderColor: "var(--border)" }}>
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p style={{ color: "var(--text-secondary)" }}>Toumaï AI — conçu à N'Djamena, Tchad.</p>
+          <p style={{ color: "var(--text-secondary)" }}>Toumaï AI — conçu à N’Djamena, Tchad.</p>
           <div className="flex flex-wrap gap-5">
             <Link href="/privacy" className="hover:underline">Confidentialité</Link>
             <Link href="/terms" className="hover:underline">Conditions</Link>
