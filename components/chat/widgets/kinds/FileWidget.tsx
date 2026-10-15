@@ -2,7 +2,6 @@
 
 import {
   Archive,
-  ExternalLink,
   Download,
   File,
   FileCode2,
