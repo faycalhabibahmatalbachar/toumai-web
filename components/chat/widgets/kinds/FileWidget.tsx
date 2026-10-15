@@ -2,7 +2,7 @@
 
 import {
   Archive,
-  ExternalLink,
+  Download,
   File,
   FileCode2,
   FileSpreadsheet,
@@ -56,9 +56,23 @@ export function FileWidget({ data }: { data: Rec }) {
       setDownloadBusy(false);
     }
   }
-  const name = displayText(pick(data, "name", "filename", "title"), 120) || KIND_LABEL.unknown;
+  const originalName = displayText(pick(data, "name", "filename"), 120);
+  const documentTitle = displayText(pick(data, "title", "document_title"), 120);
+  const extension = (originalName.match(/\\.(docx?|xlsx?|pptx?|pdf)$/i)?.[1] || pick(data, "format")).toLowerCase();
+  const safeExtension = /^(docx?|xlsx?|pptx?|pdf)$/.test(extension) ? extension : "";
+  const semanticTitle = documentTitle || originalName.replace(/\\.[^.]+$/, "");
+  const suggestedName = semanticTitle
+    .normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 _-]/g, "").trim().replace(/\\s+/g, "-").slice(0, 80);
+  const name = originalName || (suggestedName && safeExtension ? `${suggestedName}.${safeExtension}` : "") || KIND_LABEL.unknown;
   const mime = pick(data, "mime_type", "mime", "content_type", "format");
   const kind = fileKind(name, mime.includes("/") ? mime : "") !== "unknown" ? fileKind(name, mime) : fileKind(`x.${mime}`);
+  const documentAccent: Record<string, string> = {
+    doc: "text-blue-600 dark:text-blue-400",
+    pdf: "text-red-600 dark:text-red-400",
+    sheet: "text-emerald-600 dark:text-emerald-400",
+    slides: "text-orange-600 dark:text-orange-400",
+  };
   const url = safeHttpUrl(data.url ?? data.download_url);
   const preview = safeHttpUrl(data.preview_url ?? (kind === "image" ? data.url : undefined));
   const rawStatus = pick(data, "status");
@@ -87,6 +101,7 @@ export function FileWidget({ data }: { data: Rec }) {
       ) : null}
       <WidgetHeader
         icon={ICONS[kind]}
+        trailing={documentAccent[kind] ? <span className={`rounded-md bg-[var(--hover)] px-2 py-1 text-[10px] font-bold uppercase ${documentAccent[kind]}`}>{kind === "doc" ? "WORD" : kind === "sheet" ? "EXCEL" : kind === "slides" ? "POWERPOINT" : "PDF"}</span> : undefined}
         title={<span className="block truncate" title={name}>{name}</span>}
         subtitle={status === "running" ? t.files.processing : detail}
         status={status === "success" ? undefined : status}
@@ -103,9 +118,9 @@ export function FileWidget({ data }: { data: Rec }) {
       {(generatedId || url) && status !== "failed" ? (
         <ActionBar>
           {generatedId ? (
-            <WidgetButton onClick={() => void downloadGenerated()} loading={downloadBusy} icon={ExternalLink} variant="secondary">{t.files.open}</WidgetButton>
+            <WidgetButton onClick={() => void downloadGenerated()} loading={downloadBusy} icon={Download} variant="primary">Télécharger {KIND_LABEL[kind]}</WidgetButton>
           ) : (
-            <WidgetButton href={url || undefined} external icon={ExternalLink} variant="secondary">{t.files.open}</WidgetButton>
+            <WidgetButton href={url || undefined} external icon={Download} variant="primary">Télécharger {KIND_LABEL[kind]}</WidgetButton>
           )}
         </ActionBar>
       ) : null}
