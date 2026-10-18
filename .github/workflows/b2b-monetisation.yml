@@ -4,20 +4,26 @@ on:
   pull_request:
     paths:
       - 'app/entreprises/**'
+      - 'app/partenaires-fondateurs/**'
       - 'app/contact/page.tsx'
       - 'app/seo.ts'
       - 'components/accueil/PageAccueil.tsx'
       - 'scripts/verify-b2b-partenariats.mjs'
+      - 'scripts/verify-founding-partners.mjs'
+      - 'docs/marketing/founding-partners-*'
       - 'package.json'
       - '.github/workflows/b2b-monetisation.yml'
   push:
     branches: [main]
     paths:
       - 'app/entreprises/**'
+      - 'app/partenaires-fondateurs/**'
       - 'app/contact/page.tsx'
       - 'app/seo.ts'
       - 'components/accueil/PageAccueil.tsx'
       - 'scripts/verify-b2b-partenariats.mjs'
+      - 'scripts/verify-founding-partners.mjs'
+      - 'docs/marketing/founding-partners-*'
       - 'package.json'
       - '.github/workflows/b2b-monetisation.yml'
   workflow_dispatch:
@@ -39,9 +45,11 @@ jobs:
         run: npm ci
       - name: Régression B2B et absence de tracking publicitaire
         run: npm run test:b2b
+      - name: Régression Founding Partners
+        run: npm run test:founding-partners
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint ciblé
-        run: npx eslint app/entreprises/page.tsx app/entreprises/DemandePartenariat.tsx
+        run: npx eslint app/entreprises/page.tsx app/entreprises/DemandePartenariat.tsx app/partenaires-fondateurs/page.tsx app/partenaires-fondateurs/DemoPilotes.tsx
       - name: Production build (sans déploiement)
         run: npm run build
