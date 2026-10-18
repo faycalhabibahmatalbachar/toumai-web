@@ -1,0 +1,21 @@
+id,segment_hypothese,organisation_a_verifier,source_publique_a_verifier,statut_initial,score_a_documenter,prochaine_action
+FP-01,"Éducation — école privée",,,a_rechercher,,verifier_organisation_et_canal
+FP-02,"Éducation — centre de formation",,,a_rechercher,,verifier_organisation_et_canal
+FP-03,"Éducation — établissement supérieur",,,a_rechercher,,verifier_organisation_et_canal
+FP-04,"Commerce — distributeur",,,a_rechercher,,verifier_organisation_et_canal
+FP-05,"Commerce — magasin de proximité",,,a_rechercher,,verifier_organisation_et_canal
+FP-06,"Commerce — e-commerce local",,,a_rechercher,,verifier_organisation_et_canal
+FP-07,"Services — agence de voyage",,,a_rechercher,,verifier_organisation_et_canal
+FP-08,"Services — transport",,,a_rechercher,,verifier_organisation_et_canal
+FP-09,"Services — logistique",,,a_rechercher,,verifier_organisation_et_canal
+FP-10,"Services — centre de relation client",,,a_rechercher,,verifier_organisation_et_canal
+FP-11,"Services — opérateur de services",,,a_rechercher,,verifier_organisation_et_canal
+FP-12,"Services — cabinet de conseil",,,a_rechercher,,verifier_organisation_et_canal
+FP-13,"Services — maintenance",,,a_rechercher,,verifier_organisation_et_canal
+FP-14,"Services — immobilier",,,a_rechercher,,verifier_organisation_et_canal
+FP-15,"Association — jeunesse",,,a_rechercher,,verifier_organisation_et_canal
+FP-16,"Association — éducation",,,a_rechercher,,verifier_organisation_et_canal
+FP-17,"Organisation — formation professionnelle",,,a_rechercher,,verifier_organisation_et_canal
+FP-18,"Organisation — administration interne non sensible",,,a_rechercher,,verifier_organisation_et_canal
+FP-19,"Événementiel — accueil visiteurs",,,a_rechercher,,verifier_organisation_et_canal
+FP-20,"Média — FAQ et documentation",,,a_rechercher,,verifier_organisation_et_canal

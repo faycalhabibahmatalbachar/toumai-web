@@ -100,6 +100,13 @@ export default function EntreprisesPage() {
         </div>
       </section>
 
+      <section className="border-b" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div><p className="text-sm font-semibold" style={{ color: "var(--primary)" }}>Founding Partners · Programme pilote</p><p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>Nous souhaitons explorer 3 à 5 collaborations pilotes, sous réserve de faisabilité.</p></div>
+          <Link href="/partenaires-fondateurs" className="inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4">Découvrir le programme <ArrowUpRight size={16} aria-hidden="true" /></Link>
+        </div>
+      </section>
+
       <section id="offres" className="mx-auto max-w-6xl scroll-mt-12 px-5 py-20 sm:px-8">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--primary)" }}>Collaborations</p>

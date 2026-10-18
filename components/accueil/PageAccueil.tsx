@@ -1124,6 +1124,7 @@ export function PageAccueil() {
             <Link className="button button-light" href="/entreprises">
               Découvrir nos offres entreprises
             </Link>
+            <p><Link href="/partenaires-fondateurs">Candidater au programme pilote Founding Partners →</Link></p>
           </div>
           <div className="enterprise-principles" aria-label="Principes pour les organisations">
             <div>

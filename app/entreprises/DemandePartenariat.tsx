@@ -6,20 +6,25 @@ import Link from "next/link";
 import { API_BASE } from "@/lib/config";
 
 type Etat = "repos" | "envoi" | "succes" | "erreur";
-type Demande = "assistant" | "sponsor" | "partenariat";
+type Demande = "assistant" | "sponsor" | "partenariat" | "pilote";
 
 const TYPES: { value: Demande; label: string }[] = [
   { value: "assistant", label: "Assistant IA pour mon entreprise" },
   { value: "sponsor", label: "Sponsoring / visibilité" },
   { value: "partenariat", label: "Distribution / partenariat" },
+  { value: "pilote", label: "Programme pilote Founding Partners" },
 ];
 
-export function DemandePartenariat() {
+export function DemandePartenariat({ programme = "general" }: { programme?: "general" | "fondateurs" }) {
+  const estPilote = programme === "fondateurs";
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [organisation, setOrganisation] = useState("");
   const [secteur, setSecteur] = useState("");
-  const [type, setType] = useState<Demande>("assistant");
+  const [type, setType] = useState<Demande>(estPilote ? "pilote" : "assistant");
+  const [indicateur, setIndicateur] = useState("");
+  const [volume, setVolume] = useState("");
+  const [calendrier, setCalendrier] = useState("");
   const [besoin, setBesoin] = useState("");
   const [siteWeb, setSiteWeb] = useState("");
   const [etat, setEtat] = useState<Etat>("repos");
@@ -32,14 +37,25 @@ export function DemandePartenariat() {
     setErreur("");
 
     const message = [
-      "[TOUMAI B2B — prise de contact]",
+      estPilote ? "[TOUMAI FOUNDING PARTNERS — candidature pilote]" : "[TOUMAI B2B — prise de contact]",
       "Offre : " + (TYPES.find((item) => item.value === type)?.label ?? type),
       "Organisation : " + organisation.trim(),
       "Secteur : " + secteur.trim(),
+      ...(estPilote ? [
+        "Indicateur de succès : " + indicateur.trim(),
+        "Volume estimé : " + (volume || "à définir"),
+        "Calendrier : " + (calendrier || "à définir"),
+      ] : []),
       "",
       "Projet / besoin :",
       besoin.trim(),
     ].join("\n");
+
+    if (message.length > 3900) {
+      setErreur("Votre description est trop longue. Merci de la raccourcir.");
+      setEtat("erreur");
+      return;
+    }
 
     try {
       const reponse = await fetch(API_BASE + "/contact", {
@@ -67,6 +83,9 @@ export function DemandePartenariat() {
       setOrganisation("");
       setSecteur("");
       setBesoin("");
+      setIndicateur("");
+      setVolume("");
+      setCalendrier("");
       setSiteWeb("");
     } catch (cause) {
       setErreur(
@@ -81,9 +100,10 @@ export function DemandePartenariat() {
   if (etat === "succes") {
     return (
       <div role="status" className="rounded-2xl border p-6" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-        <h3 className="text-xl font-semibold">Votre demande a été transmise.</h3>
+        <h3 className="text-xl font-semibold">{estPilote ? "Votre candidature a été transmise." : "Votre demande a été transmise."}</h3>
         <p className="mt-3 text-sm leading-7" style={{ color: "var(--text-secondary)" }}>
           Merci de votre intérêt. Notre équipe pourra vous recontacter à l’adresse indiquée.
+          {estPilote ? " La candidature ne garantit pas une sélection au programme." : ""}
           Aucun contrat ni paiement n’est engagé par ce formulaire.
         </p>
         <button type="button" onClick={() => setEtat("repos")} className="mt-6 rounded-full border px-5 py-3 text-sm font-semibold" style={{ borderColor: "var(--border)" }}>
@@ -121,12 +141,18 @@ export function DemandePartenariat() {
         </label>
       </div>
 
-      <label className="block text-sm font-medium">
-        Type de collaboration *
-        <select className={champ} style={styleChamp} value={type} onChange={(event) => setType(event.target.value as Demande)}>
-          {TYPES.map((option) => <option key={option.value} value={option.value} style={{ background: "var(--surface)" }}>{option.label}</option>)}
-        </select>
-      </label>
+      {estPilote ? (
+        <p className="rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: "var(--border)" }}>
+          Programme : Founding Partners — candidature pilote
+        </p>
+      ) : (
+        <label className="block text-sm font-medium">
+          Type de collaboration *
+          <select className={champ} style={styleChamp} value={type} onChange={(event) => setType(event.target.value as Demande)}>
+            {TYPES.map((option) => <option key={option.value} value={option.value} style={{ background: "var(--surface)" }}>{option.label}</option>)}
+          </select>
+        </label>
+      )}
 
       <label className="block text-sm font-medium">
         Quel problème souhaitez-vous résoudre ? *
@@ -134,6 +160,37 @@ export function DemandePartenariat() {
           value={besoin} onChange={(event) => setBesoin(event.target.value)}
           placeholder="Décrivez votre organisation, le besoin, votre public et l’objectif de la collaboration." />
       </label>
+
+      {estPilote && (
+        <div className="space-y-5">
+          <label className="block text-sm font-medium">
+            Comment mesureriez-vous le succès du pilote ? *
+            <textarea className={champ} style={styleChamp} required minLength={10} maxLength={240} rows={3}
+              value={indicateur} onChange={(event) => setIndicateur(event.target.value)}
+              placeholder="Ex. : réduire le délai de réponse aux questions fréquentes." />
+          </label>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className="block text-sm font-medium">
+              Volume de demandes estimé
+              <select className={champ} style={styleChamp} value={volume} onChange={(event) => setVolume(event.target.value)}>
+                <option value="">À définir</option>
+                <option value="Moins de 100 par mois">Moins de 100 / mois</option>
+                <option value="100 à 1 000 par mois">100 à 1 000 / mois</option>
+                <option value="Plus de 1 000 par mois">Plus de 1 000 / mois</option>
+              </select>
+            </label>
+            <label className="block text-sm font-medium">
+              Disponibilité envisagée
+              <select className={champ} style={styleChamp} value={calendrier} onChange={(event) => setCalendrier(event.target.value)}>
+                <option value="">À définir</option>
+                <option value="Dans le mois">Dans le mois</option>
+                <option value="Dans 1 à 3 mois">Dans 1 à 3 mois</option>
+                <option value="Plus tard">Plus tard</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Champ honeypot de l’API de contact, invisible pour les visiteurs réels. */}
       <div className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
@@ -150,10 +207,10 @@ export function DemandePartenariat() {
       <button type="submit" disabled={etat === "envoi"}
         className="w-full rounded-full px-6 py-3.5 text-sm font-semibold transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-60"
         style={{ background: "var(--primary)", color: "#ffffff" }}>
-        {etat === "envoi" ? "Envoi en cours…" : "Demander un échange"}
+        {etat === "envoi" ? "Envoi en cours…" : estPilote ? "Envoyer ma candidature" : "Demander un échange"}
       </button>
       <p className="text-xs leading-5" style={{ color: "var(--text-tertiary)" }}>
-        Demande gratuite, sans engagement. Notre équipe vérifie les besoins et la faisabilité avant toute proposition.
+        {estPilote ? "Candidature gratuite, sans engagement ni garantie de sélection. " : "Demande gratuite, sans engagement. "}Notre équipe vérifie les besoins et la faisabilité avant toute proposition.
       </p>
     </form>
   );
