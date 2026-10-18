@@ -58,12 +58,12 @@ export function FileWidget({ data }: { data: Rec }) {
   }
   const originalName = displayText(pick(data, "name", "filename"), 120);
   const documentTitle = displayText(pick(data, "title", "document_title"), 120);
-  const extension = (originalName.match(/\\.(docx?|xlsx?|pptx?|pdf)$/i)?.[1] || pick(data, "format")).toLowerCase();
+  const extension = (originalName.match(/\.(docx?|xlsx?|pptx?|pdf)$/i)?.[1] || pick(data, "format")).toLowerCase();
   const safeExtension = /^(docx?|xlsx?|pptx?|pdf)$/.test(extension) ? extension : "";
-  const semanticTitle = documentTitle || originalName.replace(/\\.[^.]+$/, "");
+  const semanticTitle = documentTitle || originalName.replace(/\.[^.]+$/, "");
   const suggestedName = semanticTitle
-    .normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9 _-]/g, "").trim().replace(/\\s+/g, "-").slice(0, 80);
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 _-]/g, "").trim().replace(/\s+/g, "-").slice(0, 80);
   const name = originalName || (suggestedName && safeExtension ? `${suggestedName}.${safeExtension}` : "") || KIND_LABEL.unknown;
   const mime = pick(data, "mime_type", "mime", "content_type", "format");
   const kind = fileKind(name, mime.includes("/") ? mime : "") !== "unknown" ? fileKind(name, mime) : fileKind(`x.${mime}`);
