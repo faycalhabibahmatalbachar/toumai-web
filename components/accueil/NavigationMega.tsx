@@ -124,7 +124,7 @@ export function NavigationMegaBureau() {
       {MENUS.map((menu) => (
         <button key={menu.id} type="button" className={"mega-trigger" + (ouvert === menu.id ? " is-open" : "")}
           aria-expanded={ouvert === menu.id} aria-controls={ouvert === menu.id ? "mega-panel-" + menu.id : undefined}
-          onClick={() => setOuvert((id) => id === menu.id ? null : menu.id}>
+          onClick={() => setOuvert((id) => id === menu.id ? null : menu.id)}>
           {menu.titre}<ChevronDown size={15} aria-hidden="true" />
         </button>
       ))}
