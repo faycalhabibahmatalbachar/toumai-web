@@ -156,6 +156,14 @@
 .tmh .mega-mobile .mega-item-title svg { display: none; }
 .tmh .mega-mobile .mega-item-detail { font-size: .78rem; }
 .tmh .mega-mobile .mega-mobile-direct { display: block; padding: .9rem 0; }
+.tmh .mega-mobile .mega-mobile-logout {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
 .tmh .mega-mobile .mega-mobile-action {
   margin-block: .9rem 0;
   padding: .85rem 1rem;
