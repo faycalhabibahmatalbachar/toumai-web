@@ -53,6 +53,7 @@ import { checkoutUrl, registerUrl } from "@/lib/plan-catalog";
 
 import "@/app/toumai-accueil.css";
 import "@/app/accueil-preuve.css";
+import "@/app/accueil-navigation.css";
 
 import { DemoToumai } from "./demo/DemoToumai";
 import { PreuveProduit } from "./demo/PreuveProduit";
@@ -63,6 +64,7 @@ import {
   Plateforme,
 } from "./Plateforme";
 import { SCENARIO_HERO } from "./demo/scenarios";
+import { NavigationMegaBureau, NavigationMegaMobile } from "./NavigationMega";
 
 /** Où vit la question posée depuis l'accueil, lue ensuite par `/chat`. */
 const CLE_QUESTION = "toumai:question";
@@ -129,20 +131,6 @@ const CAPACITES = [
     grande: false,
   },
 ];
-
-/** QUATRE ENTRÉES, ET CHACUNE MÈNE QUELQUE PART D'UTILE.
- *
- * Il y en avait cinq, dont deux vers des sections qui n'existent plus —
- * « Solutions » racontait en texte les trois cas que la démonstration montre
- * désormais. Une navigation où l'on doit deviner ce qu'on trouvera derrière
- * chaque mot est une navigation qu'on n'utilise pas. */
-const LIENS_NAV = [
-  { href: "#demonstration", texte: "Démonstration" },
-  { href: "#plateforme", texte: "Plateforme" },
-  { href: "#tarifs", texte: "Tarifs" },
-  { href: "#entreprise", texte: "Entreprise" },
-];
-
 
 /** LES PLANS.
  *
@@ -282,6 +270,7 @@ const COLONNES_PIED = [
   {
     titre: "Ressources",
     liens: [
+      { texte: "Recherche & développement", href: "/recherche" },
       { texte: "Bibliothèque", href: "/library" },
       { texte: "Presse", href: "/press" },
       { texte: "Nous contacter", href: "/contact" },
@@ -900,13 +889,7 @@ export function PageAccueil() {
             </span>
           </a>
 
-          <nav className="desktop-nav" aria-label="Navigation principale">
-            {LIENS_NAV.map((l) => (
-              <a key={l.href} href={l.href}>
-                {l.texte}
-              </a>
-            ))}
-          </nav>
+          <NavigationMegaBureau />
 
           <div className="header-actions">
             {connecte ? (
@@ -942,42 +925,7 @@ export function PageAccueil() {
           </div>
         </div>
 
-        <nav
-          className="mobile-nav"
-          id="mobile-nav"
-          aria-label="Navigation mobile"
-          hidden={!menuOuvert}
-          onClick={(e) => {
-            if ((e.target as HTMLElement).closest("a")) setMenuOuvert(false);
-          }}
-        >
-          {LIENS_NAV.map((l) => (
-            <a key={l.href} href={l.href}>
-              {l.texte}
-            </a>
-          ))}
-          <a href="#entreprise">Nous contacter</a>
-          {connecte ? (
-            <button
-              type="button"
-              onClick={logout}
-              style={{
-                width: "100%",
-                background: "none",
-                border: 0,
-                borderBottom: "1px solid var(--line)",
-                padding: ".82rem 0",
-                fontWeight: 500,
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              Déconnexion
-            </button>
-          ) : (
-            <Link href="/login">Connexion</Link>
-          )}
-        </nav>
+        <NavigationMegaMobile ouvert={menuOuvert} fermer={() => setMenuOuvert(false)} connecte={connecte} deconnexion={logout} />
 
         <div className="product-bar">
           <div className="shell product-bar-inner">

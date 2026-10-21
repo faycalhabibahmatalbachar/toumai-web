@@ -50,6 +50,6 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
       - name: ESLint ciblé
-        run: npx eslint app/entreprises/page.tsx app/entreprises/DemandePartenariat.tsx app/partenaires-fondateurs/page.tsx app/partenaires-fondateurs/DemoPilotes.tsx
+        run: npx eslint app/entreprises/page.tsx app/entreprises/DemandePartenariat.tsx app/partenaires-fondateurs/page.tsx app/partenaires-fondateurs/DemoPilotes.tsx components/accueil/NavigationMega.tsx app/recherche/page.tsx
       - name: Production build (sans déploiement)
         run: npm run build
