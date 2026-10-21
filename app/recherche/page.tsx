@@ -52,19 +52,19 @@ export default function RecherchePage() {
 
       <div className="mx-auto max-w-6xl px-5 pb-20 pt-14 sm:px-8 sm:pt-24">
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-[#736b60] hover:text-[#191916]">
-          <ArrowLeft size={15} aria-hidden="true" /> Retour à l'accueil
+          <ArrowLeft size={15} aria-hidden="true" /> Retour à l&apos;accueil
         </Link>
         <div className="mt-12 grid gap-8 border-b border-[#d7d0c5] pb-16 lg:grid-cols-[1.35fr_.65fr] lg:gap-20">
           <div>
             <p className="mb-5 text-xs font-bold uppercase tracking-[.17em] text-[#a05239]">Toumaï AI / Research</p>
             <h1 className="max-w-3xl font-serif text-5xl leading-[1.03] tracking-[-.045em] sm:text-7xl">
-              Construire une IA utile. Mesurer ce qu'elle sait faire.
+              Construire une IA utile. Mesurer ce qu&apos;elle sait faire.
             </h1>
           </div>
           <div className="flex items-end">
             <p className="max-w-sm text-lg leading-relaxed text-[#69645d]">
               Nous travaillons à rapprocher intelligence artificielle, langues locales et usages concrets.
-              Cette page présente nos axes d'exploration — pas une liste de résultats scientifiques déjà validés.
+              Cette page présente nos axes d&apos;exploration — pas une liste de résultats scientifiques déjà validés.
             </p>
           </div>
         </div>
@@ -95,23 +95,23 @@ export default function RecherchePage() {
 
         <section id="langues" aria-labelledby="langues-title" className="scroll-mt-10 grid gap-8 border-t border-[#d7d0c5] py-14 md:grid-cols-2">
           <div>
-            <p className="mb-3 text-xs uppercase tracking-widest text-[#a05239]">Construire l'IA</p>
+            <p className="mb-3 text-xs uppercase tracking-widest text-[#a05239]">Construire l&apos;IA</p>
             <h2 id="langues-title" className="font-serif text-4xl tracking-tight">Arabe tchadien et langues africaines</h2>
           </div>
           <div className="space-y-4 text-[#686158]">
             <p>Un axe de travail porte sur le recueil de vocabulaire, de phrases et, à terme, de données vocales adaptées aux variantes réellement parlées au Tchad.</p>
-            <p>L'objectif est de mieux comprendre et évaluer la langue. La mise à disposition d'un modèle spécialisé ou d'une qualité de reconnaissance vocale donnée ne doit pas être considérée comme acquise.</p>
+            <p>L&apos;objectif est de mieux comprendre et évaluer la langue. La mise à disposition d&apos;un modèle spécialisé ou d&apos;une qualité de reconnaissance vocale donnée ne doit pas être considérée comme acquise.</p>
           </div>
         </section>
 
         <section id="evaluation" aria-labelledby="evaluation-title" className="scroll-mt-10 grid gap-8 border-t border-[#d7d0c5] py-14 md:grid-cols-2">
           <div>
-            <p className="mb-3 text-xs uppercase tracking-widest text-[#a05239]">Évaluer l'IA</p>
+            <p className="mb-3 text-xs uppercase tracking-widest text-[#a05239]">Évaluer l&apos;IA</p>
             <h2 id="evaluation-title" className="font-serif text-4xl tracking-tight">Des preuves avant les classements</h2>
           </div>
           <div className="space-y-4 text-[#686158]">
             <p>Nous privilégions des évaluations sur des exemples reproductibles, des erreurs observables et des critères annoncés avant le test : exactitude, robustesse, sécurité et utilité.</p>
-            <p>Aucun classement « frontier leaderboard » propriétaire n'est annoncé sur cette page. Un score ne sera publié comme résultat validé que lorsqu'il sera accompagné de sa méthode et de son périmètre.</p>
+            <p>Aucun classement « frontier leaderboard » propriétaire n&apos;est annoncé sur cette page. Un score ne sera publié comme résultat validé que lorsqu&apos;il sera accompagné de sa méthode et de son périmètre.</p>
           </div>
         </section>
 
@@ -122,14 +122,14 @@ export default function RecherchePage() {
           </div>
           <div className="rounded-xl border border-[#ded8cf] bg-white/55 p-6">
             <div className="mb-4 flex items-center gap-3"><BookOpen size={20} aria-hidden="true" /><strong>Publications à venir</strong></div>
-            <p className="text-sm leading-relaxed text-[#686158]">Aucun article de recherche évalué par les pairs n'est présenté ici à ce jour. Nous préférons une liste vide à des titres ou des résultats non vérifiés.</p>
+            <p className="text-sm leading-relaxed text-[#686158]">Aucun article de recherche évalué par les pairs n&apos;est présenté ici à ce jour. Nous préférons une liste vide à des titres ou des résultats non vérifiés.</p>
           </div>
         </section>
 
         <section id="laboratoire" aria-labelledby="laboratoire-title" className="scroll-mt-10 rounded-3xl bg-[#26231f] p-8 text-[#faf7f1] sm:p-12">
           <p className="mb-4 text-xs uppercase tracking-widest text-[#e29c7e]">Laboratoire & collaborations</p>
           <h2 id="laboratoire-title" className="max-w-2xl font-serif text-4xl tracking-tight sm:text-5xl">Vous travaillez sur ces sujets ? Parlons-en.</h2>
-          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-[#d5cfc6]">Chercheurs, locuteurs, établissements et développeurs peuvent proposer une collaboration ou un retour d'expérience. Le périmètre, la gestion des données et les engagements doivent être établis avant toute collecte.</p>
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-[#d5cfc6]">Chercheurs, locuteurs, établissements et développeurs peuvent proposer une collaboration ou un retour d&apos;expérience. Le périmètre, la gestion des données et les engagements doivent être établis avant toute collecte.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/contact" className="inline-flex items-center gap-2 rounded-lg bg-[#e2a087] px-5 py-3 text-sm font-semibold text-[#251915]">
               Proposer une collaboration <ArrowUpRight size={16} aria-hidden="true" />
