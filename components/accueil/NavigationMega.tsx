@@ -123,7 +123,7 @@ export function NavigationMegaBureau() {
       }}>
       {MENUS.map((menu) => (
         <button key={menu.id} type="button" className={"mega-trigger" + (ouvert === menu.id ? " is-open" : "")}
-          aria-expanded={ouvert === menu.id} aria-controls={"mega-panel-" + menu.id}
+          aria-expanded={ouvert === menu.id} aria-controls={ouvert === menu.id ? "mega-panel-" + menu.id : undefined}
           onClick={() => setOuvert((id) => id === menu.id ? null : menu.id}>
           {menu.titre}<ChevronDown size={15} aria-hidden="true" />
         </button>
@@ -154,7 +154,7 @@ export function NavigationMegaBureau() {
   );
 }
 
-export function NavigationMegaMobile({ ouvert, fermer }: { ouvert: boolean; fermer: () => void }) {
+export function NavigationMegaMobile({ ouvert, fermer, connecte, deconnexion }: { ouvert: boolean; fermer: () => void; connecte: boolean; deconnexion: () => void }) {
   return (
     <nav className="mobile-nav mega-mobile" id="mobile-nav" aria-label="Navigation mobile" hidden={!ouvert}>
       <a className="mega-mobile-direct" href="#demonstration" onClick={fermer}>Démonstration</a>
@@ -173,7 +173,11 @@ export function NavigationMegaMobile({ ouvert, fermer }: { ouvert: boolean; ferm
       ))}
       <a className="mega-mobile-direct" href="#tarifs" onClick={fermer}>Tarifs</a>
       <Link className="mega-mobile-direct" href="/entreprises" onClick={fermer}>Entreprises</Link>
-      <Link className="mega-mobile-direct" href="/login" onClick={fermer}>Connexion</Link>
+      {connecte ? (
+        <button type="button" className="mega-mobile-direct mega-mobile-logout" onClick={() => { fermer(); deconnexion(); }}>Déconnexion</button>
+      ) : (
+        <Link className="mega-mobile-direct" href="/login" onClick={fermer}>Connexion</Link>
+      )}
       <Link className="mega-mobile-direct mega-mobile-action" href="/chat" onClick={fermer}>Ouvrir Toumaï</Link>
     </nav>
   );
